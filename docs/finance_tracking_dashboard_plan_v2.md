@@ -239,15 +239,27 @@ employee_cpf = min(monthly_gross, OW_ceiling) × employee_cpf_rate
 monthly_take_home = monthly_gross - employee_cpf
 ```
 
-**CPF Contribution Rates (2026) by Age:**
+**CPF Contribution Rates (2025) by Age:**
+
+| Age Group | Employee Rate | Employer Rate | Total | OW Ceiling |
+| --- | --- | --- | --- | --- |
+| ≤ 55 | 20% | 17% | 37% | $7,400/mth |
+| 56–60 | 15% | 15.5% | 30.5% | $7,400/mth |
+| 61–65 | 9% | 11% | 20% | $7,400/mth |
+| 66–70 | 7.5% | 9% | 16.5% | $7,400/mth |
+| > 70 | 5% | 7.5% | 12.5% | $7,400/mth |
+
+**CPF Contribution Rates (2026, effective 1 Jan 2026) by Age:**
 
 | Age Group | Employee Rate | Employer Rate | Total | OW Ceiling |
 | --- | --- | --- | --- | --- |
 | ≤ 55 | 20% | 17% | 37% | $8,000/mth |
-| 56–60 | 18% | 16% | 34% | $8,000/mth |
-| 61–65 | 12.5% | 12.5% | 25% | $8,000/mth |
+| 56–60 | 18% (+1%) | 16% (+0.5%) | 34% (+1.5%) | $8,000/mth |
+| 61–65 | 12.5% (+1%) | 12.5% (+0.5%) | 25% (+1.5%) | $8,000/mth |
 | 66–70 | 7.5% | 9% | 16.5% | $8,000/mth |
 | > 70 | 5% | 7.5% | 12.5% | $8,000/mth |
+
+**Key 2026 changes:** OW ceiling raised from $7,400 → $8,000. Ages 55–65 see +1.5% total rate increase (allocated to RA). AW ceiling: $102,000 − YTD OW.
 
 **Example (age ≤ 55, $7,000/mth gross):**
 - Employee CPF: $7,000 × 20% = $1,400
@@ -303,29 +315,29 @@ monthly_take_home = monthly_gross - employee_cpf
 
 These reliefs are calculated automatically from data already in the system:
 
-| Relief | Source | Amount |
-| --- | --- | --- |
-| **Earned Income** | `profiles.birth_year` → age | $1,000 (≤54), $6,000 (55–59), $8,000 (60+) |
-| **CPF (employee)** | `income_config` → auto CPF calc | Up to OW ceiling × employee rate × 12 |
-| **CPF Cash Top-Up (own)** | Tracked in `cpf_balances` if user tops up SA/RA | Up to $8,000 |
-| **CPF Cash Top-Up (family)** | Tracked if user tops up family member's SA/RA | Up to $8,000 |
-| **SRS Contribution** | Track SRS contributions in `investment_transactions` or dedicated field | Up to $15,300 (citizen/PR) |
-| **Life Insurance** | `insurance_policies` where type = life/whole life/endowment | Lower of ($5,000 − CPF relief) or 7% insured sum |
-| **NSman (Self, Wife, Parent)** | `profiles` metadata — NS status, key/non-key appointment | Self: $1,500–$5,000; Wife: $750; Parent: $750–$3,500 |
+| Relief | Source | Amount | Where Money Flows |
+| --- | --- | --- | --- |
+| **Earned Income** | `profiles.birth_year` → age | $1,000 (≤54), $6,000 (55–59), $8,000 (60+) | N/A (auto) |
+| **CPF (employee)** | `income_config` → auto CPF calc | Up to OW ceiling × employee rate × 12 (up to $37,740) | CPF accounts |
+| **CPF Cash Top-Up (own)** | Tracked in `cpf_balances` if user tops up SA/RA | Up to $8,000 | CPF SA or RA |
+| **CPF Cash Top-Up (family)** | Tracked if user tops up family member's SA/RA | Up to $8,000 | Family member's CPF |
+| **SRS Contribution** | Track SRS contributions in `investment_transactions` or dedicated field | Up to $15,300 (citizen/PR) | SRS account (investable) |
+| **Life Insurance** | `insurance_policies` where type = life/whole life/endowment | Lower of ($5,000 − CPF relief) or 7% insured sum | Insurance policy |
+| **NSman (Self, Wife, Parent)** | `profiles` metadata — NS status, key/non-key appointment | Self: $1,500–$5,000; Wife: $750; Parent: $750–$3,500 | N/A |
 
 #### Manual-Input Reliefs (User Enters Yearly)
 
 These require information the system cannot derive:
 
-| Relief | Input | Limit |
-| --- | --- | --- |
-| **Donations (IPC)** | Donation amount | 250% deduction |
-| **Parent Relief** | Supporting parent(s), co-residing | $5,500–$9,000 per parent |
-| **Spouse Relief** | Spouse income < $4k | $2,000 |
-| **WMCR** | Working mother, SC children count + birth years | $8k/$10k/$12k per child |
-| **Course Fees** | Qualifying course fees paid | Up to $5,500 |
-| **Foreign Domestic Worker Levy** | Levy paid | $5,200 (married women with dependents) |
-| **Handicapped Sibling** | Sibling details | $5,500 |
+| Relief | Input | Limit | Where Money Flows |
+| --- | --- | --- | --- |
+| **Donations (IPC)** | Donation amount | 250% deduction | Approved IPC charity |
+| **Parent Relief** | Supporting parent(s), co-residing | $5,500–$9,000 per parent, max 2 | N/A |
+| **Spouse Relief** | Spouse income < $4k | $2,000 | N/A |
+| **WMCR** | Working mother, SC children count + birth years | $8k/$10k/$12k per child (post-2024) or % of income (pre-2024) | N/A |
+| **Course Fees** | Qualifying course fees paid | Up to $5,500 | Education |
+| **Foreign Domestic Worker Levy** | Levy paid | $5,200 (married women with dependents) | N/A |
+| **Handicapped Sibling** | Sibling details | $5,500 | N/A |
 
 #### Tax Calculation Engine
 
@@ -357,7 +369,20 @@ Step 7: tax_payable = tax_payable - rebate (if applicable, e.g. YA2025: 60% capp
 | $500,001–$1,000,000 | 23% |
 | Above $1,000,000 | 24% |
 
-**Dashboard output:** Shows calculated tax per user, relief breakdown (which reliefs applied, how much each saved), and where relief money flowed (SRS account, CPF, charities). Optional: enter actual IRAS assessment for comparison.
+**Dashboard Inputs for Tax (per profile, per year):**
+
+- Employment income (from income_config or override)
+- SRS contribution (auto-tracked or manual)
+- CPF cash top-up (own, family — auto-tracked or manual)
+- Donations to IPC
+- Life insurance premium (auto from insurance_policies if CPF < $5k)
+- Parent/spouse/WMCR/course fees (checkboxes + amounts)
+- NSman status (auto from profile metadata)
+- Actual tax paid (from IRAS) — **optional**, for comparison with calculated
+
+**Dashboard output:** Shows calculated tax per user, relief breakdown (which reliefs applied, how much each saved), and where relief money flowed (SRS account, CPF, charities). "Tax saved" from each relief. Optional: enter actual IRAS assessment for comparison.
+
+**Money flow tracking:** Track where relief money went (SRS, CPF, donations, etc.) for net worth and cashflow integration.
 
 ### 3.5 Outflow Deduplication Logic
 
@@ -408,6 +433,15 @@ effective_outflow = discretionary_outflow        // user-reported via /out (food
 | `is_active` | Active or lapsed |
 | `deduct_from_outflow` | Auto-deduct from effective outflow |
 | `profile_id` | Per user; null = combined/shared |
+
+#### Age-Based Premium Logic
+
+Many Singapore policies use age bands. Examples:
+
+- **Term life:** ~$200–300 (21–30) → $500+ (31–40) → $900+ (41–50) → $1,100+ (51–60) → $1,300+ (61–70) → $2,800+ (71+)
+- **Integrated Shield:** ~$95 (21–30) → $135 (31–40) → $185 (41–50) → $285 (51–60) → $450 (61+)
+
+**Implementation:** Store `insurance_premium_schedule` (age_band_min, age_band_max, premium) per policy type, or user enters current premium yearly. When `profiles.birth_year` changes age band, prompt to update. Use `insurance_premium_schedule` to project future premiums if available.
 
 #### Yearly Outflow Date Logic
 
@@ -471,7 +505,14 @@ death_gap_pct = death_gap / death_coverage_needed × 100
 | Invest | 1.20% | 2.40% | Invest via OCBC |
 | Grow | 2.20% | 2.20% | Balance > S$250,000 |
 
-**Configurable Insure & Invest (Settings):** User may not have Insure or Invest yet. Toggle on/off in Settings.
+**Implementation:** Per `bank_accounts` row, store `account_type` (e.g. `ocbc_360`, `basic`). For OCBC 360, use `bank_account_ocbc360_config` to store which categories are met.
+
+**Configurable Insure & Invest (Settings):** User may not have Insure or Invest yet. In Settings → Bank Accounts → OCBC 360:
+
+- **Insure:** Toggle "I have qualifying OCBC insurance" (endowment ≥$4k, whole life ≥$8k, protection ≥$2k, etc.). If off, no Insure bonus.
+- **Invest:** Toggle "I have qualifying OCBC investments" (unit trusts ≥$20k, structured deposits ≥$20k, etc.). If off, no Invest bonus.
+- **Salary, Save, Spend:** derived from data where possible; manual override if needed.
+- **Grow:** auto from balance > $250k.
 
 Compute tiered interest: apply each bonus (only for categories where met) to the relevant balance band, sum, annualize to monthly.
 
@@ -507,7 +548,21 @@ CPF funds are **not liquid** — they cannot be freely withdrawn or spent. Key d
 
 ### CPF Balances (Auto-Calculated from Income)
 
-**CPF Allocation by Age (2026):**
+**Logic:** Input monthly income (ordinary + additional wage) → apply contribution rates by age → apply allocation to OA/SA/MA.
+
+**Implementation:** `profiles.birth_year` → compute age → lookup allocation. `income_config` stores annual salary + bonus; derive monthly OW + AW (or use pay frequency). Apply ceiling, compute contribution, split to OA/SA/MA. Accumulate into `cpf_balances` or overwrite if manual override exists.
+
+**CPF Allocation by Age (2025):**
+
+| Age | OA | SA | MA |
+| --- | --- | --- | --- |
+| ≤ 35 | 34.00% | 8.86% | 57.14% |
+| 36–45 | 30.00% | 10.00% | 60.00% |
+| 46–50 | 26.39% | 11.11% | 62.50% |
+| 51–55 | 20.59% | 15.78% | 63.63% |
+| 55+ | RA instead of SA; different splits | | |
+
+**CPF Allocation by Age (2026, effective 1 Jan 2026):**
 
 | Age | OA | SA/RA | MA |
 | --- | --- | --- | --- |
@@ -535,7 +590,39 @@ ma_contribution = total_cpf_contribution × ma_allocation_pct
 - **Growth projection:** Line chart projecting CPF growth at current income (with 2.5% OA / 4% SA,MA interest)
 
 #### Sub-View 2: CPF for HDB / Housing
-When `loans.use_cpf_oa = true`:
+
+**Reference:** [CPF — Using your CPF to buy a home](https://www.cpf.gov.sg/member/home-ownership/using-your-cpf-to-buy-a-home)
+
+**What CPF OA Can Be Used For:**
+- HDB flat or private residential property purchase
+- Down payment, stamp duty, legal fees
+- Monthly housing loan repayments
+- Home Protection Scheme premiums (HDB only)
+- Loan for construction (private); purchase of vacant land (private)
+
+**CPF Accrued Interest (Must Refund on Sale):**
+
+When you use CPF OA for housing, you must refund **principal withdrawn + accrued interest** when you sell the property. Accrued interest is computed at **2.5% p.a. compounded monthly** on all OA used.
+
+**Formula:** `Accrued interest = Principal × [(1 + 0.025/12)^months − 1]` (from withdrawal date to sale/voluntary refund).
+
+**Example:** $200,000 principal over 10 years ≈ $91,386 accrued interest (total refund ~$291,386).
+
+**CPF Housing Withdrawal Limits:**
+
+| Rule | Detail |
+| --- | --- |
+| **120% Valuation Limit** | OA usage capped at 120% of Valuation Limit (VL = lower of purchase price or market valuation). Covers down payment, stamp duty, legal fees, and monthly mortgage. Beyond 120% VL → cash only. |
+| **Age 55+** | Must set aside Basic Retirement Sum (BRS, e.g. $106,500 for 2025, $110,200 for 2026) before further CPF use. Property with lease to age 95+ can be pledged. |
+
+**Calculation Logic When `loans.use_cpf_oa = true`:**
+
+1. **Track CPF withdrawn:** Per loan, store `cpf_housing_usage` — principal_withdrawn (down payment + monthly OA used), withdrawal dates.
+2. **Accrued interest:** For each withdrawal, compute months from withdrawal to "as of" date (or sale). Sum: `principal + accrued_interest` = total CPF refund due.
+3. **Refund at sale:** When property sold, total refund = sum of (principal + accrued) for that property. This restores retirement savings.
+4. **Voluntary refund:** User can make voluntary refund before sale — reduces future accrued interest, improves cash proceeds at sale.
+
+**Dashboard Metrics:**
 
 | Metric | Source |
 | --- | --- |
@@ -548,6 +635,7 @@ When `loans.use_cpf_oa = true`:
 **Charts:**
 - Waterfall: OA total → used for housing → accrued interest → refund due → remaining OA
 - Timeline: Monthly CPF usage for mortgage vs cash usage
+- Option to model voluntary refund impact (reduce accrued interest, improve cash proceeds at sale)
 
 #### Sub-View 3: Loan Integration
 - Show loans that use CPF OA alongside their regular loan metrics
@@ -621,6 +709,8 @@ When early repayment is made: reduce outstanding balance; recalculate schedule (
 4. **Interest saved** = original − new total interest.
 
 **Output:** Interest saved, new payoff date, remaining payments.
+
+**UI:** Modal or dedicated page — enter loan, enter "what if" early repayment amount/date, see comparison.
 
 ---
 
@@ -847,19 +937,38 @@ Use **sell price** (what OCBC pays you) for portfolio valuation — conservative
 
 ### Tooltips (Logic, Explanation & Calculation Details)
 
-Use shadcn `Tooltip` (or `HoverCard` for longer content). Icon (`Info` or `HelpCircle`) next to label/value. Content stored in `lib/tooltips.ts`.
+**Purpose:** Show tooltips on metrics, config fields, and calculation results so users understand the logic, meaning, and assumptions without leaving the page.
 
-| Area | Tooltip Content |
-| --- | --- |
-| **Net worth** | Formula: Banks + Investments + ILP − Loans. CPF shown separately. |
-| **Liquid net worth** | Excludes CPF (locked/retirement funds). |
-| **Savings rate** | (Inflow − Effective outflow) / Inflow × 100. Stock trades excluded (asset exchange). |
-| **Bank balance** | Opening + Inflow − Effective outflow. Effective outflow = discretionary + insurance + ILP + loans. |
-| **CPF OA/SA/MA** | Auto from income × allocation by age. OA 2.5%, SA/MA 4% interest. |
-| **Insurance gap** | Death: 9–10× income. CI: 4× income. Based on LIA Singapore benchmarks. |
-| **Tax calculated** | Income − reliefs (cap $80k) → progressive rates − rebate. Auto-derived where possible. |
-| **CPF housing refund** | Principal + 2.5% p.a. accrued interest (compounded monthly). Must refund on sale. |
-| **Gold/Silver value** | Valued at OCBC sell price (conservative). |
+**Implementation:** Use shadcn `Tooltip` (or `HoverCard` for longer content). Icon (e.g. `Info` or `HelpCircle`) next to label/value; hover or click to reveal. Content stored in a central registry (e.g. `lib/tooltips.ts`) for consistency and easy updates.
+
+**Tooltip content structure (per area):**
+
+- **Logic:** How it's calculated (formula, inputs)
+- **Explanation:** What it means, why it matters
+- **Details:** Assumptions, caveats, edge cases
+
+**Areas requiring tooltips:**
+
+| Area | Location | Tooltip content |
+| --- | --- | --- |
+| **Net worth** | Dashboard, Overview | Formula: Banks + Investments + ILP − Loans. CPF shown separately (locked/retirement). Explanation: Total assets minus liabilities. Details: Investments use live prices (Eulerpool); ILP uses last entered fund value. |
+| **Liquid net worth** | Dashboard, Overview | Formula: Banks + Investments + ILP − Loans. **Excludes CPF** (locked/retirement funds not freely accessible). |
+| **Savings rate** | Dashboard, Cashflow | Formula: (Inflow − Effective outflow) / Inflow × 100. Explanation: % of income saved. Details: Effective outflow includes auto-deducted insurance, ILP, loans. Stock trades excluded (asset exchange, not expense). |
+| **Bank balance** | Banks section | Formula: Opening balance + Inflow − Effective outflow (Effective outflow = discretionary `/out` + insurance + ILP + loans). Explanation: Derived from cashflow; no manual entry. Details: Opening = previous month closing; manual seed for first month. |
+| **Bank interest (OCBC 360)** | Banks section, Settings | Logic: Tiered rates (Base 0.05%, Salary 1.6%/3.2%, Save 0.6%/1.2%, Spend 0.5%, Insure 1.2%/2.4%, Invest 1.2%/2.4%, Grow 2.2%). Explanation: Each category has a requirement. Details: Salary = inflow ≥ $1,800; Save = balance increase ≥ $500; Insure/Invest = configurable in Settings. |
+| **CPF OA/SA/MA** | CPF section | Logic: Auto from income using allocation by age (e.g. ≤35: 47.59% OA, 12.41% SA, 40% MA for 2026). Explanation: Employer + employee contributions split by account. Details: Ceilings OW $8,000/mth (2026), AW $102k − YTD OW. OA earns 2.5%, SA/MA earn 4%. |
+| **Insurance deduct** | Settings, Cashflow | Logic: Active policies with `deduct_from_outflow` add monthly equivalent to effective outflow. Explanation: Money leaves bank for premiums. Details: Yearly premium / 12; age-based premiums may change yearly. |
+| **Insurance gap** | Insurance section | Logic: Death 9–10× annual income, CI 4× annual income, Hospitalization = active ISP, Disability = 75% monthly salary. Explanation: Based on LIA Singapore protection gap benchmarks. Details: 74% of Singaporeans have a critical illness coverage gap. |
+| **Tax calculated** | Tax section | Logic: Employment income − reliefs (cap $80k) = chargeable income → progressive rates − rebate. Explanation: Singapore resident tax. Details: Reliefs auto-derived where possible (earned income, CPF, SRS, life insurance, NSman); remaining entered manually. |
+| **Tax relief inputs** | Tax section, Settings | Per relief: limit, where money flows, eligibility. E.g. SRS: $15,300 → SRS account; CPF top-up: $8k own + $8k family → CPF SA/RA. |
+| **Loan interest saved** | Loans section, calculator | Logic: Compare amortization with vs without early repayment. Explanation: Interest offset by reducing principal earlier. Details: Depends on rate, remaining tenure. |
+| **CPF housing refund** | CPF section (housing sub-view) | Logic: Principal withdrawn + accrued interest (2.5% p.a. compounded monthly). Explanation: Must refund on sale to restore retirement savings. Details: 120% VL limit; voluntary refund reduces future accrued. |
+| **Goal progress** | Savings Goals section | Formula: current_amount / target_amount × 100. Explanation: % of target reached. Details: Contributions from dashboard or Telegram. |
+| **Investment P&L** | Investments section/page | Formula: (current_price × units) − cost_basis. Explanation: Unrealized gain/loss. Details: Prices from Eulerpool; cost_basis from buy transactions. |
+| **Gold/Silver value** | Investments section/page | Valued at OCBC sell price (conservative mark-to-market). Explanation: Uses OCBC's indicative sell price since holdings are in OCBC Precious Metals Account. |
+| **OCBC 360 Insure/Invest** | Settings → Bank accounts | Insure: Qualifying OCBC insurance (endowment ≥$4k, whole life ≥$8k, protection ≥$2k, etc.). Invest: Unit trusts ≥$20k, structured deposits ≥$20k, etc. Toggle off if not yet qualified. |
+
+**UX:** Keep tooltips concise (2–4 lines); use HoverCard or expandable section for full formulas. Consider "Learn more" link to a help doc for complex topics.
 
 ### Savings Goals (OCBC-Style Logic)
 
@@ -878,12 +987,14 @@ Replicate [OCBC Savings Goals](https://www.frankbyocbc.com/plan/savings-goals):
 
 | Asset | Source | Notes |
 | --- | --- | --- |
-| **Stocks (SGX, US, global)** | **Eulerpool API** | `GET /v1/equities/{ticker}/price`; 100k+ stocks, 90+ exchanges; free tier 250 req/mo |
+| **Stocks (SGX, US, global)** | **Eulerpool API** | `GET /v1/equities/{ticker}/price`; 100k+ stocks, 90+ exchanges; SGX e.g. S68.SI, DBS.SI; free tier 250 req/mo |
 | **Gold (SGD)** | **OCBC indicative price** (primary); MetalpriceAPI (fallback) | Scrape or cache OCBC page; fallback to public API |
 | **Silver (SGD)** | **OCBC indicative price** (primary); MetalpriceAPI (fallback) | Same strategy as gold |
 | **PDF OCR** | **Mindee Bank Statement API** (primary); OCRAPI.cloud (fallback) | Node.js SDK; free trial |
 
-**Caching:** Store last price + timestamp in respective tables. Refresh on dashboard load or background job (1–4 hours for precious metals; 15–30 min for stocks). Display "Last updated" timestamp.
+**Eulerpool:** Docs at [docs.eulerpool.com](https://docs.eulerpool.com/). Auth via API key. Returns price, change, volume, timestamp. Use for derived stock P&L and mark-to-market.
+
+**Caching:** Store last price + timestamp in respective tables. Refresh on dashboard load or background job (1–4 hours for precious metals; 15–30 min for stocks to stay within free tier). Display "Last updated" timestamp.
 
 ---
 
@@ -906,8 +1017,9 @@ Replicate [OCBC Savings Goals](https://www.frankbyocbc.com/plan/savings-goals):
 
 ### Singapore-Specific
 
-- **CPF:** Auto-calculated, separated from liquid assets, with retirement benchmarking
-- **SRS:** Track for tax relief and investment returns
+- **CPF:** Auto-calculated from income using allocation rates by age (OA/SA/MA split); separated from liquid assets, with retirement benchmarking
+- **SRS:** Input and track for tax relief (see Tax section) and investment returns
+- **ILP:** Premium allocation % (insurance vs investment) for accurate tracking of where ILP money flows
 - **HDB:** Track CPF usage, accrued interest, 120% VL limit
 - **Insurance:** Coverage gaps benchmarked against LIA standards
 
@@ -957,6 +1069,8 @@ Replicate [OCBC Savings Goals](https://www.frankbyocbc.com/plan/savings-goals):
   }
 }
 ```
+
+**Note:** Add `mcp.json` to `.gitignore` if it contains secrets, or use env vars for the token.
 
 ---
 
