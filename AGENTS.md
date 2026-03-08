@@ -29,3 +29,6 @@ See `package.json` for the full list. Key commands:
 - `lib/supabase/server.ts` exports `createSupabaseAdmin()` (factory function). All server-side code calls this function to get a Supabase client instance.
 - SQL migrations live in `supabase/migrations/`. The app does not require a local Supabase instance; it connects to a remote project via env vars in `.env.local` (see `.env.local.example`).
 - If you need to clean build artifacts, delete `.next/` before running `npm run build` to avoid stale manifest errors.
+- Dashboard (`/dashboard/*`) and Settings (`/settings/*`) routes live under the `app/(app)/` route group, which provides a shared sidebar layout. The `(app)` segment is a Next.js route group and does not appear in the URL.
+- `middleware.ts` protects `/dashboard/:path*`, `/settings/:path*`, and `/onboarding/:path*`; unauthenticated requests are redirected to `/login`. When testing dashboard/settings pages locally, you'll get a 307 redirect unless you have a valid session cookie.
+- `npm run build` may fail on pre-existing type errors in files outside your changes (e.g. `app/onboarding/income/page.tsx`). Use `npm run typecheck` for a clean type-only check that excludes the Next.js build pipeline.
