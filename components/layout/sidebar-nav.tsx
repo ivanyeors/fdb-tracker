@@ -1,0 +1,115 @@
+"use client"
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import {
+  BarChart3,
+  Building2,
+  Landmark,
+  ArrowLeftRight,
+  TrendingUp,
+  Target,
+  CreditCard,
+  Shield,
+  Receipt,
+  LayoutDashboard,
+  Settings,
+  Sliders,
+  Users,
+  Bell,
+  Wrench,
+} from "lucide-react"
+
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarHeader,
+} from "@/components/ui/sidebar"
+
+const dashboardItems = [
+  { title: "Overview", href: "/dashboard", icon: BarChart3 },
+  { title: "Banks", href: "/dashboard/banks", icon: Building2 },
+  { title: "CPF", href: "/dashboard/cpf", icon: Landmark },
+  { title: "Cashflow", href: "/dashboard/cashflow", icon: ArrowLeftRight },
+  { title: "Investments", href: "/dashboard/investments", icon: TrendingUp },
+  { title: "Savings Goals", href: "/dashboard/goals", icon: Target },
+  { title: "Loans", href: "/dashboard/loans", icon: CreditCard },
+  { title: "Insurance", href: "/dashboard/insurance", icon: Shield },
+  { title: "Tax", href: "/dashboard/tax", icon: Receipt },
+]
+
+const settingsItems = [
+  { title: "General", href: "/settings", icon: Sliders },
+  { title: "User Settings", href: "/settings/users", icon: Users },
+  { title: "Notifications", href: "/settings/notifications", icon: Bell },
+  { title: "Setup", href: "/settings/setup", icon: Wrench },
+]
+
+export function SidebarNav() {
+  const pathname = usePathname()
+
+  return (
+    <Sidebar>
+      <SidebarHeader className="px-4 py-3">
+        <span className="text-lg font-semibold tracking-tight">fdb-tracker</span>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>
+            <LayoutDashboard className="mr-1.5" />
+            Dashboard
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {dashboardItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === item.href}
+                    tooltip={item.title}
+                  >
+                    <Link href={item.href}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>
+            <Settings className="mr-1.5" />
+            Settings
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {settingsItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === item.href}
+                    tooltip={item.title}
+                  >
+                    <Link href={item.href}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
+  )
+}
