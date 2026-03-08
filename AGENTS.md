@@ -15,12 +15,13 @@ See `package.json` for the full list. Key commands:
 | Typecheck | `npm run typecheck` |
 | Build | `npm run build` |
 | Format | `npm run format` |
+| Test | `npm test` (Vitest) |
 
 ### Notes
 
 - The dev server uses Turbopack (`next dev --turbopack`) and supports hot reload out of the box.
 - ESLint currently reports 1 warning for an unused `Geist` import in `app/layout.tsx`; this is pre-existing and not a blocker.
-- There are no automated tests configured (no Jest, Vitest, or Playwright). Manual browser testing is the current approach.
+- **Vitest** is configured (`vitest.config.ts`, `globals: true`, `@` path alias). Run tests with `npm test` (`vitest run`). Test files live in `__tests__/calculations/`.
 - Dark mode can be toggled by pressing the `d` key on the homepage (handled by `next-themes` via the `ThemeProvider`).
 - **`.env.local` is required for `npm run build` and `npm run dev`** — Supabase client init throws at module evaluation if `NEXT_PUBLIC_SUPABASE_URL` is missing. Copy `.env.local.example` to `.env.local` and fill in placeholder values at minimum.
 - Next.js 16 emits a deprecation warning for `middleware.ts` ("use proxy instead"); middleware still works correctly.
