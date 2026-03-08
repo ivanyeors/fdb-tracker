@@ -4,6 +4,107 @@
 
 ---
 
+## Checking & Feedback Loop Process
+
+Every phase follows a structured **Build → Verify → Review → Adjust** cycle. This ensures nothing ships broken, misaligned with the plan, or without stakeholder awareness.
+
+### The Loop (Per Phase)
+
+```mermaid
+flowchart LR
+    A[Build Sub-tasks] --> B[Self-Check]
+    B --> C{Passes?}
+    C -->|Yes| D[Demo & Review]
+    C -->|No| E[Fix & Re-check]
+    E --> B
+    D --> F{Feedback?}
+    F -->|Changes needed| G[Adjust & Re-verify]
+    G --> B
+    F -->|Approved| H[Phase Complete → Next Phase]
+```
+
+### 1. Self-Check (After Every Sub-Section)
+
+After completing each numbered sub-section (e.g. 1.2, 1.3, 2.1), run the following before moving on:
+
+| Check | How | Pass Criteria |
+|-------|-----|---------------|
+| **TypeScript compiles** | `npm run typecheck` | Zero errors |
+| **Lint passes** | `npm run lint` | Zero errors (warnings acceptable if pre-existing) |
+| **Build passes** | `npm run build` | Clean production build |
+| **Unit tests pass** (if applicable) | `npm test` or `npx vitest run` | All tests green |
+| **Manual smoke test** | Start dev server, navigate to affected pages | No console errors, UI renders correctly, interactions work |
+| **Schema validation** | Run migrations against Supabase, check types generate | Migrations apply cleanly, types match schema |
+
+**If any check fails:** Fix immediately before proceeding. Do not accumulate tech debt across sub-sections.
+
+### 2. Phase Gate (End of Each Phase)
+
+Before declaring a phase complete, run the full **Phase Acceptance Criteria** checklist (defined at the end of each phase below). Every item must pass. Additionally:
+
+| Gate Step | Detail |
+|-----------|--------|
+| **Full test suite** | Run all unit + integration tests end to end |
+| **Cross-section integration** | Verify data flows correctly between sub-sections built in this phase (e.g., onboarding saves data → dashboard reads it) |
+| **Regression check** | Re-test key flows from previous phases to ensure nothing broke |
+| **Code quality review** | Review new files for: consistent patterns, proper error handling, Zod validation on all inputs, TypeScript strict compliance, no `any` types |
+| **Accessibility spot-check** | Tab navigation works, ARIA labels on interactive elements, sufficient color contrast |
+| **Screenshot / recording** | Capture the current state of all new UI sections (for review artifact and rollback reference) |
+
+### 3. Demo & Review Checkpoint (End of Each Phase)
+
+Each phase ends with a structured review before the next phase begins:
+
+| Step | Action | Output |
+|------|--------|--------|
+| **Demo prep** | Record a short walkthrough video of all new functionality | `.mp4` artifact |
+| **Changelog** | Write a brief summary: what was built, what works, what's known-incomplete | Markdown notes in PR/commit |
+| **Stakeholder review** | Present the demo + changelog for feedback | Approval or change requests |
+| **Feedback triage** | Categorize feedback as: **blocker** (fix now), **adjust** (fix in this phase), **defer** (add to later phase), **out of scope** (park in backlog) | Triaged list |
+| **Adjustment sprint** | Implement blocker + adjust items, re-run self-check | Updated code passes all checks |
+| **Phase sign-off** | Confirm all acceptance criteria met + feedback addressed | ✅ Move to next phase |
+
+### 4. Mid-Phase Checkpoints (For Phases with >15 Tasks)
+
+Phases 1, 2, and 5 are large enough to warrant a **mid-phase checkpoint** — a lighter version of the phase gate run at the halfway mark:
+
+| Phase | Mid-Phase Checkpoint After | Focus |
+|-------|---------------------------|-------|
+| **Phase 1** | After 1.3 (Auth complete) | Auth flow end-to-end: login → OTP → session → middleware redirect. DB schema applied + types generated. |
+| **Phase 2** | After 2.1 (Calculation engines) | All 6 calculators pass unit tests with known Singapore examples. No UI yet — pure logic validation. |
+| **Phase 5** | After 5.1–5.3 (All engines) | Tax, insurance, loan calculation engines all pass unit tests. Verified against real-world Singapore scenarios. |
+
+At each mid-phase checkpoint: run self-check, review test results, and do a quick demo of what works so far. Fix any issues before building UI on top of potentially incorrect logic.
+
+### 5. Cross-Phase Regression Protocol
+
+After completing Phase N and before starting Phase N+1:
+
+1. **Smoke test all previous phases** — navigate through every major flow (login → onboarding → dashboard → each section) to verify nothing regressed.
+2. **Run full test suite** — all unit tests from all phases must still pass.
+3. **Check data integrity** — verify data written by Phase N is readable by Phase N-1 components (e.g., Telegram-written cashflow appears correctly on the dashboard).
+4. **Performance sanity check** — page load times should not have degraded noticeably. Flag if any page takes >3s to render in dev.
+
+### 6. Feedback Channels
+
+| Channel | When | Format |
+|---------|------|--------|
+| **PR review** | On every commit/push | Code diff + description |
+| **Phase demo video** | End of each phase | Screen recording of all new features |
+| **Issue tracker** | Ongoing | Bugs, feedback items, deferred requests |
+| **Quick async check-in** | After each mid-phase checkpoint | Brief message: "Phase 1 mid-checkpoint: auth works end-to-end. Moving to onboarding. Any concerns?" |
+
+### Feedback Response SLA
+
+| Priority | Definition | Response Time |
+|----------|-----------|---------------|
+| **Blocker** | Fundamental misalignment with plan, broken core flow, data corruption | Fix before any new work |
+| **Adjust** | UX improvement, calculation tweak, layout change within current phase scope | Fix within current phase before gate |
+| **Defer** | Nice-to-have, future phase scope, non-critical enhancement | Log in backlog, assign to appropriate phase |
+| **Out of scope** | Beyond v2 plan, feature creep | Park in backlog, discuss at project level |
+
+---
+
 ## Codebase Starting Point
 
 ```
@@ -297,7 +398,23 @@ CREATE TABLE loans (
 | 1.6.2 | Create `components/ui/info-tooltip.tsx` | Reusable component: `<InfoTooltip id="NET_WORTH" />` — renders `HelpCircle` icon + shadcn `Tooltip` (short) or `HoverCard` (long). Looks up content from `lib/tooltips.ts`. |
 | 1.6.3 | Add all 17 tooltip entries | Populate `lib/tooltips.ts` with all entries from v2 plan tooltip table: Net worth, Liquid net worth, Savings rate, Bank balance, Bank interest (OCBC 360), CPF OA/SA/MA, Insurance deduct, Insurance gap, Tax calculated, Tax relief inputs, Loan interest saved, CPF housing refund, Goal progress, Investment P&L, Gold/Silver value, OCBC 360 Insure/Invest. |
 
-### 1.7 Phase 1 Acceptance Criteria
+### 1.7 Mid-Phase Checkpoint — After Auth (1.3)
+
+**Trigger:** Before starting onboarding (1.4).
+
+| Check | Action |
+|-------|--------|
+| `npm run typecheck` | Zero errors |
+| `npm run lint` | Zero errors |
+| `npm run build` | Clean build |
+| DB migrations applied | All tables exist, types generated, RLS enabled |
+| Auth end-to-end test | Login → Request OTP → OTP arrives in Telegram → Enter OTP → Session cookie set → Middleware redirects to `/onboarding` |
+| Negative auth test | Invalid OTP rejected. Expired OTP rejected. Rate limiting triggers after 3 attempts. |
+| Quick async check-in | "Phase 1 mid-checkpoint: auth works end-to-end. DB schema applied. Moving to onboarding. Any concerns?" |
+
+**Fix any issues before proceeding to 1.4.**
+
+### 1.8 Phase 1 Gate — Acceptance Criteria
 
 - [ ] User can visit `/login`, enter household ID, request OTP via Telegram, enter OTP, get session
 - [ ] New users redirected to `/onboarding` flow (all 8 steps functional)
@@ -309,6 +426,17 @@ CREATE TABLE loans (
 - [ ] All routes protected by middleware (redirect to login if no session)
 - [ ] All DB tables created with RLS policies
 - [ ] TypeScript types generated from schema
+
+### 1.9 Phase 1 Demo & Review
+
+| Step | Action |
+|------|--------|
+| **Record demo** | Walkthrough: login → OTP → onboarding (all 8 steps) → dashboard shell → profile toggle → tooltips |
+| **Write changelog** | List all pages, API routes, DB tables created |
+| **Submit for review** | Share demo video + changelog |
+| **Triage feedback** | Categorize as blocker / adjust / defer / out of scope |
+| **Implement fixes** | Address blockers + adjustments, re-run all checks |
+| **Sign off** | All acceptance criteria met + feedback addressed → proceed to Phase 2 |
 
 ---
 
@@ -358,7 +486,23 @@ CREATE TABLE loans (
 | 2.3.12 | Build `app/dashboard/cashflow/page.tsx` | Monthly inflow vs effective outflow (stacked bar or waterfall). Breakdown: Discretionary \| Insurance \| ILP \| Loans \| Tax. 12-month rolling trend line. |
 | 2.3.13 | Create `components/dashboard/cashflow/waterfall-chart.tsx` | Waterfall visualization showing inflow → discretionary → insurance → ILP → loans → tax → remaining. |
 
-### 2.4 Phase 2 Acceptance Criteria
+### 2.4 Mid-Phase Checkpoint — After Calculation Engines (2.1)
+
+**Trigger:** Before building any dashboard UI (2.2+).
+
+| Check | Action |
+|-------|--------|
+| All 7 unit test files pass | `npx vitest run __tests__/calculations/` — all green |
+| CPF rates verified | Test age 30 ($6,000/mth) → employee CPF = $1,200, OA/SA/MA splits match 2026 allocation table |
+| Take-home verified | Test age 30 ($84,000/yr) → monthly take-home = $5,600 (matches v2 plan example) |
+| OCBC 360 interest verified | Test $80,000 balance with salary+save met → correct tiered calculation across $75k/$25k bands |
+| Retirement projection verified | Test age 30, $6,000/mth → project to 55, verify crosses FRS line at expected age |
+| Outflow dedup verified | Test discretionary $3,000 + insurance $200/mth + ILP $500/mth → effective outflow = $3,700, not $3,000 or double-counted |
+| Quick async check-in | "Phase 2 mid-checkpoint: all 7 calculation engines pass unit tests. Known Singapore examples verified. Moving to dashboard UI. Any concerns?" |
+
+**Do not build UI on top of unverified calculation logic. Fix all test failures first.**
+
+### 2.5 Phase 2 Gate — Acceptance Criteria
 
 - [ ] CPF calculator produces correct OA/SA/MA splits for all age groups (2025 + 2026 rates)
 - [ ] Take-home pay correctly deducts employee CPF from gross salary
@@ -370,6 +514,19 @@ CREATE TABLE loans (
 - [ ] CPF section has 4 sub-tabs, all showing real data
 - [ ] Cashflow section shows waterfall breakdown
 - [ ] All sections respect profile toggle (Combined / Individual)
+
+### 2.6 Phase 2 Demo & Review
+
+| Step | Action |
+|------|--------|
+| **Record demo** | Walkthrough: dashboard overview → banks with OCBC 360 breakdown → CPF all 4 sub-tabs → cashflow waterfall. Show profile toggle switching between Combined/Individual. |
+| **Calculation evidence** | Include screenshots of unit test results. Show a worked example: input salary → derived CPF → derived take-home → derived bank balance. |
+| **Write changelog** | List all calculation engines, API routes, dashboard sections built |
+| **Submit for review** | Share demo + calculation evidence + changelog |
+| **Triage feedback** | Focus on: are calculations correct? Is the data flow intuitive? Are charts readable? |
+| **Implement fixes** | Address feedback, re-run unit tests + visual check |
+| **Regression check** | Re-test Phase 1 flows (login → onboarding → redirect to dashboard) |
+| **Sign off** | All acceptance criteria met → proceed to Phase 3 |
 
 ---
 
@@ -421,7 +578,7 @@ CREATE TABLE loans (
 | 3.4.2 | Create `lib/reminders/templates.ts` | Message templates for each reminder type: end-of-month, income (yearly/monthly), insurance (yearly/monthly), tax (yearly). Include dynamic data (expected take-home, policy names, etc.). |
 | 3.4.3 | Configure `vercel.json` cron | `{ "crons": [{ "path": "/api/cron/reminders", "schedule": "0 * * * *" }] }` — check every hour. |
 
-### 3.5 Phase 3 Acceptance Criteria
+### 3.5 Phase 3 Gate — Acceptance Criteria
 
 - [ ] All 11 Telegram commands functional with name-based user identification
 - [ ] Single-user households can omit name from commands
@@ -431,6 +588,20 @@ CREATE TABLE loans (
 - [ ] All commands logged to `telegram_commands` audit table
 - [ ] Cron reminders fire at configured times with correct templates
 - [ ] Prompt schedule respects monthly/yearly frequency setting
+
+### 3.6 Phase 3 Demo & Review
+
+| Step | Action |
+|------|--------|
+| **Record demo** | Screen recording showing: each Telegram command sent → bot response → data appears on dashboard. PDF upload → OCR parse → confirm flow. Stock image upload. |
+| **Edge case testing** | Show: unknown user name → error. Missing arguments → helpful usage message. Single-user household → name omitted. Duplicate `/in` → overwrites (idempotent). |
+| **Write changelog** | List all commands, webhook, OCR pipeline, cron config |
+| **Submit for review** | Share demo + changelog |
+| **Triage feedback** | Focus on: command syntax intuitive? Bot responses clear? OCR accuracy acceptable? |
+| **Implement fixes** | Address feedback |
+| **Regression check** | Re-test: login → dashboard → all Phase 2 sections still show correct data. Enter data via Telegram → verify it appears on dashboard. |
+| **Cross-phase data flow** | `/in john 15000` via Telegram → Banks section shows updated balance → Cashflow section shows updated inflow → Overview metrics recalculate |
+| **Sign off** | All acceptance criteria met → proceed to Phase 4 (or continue parallel with Phase 4 if already started) |
 
 ---
 
@@ -477,7 +648,7 @@ CREATE TABLE loans (
 | 4.4.7 | Create `components/dashboard/investments/journal-list.tsx` | Filterable list of investment transactions with journal_text and screenshot thumbnails. Click to expand. |
 | 4.4.8 | Create `components/dashboard/investments/journal-form.tsx` | Form: buy/sell toggle, symbol, quantity, price, journal text, image upload. Submit → create transaction. |
 
-### 4.5 Phase 4 Acceptance Criteria
+### 4.5 Phase 4 Gate — Acceptance Criteria
 
 - [ ] Eulerpool API returns stock prices for SGX and US tickers
 - [ ] OCBC precious metals prices fetched and cached (with fallback)
@@ -488,6 +659,19 @@ CREATE TABLE loans (
 - [ ] Investment journals display with text and screenshots
 - [ ] Price cron updates cache on schedule
 - [ ] Profile toggle filters investments correctly
+
+### 4.6 Phase 4 Demo & Review
+
+| Step | Action |
+|------|--------|
+| **Record demo** | Walkthrough: investments overview → allocation chart → detail page → holdings table → ILP section → gold/silver with OCBC pricing → journals with screenshots. Show `/buy` via Telegram → holding appears with live price. |
+| **API verification** | Show Eulerpool returning real prices for DBS.SI, AAPL. Show OCBC gold/silver prices fetched and cached. Show fallback triggered when primary fails. |
+| **Write changelog** | List all API integrations, components, cron jobs |
+| **Submit for review** | Share demo + changelog |
+| **Triage feedback** | Focus on: P&L calculations correct? Charts readable? OCBC pricing accurate? |
+| **Implement fixes** | Address feedback |
+| **Regression check** | Re-test: Phases 1–3 flows. Verify Telegram `/buy` and `/sell` data flows to investment dashboard correctly. |
+| **Sign off** | All acceptance criteria met → proceed to Phase 5 |
 
 ---
 
@@ -559,7 +743,21 @@ CREATE TABLE loans (
 | 5.6.5 | Create `components/settings/ilp-form.tsx` | Add/edit ILP products: name, monthly premium, end date. |
 | 5.6.6 | Create `components/settings/loans-form.tsx` | Add/edit loans: name, type, principal, rate, tenure, start date, lender, CPF OA toggle. |
 
-### 5.7 Phase 5 Acceptance Criteria
+### 5.7 Mid-Phase Checkpoint — After Engines (5.1–5.3)
+
+**Trigger:** Before building any Phase 5 UI (5.4+).
+
+| Check | Action |
+|-------|--------|
+| Tax engine unit tests | Test: $100,000 salary, age 30, SRS $15,300, CPF top-up $8,000 → verify chargeable income, tax payable, effective rate. Test $80k relief cap. Test rebate application. |
+| Insurance gap tests | Test: $100,000 salary → death needed = $1M. If policies sum to $500k → gap = $500k (50%). Verify hospitalization = "has active ISP" check. |
+| Loan amortization tests | Test: $500,000 loan, 2.6% p.a., 25 years → verify PMT, first payment split, total interest. Test early repayment of $50,000 at month 60 → verify interest saved. |
+| CPF housing tests | Test: $200,000 CPF used over 10 years → accrued interest ≈ $91,386 (matches v2 plan example). |
+| Quick async check-in | "Phase 5 mid-checkpoint: tax, insurance, and loan engines all pass unit tests against real Singapore scenarios. Moving to UI. Any concerns?" |
+
+**Do not build UI on incorrect calculation logic. Fix all failures first.**
+
+### 5.8 Phase 5 Gate — Acceptance Criteria
 
 - [ ] Tax auto-calculation matches manual verification for known scenarios
 - [ ] All auto-derived reliefs populate correctly from system data
@@ -572,6 +770,20 @@ CREATE TABLE loans (
 - [ ] CPF housing accrued interest calculates correctly (2.5% p.a. compound monthly)
 - [ ] Outflow deduplication: `/out` + insurance + ILP + loans = effective outflow (no double-count)
 - [ ] Settings forms save and reload correctly
+
+### 5.9 Phase 5 Demo & Review
+
+| Step | Action |
+|------|--------|
+| **Record demo** | Walkthrough: tax section (auto-calculated, relief breakdown, money flow, optional IRAS comparison) → insurance section (radar chart, gap bars, coverage table, premium calendar) → loans section (amortization chart, repayment history, early repayment calculator modal) → settings forms for all financial config. |
+| **Calculation evidence** | Side-by-side: system-calculated tax vs manual IRAS calculation for a test scenario. Show insurance gap % against LIA benchmarks. Show amortization schedule matches an online calculator. |
+| **Outflow dedup verification** | Enter discretionary `/out` $3,000 + have insurance ($200/mth) + ILP ($500/mth) + loan ($1,500/mth). Show effective outflow = $5,200. Show bank balance derivation uses effective outflow. Show savings rate excludes stock trades. |
+| **Write changelog** | List all engines, API routes, dashboard sections, settings forms |
+| **Submit for review** | Share demo + calculation evidence + changelog |
+| **Triage feedback** | Focus on: are tax calculations trustworthy? Are insurance gaps actionable? Is the early repayment calculator intuitive? |
+| **Implement fixes** | Address feedback |
+| **Regression check** | Full regression: Phases 1–4. Enter income in settings → verify CPF auto-calculates → verify tax auto-calculates → verify dashboard overview net worth updates. |
+| **Sign off** | All acceptance criteria met → proceed to Phase 6 |
 
 ---
 
@@ -620,7 +832,7 @@ CREATE TABLE loans (
 | 6.4.7 | SEO & metadata | `app/layout.tsx` metadata: title, description, og:image. Per-page titles. |
 | 6.4.8 | Favicon & branding | Replace default favicon. Add app name in header. |
 
-### 6.5 Phase 6 Acceptance Criteria
+### 6.5 Phase 6 Gate — Acceptance Criteria
 
 - [ ] Savings goals: create, top up, withdraw, extend, pause — all functional
 - [ ] Goals show progress bars with correct percentages
@@ -633,6 +845,58 @@ CREATE TABLE loans (
 - [ ] Monthly snapshots capture net worth for trend charts
 - [ ] All sections have loading skeletons, error boundaries, empty states
 - [ ] Mobile responsive layout functional on 375px+ screens
+
+### 6.6 Phase 6 Demo & Review (Final Review)
+
+| Step | Action |
+|------|--------|
+| **Record final demo** | Full end-to-end walkthrough: login → onboarding → dashboard (all 9 sections) → investments detail → settings (all 4 sub-pages) → Telegram commands → goals. Show mobile layout. |
+| **Export verification** | Download CSV + JSON export, open in spreadsheet, verify all data present and correct |
+| **Audit trail verification** | Show audit log with mixed Telegram + dashboard entries, filter by user, filter by date |
+| **Snapshot verification** | Show net worth trend chart populated from monthly snapshots |
+| **Write final changelog** | Complete list of all features, pages, APIs, tables, components |
+| **Submit for final review** | Share full demo + changelog + any known limitations |
+| **Triage final feedback** | Categorize remaining items as: fix now (blocker) / v2.1 backlog / out of scope |
+| **Address final blockers** | Fix any remaining blocker issues |
+| **Full regression suite** | Run complete test suite. Manual walkthrough of all 6 phases' key flows. |
+| **Final sign-off** | Application complete and ready for deployment |
+
+---
+
+## End-to-End Verification Checklist (Post All Phases)
+
+Run this complete checklist after Phase 6 before considering the project complete:
+
+### Data Flow Integrity
+
+- [ ] Onboarding data → appears in dashboard sections + settings
+- [ ] Income config change → CPF recalculates → tax recalculates → overview net worth updates
+- [ ] Telegram `/in` → cashflow updates → bank balance updates → overview updates
+- [ ] Telegram `/buy` → investment created → investments overview updates → overview net worth updates
+- [ ] Telegram `/repay` → loan outstanding decreases → outflow tracked → bank balance correct
+- [ ] Insurance policy added in settings → deducted from effective outflow → bank balance adjusts → cashflow breakdown shows it
+- [ ] PDF upload → OCR → confirm → cashflow populated → bank balance derived
+
+### Calculation Accuracy
+
+- [ ] CPF contributions match CPF Board calculator for 3 different age groups
+- [ ] Tax calculation matches IRAS calculator for 2 different income levels
+- [ ] OCBC 360 interest matches OCBC's published rate card for a test scenario
+- [ ] Loan amortization matches an independent online calculator
+- [ ] CPF housing accrued interest matches CPF Board example
+
+### Deduplication
+
+- [ ] Effective outflow = discretionary + insurance + ILP + loans (no double-count)
+- [ ] Stock purchases reduce bank balance but don't count as outflow for savings rate
+- [ ] Tax provision doesn't double-count with actual tax payment
+
+### Multi-User
+
+- [ ] Profile toggle shows correct data per user
+- [ ] Combined view aggregates correctly
+- [ ] Telegram name-based identification works for each user
+- [ ] Each user's CPF, tax, insurance calculated independently
 
 ---
 
@@ -894,24 +1158,37 @@ typescript eslint prettier postcss @types/node @types/react
 ## Build Order Recommendations
 
 1. **Start with Phase 1** in strict order — everything else depends on auth + schema + shell.
-2. **Phase 2** can start immediately after Phase 1 is done — it's the core data layer.
-3. **Phase 3** (Telegram) and **Phase 4** (Investments) can be built **in parallel** — they're independent.
-4. **Phase 5** depends on Phase 2 (calculation engines) but can start the tax/insurance/loan engines while Phase 3/4 are in progress.
-5. **Phase 6** is the final polish layer — build last.
+2. **Mid-Phase 1 checkpoint** after auth (1.3) — validate OTP flow end-to-end before building onboarding.
+3. **Phase 1 demo & review** — get sign-off before investing in core data.
+4. **Phase 2** starts after Phase 1 sign-off. **Mid-Phase 2 checkpoint** after calculation engines (2.1) — validate all math before building UI.
+5. **Phase 2 demo & review** — get sign-off on calculations and dashboard sections.
+6. **Phase 3** (Telegram) and **Phase 4** (Investments) can be built **in parallel** — they're independent. Each has its own demo & review.
+7. **Phase 5** starts after Phase 3/4. **Mid-Phase 5 checkpoint** after engines (5.1–5.3) — validate tax/insurance/loan math before building UI.
+8. **Phase 5 demo & review** — calculation evidence is critical here (tax + insurance benchmarks).
+9. **Phase 6** is the final polish layer — build last. Ends with the **final end-to-end review**.
 
 ```mermaid
 gantt
-    title Build Order
+    title Build Order with Checkpoints
     dateFormat  YYYY-MM-DD
     section Foundation
-    Phase 1 - Auth, Schema, Shell       :p1, 2026-03-08, 14d
+    Phase 1 - Build                     :p1, 2026-03-08, 12d
+    P1 Mid-Check (Auth)                 :milestone, p1m, after p1, 0d
+    P1 Demo & Review                    :p1r, after p1, 2d
     section Core
-    Phase 2 - Data & CPF                :p2, after p1, 10d
+    Phase 2 - Build                     :p2, after p1r, 8d
+    P2 Mid-Check (Engines)              :milestone, p2m, after p2, 0d
+    P2 Demo & Review                    :p2r, after p2, 2d
     section Parallel
-    Phase 3 - Telegram & OCR            :p3, after p2, 10d
-    Phase 4 - Investments               :p4, after p2, 8d
+    Phase 3 - Telegram & OCR            :p3, after p2r, 8d
+    P3 Demo & Review                    :p3r, after p3, 2d
+    Phase 4 - Investments               :p4, after p2r, 7d
+    P4 Demo & Review                    :p4r, after p4, 1d
     section Advanced
-    Phase 5 - Tax, Insurance, Loans     :p5, after p3, 12d
+    Phase 5 - Build                     :p5, after p3r, 10d
+    P5 Mid-Check (Engines)              :milestone, p5m, after p5, 0d
+    P5 Demo & Review                    :p5r, after p5, 2d
     section Polish
-    Phase 6 - Goals & Polish            :p6, after p5, 8d
+    Phase 6 - Build                     :p6, after p5r, 7d
+    P6 Final Review                     :p6r, after p6, 2d
 ```
