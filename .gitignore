@@ -31,6 +31,9 @@ pnpm-debug.log*
 # env files
 .env*.local
 
+# MCP config (may contain secrets)
+.cursor/mcp.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
