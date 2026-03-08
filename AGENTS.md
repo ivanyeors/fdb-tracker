@@ -23,9 +23,9 @@ See `package.json` for the full list. Key commands:
 - There are no automated tests configured (no Jest, Vitest, or Playwright). Manual browser testing is the current approach.
 - Dark mode can be toggled by pressing the `d` key on the homepage (handled by `next-themes` via the `ThemeProvider`).
 - **`.env.local` is required for `npm run build` and `npm run dev`** — Supabase client init throws at module evaluation if `NEXT_PUBLIC_SUPABASE_URL` is missing. Copy `.env.local.example` to `.env.local` and fill in placeholder values at minimum.
-- Pre-existing: `app/api/auth/request-otp/route.ts` imports `createSupabaseAdmin` but `lib/supabase/server.ts` exports `getSupabaseAdmin` — causes a Turbopack dev overlay error. Does not block non-API routes.
+- Next.js 16 emits a deprecation warning for `middleware.ts` ("use proxy instead"); middleware still works correctly.
 - Zod v4 (^4.3.6) is installed. The API is largely compatible with v3 but `import { z } from "zod"` is the correct import style.
 - Supabase types are in `lib/supabase/database.types.ts`. The `Database` type must include `Relationships` arrays for each table (required by `@supabase/supabase-js` v2.98+), otherwise queries resolve to `never`.
-- `lib/supabase/server.ts` exports both `createSupabaseAdmin()` (factory function) and `supabaseAdmin` (lazy singleton proxy). Existing code uses `supabaseAdmin` directly.
+- `lib/supabase/server.ts` exports `createSupabaseAdmin()` (factory function). All server-side code calls this function to get a Supabase client instance.
 - SQL migrations live in `supabase/migrations/`. The app does not require a local Supabase instance; it connects to a remote project via env vars in `.env.local` (see `.env.local.example`).
 - If you need to clean build artifacts, delete `.next/` before running `npm run build` to avoid stale manifest errors.
