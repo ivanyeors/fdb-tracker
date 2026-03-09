@@ -23,12 +23,12 @@ See `package.json` for the full list. Key commands:
 - ESLint currently reports 1 warning for an unused `Geist` import in `app/layout.tsx`; this is pre-existing and not a blocker.
 - **Vitest** is configured (`vitest.config.ts`, `globals: true`, `@` path alias). Run tests with `npm test` (`vitest run`). Test files live in `__tests__/calculations/`.
 - Dark mode can be toggled by pressing the `d` key on the homepage (handled by `next-themes` via the `ThemeProvider`).
-- **`.env.local` is required for `npm run build` and `npm run dev`** — Supabase client init throws at module evaluation if `NEXT_PUBLIC_SUPABASE_URL` is missing. Copy `.env.local.example` to `.env.local` and fill in placeholder values at minimum.
+- **`.env.local` is required for `npm run build` and `npm run dev`** — Supabase client init throws at module evaluation if `NEXT_PUBLIC_SUPABASE_URL` is missing. Ensure `.env.local` exists with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` at minimum.
 - Next.js 16 emits a deprecation warning for `middleware.ts` ("use proxy instead"); middleware still works correctly.
 - Zod v4 (^4.3.6) is installed. The API is largely compatible with v3 but `import { z } from "zod"` is the correct import style.
 - Supabase types are in `lib/supabase/database.types.ts`. The `Database` type must include `Relationships` arrays for each table (required by `@supabase/supabase-js` v2.98+), otherwise queries resolve to `never`.
 - `lib/supabase/server.ts` exports `createSupabaseAdmin()` (factory function). All server-side code calls this function to get a Supabase client instance.
-- SQL migrations live in `supabase/migrations/`. The app does not require a local Supabase instance; it connects to a remote project via env vars in `.env.local` (see `.env.local.example`).
+- SQL migrations live in `supabase/migrations/`. The app does not require a local Supabase instance; it connects to a remote project via env vars in `.env.local`.
 - If you need to clean build artifacts, delete `.next/` before running `npm run build` to avoid stale manifest errors. If the Turbopack dev server panics on start (e.g. "range start index … out of range"), deleting `.next/` and restarting resolves it.
 - Dashboard (`/dashboard/*`) and Settings (`/settings/*`) routes live under the `app/(app)/` route group, which provides a shared sidebar layout. The `(app)` segment is a Next.js route group and does not appear in the URL.
 - `middleware.ts` protects `/dashboard/:path*`, `/settings/:path*`, and `/onboarding/:path*`; unauthenticated requests are redirected to `/login`. When testing dashboard/settings pages locally, you'll get a 307 redirect unless you have a valid session cookie.

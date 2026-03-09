@@ -150,28 +150,16 @@ After completing Phase N and before starting Phase N+1:
 | 1.1.2 | Install Telegram bot library | `npm install telegraf` (preferred over node-telegram-bot-api — better TypeScript support, middleware pattern) |
 | 1.1.3 | Install additional shadcn components | Via `npx shadcn@latest add`: `input`, `label`, `card`, `dialog`, `tooltip`, `hover-card`, `progress`, `separator`, `tabs`, `select`, `switch`, `badge`, `avatar`, `dropdown-menu`, `sheet`, `sidebar`, `skeleton`, `toast`, `sonner` |
 | 1.1.4 | Install utility packages | `npm install zod` (validation), `npm install jose` (JWT for sessions), `npm install date-fns` (date math for CPF/loans) |
-| 1.1.5 | Create `.env.local` template | Create `.env.local.example` with all required env vars (see below) |
+| 1.1.5 | Create `.env.local` template | Create `.env.local` with required env vars (see below) |
 | 1.1.6 | Add `.env.local` to `.gitignore` | Ensure secrets are never committed |
 | 1.1.7 | Configure `.cursor/mcp.json` | Add shadcn + Supabase MCP servers per v2 plan section 8a |
 | 1.1.8 | Add `mcp.json` to `.gitignore` | Per v2 plan note — may contain Supabase access token |
 
-**`.env.local.example`:**
+**`.env.local`:**
 ```
-# Supabase
+# Supabase (required)
 NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-
-# Telegram Bot
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_CHAT_ID=
-
-# External APIs
-EULERPOOL_API_KEY=
-MINDEE_API_KEY=
-
-# App
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=
 ```
 
 ### 1.2 Supabase Project & Schema
@@ -179,7 +167,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 | # | Task | Detail |
 |---|------|--------|
 | 1.2.1 | Create Supabase project | Via Supabase dashboard or CLI (`npx supabase init`, `npx supabase start` for local dev) |
-| 1.2.2 | Create Supabase client helper | `lib/supabase/client.ts` — browser client using `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
+| 1.2.2 | Create Supabase client helper | `lib/supabase/client.ts` — browser client using `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` |
 | 1.2.3 | Create Supabase server helper | `lib/supabase/server.ts` — server client using `SUPABASE_SERVICE_ROLE_KEY` for API routes |
 | 1.2.4 | Create migration: `households` table | See schema below |
 | 1.2.5 | Create migration: `profiles` table | See schema below |
@@ -1104,7 +1092,7 @@ Run this complete checklist after Phase 6 before considering the project complet
 │       └── loans.test.ts
 ├── middleware.ts
 ├── vercel.json
-└── .env.local.example
+└── .env.local
 ```
 
 ---
