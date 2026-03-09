@@ -23,7 +23,6 @@ flowchart TB
     subgraph external [External APIs]
         OCBC_PM[OCBC Precious Metals Prices]
         Eulerpool[Eulerpool API]
-        MindeeOCR[Mindee / OCR API]
     end
 
     Web -->|OTP request| API
@@ -31,15 +30,12 @@ flowchart TB
     TG -->|User enters OTP| Web
     TG -->|Structured commands| Webhook
     TG -->|PDF upload| Webhook
-    Webhook -->|Forward PDF| OCR
-    OCR -->|Parsed transactions| API
     Web -->|Create/edit data| API
     Webhook --> API
     Cron -->|Reminders| TG
     API --> Supabase
     API --> OCBC_PM
     API --> Eulerpool
-    API --> MindeeOCR
 ```
 
 ---
@@ -278,18 +274,11 @@ monthly_take_home = monthly_gross - employee_cpf
 
 **Flow:**
 1. User sends PDF bank statement to Telegram channel (no command needed — bot detects PDF)
-2. Telegram webhook forwards the PDF to OCR engine (Mindee Bank Statement API or equivalent)
-3. OCR returns structured JSON: transactions with dates, descriptions, amounts, debit/credit
-4. System aggregates: total credits → suggested inflow, total debits → suggested outflow
-5. Bot replies: "📄 Statement parsed for [Month]. Inflow: $X, Outflow: $Y. Confirm? /confirm or /edit"
-6. On `/confirm` → writes to `monthly_cashflow`; on `/edit` → user adjusts via dashboard
+2. Telegram webhook stores the PDF URL in the database
+3. Bot replies: "📄 PDF bank statement received and stored. Please enter the cash flow data manually on the dashboard."
+4. User enters inflow/outflow data manually via dashboard
 
-**OCR Provider Options:**
-| Provider | Features | Free Tier |
-| --- | --- | --- |
-| **Mindee** | Specialized bank statement model, line-item extraction, Node.js SDK | Trial (no CC required) |
-| **Veryfi** | 99.8% accuracy, multi-currency, structured JSON | Limited free |
-| **OCRAPI.cloud** | General-purpose, table extraction, async with webhooks | Free tier available |
+**Note:** OCR functionality has been removed as it requires paid services. Manual data entry is now required.
 
 **Data stored:** `ocr_uploads` table stores the file URL, raw parsed JSON, confirmation status, and linked month/profile.
 
@@ -990,7 +979,7 @@ Replicate [OCBC Savings Goals](https://www.frankbyocbc.com/plan/savings-goals):
 | **Stocks (SGX, US, global)** | **Eulerpool API** | `GET /v1/equities/{ticker}/price`; 100k+ stocks, 90+ exchanges; SGX e.g. S68.SI, DBS.SI; free tier 250 req/mo |
 | **Gold (SGD)** | **OCBC indicative price** (primary); MetalpriceAPI (fallback) | Scrape or cache OCBC page; fallback to public API |
 | **Silver (SGD)** | **OCBC indicative price** (primary); MetalpriceAPI (fallback) | Same strategy as gold |
-| **PDF OCR** | **Mindee Bank Statement API** (primary); OCRAPI.cloud (fallback) | Node.js SDK; free trial |
+| ~~**PDF OCR**~~ | ~~**Mindee Bank Statement API** (primary); OCRAPI.cloud (fallback)~~ | ~~Node.js SDK; free trial~~ (REMOVED - not free) |
 
 **Eulerpool:** Docs at [docs.eulerpool.com](https://docs.eulerpool.com/). Auth via API key. Returns price, change, volume, timestamp. Use for derived stock P&L and mark-to-market.
 
@@ -1036,7 +1025,7 @@ Replicate [OCBC Savings Goals](https://www.frankbyocbc.com/plan/savings-goals):
 | Telegram | `node-telegram-bot-api` or `telegraf` |
 | Stocks | Eulerpool API |
 | Gold/Silver | OCBC indicative prices (scrape + cache) + MetalpriceAPI fallback |
-| OCR | Mindee Bank Statement API |
+| ~~OCR~~ | ~~Mindee Bank Statement API~~ (REMOVED) |
 | Hosting | Vercel (cron for reminders) |
 
 ---

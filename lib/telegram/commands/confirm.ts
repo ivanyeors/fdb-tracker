@@ -22,8 +22,13 @@ export async function handleConfirm(
   }
 
   const parsedData = upload.parsed_data as Record<string, Json> | null
-  const inflow = Number(parsedData?.totalCredits ?? 0)
-  const outflow = Number(parsedData?.totalDebits ?? 0)
+  
+  if (!parsedData || !parsedData.totalCredits || !parsedData.totalDebits) {
+    return "❌ No OCR data available. The OCR feature has been removed. Please enter cash flow data manually on the dashboard."
+  }
+  
+  const inflow = Number(parsedData.totalCredits ?? 0)
+  const outflow = Number(parsedData.totalDebits ?? 0)
   const month = upload.month ?? format(startOfMonth(new Date()), "yyyy-MM-dd")
   const monthLabel = format(new Date(month), "MMMM yyyy")
 

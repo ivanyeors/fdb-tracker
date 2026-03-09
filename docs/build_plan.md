@@ -548,15 +548,15 @@ CREATE TABLE loans (
 | 3.2.10 | `/confirm` handler | `lib/telegram/commands/confirm.ts` — confirm pending OCR-parsed data. Write to `monthly_cashflow`. |
 | 3.2.11 | Audit logging middleware | Telegraf middleware: log every command to `telegram_commands` table (command, args, user, timestamp, success/failure). |
 
-### 3.3 PDF → OCR Pipeline
+### 3.3 PDF Upload (Manual Entry Required)
 
 | # | Task | Detail |
 |---|------|--------|
-| 3.3.1 | Install Mindee SDK | `npm install mindee` |
-| 3.3.2 | Create `lib/ocr/mindee-client.ts` | Initialize Mindee client with `MINDEE_API_KEY`. Export `parseBankStatement(fileBuffer)` → returns structured transactions. |
-| 3.3.3 | Create `lib/telegram/commands/pdf-handler.ts` | Telegraf document handler: detect PDF MIME type, download file from Telegram API, forward to Mindee OCR, aggregate inflow/outflow, store in `ocr_uploads`, reply with summary + `/confirm` or `/edit` prompt. If multi-user household, ask "Who does this statement belong to?" |
-| 3.3.4 | Create `app/api/ocr/parse/route.ts` | POST: alternative dashboard upload endpoint. Accept PDF file, parse via Mindee, return JSON with transactions + suggested inflow/outflow. |
-| 3.3.5 | Create `app/api/ocr/confirm/route.ts` | POST: confirm OCR results, write to monthly_cashflow, update ocr_uploads status. |
+| 3.3.1 | ~~Install Mindee SDK~~ | ~~`npm install mindee`~~ (REMOVED - OCR is not free) |
+| 3.3.2 | ~~Create `lib/ocr/mindee-client.ts`~~ | ~~Initialize Mindee client with `MINDEE_API_KEY`. Export `parseBankStatement(fileBuffer)` → returns structured transactions.~~ (REMOVED) |
+| 3.3.3 | Create `lib/telegram/commands/pdf-handler.ts` | Telegraf document handler: detect PDF MIME type, download file from Telegram API, store in `ocr_uploads`, reply with message to enter data manually on dashboard. If multi-user household, ask "Who does this statement belong to?" |
+| 3.3.4 | ~~Create `app/api/ocr/parse/route.ts`~~ | ~~POST: alternative dashboard upload endpoint. Accept PDF file, parse via Mindee, return JSON with transactions + suggested inflow/outflow.~~ (REMOVED) |
+| 3.3.5 | ~~Create `app/api/ocr/confirm/route.ts`~~ | ~~POST: confirm OCR results, write to monthly_cashflow, update ocr_uploads status.~~ (REMOVED - /confirm command now shows error message about manual entry)
 
 ### 3.4 Reminder Cron System
 
@@ -1067,8 +1067,6 @@ Run this complete checklist after Phase 6 before considering the project complet
 │   ├── external/
 │   │   ├── eulerpool.ts
 │   │   └── precious-metals.ts
-│   ├── ocr/
-│   │   └── mindee-client.ts
 │   ├── reminders/
 │   │   └── templates.ts
 │   └── validations/
@@ -1108,7 +1106,6 @@ zod                       # Schema validation
 jose                      # JWT session management
 date-fns                  # Date math for CPF/loans/amortization
 recharts                  # Charting library for dashboard
-mindee                    # OCR API client
 ```
 
 ### shadcn Components (to add via CLI)
