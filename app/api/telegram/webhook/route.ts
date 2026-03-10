@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { bot } from "@/lib/telegram/bot"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { getOrCreateHouseholdForChannel } from "@/lib/auth/household"
+import { generateAndStoreOtp } from "@/lib/auth/otp"
 import { handleInflow } from "@/lib/telegram/commands/inflow"
 import { handleOutflow } from "@/lib/telegram/commands/outflow"
 import { handleBuy } from "@/lib/telegram/commands/buy"
@@ -50,6 +52,22 @@ bot.on("message", async (ctx) => {
   if (!parsed) return
 
   const chatId = msg.chat.id
+
+  if (parsed.command === "otp") {
+    const householdId = await getOrCreateHouseholdForChannel(String(chatId))
+    if (!householdId) {
+      await ctx.reply("❌ Failed to generate OTP. Please try again.")
+      return
+    }
+    const result = await generateAndStoreOtp(householdId)
+    if ("error" in result) {
+      await ctx.reply(`❌ ${result.error}`)
+      return
+    }
+    await ctx.reply(`🔑 Your OTP: ${result.otp}`)
+    return
+  }
+
   const householdId = await resolveHousehold(chatId)
   if (!householdId) {
     await ctx.reply("❌ This chat is not linked to a household.")

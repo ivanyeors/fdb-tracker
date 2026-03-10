@@ -19,32 +19,7 @@ export default function LoginPage() {
 
   const [otp, setOtp] = useState("")
   const [loading, setLoading] = useState(false)
-  const [requestLoading, setRequestLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  async function handleRequestOtp() {
-    setRequestLoading(true)
-    setError(null)
-
-    try {
-      const res = await fetch("/api/auth/request-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        setError(data.error ?? "Failed to send OTP")
-        return
-      }
-    } catch {
-      setError("Network error. Please try again.")
-    } finally {
-      setRequestLoading(false)
-    }
-  }
 
   async function handleVerifyOtp() {
     setLoading(true)
@@ -72,7 +47,7 @@ export default function LoginPage() {
     }
   }
 
-  const isLoading = loading || requestLoading
+  const isLoading = loading
 
   return (
     <div className="flex min-h-svh items-center justify-center p-4">
@@ -82,7 +57,8 @@ export default function LoginPage() {
             fdb-tracker
           </CardTitle>
           <CardDescription className="text-center">
-            Enter the 6-digit OTP from your Telegram channel
+            Send /otp in your Telegram channel to get your code, then enter it
+            below.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -112,14 +88,6 @@ export default function LoginPage() {
               disabled={isLoading || otp.length !== 6}
             >
               {loading ? "Verifying…" : "Verify"}
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleRequestOtp}
-              disabled={isLoading}
-            >
-              {requestLoading ? "Sending…" : "Request OTP"}
             </Button>
           </div>
         </CardContent>
