@@ -41,10 +41,8 @@ function shouldFire(
   schedule: { frequency: string; day_of_month: number; month_of_year: number | null; time: string; timezone: string },
 ): { fire: boolean; now: ReturnType<typeof nowInTimezone> } {
   const now = nowInTimezone(schedule.timezone)
-  const scheduleHour = parseInt(schedule.time.split(":")[0], 10)
 
   if (now.day !== schedule.day_of_month) return { fire: false, now }
-  if (now.hour !== scheduleHour) return { fire: false, now }
 
   if (schedule.frequency === "yearly" && schedule.month_of_year !== null) {
     if (now.month !== schedule.month_of_year) return { fire: false, now }
