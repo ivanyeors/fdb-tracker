@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function SetupPage() {
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <h1 className="text-2xl font-semibold">Setup</h1>
       <p className="text-muted-foreground mt-1">
         Manage profiles and re-run onboarding.

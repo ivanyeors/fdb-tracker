@@ -64,7 +64,7 @@ export default function BanksPage() {
     .reduce((sum, c) => sum + parseFloat(c.rate), 0)
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
         title="Banks"
         description="Per-bank balances and OCBC 360 interest projection."

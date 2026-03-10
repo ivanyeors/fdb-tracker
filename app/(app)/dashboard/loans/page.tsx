@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function LoansPage() {
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <h1 className="text-2xl font-semibold">Loans</h1>
       <p className="text-muted-foreground mt-1">
         Loan tracking, repayments, and interest calculator.

@@ -278,19 +278,21 @@ function RetirementTab() {
 
 export default function CpfPage() {
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
         title="CPF"
         description="OA/SA/MA balances, housing, and retirement benchmarking."
       />
 
       <Tabs defaultValue="overview">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
+        <div className="-mx-1 overflow-x-auto [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
+          <TabsList className="inline-flex w-fit flex-nowrap">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="housing">Housing</TabsTrigger>
           <TabsTrigger value="loans">Loans</TabsTrigger>
           <TabsTrigger value="retirement">Retirement</TabsTrigger>
-        </TabsList>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="mt-4">
           <OverviewTab />

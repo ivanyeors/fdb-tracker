@@ -16,7 +16,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <SidebarNav />
         <SidebarInset>
           <Header />
-          <div className="flex-1">{children}</div>
+          <div className="min-w-0 flex-1 overflow-x-hidden">{children}</div>
         </SidebarInset>
       </SidebarProvider>
     </ActiveProfileProvider>

@@ -27,11 +27,11 @@ export function Header() {
   const sectionName = breadcrumbMap[pathname] ?? "Dashboard"
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-      <SidebarTrigger className="-ml-1" />
-      <Separator orientation="vertical" className="mr-2 !h-4" />
-      <h2 className="text-sm font-medium">{sectionName}</h2>
-      <div className="ml-auto">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b px-3 sm:px-4">
+      <SidebarTrigger className="-ml-1 shrink-0" />
+      <Separator orientation="vertical" className="mr-2 !h-4 shrink-0" />
+      <h2 className="min-w-0 truncate text-sm font-medium">{sectionName}</h2>
+      <div className="ml-auto shrink-0">
         <ProfileToggle />
       </div>
     </header>

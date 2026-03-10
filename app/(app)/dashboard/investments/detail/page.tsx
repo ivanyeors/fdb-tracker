@@ -219,20 +219,22 @@ const JOURNAL_ENTRIES: JournalEntry[] = [
 
 export default function InvestmentsDetailPage() {
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
         title="Investments Detail"
         description="Full holdings, journals, and market breakdown."
       />
 
       <Tabs defaultValue="holdings">
-        <TabsList>
-          <TabsTrigger value="holdings">Holdings</TabsTrigger>
+        <div className="-mx-1 overflow-x-auto [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
+          <TabsList className="inline-flex w-fit flex-nowrap">
+            <TabsTrigger value="holdings">Holdings</TabsTrigger>
           <TabsTrigger value="allocation">Allocation</TabsTrigger>
           <TabsTrigger value="ilp">ILP</TabsTrigger>
           <TabsTrigger value="metals">Precious Metals</TabsTrigger>
           <TabsTrigger value="journals">Journals</TabsTrigger>
-        </TabsList>
+          </TabsList>
+        </div>
 
         <TabsContent value="holdings" className="mt-4">
           <HoldingsTable holdings={HOLDINGS} />

@@ -114,7 +114,7 @@ export default function InvestmentsPage() {
     .slice(0, 5)
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
         title="Investments"
         description="Portfolio overview, allocation, and P&L."

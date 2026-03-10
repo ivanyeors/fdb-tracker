@@ -48,7 +48,7 @@ const netSavings =
 
 export default function CashflowPage() {
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
         title="Cashflow"
         description="Monthly inflow vs outflow breakdown."
@@ -128,7 +128,7 @@ export default function CashflowPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <MetricCard label="Inflow" value="5,600" prefix="$" />
         <MetricCard label="Discretionary" value="2,800" prefix="$" />
         <MetricCard label="Insurance" value="200" prefix="$" />

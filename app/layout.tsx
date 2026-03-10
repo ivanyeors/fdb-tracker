@@ -1,6 +1,11 @@
 import { Geist, Geist_Mono, DM_Sans } from "next/font/google"
 
 import "./globals.css"
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+}
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils";
