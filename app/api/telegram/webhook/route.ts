@@ -101,7 +101,23 @@ bot.on("message", async (ctx) => {
 })
 
 export async function POST(request: NextRequest) {
-  const body = await request.json()
-  await bot.handleUpdate(body)
-  return NextResponse.json({ ok: true })
+  if (!process.env.TELEGRAM_BOT_TOKEN) {
+    console.error("[telegram/webhook] TELEGRAM_BOT_TOKEN is not set")
+    return NextResponse.json(
+      { error: "Telegram bot not configured" },
+      { status: 503 },
+    )
+  }
+
+  try {
+    const body = await request.json()
+    await bot.handleUpdate(body)
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error("[telegram/webhook] Error handling update:", err)
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    )
+  }
 }

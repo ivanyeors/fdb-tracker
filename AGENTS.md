@@ -33,3 +33,26 @@ See `package.json` for the full list. Key commands:
 - Dashboard (`/dashboard/*`) and Settings (`/settings/*`) routes live under the `app/(app)/` route group, which provides a shared sidebar layout. The `(app)` segment is a Next.js route group and does not appear in the URL.
 - `middleware.ts` protects `/dashboard/:path*`, `/settings/:path*`, and `/onboarding/:path*`; unauthenticated requests are redirected to `/login`. When testing dashboard/settings pages locally, you'll get a 307 redirect unless you have a valid session cookie.
 - The onboarding flow (`/onboarding/*`) uses an `OnboardingProvider` context that wraps the onboarding layout. All onboarding state (user count, profiles, income, banks, telegram, schedule) is held in React state; no Supabase calls are made during onboarding yet.
+
+### Telegram Webhook Setup
+
+The `/otp` command and other Telegram commands require the webhook URL to be registered with Telegram after deploying to production. Telegram only sends updates to the URL you set via `setWebhook`.
+
+**Required env vars (Vercel):** `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL` (e.g. `https://fd-tracker-mu.vercel.app`), `CRON_SECRET`.
+
+**Register webhook after deploy:**
+
+1. **Via API route** (requires `CRON_SECRET` in Authorization header):
+   ```bash
+   curl -H "Authorization: Bearer $CRON_SECRET" "https://fd-tracker-mu.vercel.app/api/telegram/set-webhook"
+   ```
+
+2. **Via script** (from project root):
+   ```bash
+   NEXT_PUBLIC_APP_URL=https://fd-tracker-mu.vercel.app TELEGRAM_BOT_TOKEN=your_token npx tsx scripts/set-telegram-webhook.ts
+   ```
+
+3. **Manual curl**:
+   ```bash
+   curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://fd-tracker-mu.vercel.app/api/telegram/webhook"
+   ```
