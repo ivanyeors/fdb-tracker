@@ -1061,54 +1061,6 @@ export type Database = {
           },
         ]
       }
-      ocr_uploads: {
-        Row: {
-          id: string
-          household_id: string
-          profile_id: string | null
-          file_url: string
-          parsed_data: Json | null
-          status: string
-          month: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          household_id: string
-          profile_id?: string | null
-          file_url: string
-          parsed_data?: Json | null
-          status?: string
-          month?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          household_id?: string
-          profile_id?: string | null
-          file_url?: string
-          parsed_data?: Json | null
-          status?: string
-          month?: string | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ocr_uploads_household_id_fkey"
-            columns: ["household_id"]
-            isOneToOne: false
-            referencedRelation: "households"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ocr_uploads_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       telegram_commands: {
         Row: {
           id: string

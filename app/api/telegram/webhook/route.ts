@@ -11,8 +11,6 @@ import { handleIlp } from "@/lib/telegram/commands/ilp"
 import { handleGoaladd } from "@/lib/telegram/commands/goaladd"
 import { handleRepay } from "@/lib/telegram/commands/repay"
 import { handleEarlyrepay } from "@/lib/telegram/commands/earlyrepay"
-import { handleConfirm } from "@/lib/telegram/commands/confirm"
-import { handlePdfUpload } from "@/lib/telegram/commands/pdf-handler"
 
 async function resolveHousehold(chatId: number) {
   const supabase = createSupabaseAdmin()
@@ -22,15 +20,6 @@ async function resolveHousehold(chatId: number) {
     .eq("telegram_chat_id", String(chatId))
     .single()
   return data?.id ?? null
-}
-
-async function resolveProfiles(householdId: string) {
-  const supabase = createSupabaseAdmin()
-  const { data } = await supabase
-    .from("profiles")
-    .select("id, name")
-    .eq("household_id", householdId)
-  return data ?? []
 }
 
 type CommandHandler = (householdId: string, text: string) => Promise<string>
@@ -55,19 +44,6 @@ function extractCommand(text: string): { command: string; rest: string } | null 
 bot.on("message", async (ctx) => {
   const msg = ctx.message
 
-  if ("document" in msg && msg.document?.mime_type === "application/pdf") {
-    const chatId = msg.chat.id
-    const householdId = await resolveHousehold(chatId)
-    if (!householdId) {
-      await ctx.reply("❌ This chat is not linked to a household.")
-      return
-    }
-    const profiles = await resolveProfiles(householdId)
-    const reply = await handlePdfUpload(householdId, msg.document.file_id, profiles)
-    await ctx.reply(reply)
-    return
-  }
-
   if (!("text" in msg) || !msg.text) return
 
   const parsed = extractCommand(msg.text)
@@ -77,12 +53,6 @@ bot.on("message", async (ctx) => {
   const householdId = await resolveHousehold(chatId)
   if (!householdId) {
     await ctx.reply("❌ This chat is not linked to a household.")
-    return
-  }
-
-  if (parsed.command === "confirm") {
-    const reply = await handleConfirm(householdId)
-    await ctx.reply(reply)
     return
   }
 
