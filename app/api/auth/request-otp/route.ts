@@ -1,10 +1,5 @@
-import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
+import { NextResponse } from "next/server"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-
-const requestOtpSchema = z.object({
-  householdId: z.string().uuid(),
-})
 
 async function sha256(message: string): Promise<string> {
   const data = new TextEncoder().encode(message)
@@ -14,34 +9,46 @@ async function sha256(message: string): Promise<string> {
     .join("")
 }
 
-export async function POST(request: NextRequest) {
+async function getOrCreateHouseholdForChannel(
+  chatId: string,
+): Promise<string | null> {
+  const supabase = createSupabaseAdmin()
+  const { data: existing } = await supabase
+    .from("households")
+    .select("id")
+    .eq("telegram_chat_id", chatId)
+    .maybeSingle()
+  if (existing?.id) return existing.id
+
+  const { data: created, error } = await supabase
+    .from("households")
+    .insert({ user_count: 1, telegram_chat_id: chatId })
+    .select("id")
+    .single()
+  if (error || !created) return null
+  return created.id
+}
+
+export async function POST() {
   try {
-    const body = await request.json()
-    const parsed = requestOtpSchema.safeParse(body)
-
-    if (!parsed.success) {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN
+    const chatId = process.env.TELEGRAM_CHAT_ID
+    if (!botToken || !chatId) {
       return NextResponse.json(
-        { error: "Invalid household ID format" },
-        { status: 400 },
+        { error: "Telegram bot or channel not configured" },
+        { status: 500 },
       )
     }
 
-    const { householdId } = parsed.data
+    const householdId = await getOrCreateHouseholdForChannel(chatId)
+    if (!householdId) {
+      return NextResponse.json(
+        { error: "Failed to create or find household for OTP channel" },
+        { status: 500 },
+      )
+    }
+
     const supabase = createSupabaseAdmin()
-
-    const { data: household, error: householdError } = await supabase
-      .from("households")
-      .select("id, telegram_bot_token, telegram_chat_id")
-      .eq("id", householdId)
-      .single()
-
-    if (householdError || !household) {
-      return NextResponse.json(
-        { error: "Household not found" },
-        { status: 404 },
-      )
-    }
-
     const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString()
 
     const { count } = await supabase
@@ -75,19 +82,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (household.telegram_bot_token && household.telegram_chat_id) {
-      await fetch(
-        `https://api.telegram.org/bot${household.telegram_bot_token}/sendMessage`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: household.telegram_chat_id,
-            text: `🔑 Your OTP: ${otp}`,
-          }),
-        },
-      )
-    }
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: `🔑 Your OTP: ${otp}`,
+      }),
+    })
 
     return NextResponse.json({ success: true })
   } catch {

@@ -17,21 +17,20 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 export default function LoginPage() {
   const router = useRouter()
 
-  const [householdId, setHouseholdId] = useState("")
   const [otp, setOtp] = useState("")
-  const [step, setStep] = useState<1 | 2>(1)
   const [loading, setLoading] = useState(false)
+  const [requestLoading, setRequestLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleRequestOtp() {
-    setLoading(true)
+    setRequestLoading(true)
     setError(null)
 
     try {
       const res = await fetch("/api/auth/request-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ householdId }),
+        body: JSON.stringify({}),
       })
 
       const data = await res.json()
@@ -40,12 +39,10 @@ export default function LoginPage() {
         setError(data.error ?? "Failed to send OTP")
         return
       }
-
-      setStep(2)
     } catch {
       setError("Network error. Please try again.")
     } finally {
-      setLoading(false)
+      setRequestLoading(false)
     }
   }
 
@@ -57,7 +54,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ householdId, otp }),
+        body: JSON.stringify({ otp }),
       })
 
       const data = await res.json()
@@ -75,6 +72,8 @@ export default function LoginPage() {
     }
   }
 
+  const isLoading = loading || requestLoading
+
   return (
     <div className="flex min-h-svh items-center justify-center p-4">
       <Card className="w-full max-w-sm">
@@ -83,9 +82,7 @@ export default function LoginPage() {
             fdb-tracker
           </CardTitle>
           <CardDescription className="text-center">
-            {step === 1
-              ? "Enter your household ID to sign in"
-              : "Enter the OTP sent to your Telegram"}
+            Enter the 6-digit OTP from your Telegram channel
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -95,62 +92,36 @@ export default function LoginPage() {
             </Alert>
           )}
 
-          {step === 1 ? (
-            <>
-              <div className="grid gap-2">
-                <Label htmlFor="household-id">Household ID</Label>
-                <Input
-                  id="household-id"
-                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                  value={householdId}
-                  onChange={(e) => setHouseholdId(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-              <Button
-                className="w-full"
-                onClick={handleRequestOtp}
-                disabled={loading || !householdId.trim()}
-              >
-                {loading ? "Sending…" : "Request OTP"}
-              </Button>
-            </>
-          ) : (
-            <>
-              <div className="grid gap-2">
-                <Label htmlFor="otp">One-Time Password</Label>
-                <Input
-                  id="otp"
-                  placeholder="000000"
-                  maxLength={6}
-                  value={otp}
-                  onChange={(e) =>
-                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  disabled={loading}
-                />
-              </div>
-              <Button
-                className="w-full"
-                onClick={handleVerifyOtp}
-                disabled={loading || otp.length !== 6}
-              >
-                {loading ? "Verifying…" : "Verify"}
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full"
-                onClick={() => {
-                  setStep(1)
-                  setOtp("")
-                  setError(null)
-                }}
-                disabled={loading}
-              >
-                Back
-              </Button>
-            </>
-          )}
+          <div className="grid gap-2">
+            <Label htmlFor="otp">One-Time Password</Label>
+            <Input
+              id="otp"
+              placeholder="000000"
+              maxLength={6}
+              value={otp}
+              onChange={(e) =>
+                setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+              disabled={isLoading}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Button
+              className="w-full"
+              onClick={handleVerifyOtp}
+              disabled={isLoading || otp.length !== 6}
+            >
+              {loading ? "Verifying…" : "Verify"}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleRequestOtp}
+              disabled={isLoading}
+            >
+              {requestLoading ? "Sending…" : "Request OTP"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

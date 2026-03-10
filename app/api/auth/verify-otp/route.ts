@@ -4,7 +4,6 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { createSession, COOKIE_NAME } from "@/lib/auth/session"
 
 const verifyOtpSchema = z.object({
-  householdId: z.string().uuid(),
   otp: z.string().length(6),
 })
 
@@ -25,18 +24,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { householdId, otp } = parsed.data
+    const { otp } = parsed.data
     const otpHash = await sha256(otp)
     const supabase = createSupabaseAdmin()
 
     const { data: token, error: tokenError } = await supabase
       .from("otp_tokens")
-      .select("id")
-      .eq("household_id", householdId)
+      .select("id, household_id")
       .eq("otp_hash", otpHash)
       .eq("used", false)
       .gte("expires_at", new Date().toISOString())
-      .single()
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
     if (tokenError || !token) {
       return NextResponse.json(
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       .update({ used: true })
       .eq("id", token.id)
 
-    const sessionToken = await createSession(householdId)
+    const sessionToken = await createSession(token.household_id)
     const isProduction = process.env.NODE_ENV === "production"
 
     const response = NextResponse.json({ success: true })
