@@ -45,7 +45,7 @@ if (!dbUrl) {
 
 async function main() {
   const { default: postgres } = await import("postgres")
-  const sql = postgres(dbUrl, { max: 1 })
+  const sql = postgres(dbUrl as string, { max: 1 })
 
   const migrationPath = resolve(process.cwd(), "supabase/migrations/003_ensure_households.sql")
   if (!existsSync(migrationPath)) {
