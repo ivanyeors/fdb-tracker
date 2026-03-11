@@ -67,3 +67,18 @@ curl -H "Authorization: Bearer $CRON_SECRET" "https://fd-tracker-mu.vercel.app/a
 curl -H "Authorization: Bearer $CRON_SECRET" "https://fd-tracker-mu.vercel.app/api/telegram/set-commands"
 ```
 The menu can take a few minutes to appear; restart the Telegram app if it does not show.
+
+### Telegram /otp "Login is temporarily unavailable"
+
+If `/otp` returns "❌ Login is temporarily unavailable" and Vercel logs show `Could not find the table 'public.households' in the schema cache`, the migrations were not applied to your Supabase project.
+
+**Fix:**
+
+1. **Supabase SQL Editor** (recommended): Open Supabase Dashboard → SQL Editor → New query. Paste and run the contents of `supabase/migrations/003_ensure_households.sql`.
+
+2. **Script** (with database URL): Get the connection string from Supabase Dashboard → Project Settings → Database → Connection string (URI). Then:
+   ```bash
+   DATABASE_URL="postgresql://postgres.[ref]:[password]@..." npm run db:fix-households
+   ```
+
+3. **Supabase CLI**: If linked, run `npx supabase db push` to apply all migrations.

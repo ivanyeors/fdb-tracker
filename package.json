@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "db:fix-households": "npx tsx scripts/apply-households-migration.ts",
     "dev": "NODE_OPTIONS='--disable-warning=DEP0169' next dev --turbopack",
     "build": "NODE_OPTIONS='--disable-warning=DEP0169' next build",
     "start": "NODE_OPTIONS='--disable-warning=DEP0169' next start",
@@ -42,6 +43,7 @@
     "eslint": "^9.39.2",
     "eslint-config-next": "16.1.6",
     "postcss": "^8",
+    "postgres": "^3.4.8",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "shadcn": "^4.0.0",
