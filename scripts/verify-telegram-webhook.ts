@@ -1,8 +1,25 @@
 #!/usr/bin/env npx tsx
 /**
  * Verifies Telegram webhook is correctly configured.
- * Run: NEXT_PUBLIC_APP_URL=https://your-app.vercel.app TELEGRAM_BOT_TOKEN=xxx CRON_SECRET=xxx npx tsx scripts/verify-telegram-webhook.ts
+ * Loads .env.local automatically. Run from project root:
+ *
+ *   npx tsx scripts/verify-telegram-webhook.ts
  */
+
+import { readFileSync, existsSync } from "node:fs"
+import { resolve } from "node:path"
+
+function loadEnvLocal() {
+  const path = resolve(process.cwd(), ".env.local")
+  if (!existsSync(path)) return
+  for (const line of readFileSync(path, "utf-8").split("\n")) {
+    const m = line.match(/^([^#=]+)=(.*)$/)
+    if (m && !process.env[m[1].trim()]) {
+      process.env[m[1].trim()] = m[2].trim().replace(/^["']|["']$/g, "")
+    }
+  }
+}
+loadEnvLocal()
 
 const token = process.env.TELEGRAM_BOT_TOKEN
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL
@@ -60,7 +77,12 @@ if (currentUrl.includes("localhost")) {
   process.exit(1)
 }
 
-if (expectedWebhook && currentUrl !== expectedWebhook) {
+const baseUrlIsLocalhost = baseUrl?.includes("localhost")
+if (
+  expectedWebhook &&
+  currentUrl !== expectedWebhook &&
+  !baseUrlIsLocalhost
+) {
   console.log("⚠️  Webhook URL mismatch:")
   console.log(`   Expected: ${expectedWebhook}`)
   console.log(`   Current:  ${currentUrl}`)
