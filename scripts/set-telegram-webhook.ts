@@ -27,11 +27,19 @@ console.log(`Setting webhook to: ${webhookUrl}`)
 const res = await fetch(apiUrl)
 const data = (await res.json()) as { ok?: boolean; description?: string }
 
-if (data.ok) {
-  console.log("✅ Webhook registered successfully")
-} else {
+if (!data.ok) {
   console.error("❌ Failed to register webhook:", data.description ?? res.statusText)
   process.exit(1)
+}
+
+console.log("✅ Webhook registered successfully")
+
+const { setBotCommands } = await import("../lib/telegram/commands")
+const cmdResult = await setBotCommands(token)
+if (cmdResult.ok) {
+  console.log("✅ Bot command menu registered")
+} else {
+  console.error("⚠️ Failed to register command menu:", cmdResult.error)
 }
 
 export {}

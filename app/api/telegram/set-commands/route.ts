@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { setBotCommands } from "@/lib/telegram/commands"
 
+/**
+ * Registers the bot command menu with Telegram.
+ * Call with: curl -H "Authorization: Bearer $CRON_SECRET" "https://your-app.com/api/telegram/set-commands"
+ */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization")
   const cronSecret = process.env.CRON_SECRET
@@ -11,8 +15,6 @@ export async function GET(request: NextRequest) {
   }
 
   const token = process.env.TELEGRAM_BOT_TOKEN
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
-
   if (!token) {
     return NextResponse.json(
       { ok: false, error: "TELEGRAM_BOT_TOKEN is not set" },
@@ -20,32 +22,13 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (!baseUrl) {
-    return NextResponse.json(
-      { ok: false, error: "NEXT_PUBLIC_APP_URL is not set" },
-      { status: 500 },
-    )
-  }
-
-  const webhookUrl = `${baseUrl.replace(/\/$/, "")}/api/telegram/webhook`
-  const apiUrl = `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}`
-
   try {
-    const res = await fetch(apiUrl)
-    const data = (await res.json()) as { ok?: boolean; description?: string }
-
-    if (data.ok) {
-      const cmdResult = await setBotCommands(token)
-      return NextResponse.json({
-        ok: true,
-        webhookUrl,
-        commandsSet: cmdResult.ok,
-        commandsError: cmdResult.error,
-      })
+    const result = await setBotCommands(token)
+    if (result.ok) {
+      return NextResponse.json({ ok: true })
     }
-
     return NextResponse.json(
-      { ok: false, error: data.description ?? res.statusText },
+      { ok: false, error: result.error },
       { status: 400 },
     )
   } catch (err) {
