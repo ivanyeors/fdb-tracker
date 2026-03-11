@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { getBot } from "@/lib/telegram/bot"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-import { getOrCreateHouseholdForChannel } from "@/lib/auth/household"
 import { generateAndStoreOtp } from "@/lib/auth/otp"
 import { handleInflow } from "@/lib/telegram/commands/inflow"
 import { handleOutflow } from "@/lib/telegram/commands/outflow"
@@ -14,17 +13,42 @@ import { handleGoaladd } from "@/lib/telegram/commands/goaladd"
 import { handleRepay } from "@/lib/telegram/commands/repay"
 import { handleEarlyrepay } from "@/lib/telegram/commands/earlyrepay"
 
-async function resolveHousehold(chatId: number) {
-  const supabase = createSupabaseAdmin()
-  const { data } = await supabase
-    .from("households")
-    .select("id")
-    .eq("telegram_chat_id", String(chatId))
-    .single()
-  return data?.id ?? null
+async function getOrCreateAccount(chatId: string): Promise<string | null> {
+  try {
+    const supabase = createSupabaseAdmin()
+
+    const { data: existing, error: lookupError } = await supabase
+      .from("households")
+      .select("id")
+      .eq("telegram_chat_id", chatId)
+      .maybeSingle()
+
+    if (lookupError) {
+      console.error("[telegram] Account lookup failed:", lookupError.message)
+      return null
+    }
+
+    if (existing?.id) return existing.id
+
+    const { data: created, error: createError } = await supabase
+      .from("households")
+      .insert({ user_count: 1, telegram_chat_id: chatId })
+      .select("id")
+      .single()
+
+    if (createError) {
+      console.error("[telegram] Account creation failed:", createError.message)
+      return null
+    }
+
+    return created?.id ?? null
+  } catch (err) {
+    console.error("[telegram] getOrCreateAccount error:", err)
+    return null
+  }
 }
 
-type CommandHandler = (householdId: string, text: string) => Promise<string>
+type CommandHandler = (accountId: string, text: string) => Promise<string>
 
 const textCommands: Record<string, CommandHandler> = {
   in: handleInflow,
@@ -43,16 +67,20 @@ function extractCommand(text: string): { command: string; rest: string } | null 
   return { command: match[1], rest: match[3] ?? "" }
 }
 
-function serializeFailure(
-  failure: { stage: string; error: string; code?: string },
-  context: Record<string, string | number | null>,
-) {
-  return JSON.stringify({
-    ...context,
-    stage: failure.stage,
-    error: failure.error,
-    code: failure.code ?? null,
-  })
+async function handleStartCommand(
+  chatId: string,
+  reply: (text: string) => Promise<unknown>,
+): Promise<void> {
+  const accountId = await getOrCreateAccount(chatId)
+  if (!accountId) {
+    await reply("❌ Something went wrong setting up your account. Please try again.")
+    return
+  }
+  await reply(
+    "👋 Welcome to fdb-tracker!\n\n" +
+      "Use /otp to get a one-time password for logging in.\n" +
+      "Type / to see all available commands.",
+  )
 }
 
 async function handleOtpCommand(
@@ -62,47 +90,22 @@ async function handleOtpCommand(
 ): Promise<void> {
   console.log(
     "[telegram/otp] handleOtpCommand called:",
-    JSON.stringify({
-      chatId: chat.id,
-      chatType: chat.type,
-      fromUserId,
-    }),
+    JSON.stringify({ chatId: chat.id, chatType: chat.type, fromUserId }),
   )
   try {
-    const household = await getOrCreateHouseholdForChannel(String(chat.id))
-    if (!household.ok) {
-      console.error(
-        "[telegram/otp] Household resolution failed:",
-        serializeFailure(household, {
-          chatId: chat.id,
-          chatType: chat.type,
-          fromUserId,
-        }),
-      )
+    const accountId = await getOrCreateAccount(String(chat.id))
+    if (!accountId) {
+      console.error("[telegram/otp] Account resolution failed for chatId:", chat.id)
       await reply("❌ Login is temporarily unavailable. Please try again shortly.")
       return
     }
 
-    console.log(
-      "[telegram/otp] Household resolved:",
-      JSON.stringify({
-        chatId: chat.id,
-        householdId: household.householdId,
-        source: household.source,
-      }),
-    )
+    console.log("[telegram/otp] Account resolved:", JSON.stringify({ chatId: chat.id, accountId }))
 
-    const result = await generateAndStoreOtp(household.householdId)
+    const result = await generateAndStoreOtp(accountId)
     console.log("[telegram/otp] generateAndStoreOtp result:", JSON.stringify(result))
     if (!result.ok) {
-      console.error(
-        "[telegram/otp] OTP creation failed:",
-        serializeFailure(result, {
-          chatId: chat.id,
-          chatType: chat.type,
-          householdId: household.householdId,
-        }),
-      )
+      console.error("[telegram/otp] OTP creation failed:", JSON.stringify(result))
       await reply(`❌ ${result.error}`)
       return
     }
@@ -120,15 +123,6 @@ async function handleOtpCommand(
   }
 }
 
-/**
- * Sets up Telegraf handlers on the real bot instance.
- * Called once per cold start (guarded by the module-level flag).
- *
- * The old code used a Proxy export (`bot`) which only had a `get` trap.
- * Telegraf's Composer.use() internally does `this.handler = compose(...)`,
- * a SET operation that went to the Proxy's empty {} target instead of the
- * real Telegraf instance — so all .on() registrations were silently lost.
- */
 let handlersRegistered = false
 
 function ensureHandlers() {
@@ -160,6 +154,13 @@ function ensureHandlers() {
     console.log("[telegram/webhook] Parsed command:", parsed.command)
     const chatId = msg.chat.id
 
+    if (parsed.command === "start") {
+      await handleStartCommand(String(chatId), (text) =>
+        bot.telegram.sendMessage(chatId, text),
+      )
+      return
+    }
+
     if (parsed.command === "otp") {
       await handleOtpCommand(msg.chat, msg.from?.id ?? null, (text) =>
         bot.telegram.sendMessage(chatId, text),
@@ -167,9 +168,9 @@ function ensureHandlers() {
       return
     }
 
-    const householdId = await resolveHousehold(chatId)
-    if (!householdId) {
-      await ctx.reply("❌ This chat is not linked to a household.")
+    const accountId = await getOrCreateAccount(String(chatId))
+    if (!accountId) {
+      await ctx.reply("❌ Could not resolve your account. Try /otp first to set up.")
       return
     }
 
@@ -187,14 +188,14 @@ function ensureHandlers() {
         const photos = msg.reply_to_message.photo as Array<{ file_id: string }>
         fileId = photos[photos.length - 1].file_id
       }
-      const reply = await handleStockImg(householdId, msg.text, fileId)
+      const reply = await handleStockImg(accountId, msg.text, fileId)
       await ctx.reply(reply)
       return
     }
 
     const handler = textCommands[parsed.command]
     if (handler) {
-      const reply = await handler(householdId, msg.text)
+      const reply = await handler(accountId, msg.text)
       await ctx.reply(reply)
     }
   })
@@ -209,6 +210,13 @@ function ensureHandlers() {
     if (!parsed) return
 
     console.log("[telegram/webhook] Channel post command:", parsed.command)
+
+    if (parsed.command === "start") {
+      await handleStartCommand(String(ctx.chat.id), (text) =>
+        bot.telegram.sendMessage(ctx.chat.id, text),
+      )
+      return
+    }
 
     if (parsed.command === "otp") {
       await handleOtpCommand(ctx.chat, null, (text) =>

@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const session = await validateSession(token)
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { householdId } = session
+    const { accountId } = session
 
     const { searchParams } = request.nextUrl
     const profileId = searchParams.get("profileId")
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("investments")
       .select("*")
-      .eq("household_id", householdId)
+      .eq("household_id", accountId)
       .order("created_at", { ascending: true })
 
     if (profileId) {
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const session = await validateSession(token)
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { householdId } = session
+    const { accountId } = session
 
     const body = await request.json()
     const parsed = createInvestmentSchema.safeParse(body)
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
         .from("profiles")
         .select("id")
         .eq("id", profileId)
-        .eq("household_id", householdId)
+        .eq("household_id", accountId)
         .single()
 
       if (!profile) {
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from("investments")
       .insert({
-        household_id: householdId,
+        household_id: accountId,
         symbol,
         type,
         units,

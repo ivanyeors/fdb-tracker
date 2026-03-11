@@ -18,14 +18,14 @@ export async function GET() {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const session = await validateSession(token)
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { householdId } = session
+    const { accountId } = session
 
     const supabase = createSupabaseAdmin()
 
     const { data: products, error } = await supabase
       .from("ilp_products")
       .select("*")
-      .eq("household_id", householdId)
+      .eq("household_id", accountId)
       .order("created_at", { ascending: true })
 
     if (error) {
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const session = await validateSession(token)
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { householdId } = session
+    const { accountId } = session
 
     const body = await request.json()
     const parsed = createIlpSchema.safeParse(body)
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         .from("profiles")
         .select("id")
         .eq("id", profileId)
-        .eq("household_id", householdId)
+        .eq("household_id", accountId)
         .single()
 
       if (!profile) {
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from("ilp_products")
       .insert({
-        household_id: householdId,
+        household_id: accountId,
         name,
         monthly_premium: monthlyPremium,
         end_date: endDate,

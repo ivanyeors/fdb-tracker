@@ -23,7 +23,7 @@ const SCOPES = [
 
 /**
  * Registers the bot command menu with Telegram via setMyCommands.
- * Sets commands for both default (private chats) and all_group_chats (household group).
+ * Sets commands for both default (private chats) and all_group_chats.
  * Call after deploy or when updating commands.
  */
 export async function setBotCommands(token: string): Promise<{ ok: boolean; error?: string }> {

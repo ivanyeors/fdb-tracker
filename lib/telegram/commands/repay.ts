@@ -5,13 +5,13 @@ import { parseRepayArgs } from "@/lib/telegram/command-parser"
 import { resolveUser } from "@/lib/telegram/user-resolver"
 
 export async function handleRepay(
-  householdId: string,
+  accountId: string,
   text: string,
 ): Promise<string> {
   const parsed = parseRepayArgs(text)
   if ("error" in parsed) return `❌ ${parsed.error}`
 
-  const user = await resolveUser(parsed.name ?? "", householdId)
+  const user = await resolveUser(parsed.name ?? "", accountId)
   if ("error" in user) return `❌ ${user.error}`
 
   const supabase = createSupabaseAdmin()

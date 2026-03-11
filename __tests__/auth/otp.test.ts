@@ -29,7 +29,7 @@ describe("generateAndStoreOtp", () => {
       from: vi.fn().mockReturnValue(rateLimitBuilder),
     } as never)
 
-    await expect(generateAndStoreOtp("household-1")).resolves.toEqual({
+    await expect(generateAndStoreOtp("account-1")).resolves.toEqual({
       ok: false,
       stage: "rate_limit",
       error: "Too many OTP requests. Please wait before trying again.",
@@ -53,7 +53,7 @@ describe("generateAndStoreOtp", () => {
       from: vi.fn().mockReturnValue(rateLimitBuilder),
     } as never)
 
-    await expect(generateAndStoreOtp("household-1")).resolves.toEqual({
+    await expect(generateAndStoreOtp("account-1")).resolves.toEqual({
       ok: false,
       stage: "rate_limit",
       error: "Failed to check OTP rate limit",
@@ -61,7 +61,7 @@ describe("generateAndStoreOtp", () => {
     })
   })
 
-  it("stores a new OTP when the household is under the rate limit", async () => {
+  it("stores a new OTP when the account is under the rate limit", async () => {
     const rateLimitBuilder = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
@@ -83,7 +83,7 @@ describe("generateAndStoreOtp", () => {
     createSupabaseAdminMock.mockReturnValue({ from } as never)
     vi.spyOn(Math, "random").mockReturnValue(0)
 
-    await expect(generateAndStoreOtp("household-1")).resolves.toEqual({
+    await expect(generateAndStoreOtp("account-1")).resolves.toEqual({
       ok: true,
       otp: "100000",
     })

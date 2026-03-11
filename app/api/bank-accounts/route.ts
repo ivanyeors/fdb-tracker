@@ -19,14 +19,14 @@ export async function GET() {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const session = await validateSession(token)
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { householdId } = session
+    const { accountId } = session
 
     const supabase = createSupabaseAdmin()
 
     const { data: accounts, error } = await supabase
       .from("bank_accounts")
       .select("*")
-      .eq("household_id", householdId)
+      .eq("household_id", accountId)
       .order("created_at", { ascending: true })
 
     if (error) {
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const session = await validateSession(token)
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { householdId } = session
+    const { accountId } = session
 
     const body = await request.json()
     const parsed = createAccountSchema.safeParse(body)
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
         .from("profiles")
         .select("id")
         .eq("id", profileId)
-        .eq("household_id", householdId)
+        .eq("household_id", accountId)
         .single()
 
       if (!profile) {
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     const { data: account, error: accountError } = await supabase
       .from("bank_accounts")
       .insert({
-        household_id: householdId,
+        household_id: accountId,
         bank_name: bankName,
         account_type: accountType,
         ...(profileId && { profile_id: profileId }),

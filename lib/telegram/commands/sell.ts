@@ -3,13 +3,13 @@ import { parseBuySellArgs } from "@/lib/telegram/command-parser"
 import { resolveUser } from "@/lib/telegram/user-resolver"
 
 export async function handleSell(
-  householdId: string,
+  accountId: string,
   text: string,
 ): Promise<string> {
   const parsed = parseBuySellArgs(text)
   if ("error" in parsed) return `❌ ${parsed.error}`
 
-  const user = await resolveUser(parsed.name ?? "", householdId)
+  const user = await resolveUser(parsed.name ?? "", accountId)
   if ("error" in user) return `❌ ${user.error}`
 
   const supabase = createSupabaseAdmin()
@@ -19,7 +19,7 @@ export async function handleSell(
   const { data: existing, error: fetchError } = await supabase
     .from("investments")
     .select("id, units, cost_basis")
-    .eq("household_id", householdId)
+    .eq("household_id", accountId)
     .eq("profile_id", user.profileId)
     .eq("symbol", symbol)
     .single()
@@ -35,7 +35,7 @@ export async function handleSell(
   const { error: txError } = await supabase
     .from("investment_transactions")
     .insert({
-      household_id: householdId,
+      household_id: accountId,
       profile_id: user.profileId,
       type: "sell",
       symbol,

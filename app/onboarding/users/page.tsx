@@ -24,7 +24,7 @@ export default function UsersPage() {
       <CardHeader>
         <CardTitle>How many people will be tracking?</CardTitle>
         <CardDescription>
-          Select the number of household members who will track their finances.
+          Select the number of people who will track their finances.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

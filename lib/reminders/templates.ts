@@ -1,5 +1,5 @@
 type ReminderContext = {
-  householdProfiles: Array<{ name: string }>
+  profiles: Array<{ name: string }>
   dashboardUrl: string
 }
 
@@ -7,7 +7,7 @@ export function endOfMonthReminder(
   month: string,
   ctx: ReminderContext,
 ): string {
-  const names = ctx.householdProfiles.map((p) => p.name)
+  const names = ctx.profiles.map((p) => p.name)
   const nameExamples = names[0] ?? "name"
 
   return [

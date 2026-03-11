@@ -5,13 +5,13 @@ import { parseIlpArgs } from "@/lib/telegram/command-parser"
 import { resolveUser } from "@/lib/telegram/user-resolver"
 
 export async function handleIlp(
-  householdId: string,
+  accountId: string,
   text: string,
 ): Promise<string> {
   const parsed = parseIlpArgs(text)
   if ("error" in parsed) return `❌ ${parsed.error}`
 
-  const user = await resolveUser(parsed.name ?? "", householdId)
+  const user = await resolveUser(parsed.name ?? "", accountId)
   if ("error" in user) return `❌ ${user.error}`
 
   const supabase = createSupabaseAdmin()
@@ -19,7 +19,7 @@ export async function handleIlp(
   const { data: product, error: prodError } = await supabase
     .from("ilp_products")
     .select("id, name")
-    .eq("household_id", householdId)
+    .eq("household_id", accountId)
     .ilike("name", parsed.product)
     .single()
 
