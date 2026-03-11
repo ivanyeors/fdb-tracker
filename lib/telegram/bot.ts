@@ -9,7 +9,9 @@ export function getBot(): Telegraf<Context> {
     throw new Error("TELEGRAM_BOT_TOKEN is not set")
   }
   if (!botInstance) {
-    botInstance = new Telegraf(token)
+    botInstance = new Telegraf(token, {
+      telegram: { webhookReply: false },
+    })
   }
   return botInstance
 }

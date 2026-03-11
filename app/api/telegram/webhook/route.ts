@@ -139,6 +139,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
+    console.log("[telegram/webhook] Received update:", body?.update_id)
     await bot.handleUpdate(body)
     return NextResponse.json({ ok: true })
   } catch (err) {
