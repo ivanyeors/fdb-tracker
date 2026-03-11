@@ -40,47 +40,38 @@ const textCommands: Record<string, CommandHandler> = {
 function extractCommand(text: string): { command: string; rest: string } | null {
   const match = text.match(/^\/(\w+)(@\S+)?\s*([\s\S]*)$/)
   if (!match) return null
-  const parsed = { command: match[1], rest: match[3] ?? "" }
-  // #region agent log
-  if (parsed.command === "otp") fetch('http://127.0.0.1:7309/ingest/0d1164bc-d634-4f03-bc72-c7b68f52ae42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f347fe'},body:JSON.stringify({sessionId:'f347fe',location:'webhook/route.ts:extractCommand',message:'Parsed /otp command',data:{command:parsed.command},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
-  return parsed
+  return { command: match[1], rest: match[3] ?? "" }
 }
 
 async function handleOtpCommand(
   chatId: number,
   reply: (text: string) => Promise<unknown>,
 ): Promise<void> {
-  // #region agent log
-  fetch('http://127.0.0.1:7309/ingest/0d1164bc-d634-4f03-bc72-c7b68f52ae42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f347fe'},body:JSON.stringify({sessionId:'f347fe',location:'webhook/route.ts:handleOtpCommand',message:'handleOtpCommand entered',data:{chatId},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
+  console.log("[telegram/otp] handleOtpCommand called, chatId:", chatId)
   try {
     const householdId = await getOrCreateHouseholdForChannel(String(chatId))
-    // #region agent log
-    fetch('http://127.0.0.1:7309/ingest/0d1164bc-d634-4f03-bc72-c7b68f52ae42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f347fe'},body:JSON.stringify({sessionId:'f347fe',location:'webhook/route.ts:handleOtpCommand',message:'getOrCreateHouseholdForChannel result',data:{householdId:householdId??'null'},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
+    console.log("[telegram/otp] householdId:", householdId)
     if (!householdId) {
+      console.log("[telegram/otp] No householdId, sending error reply")
       await reply("❌ Failed to generate OTP. Please try again.")
       return
     }
     const result = await generateAndStoreOtp(householdId)
-    // #region agent log
-    fetch('http://127.0.0.1:7309/ingest/0d1164bc-d634-4f03-bc72-c7b68f52ae42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f347fe'},body:JSON.stringify({sessionId:'f347fe',location:'webhook/route.ts:handleOtpCommand',message:'generateAndStoreOtp result',data:{hasError:'error' in result,error:('error' in result?result.error:null),hasOtp:'otp' in result},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
+    console.log("[telegram/otp] generateAndStoreOtp result:", JSON.stringify(result))
     if ("error" in result) {
       await reply(`❌ ${result.error}`)
       return
     }
+    console.log("[telegram/otp] Sending OTP reply to chatId:", chatId)
     await reply(`🔑 Your OTP: ${result.otp}`)
-    // #region agent log
-    fetch('http://127.0.0.1:7309/ingest/0d1164bc-d634-4f03-bc72-c7b68f52ae42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f347fe'},body:JSON.stringify({sessionId:'f347fe',location:'webhook/route.ts:handleOtpCommand',message:'OTP reply sent successfully',data:{},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
+    console.log("[telegram/otp] OTP reply sent successfully")
   } catch (err) {
-    console.error("[telegram/webhook] OTP error:", err)
-    // #region agent log
-    fetch('http://127.0.0.1:7309/ingest/0d1164bc-d634-4f03-bc72-c7b68f52ae42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f347fe'},body:JSON.stringify({sessionId:'f347fe',location:'webhook/route.ts:handleOtpCommand',message:'handleOtpCommand threw',data:{errMsg:err instanceof Error?err.message:String(err)},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
-    await reply("❌ Something went wrong. Check server logs.")
+    console.error("[telegram/otp] OTP error:", err)
+    try {
+      await reply("❌ Something went wrong. Check server logs.")
+    } catch (replyErr) {
+      console.error("[telegram/otp] Failed to send error reply:", replyErr)
+    }
   }
 }
 
@@ -90,12 +81,21 @@ bot.catch((err) => {
 
 bot.on("message", async (ctx) => {
   const msg = ctx.message
+  console.log("[telegram/webhook] bot.on('message') triggered, chat.id:", msg.chat.id, "chat.type:", msg.chat.type)
 
-  if (!("text" in msg) || !msg.text) return
+  if (!("text" in msg) || !msg.text) {
+    console.log("[telegram/webhook] No text in message, ignoring")
+    return
+  }
 
+  console.log("[telegram/webhook] Message text:", msg.text)
   const parsed = extractCommand(msg.text)
-  if (!parsed) return
+  if (!parsed) {
+    console.log("[telegram/webhook] Not a command, ignoring")
+    return
+  }
 
+  console.log("[telegram/webhook] Parsed command:", parsed.command)
   const chatId = msg.chat.id
 
   if (parsed.command === "otp") {
@@ -139,10 +139,14 @@ bot.on("message", async (ctx) => {
 
 bot.on("channel_post", async (ctx) => {
   const post = ctx.channelPost
+  console.log("[telegram/webhook] bot.on('channel_post') triggered, chat.id:", ctx.chat.id)
+
   if (!("text" in post) || !post.text) return
 
   const parsed = extractCommand(post.text)
   if (!parsed) return
+
+  console.log("[telegram/webhook] Channel post command:", parsed.command)
 
   if (parsed.command === "otp") {
     await handleOtpCommand(ctx.chat.id, (text) =>
@@ -163,10 +167,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     console.log("[telegram/webhook] Received update:", body?.update_id)
-    // #region agent log
-    fetch('http://127.0.0.1:7309/ingest/0d1164bc-d634-4f03-bc72-c7b68f52ae42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f347fe'},body:JSON.stringify({sessionId:'f347fe',location:'webhook/route.ts:POST',message:'Webhook received update',data:{updateId:body?.update_id,hasMessage:!!body?.message,hasChannelPost:!!body?.channel_post,messageText:body?.message?.text??body?.channel_post?.text},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
+    console.log("[telegram/webhook] Update body:", JSON.stringify(body, null, 2))
     await bot.handleUpdate(body)
+    console.log("[telegram/webhook] bot.handleUpdate completed")
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error("[telegram/webhook] Error handling update:", err)
