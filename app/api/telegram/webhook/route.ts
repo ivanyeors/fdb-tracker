@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { getBot } from "@/lib/telegram/bot"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-import { getOrCreateHouseholdForChannel } from "@/lib/auth/household"
+import { getOrCreateHouseholdForTelegramUser } from "@/lib/auth/household"
 import { generateAndStoreOtp } from "@/lib/auth/otp"
 import { handleInflow } from "@/lib/telegram/commands/inflow"
 import { handleOutflow } from "@/lib/telegram/commands/outflow"
@@ -43,6 +43,17 @@ function extractCommand(text: string): { command: string; rest: string } | null 
   return { command: match[1], rest: match[3] ?? "" }
 }
 
+function getTelegramDisplayName(user: {
+  first_name?: string
+  last_name?: string
+  username?: string
+}): string | undefined {
+  const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ").trim()
+  if (fullName) return fullName
+  if (user.username) return `@${user.username}`
+  return undefined
+}
+
 function serializeFailure(
   failure: { stage: string; error: string; code?: string },
   context: Record<string, string | number | null>,
@@ -56,50 +67,41 @@ function serializeFailure(
 }
 
 async function handleOtpCommand(
-  chat: { id: number; type: string },
-  fromUserId: number | null,
+  chatId: number,
+  telegramUser: {
+    id: number
+    first_name?: string
+    last_name?: string
+    username?: string
+  },
   reply: (text: string) => Promise<unknown>,
 ): Promise<void> {
-  console.log(
-    "[telegram/otp] handleOtpCommand called:",
-    JSON.stringify({
-      chatId: chat.id,
-      chatType: chat.type,
-      fromUserId,
-    }),
-  )
   try {
-    const household = await getOrCreateHouseholdForChannel(String(chat.id))
+    const household = await getOrCreateHouseholdForTelegramUser(
+      String(telegramUser.id),
+      getTelegramDisplayName(telegramUser),
+    )
+
     if (!household.ok) {
       console.error(
-        "[telegram/otp] Household resolution failed:",
+        "[telegram/otp] Telegram user sign-in failed:",
         serializeFailure(household, {
-          chatId: chat.id,
-          chatType: chat.type,
-          fromUserId,
+          chatId,
+          telegramUserId: telegramUser.id,
+          username: telegramUser.username ?? null,
         }),
       )
       await reply("❌ Login is temporarily unavailable. Please try again shortly.")
       return
     }
 
-    console.log(
-      "[telegram/otp] Household resolved:",
-      JSON.stringify({
-        chatId: chat.id,
-        householdId: household.householdId,
-        source: household.source,
-      }),
-    )
-
     const result = await generateAndStoreOtp(household.householdId)
-    console.log("[telegram/otp] generateAndStoreOtp result:", JSON.stringify(result))
     if (!result.ok) {
       console.error(
         "[telegram/otp] OTP creation failed:",
         serializeFailure(result, {
-          chatId: chat.id,
-          chatType: chat.type,
+          chatId,
+          telegramUserId: telegramUser.id,
           householdId: household.householdId,
         }),
       )
@@ -107,9 +109,7 @@ async function handleOtpCommand(
       return
     }
 
-    console.log("[telegram/otp] Sending OTP reply to chatId:", chat.id)
     await reply(`🔑 Your OTP: ${result.otp}`)
-    console.log("[telegram/otp] OTP reply sent successfully")
   } catch (err) {
     console.error("[telegram/otp] OTP error:", err)
     try {
@@ -143,27 +143,27 @@ function ensureHandlers() {
 
   bot.on("message", async (ctx) => {
     const msg = ctx.message
-    console.log("[telegram/webhook] bot.on('message') triggered, chat.id:", msg.chat.id, "chat.type:", msg.chat.type)
+    if (!("text" in msg) || !msg.text) return
 
-    if (!("text" in msg) || !msg.text) {
-      console.log("[telegram/webhook] No text in message, ignoring")
-      return
-    }
-
-    console.log("[telegram/webhook] Message text:", msg.text)
     const parsed = extractCommand(msg.text)
-    if (!parsed) {
-      console.log("[telegram/webhook] Not a command, ignoring")
-      return
-    }
+    if (!parsed) return
 
-    console.log("[telegram/webhook] Parsed command:", parsed.command)
     const chatId = msg.chat.id
 
     if (parsed.command === "otp") {
-      await handleOtpCommand(msg.chat, msg.from?.id ?? null, (text) =>
+      if (msg.chat.type !== "private") {
+        await ctx.reply("🔒 Send /otp in a private chat with the bot.")
+        return
+      }
+
+      await handleOtpCommand(chatId, msg.from, (text) =>
         bot.telegram.sendMessage(chatId, text),
       )
+      return
+    }
+
+    if (msg.chat.type === "private") {
+      await ctx.reply("🔒 Use /otp here to sign in. Finance commands only run in your household chat.")
       return
     }
 
@@ -201,18 +201,15 @@ function ensureHandlers() {
 
   bot.on("channel_post", async (ctx) => {
     const post = ctx.channelPost
-    console.log("[telegram/webhook] bot.on('channel_post') triggered, chat.id:", ctx.chat.id)
-
     if (!("text" in post) || !post.text) return
 
     const parsed = extractCommand(post.text)
     if (!parsed) return
 
-    console.log("[telegram/webhook] Channel post command:", parsed.command)
-
     if (parsed.command === "otp") {
-      await handleOtpCommand(ctx.chat, null, (text) =>
-        bot.telegram.sendMessage(ctx.chat.id, text),
+      await bot.telegram.sendMessage(
+        ctx.chat.id,
+        "🔒 Send /otp in a private chat with the bot.",
       )
     }
   })
@@ -232,10 +229,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    console.log("[telegram/webhook] Received update:", body?.update_id)
-    console.log("[telegram/webhook] Update body:", JSON.stringify(body, null, 2))
     await bot.handleUpdate(body)
-    console.log("[telegram/webhook] bot.handleUpdate completed")
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error("[telegram/webhook] Error handling update:", err)

@@ -57,8 +57,7 @@ export default function LoginPage() {
             fdb-tracker
           </CardTitle>
           <CardDescription className="text-center">
-            Send /otp in your Telegram channel to get your code, then enter it
-            below.
+            Send /otp in a private chat with the bot, then enter the code below.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
