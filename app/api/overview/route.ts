@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const session = await validateSession(token)
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { householdId } = session
+    const { accountId } = session
 
     const { searchParams } = request.nextUrl
     const rawProfileId = searchParams.get("profileId") ?? undefined
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     let bankAccountQuery = supabase
       .from("bank_accounts")
       .select("id")
-      .eq("household_id", householdId)
+      .eq("household_id", accountId)
 
     if (profileId) {
       bankAccountQuery = bankAccountQuery.eq("profile_id", profileId)
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id")
-        .eq("household_id", householdId)
+        .eq("household_id", accountId)
 
       if (profiles) {
         for (const p of profiles) {
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
     let investmentQuery = supabase
       .from("investments")
       .select("units, cost_basis")
-      .eq("household_id", householdId)
+      .eq("household_id", accountId)
 
     if (profileId) {
       investmentQuery = investmentQuery.eq("profile_id", profileId)
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id")
-        .eq("household_id", householdId)
+        .eq("household_id", accountId)
 
       profileIds = profiles?.map((p) => p.id) ?? []
     }

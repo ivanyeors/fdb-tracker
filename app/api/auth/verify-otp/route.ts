@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const otpHash = await sha256(otp)
     const supabase = createSupabaseAdmin()
 
-    const { data: token, error: tokenError } = await supabase
+    const { data: otpToken, error: tokenError } = await supabase
       .from("otp_tokens")
       .select("id, household_id")
       .eq("otp_hash", otpHash)
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .maybeSingle()
 
-    if (tokenError || !token) {
+    if (tokenError || !otpToken) {
       return NextResponse.json(
         { error: "Invalid or expired OTP" },
         { status: 401 },
@@ -48,9 +48,9 @@ export async function POST(request: NextRequest) {
     await supabase
       .from("otp_tokens")
       .update({ used: true })
-      .eq("id", token.id)
+      .eq("id", otpToken.id)
 
-    const sessionToken = await createSession(token.household_id)
+    const sessionToken = await createSession(otpToken.household_id)
     const isProduction = process.env.NODE_ENV === "production"
 
     const response = NextResponse.json({ success: true })

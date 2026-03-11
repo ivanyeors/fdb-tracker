@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const session = await validateSession(token)
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { householdId } = session
+    const { accountId } = session
 
     const body = await request.json()
     const parsed = createEntrySchema.safeParse(body)
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       .from("ilp_products")
       .select("id")
       .eq("id", productId)
-      .eq("household_id", householdId)
+      .eq("household_id", accountId)
       .single()
 
     if (!product) {

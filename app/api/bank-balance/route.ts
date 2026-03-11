@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const session = await validateSession(token)
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { householdId } = session
+    const { accountId } = session
 
     const { searchParams } = request.nextUrl
     const parsed = balanceQuerySchema.safeParse({
@@ -43,15 +43,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 })
     }
 
-    const accountId = parsed.data.accountId
+    const bankAccountId = parsed.data.accountId
     const monthCount = parsed.data.months ? parseInt(parsed.data.months, 10) : 12
     const supabase = createSupabaseAdmin()
 
     const { data: account } = await supabase
       .from("bank_accounts")
       .select("*")
-      .eq("id", accountId)
-      .eq("household_id", householdId)
+      .eq("id", bankAccountId)
+      .eq("household_id", accountId)
       .single()
 
     if (!account) {

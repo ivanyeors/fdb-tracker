@@ -3,7 +3,7 @@ import { parseArgs } from "@/lib/telegram/command-parser"
 import { bot } from "@/lib/telegram/bot"
 
 export async function handleStockImg(
-  householdId: string,
+  accountId: string,
   text: string,
   fileId?: string,
 ): Promise<string> {
@@ -27,7 +27,7 @@ export async function handleStockImg(
   const { data: tx, error: fetchError } = await supabase
     .from("investment_transactions")
     .select("id")
-    .eq("household_id", householdId)
+    .eq("household_id", accountId)
     .eq("symbol", symbol)
     .order("created_at", { ascending: false })
     .limit(1)

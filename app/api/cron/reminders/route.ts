@@ -72,13 +72,13 @@ async function sendTelegramMessage(
 }
 
 type ReminderContext = {
-  householdProfiles: Array<{ name: string }>
+  profiles: Array<{ name: string }>
   dashboardUrl: string
 }
 
 async function generateMessage(
   promptType: string,
-  householdId: string,
+  accountId: string,
   now: ReturnType<typeof nowInTimezone>,
   ctx: ReminderContext,
 ): Promise<string | null> {
@@ -92,11 +92,11 @@ async function generateMessage(
       return incomeYearlyReminder(now.year, ctx)
 
     case "income_monthly": {
-      for (const profile of ctx.householdProfiles) {
+      for (const profile of ctx.profiles) {
         const { data: profileRow } = await supabase
           .from("profiles")
           .select("id")
-          .eq("household_id", householdId)
+          .eq("household_id", accountId)
           .eq("name", profile.name)
           .single()
 
@@ -115,7 +115,7 @@ async function generateMessage(
           return incomeMonthlyReminder(now.monthLabel, profile.name, takeHome)
         }
       }
-      return incomeMonthlyReminder(now.monthLabel, ctx.householdProfiles[0]?.name ?? "user", 0)
+      return incomeMonthlyReminder(now.monthLabel, ctx.profiles[0]?.name ?? "user", 0)
     }
 
     case "insurance_yearly":
@@ -125,7 +125,7 @@ async function generateMessage(
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id")
-        .eq("household_id", householdId)
+        .eq("household_id", accountId)
 
       if (profiles) {
         const profileIds = profiles.map((p) => p.id)
@@ -149,7 +149,7 @@ async function generateMessage(
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id")
-        .eq("household_id", householdId)
+        .eq("household_id", accountId)
 
       let calculatedTax: number | null = null
       if (profiles && profiles.length > 0) {
@@ -197,14 +197,14 @@ export async function GET(request: NextRequest) {
       const { fire, now } = shouldFire(schedule)
       if (!fire) continue
 
-      const { data: household } = await supabase
+      const { data: account } = await supabase
         .from("households")
         .select("telegram_chat_id, telegram_bot_token")
         .eq("id", schedule.household_id)
         .single()
 
-      if (!household?.telegram_chat_id || !household.telegram_bot_token) {
-        errors.push(`${schedule.id}: household missing telegram config`)
+      if (!account?.telegram_chat_id || !account.telegram_bot_token) {
+        errors.push(`${schedule.id}: account missing telegram config`)
         continue
       }
 
@@ -214,7 +214,7 @@ export async function GET(request: NextRequest) {
         .eq("household_id", schedule.household_id)
 
       const ctx: ReminderContext = {
-        householdProfiles: profiles ?? [],
+        profiles: profiles ?? [],
         dashboardUrl,
       }
 
@@ -231,8 +231,8 @@ export async function GET(request: NextRequest) {
       }
 
       const result = await sendTelegramMessage(
-        household.telegram_bot_token,
-        household.telegram_chat_id,
+        account.telegram_bot_token,
+        account.telegram_chat_id,
         message,
       )
 

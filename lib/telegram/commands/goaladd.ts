@@ -3,13 +3,13 @@ import { parseGoalArgs } from "@/lib/telegram/command-parser"
 import { resolveUser } from "@/lib/telegram/user-resolver"
 
 export async function handleGoaladd(
-  householdId: string,
+  accountId: string,
   text: string,
 ): Promise<string> {
   const parsed = parseGoalArgs(text)
   if ("error" in parsed) return `❌ ${parsed.error}`
 
-  const user = await resolveUser(parsed.name ?? "", householdId)
+  const user = await resolveUser(parsed.name ?? "", accountId)
   if ("error" in user) return `❌ ${user.error}`
 
   const supabase = createSupabaseAdmin()
@@ -17,7 +17,7 @@ export async function handleGoaladd(
   const { data: goal, error: goalError } = await supabase
     .from("savings_goals")
     .select("id, name, current_amount, target_amount")
-    .eq("household_id", householdId)
+    .eq("household_id", accountId)
     .ilike("name", parsed.goal)
     .single()
 

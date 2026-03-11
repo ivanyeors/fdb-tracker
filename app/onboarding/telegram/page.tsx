@@ -104,7 +104,7 @@ export default function TelegramPage() {
             defaultOpen
           >
             <ol className="list-inside list-decimal space-y-1">
-              <li>Create a Telegram group for your household</li>
+              <li>Create a Telegram group</li>
               <li>Add @chatIDrobot to the group</li>
               <li>Send any message — bot replies with chat ID</li>
               <li>Copy and paste the ID below</li>

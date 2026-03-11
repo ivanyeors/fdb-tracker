@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const session = await validateSession(token)
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { householdId } = session
+    const { accountId } = session
 
     const { searchParams } = request.nextUrl
     const parsed = retirementQuerySchema.safeParse({
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       .from("profiles")
       .select("id, birth_year")
       .eq("id", profileId)
-      .eq("household_id", householdId)
+      .eq("household_id", accountId)
       .single()
 
     if (!profile) {

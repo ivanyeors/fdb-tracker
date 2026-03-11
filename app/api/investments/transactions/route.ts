@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const session = await validateSession(token)
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { householdId } = session
+    const { accountId } = session
 
     const { searchParams } = request.nextUrl
     const parsed = transactionQuerySchema.safeParse({
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("investment_transactions")
       .select("*")
-      .eq("household_id", householdId)
+      .eq("household_id", accountId)
       .order("created_at", { ascending: false })
       .limit(limit)
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const session = await validateSession(token)
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { householdId } = session
+    const { accountId } = session
 
     const body = await request.json()
     const parsed = createTransactionSchema.safeParse(body)
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
         .from("profiles")
         .select("id")
         .eq("id", profileId)
-        .eq("household_id", householdId)
+        .eq("household_id", accountId)
         .single()
 
       if (!profile) {
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     const { data: existingHolding } = await supabase
       .from("investments")
       .select("*")
-      .eq("household_id", householdId)
+      .eq("household_id", accountId)
       .eq("symbol", symbol)
       .maybeSingle()
 
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
       const { data: transaction, error: txError } = await supabase
         .from("investment_transactions")
         .insert({
-          household_id: householdId,
+          household_id: accountId,
           investment_id: existingHolding.id,
           symbol,
           type,
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
       const { data: newHolding, error: insertError } = await supabase
         .from("investments")
         .insert({
-          household_id: householdId,
+          household_id: accountId,
           symbol,
           type: "stock",
           units: quantity,
@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
     const { data: transaction, error: txError } = await supabase
       .from("investment_transactions")
       .insert({
-        household_id: householdId,
+        household_id: accountId,
         investment_id: investmentId,
         symbol,
         type,

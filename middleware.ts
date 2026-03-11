@@ -15,13 +15,13 @@ export async function middleware(request: NextRequest) {
 
   const supabase = createSupabaseAdmin()
 
-  const { data: household } = await supabase
+  const { data: account } = await supabase
     .from("households")
     .select("onboarding_completed_at")
-    .eq("id", session.householdId)
+    .eq("id", session.accountId)
     .single()
 
-  const onboardingComplete = !!household?.onboarding_completed_at
+  const onboardingComplete = !!account?.onboarding_completed_at
   const isOnboarding = pathname.startsWith("/onboarding")
 
   if (!onboardingComplete && !isOnboarding) {

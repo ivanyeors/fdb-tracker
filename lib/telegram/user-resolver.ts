@@ -5,21 +5,21 @@ type ResolveError = { error: string }
 
 export async function resolveUser(
   nameOrArgs: string,
-  householdId: string,
+  accountId: string,
 ): Promise<ResolvedUser | ResolveError> {
   const supabase = createSupabaseAdmin()
 
   const { data: profiles, error } = await supabase
     .from("profiles")
     .select("id, name")
-    .eq("household_id", householdId)
+    .eq("household_id", accountId)
 
   if (error) {
     return { error: `Database error: ${error.message}` }
   }
 
   if (!profiles || profiles.length === 0) {
-    return { error: "No profiles found for this household." }
+    return { error: "No profiles found. Complete onboarding first." }
   }
 
   const trimmed = nameOrArgs.trim()
