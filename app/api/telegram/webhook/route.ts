@@ -43,6 +43,23 @@ function extractCommand(text: string): { command: string; rest: string } | null 
   return { command: match[1], rest: match[3] ?? "" }
 }
 
+async function handleOtpCommand(
+  chatId: number,
+  reply: (text: string) => Promise<unknown>,
+): Promise<void> {
+  const householdId = await getOrCreateHouseholdForChannel(String(chatId))
+  if (!householdId) {
+    await reply("❌ Failed to generate OTP. Please try again.")
+    return
+  }
+  const result = await generateAndStoreOtp(householdId)
+  if ("error" in result) {
+    await reply(`❌ ${result.error}`)
+    return
+  }
+  await reply(`🔑 Your OTP: ${result.otp}`)
+}
+
 bot.on("message", async (ctx) => {
   const msg = ctx.message
 
@@ -54,17 +71,7 @@ bot.on("message", async (ctx) => {
   const chatId = msg.chat.id
 
   if (parsed.command === "otp") {
-    const householdId = await getOrCreateHouseholdForChannel(String(chatId))
-    if (!householdId) {
-      await ctx.reply("❌ Failed to generate OTP. Please try again.")
-      return
-    }
-    const result = await generateAndStoreOtp(householdId)
-    if ("error" in result) {
-      await ctx.reply(`❌ ${result.error}`)
-      return
-    }
-    await ctx.reply(`🔑 Your OTP: ${result.otp}`)
+    await handleOtpCommand(chatId, (text) => ctx.reply(text))
     return
   }
 
@@ -97,6 +104,18 @@ bot.on("message", async (ctx) => {
   if (handler) {
     const reply = await handler(householdId, msg.text)
     await ctx.reply(reply)
+  }
+})
+
+bot.on("channel_post", async (ctx) => {
+  const post = ctx.channelPost
+  if (!("text" in post) || !post.text) return
+
+  const parsed = extractCommand(post.text)
+  if (!parsed) return
+
+  if (parsed.command === "otp") {
+    await handleOtpCommand(ctx.chat.id, (text) => ctx.reply(text))
   }
 })
 
