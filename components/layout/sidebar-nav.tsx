@@ -85,6 +85,7 @@ export function SidebarNav() {
                     asChild
                     isActive={pathname === item.href}
                     tooltip={item.title}
+                    className="ml-4"
                   >
                     <Link href={item.href}>
                       <item.icon />
@@ -110,6 +111,7 @@ export function SidebarNav() {
                     asChild
                     isActive={pathname === item.href}
                     tooltip={item.title}
+                    className="ml-4"
                   >
                     <Link href={item.href}>
                       <item.icon />
