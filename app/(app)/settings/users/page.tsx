@@ -15,7 +15,7 @@ export default async function UserSettingsPage() {
   const supabase = createSupabaseAdmin()
   const { data: profiles, error } = await supabase
     .from("profiles")
-    .select(\`
+    .select(`
       id,
       name,
       birth_year,
@@ -25,7 +25,7 @@ export default async function UserSettingsPage() {
         pay_frequency,
         employee_cpf_rate
       )
-    \`)
+    `)
     .eq("household_id", householdId)
     .order("created_at", { ascending: true })
 
