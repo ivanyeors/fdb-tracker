@@ -99,7 +99,9 @@ bot.on("message", async (ctx) => {
   const chatId = msg.chat.id
 
   if (parsed.command === "otp") {
-    await handleOtpCommand(chatId, (text) => ctx.reply(text))
+    await handleOtpCommand(chatId, (text) =>
+      bot.telegram.sendMessage(chatId, text),
+    )
     return
   }
 
@@ -143,7 +145,9 @@ bot.on("channel_post", async (ctx) => {
   if (!parsed) return
 
   if (parsed.command === "otp") {
-    await handleOtpCommand(ctx.chat.id, (text) => ctx.reply(text))
+    await handleOtpCommand(ctx.chat.id, (text) =>
+      bot.telegram.sendMessage(ctx.chat.id, text),
+    )
   }
 })
 
