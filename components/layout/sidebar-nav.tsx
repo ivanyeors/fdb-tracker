@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   BarChart3,
   Building2,
@@ -18,6 +18,7 @@ import {
   Users,
   Bell,
   Wrench,
+  LogOut,
 } from "lucide-react"
 
 import {
@@ -30,7 +31,10 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarHeader,
+  SidebarFooter,
 } from "@/components/ui/sidebar"
+
+import { createSupabaseClient } from "@/lib/supabase/client"
 
 const dashboardItems = [
   { title: "Overview", href: "/dashboard", icon: BarChart3 },
@@ -53,6 +57,14 @@ const settingsItems = [
 
 export function SidebarNav() {
   const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createSupabaseClient()
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push("/login")
+    router.refresh()
+  }
 
   return (
     <Sidebar>
@@ -110,6 +122,16 @@ export function SidebarNav() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
+              <LogOut />
+              <span>Logout</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   )
 }

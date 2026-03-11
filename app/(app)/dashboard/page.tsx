@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import {
   LineChart,
   Line,
@@ -12,6 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
+import { useActiveProfile } from "@/hooks/use-active-profile"
 
 const mockNetWorthTrend = [
   { month: "Jan", value: 210000 },
@@ -29,6 +31,32 @@ const mockNetWorthTrend = [
 ]
 
 export default function OverviewPage() {
+  const { activeProfileId } = useActiveProfile()
+  const [data, setData] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchOverview() {
+      setIsLoading(true)
+      try {
+        const url = new URL("/api/overview", window.location.origin)
+        if (activeProfileId) {
+          url.searchParams.set("profileId", activeProfileId)
+        }
+        const res = await fetch(url)
+        if (res.ok) {
+          const json = await res.json()
+          setData(json)
+        }
+      } catch (error) {
+        console.error("Failed to fetch overview:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchOverview()
+  }, [activeProfileId])
+
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
@@ -36,63 +64,71 @@ export default function OverviewPage() {
         description="Net worth, savings rate, and key metrics at a glance."
       />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <MetricCard
-          label="Total Net Worth"
-          value="245,000"
-          prefix="$"
-          trend={3.2}
-          trendLabel="vs last month"
-          tooltipId="NET_WORTH"
-        />
-        <MetricCard
-          label="Liquid Net Worth"
-          value="165,000"
-          prefix="$"
-          trend={2.5}
-          trendLabel="vs last month"
-          tooltipId="LIQUID_NET_WORTH"
-        />
-        <MetricCard
-          label="Savings Rate"
-          value={34}
-          suffix="%"
-          trend={1.8}
-          trendLabel="vs last month"
-          tooltipId="SAVINGS_RATE"
-        />
-      </div>
+      {isLoading ? (
+        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+          Loading metrics...
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <MetricCard
+              label="Total Net Worth"
+              value={data?.totalNetWorth?.toLocaleString() || "0"}
+              prefix="$"
+              trend={0}
+              trendLabel="vs last month"
+              tooltipId="NET_WORTH"
+            />
+            <MetricCard
+              label="Liquid Net Worth"
+              value={data?.liquidNetWorth?.toLocaleString() || "0"}
+              prefix="$"
+              trend={0}
+              trendLabel="vs last month"
+              tooltipId="LIQUID_NET_WORTH"
+            />
+            <MetricCard
+              label="Savings Rate"
+              value={data?.savingsRate || 0}
+              suffix="%"
+              trend={0}
+              trendLabel="vs last month"
+              tooltipId="SAVINGS_RATE"
+            />
+          </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          label="Bank Total"
-          value="85,000"
-          prefix="$"
-          trend={1.4}
-          trendLabel="vs last month"
-        />
-        <MetricCard
-          label="CPF Total"
-          value="80,000"
-          prefix="$"
-          trend={2.1}
-          trendLabel="vs last month"
-        />
-        <MetricCard
-          label="Investments"
-          value="45,000"
-          prefix="$"
-          trend={-0.8}
-          trendLabel="vs last month"
-        />
-        <MetricCard
-          label="Loans Outstanding"
-          value="35,000"
-          prefix="$"
-          trend={-1.2}
-          trendLabel="vs last month"
-        />
-      </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <MetricCard
+              label="Bank Total"
+              value={data?.bankTotal?.toLocaleString() || "0"}
+              prefix="$"
+              trend={0}
+              trendLabel="vs last month"
+            />
+            <MetricCard
+              label="CPF Total"
+              value={data?.cpfTotal?.toLocaleString() || "0"}
+              prefix="$"
+              trend={0}
+              trendLabel="vs last month"
+            />
+            <MetricCard
+              label="Investments"
+              value={data?.investmentTotal?.toLocaleString() || "0"}
+              prefix="$"
+              trend={0}
+              trendLabel="vs last month"
+            />
+            <MetricCard
+              label="Loans Outstanding"
+              value={data?.loanTotal?.toLocaleString() || "0"}
+              prefix="$"
+              trend={0}
+              trendLabel="vs last month"
+            />
+          </div>
+        </>
+      )}
 
       <Card>
         <CardHeader>

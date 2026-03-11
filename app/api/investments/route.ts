@@ -44,6 +44,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch investments" }, { status: 500 })
     }
 
+    if (!investments) return NextResponse.json([])
+
     const enriched = await Promise.all(
       investments.map(async (inv) => {
         try {

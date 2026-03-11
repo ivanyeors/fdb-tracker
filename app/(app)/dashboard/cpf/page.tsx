@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect, useMemo } from "react"
 import {
   BarChart,
   Bar,
@@ -18,15 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
-
-const mockContributions = [
-  { month: "Jul", oa: 1380, sa: 360, ma: 1160 },
-  { month: "Aug", oa: 1380, sa: 360, ma: 1160 },
-  { month: "Sep", oa: 1380, sa: 360, ma: 1160 },
-  { month: "Oct", oa: 1380, sa: 360, ma: 1160 },
-  { month: "Nov", oa: 1380, sa: 360, ma: 1160 },
-  { month: "Dec", oa: 1380, sa: 360, ma: 1160 },
-]
+import { useActiveProfile } from "@/hooks/use-active-profile"
 
 const BRS = 110200
 const FRS = 220400
@@ -44,25 +37,37 @@ const retirementBenchmarks = [
   { label: "ERS", target: ERS, pct: Math.round((cpfSA / ERS) * 100) },
 ]
 
-function OverviewTab() {
+function OverviewTab({ data }: { data: any[] }) {
+  const latest = data[0] || { oa: 0, sa: 0, ma: 0 }
+  
+  const chartData = useMemo(() => {
+    // Return last 6 months ascending
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    // Clone and sort properly assuming YYYY-MM
+    return [...data].sort((a,b) => new Date(a.month).getTime() - new Date(b.month).getTime()).slice(-6).map(d => ({
+      ...d,
+      month: monthNames[new Date(d.month).getMonth()]
+    }))
+  }, [data])
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <MetricCard
           label="Ordinary Account (OA)"
-          value="45,000"
+          value={latest.oa.toLocaleString()}
           prefix="$"
           tooltipId="CPF_OA_SA_MA"
         />
         <MetricCard
           label="Special Account (SA)"
-          value="15,000"
+          value={latest.sa.toLocaleString()}
           prefix="$"
           tooltipId="CPF_OA_SA_MA"
         />
         <MetricCard
           label="Medisave Account (MA)"
-          value="20,000"
+          value={latest.ma.toLocaleString()}
           prefix="$"
           tooltipId="CPF_OA_SA_MA"
         />
@@ -70,11 +75,11 @@ function OverviewTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Monthly Contributions (OA / SA / MA)</CardTitle>
+          <CardTitle>Monthly Contribution Projections (6 Months)</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={mockContributions}>
+            <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis
                 dataKey="month"
@@ -84,7 +89,7 @@ function OverviewTab() {
               <YAxis
                 className="text-xs"
                 tick={{ fill: "var(--color-muted-foreground)" }}
-                tickFormatter={(v: number) => `$${v}`}
+                tickFormatter={(v: number) => `$${(v / 1000).toFixed(1)}k`}
               />
               <Tooltip
                 formatter={(v, name) => [
@@ -277,6 +282,36 @@ function RetirementTab() {
 }
 
 export default function CpfPage() {
+  const { activeProfileId } = useActiveProfile()
+  const [cpfData, setCpfData] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchCpf() {
+      if (!activeProfileId) {
+        setIsLoading(false)
+        return
+      }
+
+      setIsLoading(true)
+      try {
+        const url = new URL("/api/cpf/balances", window.location.origin)
+        url.searchParams.set("profileId", activeProfileId)
+
+        const res = await fetch(url)
+        if (res.ok) {
+          const json = await res.json()
+          setCpfData(json || [])
+        }
+      } catch (error) {
+        console.error("Failed to fetch CPF data:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchCpf()
+  }, [activeProfileId])
+
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
@@ -284,29 +319,35 @@ export default function CpfPage() {
         description="OA/SA/MA balances, housing, and retirement benchmarking."
       />
 
-      <Tabs defaultValue="overview">
-        <div className="-mx-1 overflow-x-auto [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
-          <TabsList className="inline-flex w-fit flex-nowrap">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="housing">Housing</TabsTrigger>
-          <TabsTrigger value="loans">Loans</TabsTrigger>
-          <TabsTrigger value="retirement">Retirement</TabsTrigger>
-          </TabsList>
+      {isLoading ? (
+        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+          Loading CPF data...
         </div>
+      ) : (
+        <Tabs defaultValue="overview">
+          <div className="-mx-1 overflow-x-auto [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
+            <TabsList className="inline-flex w-fit flex-nowrap">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="housing">Housing</TabsTrigger>
+              <TabsTrigger value="loans">Loans</TabsTrigger>
+              <TabsTrigger value="retirement">Retirement</TabsTrigger>
+            </TabsList>
+          </div>
 
-        <TabsContent value="overview" className="mt-4">
-          <OverviewTab />
-        </TabsContent>
-        <TabsContent value="housing" className="mt-4">
-          <HousingTab />
-        </TabsContent>
-        <TabsContent value="loans" className="mt-4">
-          <LoansTab />
-        </TabsContent>
-        <TabsContent value="retirement" className="mt-4">
-          <RetirementTab />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="overview" className="mt-4">
+            <OverviewTab data={cpfData} />
+          </TabsContent>
+          <TabsContent value="housing" className="mt-4">
+            <HousingTab />
+          </TabsContent>
+          <TabsContent value="loans" className="mt-4">
+            <LoansTab />
+          </TabsContent>
+          <TabsContent value="retirement" className="mt-4">
+            <RetirementTab />
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   )
 }

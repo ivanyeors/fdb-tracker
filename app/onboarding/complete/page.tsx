@@ -17,7 +17,7 @@ export default function CompletePage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { profiles, userCount, bankAccounts, telegramChatId } = useOnboarding()
+  const { profiles, userCount, incomeConfigs, bankAccounts, telegramChatId, promptSchedule } = useOnboarding()
 
   const profileCount = profiles.filter((p) => p.name.trim()).length || userCount
   const bankCount = bankAccounts.filter((a) => a.bank_name.trim()).length
@@ -27,7 +27,18 @@ export default function CompletePage() {
     setIsLoading(true)
     setError(null)
     try {
-      const res = await fetch("/api/onboarding/complete", { method: "POST" })
+      const res = await fetch("/api/onboarding/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userCount,
+          profiles: profiles.slice(0, userCount),
+          incomeConfigs: incomeConfigs.slice(0, userCount),
+          bankAccounts,
+          telegramChatId,
+          promptSchedule,
+        }),
+      })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error ?? "Failed to complete onboarding")

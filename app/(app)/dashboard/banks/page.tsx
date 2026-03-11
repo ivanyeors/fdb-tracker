@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Check, X } from "lucide-react"
 import {
   Card,
@@ -10,6 +11,7 @@ import {
 } from "@/components/ui/card"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
+import { useActiveProfile } from "@/hooks/use-active-profile"
 
 const mockInterestCategories = [
   {
@@ -59,6 +61,32 @@ const mockInterestCategories = [
 const projectedMonthlyInterest = 23.42
 
 export default function BanksPage() {
+  const { activeProfileId } = useActiveProfile()
+  const [accounts, setAccounts] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchBanks() {
+      setIsLoading(true)
+      try {
+        const url = new URL("/api/bank-accounts", window.location.origin)
+        if (activeProfileId) {
+          url.searchParams.set("profileId", activeProfileId)
+        }
+        const res = await fetch(url)
+        if (res.ok) {
+          const json = await res.json()
+          setAccounts(json.accounts || [])
+        }
+      } catch (error) {
+        console.error("Failed to fetch bank accounts:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchBanks()
+  }, [activeProfileId])
+
   const qualifiedRate = mockInterestCategories
     .filter((c) => c.met)
     .reduce((sum, c) => sum + parseFloat(c.rate), 0)
@@ -70,24 +98,29 @@ export default function BanksPage() {
         description="Per-bank balances and OCBC 360 interest projection."
       />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <MetricCard
-          label="OCBC 360"
-          value="65,000"
-          prefix="$"
-          trend={1.9}
-          trendLabel="+$1,200 vs last month"
-          tooltipId="BANK_BALANCE"
-        />
-        <MetricCard
-          label="DBS Savings"
-          value="20,000"
-          prefix="$"
-          trend={0.5}
-          trendLabel="+$100 vs last month"
-          tooltipId="BANK_BALANCE"
-        />
-      </div>
+      {isLoading ? (
+        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+          Loading accounts...
+        </div>
+      ) : accounts.length === 0 ? (
+        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+          No bank accounts found for this profile.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {accounts.map((acc, i) => (
+            <MetricCard
+              key={acc.id || i}
+              label={acc.bank_name || "Bank Account"}
+              value={acc.latest_balance?.toLocaleString() || "0"}
+              prefix="$"
+              trend={0}
+              trendLabel="vs last month"
+              tooltipId="BANK_BALANCE"
+            />
+          ))}
+        </div>
+      )}
 
       <Card>
         <CardHeader>
