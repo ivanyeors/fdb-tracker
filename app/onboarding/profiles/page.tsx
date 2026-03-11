@@ -12,13 +12,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { BirthDatePicker } from "@/components/ui/birth-date-picker"
 import {
   Tooltip,
   TooltipContent,
@@ -31,8 +25,6 @@ import {
 } from "@/components/onboarding/onboarding-provider"
 import { profilesSchema } from "@/lib/validations/onboarding"
 import { ArrowLeft, ArrowRight, HelpCircle } from "lucide-react"
-
-const YEARS = Array.from({ length: 71 }, (_, i) => 2010 - i)
 
 export default function ProfilesPage() {
   const router = useRouter()
@@ -108,21 +100,15 @@ export default function ProfilesPage() {
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              <Select
-                value={profile.birth_year?.toString() ?? ""}
-                onValueChange={(v) => updateProfile(i, "birth_year", v)}
-              >
-                <SelectTrigger id={`birth-year-${i}`} className="w-full">
-                  <SelectValue placeholder="Select year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {YEARS.map((year) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <BirthDatePicker
+                value={profile.birth_year}
+                onChange={(year) =>
+                  updateProfile(i, "birth_year", year?.toString() ?? "")
+                }
+                id={`birth-year-${i}`}
+                placeholder="Select birth date"
+                aria-invalid={!!errors[`profiles.${i}.birth_year`]}
+              />
               {errors[`profiles.${i}.birth_year`] && (
                 <p className="text-xs text-destructive">
                   {errors[`profiles.${i}.birth_year`]}

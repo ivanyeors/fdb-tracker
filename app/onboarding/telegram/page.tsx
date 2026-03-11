@@ -176,6 +176,15 @@ export default function TelegramPage() {
             <ArrowRight data-icon="inline-end" />
           </Button>
         </div>
+        <p className="text-center">
+          <Button
+            variant="link"
+            className="text-muted-foreground"
+            onClick={() => router.push("/onboarding/reminders")}
+          >
+            Skip for now
+          </Button>
+        </p>
       </CardContent>
     </Card>
   )

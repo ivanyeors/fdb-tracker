@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { CurrencyInput } from "@/components/ui/currency-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -26,6 +27,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { DatePicker } from "@/components/ui/date-picker"
 import {
   useOnboarding,
   type BankAccount,
@@ -58,7 +60,13 @@ export default function BanksPage() {
   const { bankAccounts, setBankAccounts } = useOnboarding()
   const [accounts, setAccounts] = useState<BankAccount[]>(
     bankAccounts.length > 0
-      ? bankAccounts
+      ? bankAccounts.map((acc) => ({
+          ...acc,
+          savings_goals: acc.savings_goals.map((g) => ({
+            ...g,
+            deadline: g.deadline ?? null,
+          })),
+        }))
       : [{ bank_name: "", account_type: "savings", savings_goals: [] }],
   )
   const [showGoals, setShowGoals] = useState<Record<number, boolean>>({})
@@ -102,7 +110,9 @@ export default function BanksPage() {
       const updated = [...accounts]
       updated[index] = {
         ...updated[index],
-        savings_goals: [{ name: "", target_amount: null, current_amount: 0 }],
+        savings_goals: [
+          { name: "", target_amount: null, current_amount: 0, deadline: null },
+        ],
       }
       setAccounts(updated)
     }
@@ -117,17 +127,27 @@ export default function BanksPage() {
     accountIdx: number,
     goalIdx: number,
     field: keyof SavingsGoal,
-    value: string,
+    value: string | number | null,
   ) {
     const updated = [...accounts]
     const goals = [...updated[accountIdx].savings_goals]
     if (field === "name") {
-      goals[goalIdx] = { ...goals[goalIdx], name: value }
-    } else {
+      goals[goalIdx] = { ...goals[goalIdx], name: value as string }
+    } else if (field === "deadline") {
       goals[goalIdx] = {
         ...goals[goalIdx],
-        [field]: value === "" ? (field === "current_amount" ? 0 : null) : Number(value),
+        deadline: value === "" || value === null || value === undefined ? null : (value as string),
       }
+    } else {
+      const numValue =
+        value === "" || value === null || value === undefined
+          ? field === "current_amount"
+            ? 0
+            : null
+          : typeof value === "number"
+            ? value
+            : Number(value)
+      goals[goalIdx] = { ...goals[goalIdx], [field]: numValue }
     }
     updated[accountIdx] = { ...updated[accountIdx], savings_goals: goals }
     setAccounts(updated)
@@ -139,7 +159,7 @@ export default function BanksPage() {
       ...updated[accountIdx],
       savings_goals: [
         ...updated[accountIdx].savings_goals,
-        { name: "", target_amount: null, current_amount: 0 },
+        { name: "", target_amount: null, current_amount: 0, deadline: null },
       ],
     }
     setAccounts(updated)
@@ -246,7 +266,7 @@ export default function BanksPage() {
                   account.savings_goals.map((goal, gi) => (
                     <div
                       key={gi}
-                      className="grid gap-2 rounded-md border bg-background p-3 sm:grid-cols-3"
+                      className="grid gap-2 rounded-md border bg-background p-3 sm:grid-cols-2 lg:grid-cols-4"
                     >
                       <div className="space-y-1">
                         <Label htmlFor={`goal-name-${i}-${gi}`}>
@@ -265,13 +285,12 @@ export default function BanksPage() {
                         <Label htmlFor={`goal-target-${i}-${gi}`}>
                           Target ($)
                         </Label>
-                        <Input
+                        <CurrencyInput
                           id={`goal-target-${i}-${gi}`}
-                          type="number"
-                          placeholder="e.g. 10000"
-                          value={goal.target_amount ?? ""}
-                          onChange={(e) =>
-                            updateGoal(i, gi, "target_amount", e.target.value)
+                          placeholder="e.g. 10,000.00"
+                          value={goal.target_amount ?? null}
+                          onChange={(v) =>
+                            updateGoal(i, gi, "target_amount", v)
                           }
                         />
                       </div>
@@ -280,18 +299,12 @@ export default function BanksPage() {
                           <Label htmlFor={`goal-current-${i}-${gi}`}>
                             Current ($)
                           </Label>
-                          <Input
+                          <CurrencyInput
                             id={`goal-current-${i}-${gi}`}
-                            type="number"
-                            placeholder="0"
-                            value={goal.current_amount || ""}
-                            onChange={(e) =>
-                              updateGoal(
-                                i,
-                                gi,
-                                "current_amount",
-                                e.target.value,
-                              )
+                            placeholder="0.00"
+                            value={goal.current_amount ?? null}
+                            onChange={(v) =>
+                              updateGoal(i, gi, "current_amount", v)
                             }
                           />
                         </div>
@@ -304,6 +317,19 @@ export default function BanksPage() {
                             <Trash2 className="size-3.5 text-destructive" />
                           </Button>
                         )}
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor={`goal-deadline-${i}-${gi}`}>
+                          End Date
+                        </Label>
+                        <DatePicker
+                          id={`goal-deadline-${i}-${gi}`}
+                          value={goal.deadline ?? null}
+                          onChange={(date) =>
+                            updateGoal(i, gi, "deadline", date ?? "")
+                          }
+                          placeholder="Select end date"
+                        />
                       </div>
                     </div>
                   ))}

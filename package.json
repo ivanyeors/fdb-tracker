@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "db:fix-households": "npx tsx scripts/apply-households-migration.ts",
+    "db:reset": "npx tsx scripts/reset-supabase.ts",
     "dev": "NODE_OPTIONS='--disable-warning=DEP0169' next dev --turbopack",
     "build": "NODE_OPTIONS='--disable-warning=DEP0169' next build",
     "start": "NODE_OPTIONS='--disable-warning=DEP0169' next start",
@@ -24,6 +25,7 @@
     "next-themes": "^0.4.6",
     "radix-ui": "^1.4.3",
     "react": "^19.2.4",
+    "react-currency-input-field": "^4.0.3",
     "react-day-picker": "^9.14.0",
     "react-dom": "^19.2.4",
     "recharts": "^3.8.0",

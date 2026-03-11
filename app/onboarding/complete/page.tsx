@@ -1,6 +1,7 @@
 "use client"
 
-import Link from "next/link"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -10,14 +11,33 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { useOnboarding } from "@/components/onboarding/onboarding-provider"
-import { CheckCircle2, ArrowRight } from "lucide-react"
+import { CheckCircle2, ArrowRight, Loader2 } from "lucide-react"
 
 export default function CompletePage() {
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const { profiles, userCount, bankAccounts, telegramChatId } = useOnboarding()
 
   const profileCount = profiles.filter((p) => p.name.trim()).length || userCount
   const bankCount = bankAccounts.filter((a) => a.bank_name.trim()).length
   const telegramConnected = telegramChatId.trim().length > 0
+
+  async function handleGoToDashboard() {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/onboarding/complete", { method: "POST" })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error ?? "Failed to complete onboarding")
+      }
+      router.push("/dashboard")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+      setIsLoading(false)
+    }
+  }
 
   return (
     <Card>
@@ -56,11 +76,26 @@ export default function CompletePage() {
           </div>
         </div>
 
-        <Button asChild size="lg">
-          <Link href="/dashboard">
-            Go to Dashboard
-            <ArrowRight data-icon="inline-end" />
-          </Link>
+        {error && (
+          <p className="text-sm text-destructive">{error}</p>
+        )}
+
+        <Button
+          size="lg"
+          onClick={handleGoToDashboard}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Completing
+            </>
+          ) : (
+            <>
+              Go to Dashboard
+              <ArrowRight data-icon="inline-end" />
+            </>
+          )}
         </Button>
       </CardContent>
     </Card>

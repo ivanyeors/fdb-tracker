@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { CurrencyInput } from "@/components/ui/currency-input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -47,7 +47,7 @@ export default function IncomePage() {
   function updateIncome(
     index: number,
     field: keyof IncomeConfig,
-    value: string,
+    value: string | number | null,
   ) {
     const updated = [...incomeConfigs]
     if (field === "pay_frequency") {
@@ -58,7 +58,12 @@ export default function IncomePage() {
     } else {
       updated[index] = {
         ...updated[index],
-        [field]: value === "" ? null : Number(value),
+        [field]:
+          value === null || value === undefined || value === ""
+            ? null
+            : typeof value === "number"
+              ? value
+              : Number(value),
       }
     }
     setIncomeConfigs(updated)
@@ -119,14 +124,11 @@ export default function IncomePage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor={`salary-${i}`}>Annual Salary ($)</Label>
-                <Input
+                <CurrencyInput
                   id={`salary-${i}`}
-                  type="number"
-                  placeholder="e.g. 60000"
-                  value={config.annual_salary ?? ""}
-                  onChange={(e) =>
-                    updateIncome(i, "annual_salary", e.target.value)
-                  }
+                  placeholder="e.g. 60,000.00"
+                  value={config.annual_salary ?? null}
+                  onChange={(v) => updateIncome(i, "annual_salary", v)}
                   aria-invalid={!!errors[`${i}.annual_salary`]}
                 />
                 {errors[`${i}.annual_salary`] && (
@@ -138,14 +140,11 @@ export default function IncomePage() {
 
               <div className="space-y-1.5">
                 <Label htmlFor={`bonus-${i}`}>Bonus Estimate ($)</Label>
-                <Input
+                <CurrencyInput
                   id={`bonus-${i}`}
-                  type="number"
-                  placeholder="e.g. 5000"
-                  value={config.bonus_estimate ?? ""}
-                  onChange={(e) =>
-                    updateIncome(i, "bonus_estimate", e.target.value)
-                  }
+                  placeholder="e.g. 5,000.00"
+                  value={config.bonus_estimate ?? null}
+                  onChange={(v) => updateIncome(i, "bonus_estimate", v)}
                   aria-invalid={!!errors[`${i}.bonus_estimate`]}
                 />
                 {errors[`${i}.bonus_estimate`] && (

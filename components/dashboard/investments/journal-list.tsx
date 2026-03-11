@@ -3,9 +3,12 @@
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { addDays } from "date-fns"
 import { ChevronDown, ChevronUp } from "lucide-react"
+import { type DateRange } from "react-day-picker"
 
 export interface JournalEntry {
   id: string
@@ -22,9 +25,31 @@ interface JournalListProps {
   entries: JournalEntry[]
 }
 
+function isInDateRange(
+  dateStr: string,
+  range: DateRange | undefined
+): boolean {
+  if (!range?.from) return true
+  const entryDate = new Date(dateStr)
+  if (range.to) {
+    const toEnd = new Date(range.to)
+    toEnd.setHours(23, 59, 59, 999)
+    return entryDate >= range.from && entryDate <= toEnd
+  }
+  return entryDate >= range.from
+}
+
+const defaultDateRange: DateRange = {
+  from: new Date(new Date().getFullYear(), 0, 12),
+  to: addDays(new Date(new Date().getFullYear(), 0, 12), 30),
+}
+
 export function JournalList({ entries }: JournalListProps) {
   const [filter, setFilter] = useState("")
   const [typeFilter, setTypeFilter] = useState<"all" | "buy" | "sell">("all")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(
+    defaultDateRange
+  )
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const filtered = entries.filter((e) => {
@@ -32,7 +57,8 @@ export function JournalList({ entries }: JournalListProps) {
       .toLowerCase()
       .includes(filter.toLowerCase())
     const matchType = typeFilter === "all" || e.type === typeFilter
-    return matchSymbol && matchType
+    const matchDate = isInDateRange(e.date, dateRange)
+    return matchSymbol && matchType && matchDate
   })
 
   function fmt(n: number): string {
@@ -50,6 +76,12 @@ export function JournalList({ entries }: JournalListProps) {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           className="w-48"
+        />
+        <DateRangePicker
+          value={dateRange}
+          onChange={setDateRange}
+          placeholder="Pick date range"
+          className="w-[280px]"
         />
         <div className="flex gap-1">
           {(["all", "buy", "sell"] as const).map((t) => (

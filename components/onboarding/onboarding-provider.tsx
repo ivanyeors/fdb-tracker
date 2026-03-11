@@ -5,7 +5,9 @@ import {
   useCallback,
   useContext,
   useState,
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
 } from "react"
 
 export interface Profile {
@@ -29,6 +31,7 @@ export interface SavingsGoal {
   name: string
   target_amount: number | null
   current_amount: number
+  deadline: string | null // ISO date "YYYY-MM-DD"
 }
 
 export interface PromptScheduleConfig {
@@ -55,7 +58,7 @@ interface OnboardingContextValue extends OnboardingState {
   setIncomeConfigs: (configs: IncomeConfig[]) => void
   setBankAccounts: (accounts: BankAccount[]) => void
   setTelegramChatId: (chatId: string) => void
-  setPromptSchedule: (schedule: PromptScheduleConfig[]) => void
+  setPromptSchedule: Dispatch<SetStateAction<PromptScheduleConfig[]>>
 }
 
 const DEFAULT_PROMPT_SCHEDULE: PromptScheduleConfig[] = [

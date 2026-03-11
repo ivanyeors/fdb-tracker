@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { CurrencyInput } from "@/components/ui/currency-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,7 +12,7 @@ export function JournalForm() {
   const [type, setType] = useState<"buy" | "sell">("buy")
   const [symbol, setSymbol] = useState("")
   const [quantity, setQuantity] = useState("")
-  const [price, setPrice] = useState("")
+  const [price, setPrice] = useState<number | null>(null)
   const [journalText, setJournalText] = useState("")
 
   function handleSubmit(e: React.FormEvent) {
@@ -20,7 +21,7 @@ export function JournalForm() {
       type,
       symbol,
       quantity: parseFloat(quantity),
-      price: parseFloat(price),
+      price: price ?? 0,
       journalText: journalText || undefined,
     }
     console.log("Journal entry:", data)
@@ -63,13 +64,11 @@ export function JournalForm() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="journal-price">Price ($)</Label>
-          <Input
+          <CurrencyInput
             id="journal-price"
-            type="number"
-            step="any"
             placeholder="0.00"
             value={price}
-            onChange={(e) => setPrice(e.target.value)}
+            onChange={(v) => setPrice(v)}
             required
           />
         </div>

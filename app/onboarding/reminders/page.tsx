@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -9,8 +10,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group"
+import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ScheduleDatePicker } from "@/components/ui/schedule-date-picker"
 import {
   Select,
   SelectContent,
@@ -22,7 +30,7 @@ import {
   useOnboarding,
   type PromptScheduleConfig,
 } from "@/components/onboarding/onboarding-provider"
-import { ArrowLeft, ArrowRight } from "lucide-react"
+import { ArrowLeft, ArrowRight, Clock2Icon } from "lucide-react"
 
 const PROMPT_LABELS: Record<PromptScheduleConfig["prompt_type"], string> = {
   end_of_month: "End of Month",
@@ -31,53 +39,55 @@ const PROMPT_LABELS: Record<PromptScheduleConfig["prompt_type"], string> = {
   tax: "Tax",
 }
 
-const TIMEZONES = [
-  "Asia/Singapore",
-  "Asia/Kuala_Lumpur",
-  "Asia/Tokyo",
-  "Asia/Shanghai",
-  "Asia/Hong_Kong",
-  "UTC",
-] as const
-
-const MONTHS = [
-  { value: "1", label: "January" },
-  { value: "2", label: "February" },
-  { value: "3", label: "March" },
-  { value: "4", label: "April" },
-  { value: "5", label: "May" },
-  { value: "6", label: "June" },
-  { value: "7", label: "July" },
-  { value: "8", label: "August" },
-  { value: "9", label: "September" },
-  { value: "10", label: "October" },
-  { value: "11", label: "November" },
-  { value: "12", label: "December" },
-] as const
-
-const DAYS = Array.from({ length: 28 }, (_, i) => i + 1)
-
 export default function RemindersPage() {
   const router = useRouter()
   const { promptSchedule, setPromptSchedule } = useOnboarding()
+
+  useEffect(() => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    setPromptSchedule((prev) => prev.map((s) => ({ ...s, timezone: tz })))
+  }, [setPromptSchedule])
 
   function updateSchedule(
     index: number,
     field: keyof PromptScheduleConfig,
     value: string,
   ) {
-    const updated = [...promptSchedule]
-    if (field === "day_of_month" || field === "month_of_year") {
-      updated[index] = { ...updated[index], [field]: Number(value) }
-    } else if (field === "frequency") {
+    setPromptSchedule((prev) => {
+      const updated = [...prev]
+      if (field === "day_of_month") {
+        updated[index] = { ...updated[index], day_of_month: Number(value) }
+      } else if (field === "month_of_year") {
+        updated[index] = {
+          ...updated[index],
+          month_of_year: value === "" ? null : Number(value),
+        }
+      } else if (field === "frequency") {
+        updated[index] = {
+          ...updated[index],
+          frequency: value as PromptScheduleConfig["frequency"],
+        }
+      } else {
+        updated[index] = { ...updated[index], [field]: value }
+      }
+      return updated
+    })
+  }
+
+  function updateScheduleDate(
+    index: number,
+    day: number,
+    month: number | null,
+  ) {
+    setPromptSchedule((prev) => {
+      const updated = [...prev]
       updated[index] = {
         ...updated[index],
-        frequency: value as PromptScheduleConfig["frequency"],
+        day_of_month: day,
+        month_of_year: month,
       }
-    } else {
-      updated[index] = { ...updated[index], [field]: value }
-    }
-    setPromptSchedule(updated)
+      return updated
+    })
   }
 
   return (
@@ -127,79 +137,38 @@ export default function RemindersPage() {
                 )}
 
                 <div className="space-y-1.5">
-                  <Label htmlFor={`day-${i}`}>Day</Label>
-                  <Select
-                    value={schedule.day_of_month.toString()}
-                    onValueChange={(v) =>
-                      updateSchedule(i, "day_of_month", v)
+                  <Label htmlFor={`schedule-date-${i}`}>
+                    {showMonth ? "Date" : "Day"}
+                  </Label>
+                  <ScheduleDatePicker
+                    dayOfMonth={schedule.day_of_month}
+                    monthOfYear={schedule.month_of_year}
+                    onChange={(day, month) =>
+                      updateScheduleDate(i, day, month)
                     }
-                  >
-                    <SelectTrigger id={`day-${i}`} className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DAYS.map((d) => (
-                        <SelectItem key={d} value={d.toString()}>
-                          {d}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {showMonth && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`month-${i}`}>Month</Label>
-                    <Select
-                      value={(schedule.month_of_year ?? 1).toString()}
-                      onValueChange={(v) =>
-                        updateSchedule(i, "month_of_year", v)
-                      }
-                    >
-                      <SelectTrigger id={`month-${i}`} className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MONTHS.map((m) => (
-                          <SelectItem key={m.value} value={m.value}>
-                            {m.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                <div className="space-y-1.5">
-                  <Label htmlFor={`time-${i}`}>Time</Label>
-                  <Input
-                    id={`time-${i}`}
-                    type="time"
-                    value={schedule.time}
-                    onChange={(e) =>
-                      updateSchedule(i, "time", e.target.value)
-                    }
+                    showMonth={showMonth}
+                    id={`schedule-date-${i}`}
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor={`tz-${i}`}>Timezone</Label>
-                  <Select
-                    value={schedule.timezone}
-                    onValueChange={(v) => updateSchedule(i, "timezone", v)}
-                  >
-                    <SelectTrigger id={`tz-${i}`} className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TIMEZONES.map((tz) => (
-                        <SelectItem key={tz} value={tz}>
-                          {tz}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Field className="space-y-1.5">
+                  <FieldLabel htmlFor={`time-${i}`}>Time</FieldLabel>
+                  <InputGroup>
+                    <InputGroupInput
+                      id={`time-${i}`}
+                      type="time"
+                      step="1"
+                      value={schedule.time}
+                      onChange={(e) =>
+                        updateSchedule(i, "time", e.target.value)
+                      }
+                      className="appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                    />
+                    <InputGroupAddon>
+                      <Clock2Icon className="text-muted-foreground" />
+                    </InputGroupAddon>
+                  </InputGroup>
+                </Field>
               </div>
             </div>
           )
