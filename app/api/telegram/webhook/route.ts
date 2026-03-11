@@ -49,15 +49,18 @@ async function handleOtpCommand(
 ): Promise<void> {
   console.log("[telegram/otp] handleOtpCommand called, chatId:", chatId)
   try {
-    const householdId = await getOrCreateHouseholdForChannel(String(chatId))
-    console.log("[telegram/otp] householdId:", householdId)
-    if (!householdId) {
-      console.log("[telegram/otp] No householdId, sending error reply")
-      await reply("❌ Failed to generate OTP. Please try again.")
+    const household = await getOrCreateHouseholdForChannel(String(chatId))
+    console.log("[telegram/otp] household result:", JSON.stringify(household))
+    if ("error" in household) {
+      console.error("[telegram/otp] household error:", household.error)
+      await reply(`❌ ${household.error}`)
       return
     }
-    const result = await generateAndStoreOtp(householdId)
-    console.log("[telegram/otp] generateAndStoreOtp result:", JSON.stringify(result))
+    const result = await generateAndStoreOtp(household.id)
+    console.log(
+      "[telegram/otp] generateAndStoreOtp result:",
+      JSON.stringify(result),
+    )
     if ("error" in result) {
       await reply(`❌ ${result.error}`)
       return
