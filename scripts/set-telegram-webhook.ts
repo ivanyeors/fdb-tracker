@@ -1,11 +1,9 @@
 #!/usr/bin/env npx tsx
 /**
  * Registers the Telegram bot webhook URL with Telegram's API.
- * Loads .env.local automatically. Run from project root:
+ * Loads .env.local for TELEGRAM_BOT_TOKEN. Run from project root:
  *
- *   npx tsx scripts/set-telegram-webhook.ts
- *
- * Or override: NEXT_PUBLIC_APP_URL=https://... npx tsx scripts/set-telegram-webhook.ts
+ *   npx tsx scripts/set-telegram-webhook.ts https://fd-tracker-mu.vercel.app
  */
 
 import { readFileSync, existsSync } from "node:fs"
@@ -24,7 +22,8 @@ function loadEnvLocal() {
 loadEnvLocal()
 
 const token = process.env.TELEGRAM_BOT_TOKEN
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+const baseUrl =
+  process.argv[2]?.startsWith("http") ? process.argv[2] : process.env.NEXT_PUBLIC_APP_URL
 
 if (!token) {
   console.error("Error: TELEGRAM_BOT_TOKEN is not set")
@@ -32,13 +31,14 @@ if (!token) {
 }
 
 if (!baseUrl) {
-  console.error("Error: NEXT_PUBLIC_APP_URL is not set (add to .env.local or pass as env var)")
+  console.error("Error: Pass production URL as argument or set NEXT_PUBLIC_APP_URL")
+  console.error("   npx tsx scripts/set-telegram-webhook.ts https://fd-tracker-mu.vercel.app")
   process.exit(1)
 }
 
 if (baseUrl.includes("localhost")) {
-  console.error("Error: NEXT_PUBLIC_APP_URL must be your production URL (e.g. https://fd-tracker-mu.vercel.app)")
-  console.error("       Telegram cannot reach localhost. Override: NEXT_PUBLIC_APP_URL=https://your-app.vercel.app npx tsx scripts/set-telegram-webhook.ts")
+  console.error("Error: Use your production URL (Telegram cannot reach localhost)")
+  console.error("   npx tsx scripts/set-telegram-webhook.ts https://fd-tracker-mu.vercel.app")
   process.exit(1)
 }
 
