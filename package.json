@@ -4,9 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
+    "dev": "NODE_OPTIONS='--disable-warning=DEP0169' next dev --turbopack",
+    "build": "NODE_OPTIONS='--disable-warning=DEP0169' next build",
+    "start": "NODE_OPTIONS='--disable-warning=DEP0169' next start",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
