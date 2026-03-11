@@ -48,6 +48,12 @@ async function handleOtpCommand(
   reply: (text: string) => Promise<unknown>,
 ): Promise<void> {
   console.log("[telegram/otp] handleOtpCommand called, chatId:", chatId)
+  
+  // Debug: Check environment variables
+  console.log("[telegram/otp] Environment check:")
+  console.log("[telegram/otp] NEXT_PUBLIC_SUPABASE_URL exists:", !!process.env.NEXT_PUBLIC_SUPABASE_URL)
+  console.log("[telegram/otp] SUPABASE_SERVICE_ROLE_KEY exists:", !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+  
   try {
     const householdId = await getOrCreateHouseholdForChannel(String(chatId))
     console.log("[telegram/otp] householdId:", householdId)
@@ -67,6 +73,7 @@ async function handleOtpCommand(
     console.log("[telegram/otp] OTP reply sent successfully")
   } catch (err) {
     console.error("[telegram/otp] OTP error:", err)
+    console.error("[telegram/otp] Error stack:", err instanceof Error ? err.stack : 'No stack trace')
     try {
       await reply("❌ Something went wrong. Check server logs.")
     } catch (replyErr) {
