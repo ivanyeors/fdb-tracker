@@ -61,3 +61,9 @@ The `/otp` command and other Telegram commands require the webhook URL to be reg
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" "https://fd-tracker-mu.vercel.app/api/telegram/webhook-info"
 ```
+
+**Command menu** (shows when users tap "/" in the chat): The set-webhook API and script also register the bot command menu. To update only the menu without changing the webhook:
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" "https://fd-tracker-mu.vercel.app/api/telegram/set-commands"
+```
+The menu can take a few minutes to appear; restart the Telegram app if it does not show.
