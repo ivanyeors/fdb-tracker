@@ -15,70 +15,13 @@ describe("generateAndStoreOtp", () => {
     vi.clearAllMocks()
   })
 
-  it("returns a rate-limit error after three recent OTPs", async () => {
-    const rateLimitBuilder = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      gte: vi.fn().mockResolvedValue({
-        count: 3,
-        error: null,
-      }),
-    }
-
-    createSupabaseAdminMock.mockReturnValue({
-      from: vi.fn().mockReturnValue(rateLimitBuilder),
-    } as never)
-
-    await expect(generateAndStoreOtp("account-1")).resolves.toEqual({
-      ok: false,
-      stage: "rate_limit",
-      error: "Too many OTP requests. Please wait before trying again.",
-    })
-  })
-
-  it("returns the Supabase error when the rate-limit check fails", async () => {
-    const rateLimitBuilder = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      gte: vi.fn().mockResolvedValue({
-        count: null,
-        error: {
-          code: "PGRST301",
-          message: "JWT expired",
-        },
-      }),
-    }
-
-    createSupabaseAdminMock.mockReturnValue({
-      from: vi.fn().mockReturnValue(rateLimitBuilder),
-    } as never)
-
-    await expect(generateAndStoreOtp("account-1")).resolves.toEqual({
-      ok: false,
-      stage: "rate_limit",
-      error: "Failed to check OTP rate limit",
-      code: "PGRST301",
-    })
-  })
-
-  it("stores a new OTP when the account is under the rate limit", async () => {
-    const rateLimitBuilder = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      gte: vi.fn().mockResolvedValue({
-        count: 0,
-        error: null,
-      }),
-    }
+  it("stores a new OTP", async () => {
     const insertBuilder = {
       insert: vi.fn().mockResolvedValue({
         error: null,
       }),
     }
-    const from = vi
-      .fn()
-      .mockReturnValueOnce(rateLimitBuilder)
-      .mockReturnValueOnce(insertBuilder)
+    const from = vi.fn().mockReturnValue(insertBuilder)
 
     createSupabaseAdminMock.mockReturnValue({ from } as never)
     vi.spyOn(Math, "random").mockReturnValue(0)

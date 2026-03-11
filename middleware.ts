@@ -8,6 +8,12 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // Unauthenticated: redirect / to login (OTP) so users land on OTP right away
+  if (pathname === "/") {
+    if (!session) return NextResponse.redirect(new URL("/login", request.url))
+    return NextResponse.redirect(new URL("/dashboard", request.url))
+  }
+
   if (!session) {
     const loginUrl = new URL("/login", request.url)
     return NextResponse.redirect(loginUrl)
@@ -36,5 +42,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/settings/:path*", "/onboarding/:path*"],
+  matcher: ["/", "/dashboard/:path*", "/settings/:path*", "/onboarding/:path*"],
 }

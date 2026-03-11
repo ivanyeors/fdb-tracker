@@ -1,6 +1,6 @@
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
-type OtpStage = "config" | "rate_limit" | "create"
+type OtpStage = "config" | "create"
 
 export type GenerateOtpResult =
   | {
@@ -34,31 +34,6 @@ export async function generateAndStoreOtp(
       stage: "config",
       error:
         error instanceof Error ? error.message : "Supabase admin client failed",
-    }
-  }
-
-  const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString()
-
-  const { count, error: countError } = await supabase
-    .from("otp_tokens")
-    .select("*", { count: "exact", head: true })
-    .eq("household_id", accountId)
-    .gte("created_at", fifteenMinAgo)
-
-  if (countError) {
-    return {
-      ok: false,
-      stage: "rate_limit",
-      error: "Failed to check OTP rate limit",
-      code: countError.code,
-    }
-  }
-
-  if (count !== null && count >= 3) {
-    return {
-      ok: false,
-      stage: "rate_limit",
-      error: "Too many OTP requests. Please wait before trying again.",
     }
   }
 
