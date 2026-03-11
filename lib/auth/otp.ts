@@ -1,5 +1,19 @@
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
+type OtpStage = "config" | "rate_limit" | "create"
+
+export type GenerateOtpResult =
+  | {
+      ok: true
+      otp: string
+    }
+  | {
+      ok: false
+      stage: OtpStage
+      error: string
+      code?: string
+    }
+
 export async function sha256(message: string): Promise<string> {
   const data = new TextEncoder().encode(message)
   const hash = await crypto.subtle.digest("SHA-256", data)
@@ -10,18 +24,42 @@ export async function sha256(message: string): Promise<string> {
 
 export async function generateAndStoreOtp(
   householdId: string,
-): Promise<{ otp: string } | { error: string }> {
-  const supabase = createSupabaseAdmin()
+): Promise<GenerateOtpResult> {
+  let supabase: ReturnType<typeof createSupabaseAdmin>
+  try {
+    supabase = createSupabaseAdmin()
+  } catch (error) {
+    return {
+      ok: false,
+      stage: "config",
+      error:
+        error instanceof Error ? error.message : "Supabase admin client failed",
+    }
+  }
+
   const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString()
 
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from("otp_tokens")
     .select("*", { count: "exact", head: true })
     .eq("household_id", householdId)
     .gte("created_at", fifteenMinAgo)
 
+  if (countError) {
+    return {
+      ok: false,
+      stage: "rate_limit",
+      error: "Failed to check OTP rate limit",
+      code: countError.code,
+    }
+  }
+
   if (count !== null && count >= 3) {
-    return { error: "Too many OTP requests. Please wait before trying again." }
+    return {
+      ok: false,
+      stage: "rate_limit",
+      error: "Too many OTP requests. Please wait before trying again.",
+    }
   }
 
   const otp = Math.floor(100_000 + Math.random() * 900_000).toString()
@@ -36,8 +74,13 @@ export async function generateAndStoreOtp(
     })
 
   if (insertError) {
-    return { error: "Failed to create OTP" }
+    return {
+      ok: false,
+      stage: "create",
+      error: "Failed to create OTP",
+      code: insertError.code,
+    }
   }
 
-  return { otp }
+  return { ok: true, otp }
 }
