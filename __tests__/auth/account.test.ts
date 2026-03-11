@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { getOrCreateHouseholdForChannel } from "@/lib/auth/household"
+import { getOrCreateAccountForChat } from "@/lib/auth/account"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -9,17 +9,17 @@ vi.mock("@/lib/supabase/server", () => ({
 
 const createSupabaseAdminMock = vi.mocked(createSupabaseAdmin)
 
-describe("getOrCreateHouseholdForChannel", () => {
+describe("getOrCreateAccountForChat", () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it("returns an existing household when the chat is already linked", async () => {
+  it("returns an existing account when the chat is already linked", async () => {
     const lookupBuilder = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({
-        data: { id: "existing-household" },
+        data: { id: "existing-account" },
         error: null,
       }),
     }
@@ -28,11 +28,9 @@ describe("getOrCreateHouseholdForChannel", () => {
       from: vi.fn().mockReturnValue(lookupBuilder),
     } as never)
 
-    await expect(
-      getOrCreateHouseholdForChannel("123417640"),
-    ).resolves.toEqual({
+    await expect(getOrCreateAccountForChat("123417640")).resolves.toEqual({
       ok: true,
-      householdId: "existing-household",
+      accountId: "existing-account",
       source: "existing",
     })
   })
@@ -54,9 +52,7 @@ describe("getOrCreateHouseholdForChannel", () => {
       from: vi.fn().mockReturnValue(lookupBuilder),
     } as never)
 
-    await expect(
-      getOrCreateHouseholdForChannel("123417640"),
-    ).resolves.toEqual({
+    await expect(getOrCreateAccountForChat("123417640")).resolves.toEqual({
       ok: false,
       stage: "lookup",
       error: "JWT expired",
@@ -64,7 +60,7 @@ describe("getOrCreateHouseholdForChannel", () => {
     })
   })
 
-  it("returns the create error when a new household cannot be inserted", async () => {
+  it("returns the create error when a new account cannot be inserted", async () => {
     const lookupBuilder = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
@@ -92,9 +88,7 @@ describe("getOrCreateHouseholdForChannel", () => {
         .mockReturnValueOnce(insertBuilder),
     } as never)
 
-    await expect(
-      getOrCreateHouseholdForChannel("123417640"),
-    ).resolves.toEqual({
+    await expect(getOrCreateAccountForChat("123417640")).resolves.toEqual({
       ok: false,
       stage: "create",
       error: "null value in column violates constraint",

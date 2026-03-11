@@ -19,7 +19,7 @@ export async function resolveUser(
   }
 
   if (!profiles || profiles.length === 0) {
-    return { error: "No profiles found for this household." }
+    return { error: "No profiles found. Complete onboarding first." }
   }
 
   const trimmed = nameOrArgs.trim()

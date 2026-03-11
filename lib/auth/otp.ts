@@ -23,7 +23,7 @@ export async function sha256(message: string): Promise<string> {
 }
 
 export async function generateAndStoreOtp(
-  householdId: string,
+  accountId: string,
 ): Promise<GenerateOtpResult> {
   let supabase: ReturnType<typeof createSupabaseAdmin>
   try {
@@ -42,7 +42,7 @@ export async function generateAndStoreOtp(
   const { count, error: countError } = await supabase
     .from("otp_tokens")
     .select("*", { count: "exact", head: true })
-    .eq("household_id", householdId)
+    .eq("household_id", accountId)
     .gte("created_at", fifteenMinAgo)
 
   if (countError) {
@@ -68,7 +68,7 @@ export async function generateAndStoreOtp(
   const { error: insertError } = await supabase
     .from("otp_tokens")
     .insert({
-      household_id: householdId,
+      household_id: accountId,
       otp_hash: otpHash,
       expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
     })
