@@ -43,9 +43,9 @@ The `/otp` command and other Telegram commands require the webhook URL to be reg
 **Register webhook after deploy:**
 
 1. **Via API route** (requires `CRON_SECRET` in Authorization header):
-   ```bash
-   curl -H "Authorization: Bearer $CRON_SECRET" "https://fd-tracker-mu.vercel.app/api/telegram/set-webhook"
-   ```
+ ```bash
+ curl -H "Authorization: Bearer $CRON_SECRET" "https://fd-tracker-mu.vercel.app/api/telegram/set-webhook"
+ ```
 
 2. **Via script** (from project root):
    ```bash
@@ -56,3 +56,8 @@ The `/otp` command and other Telegram commands require the webhook URL to be reg
    ```bash
    curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://fd-tracker-mu.vercel.app/api/telegram/webhook"
    ```
+
+**Check webhook status** (debugging):
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" "https://fd-tracker-mu.vercel.app/api/telegram/webhook-info"
+```

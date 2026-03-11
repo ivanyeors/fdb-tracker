@@ -47,18 +47,27 @@ async function handleOtpCommand(
   chatId: number,
   reply: (text: string) => Promise<unknown>,
 ): Promise<void> {
-  const householdId = await getOrCreateHouseholdForChannel(String(chatId))
-  if (!householdId) {
-    await reply("❌ Failed to generate OTP. Please try again.")
-    return
+  try {
+    const householdId = await getOrCreateHouseholdForChannel(String(chatId))
+    if (!householdId) {
+      await reply("❌ Failed to generate OTP. Please try again.")
+      return
+    }
+    const result = await generateAndStoreOtp(householdId)
+    if ("error" in result) {
+      await reply(`❌ ${result.error}`)
+      return
+    }
+    await reply(`🔑 Your OTP: ${result.otp}`)
+  } catch (err) {
+    console.error("[telegram/webhook] OTP error:", err)
+    await reply("❌ Something went wrong. Check server logs.")
   }
-  const result = await generateAndStoreOtp(householdId)
-  if ("error" in result) {
-    await reply(`❌ ${result.error}`)
-    return
-  }
-  await reply(`🔑 Your OTP: ${result.otp}`)
 }
+
+bot.catch((err) => {
+  console.error("[telegram/webhook] Bot error:", err)
+})
 
 bot.on("message", async (ctx) => {
   const msg = ctx.message
