@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { bot } from "@/lib/telegram/bot"
+import { getBot } from "@/lib/telegram/bot"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { getOrCreateHouseholdForChannel } from "@/lib/auth/household"
 import { generateAndStoreOtp } from "@/lib/auth/otp"
@@ -75,85 +75,103 @@ async function handleOtpCommand(
   }
 }
 
-bot.catch((err) => {
-  console.error("[telegram/webhook] Bot error:", err)
-})
+/**
+ * Sets up Telegraf handlers on the real bot instance.
+ * Called once per cold start (guarded by the module-level flag).
+ *
+ * The old code used a Proxy export (`bot`) which only had a `get` trap.
+ * Telegraf's Composer.use() internally does `this.handler = compose(...)`,
+ * a SET operation that went to the Proxy's empty {} target instead of the
+ * real Telegraf instance — so all .on() registrations were silently lost.
+ */
+let handlersRegistered = false
 
-bot.on("message", async (ctx) => {
-  const msg = ctx.message
-  console.log("[telegram/webhook] bot.on('message') triggered, chat.id:", msg.chat.id, "chat.type:", msg.chat.type)
+function ensureHandlers() {
+  if (handlersRegistered) return
+  handlersRegistered = true
 
-  if (!("text" in msg) || !msg.text) {
-    console.log("[telegram/webhook] No text in message, ignoring")
-    return
-  }
+  const bot = getBot()
 
-  console.log("[telegram/webhook] Message text:", msg.text)
-  const parsed = extractCommand(msg.text)
-  if (!parsed) {
-    console.log("[telegram/webhook] Not a command, ignoring")
-    return
-  }
+  bot.catch((err) => {
+    console.error("[telegram/webhook] Bot error:", err)
+  })
 
-  console.log("[telegram/webhook] Parsed command:", parsed.command)
-  const chatId = msg.chat.id
+  bot.on("message", async (ctx) => {
+    const msg = ctx.message
+    console.log("[telegram/webhook] bot.on('message') triggered, chat.id:", msg.chat.id, "chat.type:", msg.chat.type)
 
-  if (parsed.command === "otp") {
-    await handleOtpCommand(chatId, (text) =>
-      bot.telegram.sendMessage(chatId, text),
-    )
-    return
-  }
-
-  const householdId = await resolveHousehold(chatId)
-  if (!householdId) {
-    await ctx.reply("❌ This chat is not linked to a household.")
-    return
-  }
-
-  if (parsed.command === "stockimg") {
-    let fileId: string | undefined
-    if ("photo" in msg && Array.isArray(msg.photo) && msg.photo.length > 0) {
-      fileId = (msg.photo[msg.photo.length - 1] as { file_id: string }).file_id
-    } else if (
-      "reply_to_message" in msg &&
-      msg.reply_to_message &&
-      "photo" in msg.reply_to_message &&
-      Array.isArray(msg.reply_to_message.photo) &&
-      msg.reply_to_message.photo.length > 0
-    ) {
-      const photos = msg.reply_to_message.photo as Array<{ file_id: string }>
-      fileId = photos[photos.length - 1].file_id
+    if (!("text" in msg) || !msg.text) {
+      console.log("[telegram/webhook] No text in message, ignoring")
+      return
     }
-    const reply = await handleStockImg(householdId, msg.text, fileId)
-    await ctx.reply(reply)
-    return
-  }
 
-  const handler = textCommands[parsed.command]
-  if (handler) {
-    const reply = await handler(householdId, msg.text)
-    await ctx.reply(reply)
-  }
-})
+    console.log("[telegram/webhook] Message text:", msg.text)
+    const parsed = extractCommand(msg.text)
+    if (!parsed) {
+      console.log("[telegram/webhook] Not a command, ignoring")
+      return
+    }
 
-bot.on("channel_post", async (ctx) => {
-  const post = ctx.channelPost
-  console.log("[telegram/webhook] bot.on('channel_post') triggered, chat.id:", ctx.chat.id)
+    console.log("[telegram/webhook] Parsed command:", parsed.command)
+    const chatId = msg.chat.id
 
-  if (!("text" in post) || !post.text) return
+    if (parsed.command === "otp") {
+      await handleOtpCommand(chatId, (text) =>
+        bot.telegram.sendMessage(chatId, text),
+      )
+      return
+    }
 
-  const parsed = extractCommand(post.text)
-  if (!parsed) return
+    const householdId = await resolveHousehold(chatId)
+    if (!householdId) {
+      await ctx.reply("❌ This chat is not linked to a household.")
+      return
+    }
 
-  console.log("[telegram/webhook] Channel post command:", parsed.command)
+    if (parsed.command === "stockimg") {
+      let fileId: string | undefined
+      if ("photo" in msg && Array.isArray(msg.photo) && msg.photo.length > 0) {
+        fileId = (msg.photo[msg.photo.length - 1] as { file_id: string }).file_id
+      } else if (
+        "reply_to_message" in msg &&
+        msg.reply_to_message &&
+        "photo" in msg.reply_to_message &&
+        Array.isArray(msg.reply_to_message.photo) &&
+        msg.reply_to_message.photo.length > 0
+      ) {
+        const photos = msg.reply_to_message.photo as Array<{ file_id: string }>
+        fileId = photos[photos.length - 1].file_id
+      }
+      const reply = await handleStockImg(householdId, msg.text, fileId)
+      await ctx.reply(reply)
+      return
+    }
 
-  if (parsed.command === "otp") {
-    await handleOtpCommand(ctx.chat.id, (text) =>
-      bot.telegram.sendMessage(ctx.chat.id, text),
-    )
-  }
-})
+    const handler = textCommands[parsed.command]
+    if (handler) {
+      const reply = await handler(householdId, msg.text)
+      await ctx.reply(reply)
+    }
+  })
+
+  bot.on("channel_post", async (ctx) => {
+    const post = ctx.channelPost
+    console.log("[telegram/webhook] bot.on('channel_post') triggered, chat.id:", ctx.chat.id)
+
+    if (!("text" in post) || !post.text) return
+
+    const parsed = extractCommand(post.text)
+    if (!parsed) return
+
+    console.log("[telegram/webhook] Channel post command:", parsed.command)
+
+    if (parsed.command === "otp") {
+      await handleOtpCommand(ctx.chat.id, (text) =>
+        bot.telegram.sendMessage(ctx.chat.id, text),
+      )
+    }
+  })
+}
 
 export async function POST(request: NextRequest) {
   if (!process.env.TELEGRAM_BOT_TOKEN) {
@@ -163,6 +181,9 @@ export async function POST(request: NextRequest) {
       { status: 503 },
     )
   }
+
+  const bot = getBot()
+  ensureHandlers()
 
   try {
     const body = await request.json()
