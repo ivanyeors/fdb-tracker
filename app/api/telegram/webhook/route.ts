@@ -111,7 +111,7 @@ async function handleOtpCommand(
     }
 
     console.log("[telegram/otp] Sending OTP reply to chatId:", chat.id)
-    await reply(`🔑 Your OTP: ${result.otp}`)
+    await reply(`${result.otp}`)
     console.log("[telegram/otp] OTP reply sent successfully")
   } catch (err) {
     console.error("[telegram/otp] OTP error:", err)
