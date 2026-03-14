@@ -1,8 +1,10 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
+import Link from "next/link"
 import { getSessionFromCookies } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { UserSettingsForm } from "./user-settings-form"
+import { Button } from "@/components/ui/button"
 import type { ProfileWithIncome } from "./types"
 
 function normalizeProfile(profile: Record<string, unknown>): ProfileWithIncome {
@@ -25,28 +27,24 @@ export default async function UserSettingsPage() {
   }
 
   const supabase = createSupabaseAdmin()
-  const activeFamilyId = cookieStore.get("fdb-active-family-id")?.value
 
   const { data: families } = await supabase
     .from("families")
-    .select("id")
+    .select("id, name, created_at")
     .eq("household_id", householdId)
     .order("created_at", { ascending: true })
 
   const familyIds = (families ?? []).map((f) => f.id)
-  const targetFamilyId =
-    activeFamilyId && familyIds.includes(activeFamilyId)
-      ? activeFamilyId
-      : familyIds[0]
 
-  const { data: profiles, error } =
-    targetFamilyId
+  const { data: allProfiles, error } =
+    familyIds.length > 0
       ? await supabase
           .from("profiles")
           .select(`
             id,
             name,
             birth_year,
+            family_id,
             income_config (
               annual_salary,
               bonus_estimate,
@@ -54,39 +52,72 @@ export default async function UserSettingsPage() {
               employee_cpf_rate
             )
           `)
-          .eq("family_id", targetFamilyId)
+          .in("family_id", familyIds)
           .order("created_at", { ascending: true })
       : { data: [], error: null }
 
-  if (error || !profiles) {
+  if (error) {
     return (
       <div className="p-4 sm:p-6">
         <h1 className="text-2xl font-semibold text-destructive">Error Loading Profiles</h1>
         <p className="text-muted-foreground mt-1">
-          {error?.message || "Could not retrieve user profiles."}
+          {error.message || "Could not retrieve user profiles."}
         </p>
       </div>
     )
   }
 
+  const profilesByFamily = new Map<string, typeof allProfiles>()
+  for (const fam of families ?? []) {
+    const famProfiles = (allProfiles ?? []).filter((p) => p.family_id === fam.id)
+    profilesByFamily.set(fam.id, famProfiles)
+  }
+
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-semibold">User Settings</h1>
         <p className="text-muted-foreground mt-1">
-          Per-user financial configuration.
+          Per-user financial configuration across all families.
         </p>
       </div>
 
-      <div className="grid gap-6">
-        {profiles.map((profile) => (
-          <UserSettingsForm
-            key={profile.id}
-            profile={normalizeProfile(profile as Record<string, unknown>)}
-            profileCount={profiles.length}
-          />
-        ))}
+      <div className="flex items-center gap-3">
+        <Button variant="outline" asChild>
+          <Link href="/onboarding?mode=resume">Complete your setup</Link>
+        </Button>
       </div>
+
+      <div className="space-y-8">
+        {(families ?? []).map((family) => {
+          const profiles = profilesByFamily.get(family.id) ?? []
+          return (
+            <section key={family.id} className="space-y-4">
+              <h2 className="text-lg font-medium">{family.name}</h2>
+              <div className="grid gap-6">
+                {profiles.map((profile) => (
+                  <UserSettingsForm
+                    key={profile.id}
+                    profile={normalizeProfile(profile as Record<string, unknown>)}
+                    profileCount={profiles.length}
+                  />
+                ))}
+                {profiles.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No profiles in this family. Add one via the onboarding wizard.
+                  </p>
+                )}
+              </div>
+            </section>
+          )
+        })}
+      </div>
+
+      {familyIds.length === 0 && (
+        <p className="text-muted-foreground">
+          No families yet. Complete onboarding to create your first family and profiles.
+        </p>
+      )}
     </div>
   )
 }

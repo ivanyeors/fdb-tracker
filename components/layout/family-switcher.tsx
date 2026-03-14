@@ -14,7 +14,7 @@ export function FamilySwitcher() {
   const { families, activeFamilyId, setActiveFamilyId } = useActiveProfile()
   const router = useRouter()
 
-  if (families.length <= 1) return null
+  if (families.length === 0) return null
 
   function handleChange(value: string) {
     setActiveFamilyId(value)

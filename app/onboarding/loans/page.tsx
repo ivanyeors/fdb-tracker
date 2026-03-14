@@ -27,7 +27,7 @@ import {
   pathWithMode,
   type OnboardingLoan,
 } from "@/components/onboarding/onboarding-provider"
-import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react"
 
 const LOAN_TYPES = [
   { value: "housing", label: "Housing" },
@@ -38,7 +38,9 @@ const LOAN_TYPES = [
 
 export default function LoansPage() {
   const router = useRouter()
-  const { mode, profiles, userCount, loans, setLoans } = useOnboarding()
+  const { mode, profiles, userCount, loans, setLoans, familyId, skipOnboarding } = useOnboarding()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [items, setItems] = useState<OnboardingLoan[]>(
     loans.length > 0 ? loans : [],
   )
@@ -102,17 +104,35 @@ export default function LoansPage() {
     setItems(updated)
   }
 
+  async function saveAndNavigate(loanList: OnboardingLoan[]) {
+    setLoans(loanList)
+    setError(null)
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/onboarding/loans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, familyId, loans: loanList }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      router.push(pathWithMode("/onboarding/insurance", mode))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   function handleNext() {
     const valid = items.filter(
       (i) => i.name.trim().length > 0 && i.principal > 0 && i.tenure_months > 0,
     )
-    setLoans(valid)
-    router.push(pathWithMode("/onboarding/insurance", mode))
+    saveAndNavigate(valid)
   }
 
   function handleSkip() {
-    setLoans([])
-    router.push(pathWithMode("/onboarding/insurance", mode))
+    saveAndNavigate([])
   }
 
   return (
@@ -228,7 +248,9 @@ export default function LoansPage() {
           Add loan
         </Button>
 
-        <div className="flex gap-3">
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
             onClick={() => router.push(pathWithMode("/onboarding/investments", mode))}
@@ -236,12 +258,20 @@ export default function LoansPage() {
             <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
-          <Button variant="outline" onClick={handleSkip}>
+          <Button variant="outline" onClick={handleSkip} disabled={isLoading}>
             Skip
           </Button>
-          <Button onClick={handleNext}>
+          <Button onClick={handleNext} disabled={isLoading}>
+            {isLoading ? <Loader2 className="size-4 animate-spin" /> : null}
             Next
             <ArrowRight data-icon="inline-end" />
+          </Button>
+          <Button
+            variant="link"
+            className="ml-auto text-muted-foreground"
+            onClick={skipOnboarding}
+          >
+            Skip setup
           </Button>
         </div>
       </CardContent>

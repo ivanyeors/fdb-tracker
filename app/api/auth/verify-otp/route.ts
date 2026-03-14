@@ -62,6 +62,24 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7,
     })
 
+    const { data: firstFamily } = await supabase
+      .from("families")
+      .select("id")
+      .eq("household_id", otpToken.household_id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    if (firstFamily?.id) {
+      response.cookies.set("fdb-active-family-id", firstFamily.id, {
+        httpOnly: false,
+        secure: isProduction,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+      })
+    }
+
     return response
   } catch {
     return NextResponse.json(

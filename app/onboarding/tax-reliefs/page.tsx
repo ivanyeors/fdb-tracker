@@ -24,7 +24,7 @@ import {
   pathWithMode,
   type OnboardingTaxRelief,
 } from "@/components/onboarding/onboarding-provider"
-import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react"
 
 const RELIEF_TYPES = [
   { value: "srs", label: "SRS Contribution" },
@@ -37,8 +37,10 @@ const RELIEF_TYPES = [
 
 export default function TaxReliefsPage() {
   const router = useRouter()
-  const { mode, profiles, userCount, taxReliefInputs, setTaxReliefInputs } =
+  const { mode, profiles, userCount, taxReliefInputs, setTaxReliefInputs, familyId, skipOnboarding } =
     useOnboarding()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [items, setItems] = useState<OnboardingTaxRelief[]>(
     taxReliefInputs.length > 0 ? taxReliefInputs : [],
   )
@@ -79,15 +81,33 @@ export default function TaxReliefsPage() {
     setItems(updated)
   }
 
+  async function saveAndNavigate(reliefList: OnboardingTaxRelief[]) {
+    setTaxReliefInputs(reliefList)
+    setError(null)
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/onboarding/tax-reliefs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, familyId, taxReliefInputs: reliefList }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      router.push(pathWithMode("/onboarding/complete", mode))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   function handleNext() {
     const valid = items.filter((i) => i.amount > 0)
-    setTaxReliefInputs(valid)
-    router.push(pathWithMode("/onboarding/complete", mode))
+    saveAndNavigate(valid)
   }
 
   function handleSkip() {
-    setTaxReliefInputs([])
-    router.push(pathWithMode("/onboarding/complete", mode))
+    saveAndNavigate([])
   }
 
   return (
@@ -161,7 +181,9 @@ export default function TaxReliefsPage() {
           Add relief
         </Button>
 
-        <div className="flex gap-3">
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
             onClick={() =>
@@ -171,12 +193,20 @@ export default function TaxReliefsPage() {
             <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
-          <Button variant="outline" onClick={handleSkip}>
+          <Button variant="outline" onClick={handleSkip} disabled={isLoading}>
             Skip
           </Button>
-          <Button onClick={handleNext}>
+          <Button onClick={handleNext} disabled={isLoading}>
+            {isLoading ? <Loader2 className="size-4 animate-spin" /> : null}
             Next
             <ArrowRight data-icon="inline-end" />
+          </Button>
+          <Button
+            variant="link"
+            className="ml-auto text-muted-foreground"
+            onClick={skipOnboarding}
+          >
+            Skip setup
           </Button>
         </div>
       </CardContent>

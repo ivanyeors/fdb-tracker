@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,7 +31,7 @@ import {
   pathWithMode,
   type PromptScheduleConfig,
 } from "@/components/onboarding/onboarding-provider"
-import { ArrowLeft, ArrowRight, Clock2Icon } from "lucide-react"
+import { ArrowLeft, ArrowRight, Clock2Icon, Loader2 } from "lucide-react"
 
 const PROMPT_LABELS: Record<PromptScheduleConfig["prompt_type"], string> = {
   end_of_month: "End of Month",
@@ -42,7 +42,9 @@ const PROMPT_LABELS: Record<PromptScheduleConfig["prompt_type"], string> = {
 
 export default function RemindersPage() {
   const router = useRouter()
-  const { mode, promptSchedule, setPromptSchedule } = useOnboarding()
+  const { mode, promptSchedule, setPromptSchedule, familyId, skipOnboarding } = useOnboarding()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -175,7 +177,9 @@ export default function RemindersPage() {
           )
         })}
 
-        <div className="flex gap-3">
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
             onClick={() => router.push(pathWithMode("/onboarding/telegram", mode))}
@@ -183,9 +187,37 @@ export default function RemindersPage() {
             <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
-          <Button onClick={() => router.push(pathWithMode("/onboarding/investments", mode))}>
+          <Button
+            onClick={async () => {
+              setError(null)
+              setIsLoading(true)
+              try {
+                const res = await fetch("/api/onboarding/reminders", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ mode, familyId, promptSchedule }),
+                })
+                const data = await res.json().catch(() => ({}))
+                if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+                router.push(pathWithMode("/onboarding/investments", mode))
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Something went wrong")
+              } finally {
+                setIsLoading(false)
+              }
+            }}
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="size-4 animate-spin" /> : null}
             Next
             <ArrowRight data-icon="inline-end" />
+          </Button>
+          <Button
+            variant="link"
+            className="ml-auto text-muted-foreground"
+            onClick={skipOnboarding}
+          >
+            Skip for now
           </Button>
         </div>
       </CardContent>

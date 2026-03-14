@@ -4,11 +4,13 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useState,
   type Dispatch,
   type ReactNode,
   type SetStateAction,
 } from "react"
+import { useRouter } from "next/navigation"
 
 export interface Profile {
   name: string
@@ -93,7 +95,7 @@ export interface OnboardingTaxRelief {
   profileIndex: number
 }
 
-export type OnboardingMode = "first-time" | "new-family"
+export type OnboardingMode = "first-time" | "new-family" | "resume"
 
 export interface OnboardingState {
   mode: OnboardingMode
@@ -112,6 +114,8 @@ export interface OnboardingState {
 }
 
 interface OnboardingContextValue extends OnboardingState {
+  familyId: string | null
+  isLoading: boolean
   setUserCount: (count: number) => void
   setProfiles: (profiles: Profile[]) => void
   setIncomeConfigs: (configs: IncomeConfig[]) => void
@@ -124,6 +128,8 @@ interface OnboardingContextValue extends OnboardingState {
   setInsurancePolicies: Dispatch<SetStateAction<OnboardingInsurance[]>>
   setIlpProducts: Dispatch<SetStateAction<OnboardingIlp[]>>
   setTaxReliefInputs: Dispatch<SetStateAction<OnboardingTaxRelief[]>>
+  setFamilyId: (id: string | null) => void
+  skipOnboarding: () => Promise<void>
 }
 
 const DEFAULT_PROMPT_SCHEDULE: PromptScheduleConfig[] = [
@@ -170,7 +176,10 @@ export function OnboardingProvider({
   children: ReactNode
   mode?: OnboardingMode
 }) {
+  const router = useRouter()
   const [mode] = useState<OnboardingMode>(initialMode)
+  const [isLoading, setIsLoading] = useState(true)
+  const [familyId, setFamilyId] = useState<string | null>(null)
   const [userCount, setUserCount] = useState(1)
   const [profiles, setProfiles] = useState<Profile[]>([
     { name: "", birth_year: null },
@@ -189,6 +198,61 @@ export function OnboardingProvider({
   const [insurancePolicies, setInsurancePolicies] = useState<OnboardingInsurance[]>([])
   const [ilpProducts, setIlpProducts] = useState<OnboardingIlp[]>([])
   const [taxReliefInputs, setTaxReliefInputs] = useState<OnboardingTaxRelief[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const url = `/api/onboarding/state?mode=${initialMode}`
+        const res = await fetch(url)
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        if (cancelled) return
+        setUserCount(data.userCount ?? 1)
+        setProfiles(
+          data.profiles?.length
+            ? data.profiles
+            : [{ name: "", birth_year: null }],
+        )
+        setIncomeConfigs(
+          data.incomeConfigs?.length
+            ? data.incomeConfigs
+            : [{ annual_salary: null, bonus_estimate: null, pay_frequency: "monthly" }],
+        )
+        setBankAccounts(data.bankAccounts ?? [])
+        setCpfBalances(data.cpfBalances ?? [])
+        setTelegramChatId(data.telegramChatId ?? "")
+        setPromptSchedule(
+          data.promptSchedule?.length
+            ? data.promptSchedule
+            : DEFAULT_PROMPT_SCHEDULE,
+        )
+        setInvestments(data.investments ?? [])
+        setLoans(data.loans ?? [])
+        setInsurancePolicies(data.insurancePolicies ?? [])
+        setTaxReliefInputs(data.taxReliefInputs ?? [])
+        setFamilyId(data.familyId ?? null)
+      } catch {
+        // Keep defaults on error
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [initialMode])
+
+  const skipOnboarding = useCallback(async () => {
+    try {
+      const res = await fetch("/api/onboarding/skip", { method: "POST" })
+      if (!res.ok) throw new Error("Failed to skip")
+      router.push("/dashboard")
+    } catch {
+      // Error could be shown via toast
+    }
+  }, [router])
 
   const handleSetUserCount = useCallback(
     (count: number) => {
@@ -240,6 +304,8 @@ export function OnboardingProvider({
         insurancePolicies,
         ilpProducts,
         taxReliefInputs,
+        familyId,
+        isLoading,
         setUserCount: handleSetUserCount,
         setProfiles,
         setIncomeConfigs,
@@ -252,6 +318,8 @@ export function OnboardingProvider({
         setInsurancePolicies,
         setIlpProducts,
         setTaxReliefInputs,
+        setFamilyId,
+        skipOnboarding,
       }}
     >
       {children}
@@ -268,7 +336,7 @@ export function useOnboarding() {
 }
 
 export function pathWithMode(path: string, mode: OnboardingMode): string {
-  if (mode !== "new-family") return path
+  if (mode === "first-time") return path
   const sep = path.includes("?") ? "&" : "?"
-  return `${path}${sep}mode=new-family`
+  return `${path}${sep}mode=${mode}`
 }

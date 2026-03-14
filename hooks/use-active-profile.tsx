@@ -52,6 +52,19 @@ export function ActiveProfileProvider({
     }
     return null
   })
+
+  React.useEffect(() => {
+    if (initialFamilyId && typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(ACTIVE_FAMILY_KEY)
+        if (stored !== initialFamilyId) {
+          localStorage.setItem(ACTIVE_FAMILY_KEY, initialFamilyId)
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [initialFamilyId])
   const [activeProfileId, setActiveProfileId] = React.useState<string | null>(null)
 
   const setActiveFamilyId = React.useCallback((id: string | null) => {
@@ -79,9 +92,23 @@ export function ActiveProfileProvider({
 
   React.useEffect(() => {
     if (families.length > 0 && !effectiveFamilyId) {
-      setActiveFamilyIdState(families[0].id)
+      const firstId = families[0].id
+      setActiveFamilyIdState(firstId)
+      try {
+        localStorage.setItem(ACTIVE_FAMILY_KEY, firstId)
+        document.cookie = `fdb-active-family-id=${firstId}; path=/; max-age=31536000; SameSite=Lax`
+      } catch {
+        // ignore
+      }
     } else if (families.length > 0 && effectiveFamilyId && !families.some((f) => f.id === effectiveFamilyId)) {
-      setActiveFamilyIdState(families[0].id)
+      const firstId = families[0].id
+      setActiveFamilyIdState(firstId)
+      try {
+        localStorage.setItem(ACTIVE_FAMILY_KEY, firstId)
+        document.cookie = `fdb-active-family-id=${firstId}; path=/; max-age=31536000; SameSite=Lax`
+      } catch {
+        // ignore
+      }
     }
   }, [families, effectiveFamilyId])
 

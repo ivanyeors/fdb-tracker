@@ -6,6 +6,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { calculateSavingsRate } from "@/lib/calculations/bank-balance"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { getEffectiveOutflowForProfile } from "@/lib/api/effective-outflow"
+import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
 
 const overviewQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -47,15 +48,20 @@ export async function GET(request: NextRequest) {
     // --- Bank Total ---
     let bankAccountQuery = supabase
       .from("bank_accounts")
-      .select("id")
+      .select("id, opening_balance")
       .eq("family_id", familyId)
 
     if (profileId) {
-      bankAccountQuery = bankAccountQuery.eq("profile_id", profileId)
+      bankAccountQuery = bankAccountQuery.or(
+        `profile_id.eq.${profileId},profile_id.is.null`,
+      )
     }
 
     const { data: bankAccounts } = await bankAccountQuery
     const accountIds = bankAccounts?.map((a) => a.id) ?? []
+    const openingByAccount = new Map(
+      bankAccounts?.map((a) => [a.id, a.opening_balance ?? 0]) ?? [],
+    )
 
     let bankTotal = 0
 
@@ -66,48 +72,62 @@ export async function GET(request: NextRequest) {
         .in("account_id", accountIds)
         .order("month", { ascending: false })
 
+      const latestByAccount = new Map<string, number>()
       if (snapshots) {
-        const latestByAccount = new Map<string, number>()
         for (const s of snapshots) {
           if (!latestByAccount.has(s.account_id)) {
             latestByAccount.set(s.account_id, s.closing_balance)
           }
         }
-        for (const balance of latestByAccount.values()) {
-          bankTotal += balance
-        }
+      }
+      for (const accId of accountIds) {
+        bankTotal +=
+          latestByAccount.get(accId) ?? openingByAccount.get(accId) ?? 0
       }
     }
 
     // --- CPF Total ---
     let cpfTotal = 0
 
-    if (profileId) {
+    const targetProfileIds = profileId ? [profileId] : profileIds
+    for (const pid of targetProfileIds) {
       const { data: cpfLatest } = await supabase
         .from("cpf_balances")
         .select("oa, sa, ma")
-        .eq("profile_id", profileId)
+        .eq("profile_id", pid)
         .order("month", { ascending: false })
         .limit(1)
         .single()
 
       if (cpfLatest) {
-        cpfTotal = cpfLatest.oa + cpfLatest.sa + cpfLatest.ma
-      }
-    } else {
-      if (profileIds.length > 0) {
-        for (const pid of profileIds) {
-          const { data: cpfLatest } = await supabase
-            .from("cpf_balances")
-            .select("oa, sa, ma")
-            .eq("profile_id", pid)
-            .order("month", { ascending: false })
-            .limit(1)
-            .single()
+        cpfTotal += cpfLatest.oa + cpfLatest.sa + cpfLatest.ma
+      } else {
+        // Project from income when no manual override
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id, birth_year")
+          .eq("id", pid)
+          .single()
+        const { data: incomeConfig } = await supabase
+          .from("income_config")
+          .select("annual_salary, bonus_estimate")
+          .eq("profile_id", pid)
+          .single()
 
-          if (cpfLatest) {
-            cpfTotal += cpfLatest.oa + cpfLatest.sa + cpfLatest.ma
-          }
+        if (profile && incomeConfig && incomeConfig.annual_salary > 0) {
+          const currentYear = new Date().getFullYear()
+          const age = getAge(profile.birth_year, currentYear)
+          const monthlyGross = incomeConfig.annual_salary / 12
+          const contribution = calculateCpfContribution(
+            monthlyGross,
+            age,
+            currentYear,
+          )
+          const monthsElapsed = new Date().getMonth() + 1
+          cpfTotal +=
+            contribution.oa * monthsElapsed +
+            contribution.sa * monthsElapsed +
+            contribution.ma * monthsElapsed
         }
       }
     }

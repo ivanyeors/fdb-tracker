@@ -5,6 +5,7 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { getStockPrice } from "@/lib/external/eulerpool"
+import { getOcbcPreciousMetalPrices } from "@/lib/external/precious-metals"
 import { calculatePnL } from "@/lib/calculations/investments"
 
 const investmentsQuerySchema = z.object({
@@ -70,8 +71,28 @@ export async function GET(request: NextRequest) {
 
     if (!investments) return NextResponse.json([])
 
+    const metalTypes = investments
+      .filter((inv) => inv.type === "gold" || inv.type === "silver")
+      .map((inv) => inv.type)
+    const metalsPrices =
+      metalTypes.length > 0 ? await getOcbcPreciousMetalPrices() : []
+
     const enriched = await Promise.all(
       investments.map(async (inv) => {
+        if (inv.type === "gold" || inv.type === "silver") {
+          const metalPrice = metalsPrices.find(
+            (m) => m.metalType.toLowerCase() === inv.type.toLowerCase(),
+          )
+          const sellPrice = metalPrice?.sellPriceSgd ?? 0
+          const pnl = calculatePnL(inv.units, inv.cost_basis, sellPrice)
+          return {
+            ...inv,
+            currentPrice: sellPrice,
+            currency: "SGD",
+            ...pnl,
+          }
+        }
+
         try {
           const priceData = await getStockPrice(inv.symbol)
           const pnl = calculatePnL(inv.units, inv.cost_basis, priceData.price)

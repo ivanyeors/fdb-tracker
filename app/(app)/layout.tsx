@@ -32,13 +32,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           .order("created_at", { ascending: true })
       : { data: [] }
 
-  const initialFamilyId = cookieStore.get("fdb-active-family-id")?.value ?? null
+  const cookieFamilyId = cookieStore.get("fdb-active-family-id")?.value ?? null
+  const initialFamilyId =
+    cookieFamilyId && familyIds.includes(cookieFamilyId)
+      ? cookieFamilyId
+      : (families ?? [])[0]?.id ?? null
 
   return (
     <ActiveProfileProvider
       families={families ?? []}
       profiles={profiles ?? []}
-      initialFamilyId={initialFamilyId && familyIds.includes(initialFamilyId) ? initialFamilyId : null}
+      initialFamilyId={initialFamilyId}
     >
       <SidebarProvider>
         <SidebarNav />

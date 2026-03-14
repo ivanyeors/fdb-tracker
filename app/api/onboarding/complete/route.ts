@@ -4,14 +4,26 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 import { z } from "zod"
-import {
-  bankAccountSchema,
-  promptScheduleSchema,
-} from "@/lib/validations/onboarding"
+import { bankAccountSchema } from "@/lib/validations/onboarding"
+
+const completePromptScheduleSchema = z.object({
+  prompt_type: z.enum(["end_of_month", "income", "insurance", "tax"]),
+  frequency: z.enum(["monthly", "yearly"]),
+  day_of_month: z.number().int().min(1).max(31),
+  month_of_year: z.number().int().min(1).max(12).nullable().optional(),
+  time: z.string(),
+  timezone: z.string(),
+})
 
 // Relaxed schemas for complete endpoint - client may send null/partial data
 const completeProfileSchema = z.object({
-  name: z.string().min(1).max(50),
+  name: z
+    .string()
+    .max(50)
+    .optional()
+    .default("")
+    .transform((s) => (s?.trim()?.length ? s.trim() : "Person"))
+    .pipe(z.string().min(1)),
   birth_year: z
     .number()
     .int()
@@ -25,67 +37,71 @@ const completeProfileSchema = z.object({
 const completeIncomeSchema = z.object({
   annual_salary: z.number().min(0).nullable().optional().default(0),
   bonus_estimate: z.number().min(0).nullable().optional().default(0),
-  pay_frequency: z.enum(["monthly", "bi-monthly", "weekly"]),
+  pay_frequency: z
+    .enum(["monthly", "bi-monthly", "weekly"])
+    .optional()
+    .default("monthly"),
 })
 
 const completeSavingsGoalSchema = z.object({
   name: z.string().default(""),
   target_amount: z.number().min(0).nullable().optional().default(0),
-  current_amount: z.number().min(0).default(0),
+  current_amount: z.number().min(0).optional().default(0),
   deadline: z
     .union([
       z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       z.literal(""),
       z.null(),
+      z.undefined(),
     ])
     .optional()
-    .transform((v) => (v === "" || v == null ? null : v)),
+    .transform((v) => (v === "" || v == null || v === undefined ? null : v)),
 })
 
 const cpfBalanceSchema = z.object({
   profileIndex: z.number().int().min(0),
-  oa: z.number().min(0),
-  sa: z.number().min(0),
-  ma: z.number().min(0),
+  oa: z.number().min(0).optional().default(0),
+  sa: z.number().min(0).optional().default(0),
+  ma: z.number().min(0).optional().default(0),
 })
 
 const investmentSchema = z.object({
   type: z.enum(["stock", "gold", "silver", "ilp", "etf", "bond"]),
   symbol: z.string(),
-  units: z.number().min(0),
-  cost_basis: z.number().min(0),
+  units: z.number().min(0).optional().default(0),
+  cost_basis: z.number().min(0).optional().default(0),
   profileIndex: z.number().int().min(0),
 })
 
 const loanSchema = z.object({
   name: z.string(),
   type: z.enum(["housing", "personal", "car", "education"]),
-  principal: z.number().min(0),
-  rate_pct: z.number().min(0),
-  tenure_months: z.number().int().min(1),
-  start_date: z.string(),
+  principal: z.number().min(0).optional().default(0),
+  rate_pct: z.number().min(0).optional().default(0),
+  tenure_months: z.number().int().min(0).optional().default(0),
+  start_date: z.string().optional().default(() => new Date().toISOString().slice(0, 10)),
   lender: z.string().optional(),
-  use_cpf_oa: z.boolean(),
+  use_cpf_oa: z.boolean().optional().default(false),
   profileIndex: z.number().int().min(0),
 })
 
 const insuranceSchema = z.object({
   name: z.string(),
   type: z.string(),
-  premium_amount: z.number().min(0),
-  frequency: z.enum(["monthly", "yearly"]),
+  premium_amount: z.number().min(0).optional().default(0),
+  frequency: z.enum(["monthly", "yearly"]).optional().default("yearly"),
   coverage_amount: z.number().min(0).optional(),
   profileIndex: z.number().int().min(0),
 })
 
 const taxReliefSchema = z.object({
   relief_type: z.string(),
-  amount: z.number().min(0),
+  amount: z.number().min(0).optional().default(0),
   profileIndex: z.number().int().min(0),
 })
 
 const completeSchema = z.object({
-  mode: z.enum(["first-time", "new-family"]).optional().default("first-time"),
+  mode: z.enum(["first-time", "new-family", "resume"]).optional().default("first-time"),
   userCount: z.number().int().min(1).max(6),
   profiles: z.array(completeProfileSchema).min(1).max(6),
   incomeConfigs: z.array(completeIncomeSchema),
@@ -95,12 +111,12 @@ const completeSchema = z.object({
       .extend({
         profile_id: z.string().uuid().nullable().optional(),
         opening_balance: z.number().min(0).optional(),
-        savings_goals: z.array(completeSavingsGoalSchema),
+        savings_goals: z.array(completeSavingsGoalSchema).optional().default([]),
       }),
   ),
   cpfBalances: z.array(cpfBalanceSchema).optional().default([]),
-  telegramChatId: z.string(),
-  promptSchedule: z.array(promptScheduleSchema),
+  telegramChatId: z.string().optional().default(""),
+  promptSchedule: z.array(completePromptScheduleSchema),
   investments: z.array(investmentSchema).optional().default([]),
   loans: z.array(loanSchema).optional().default([]),
   insurancePolicies: z.array(insuranceSchema).optional().default([]),
@@ -120,10 +136,16 @@ export async function POST(request: Request) {
     const body = await request.json()
     const parsed = completeSchema.safeParse(body)
     if (!parsed.success) {
+      const flattened = parsed.error.flatten()
+      const details = flattened.fieldErrors as Record<string, string[] | undefined>
+      const firstError = Object.entries(details)
+        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
+        .join("; ")
       return NextResponse.json(
         {
           error: "Invalid data",
-          details: parsed.error.flatten().fieldErrors,
+          details,
+          message: firstError || parsed.error.message,
         },
         { status: 400 },
       )
@@ -223,55 +245,69 @@ export async function POST(request: Request) {
 
     const { data: existingProfiles } = await supabase
       .from("profiles")
-      .select("name")
+      .select("id, name")
       .eq("family_id", familyId)
-    const existingNames = new Set(
-      (existingProfiles ?? []).map((p) => p.name.toLowerCase().trim()),
-    )
-    const resolvedProfiles = data.profiles.map((p) => {
-      const baseName = p.name.trim()
-      const nameKey = baseName.toLowerCase()
-      if (!existingNames.has(nameKey)) {
-        existingNames.add(nameKey)
-        return { ...p, name: baseName }
+      .order("created_at", { ascending: true })
+
+    let insertedProfiles: { id: string }[]
+
+    if (
+      existingProfiles &&
+      existingProfiles.length === data.userCount &&
+      !isNewFamily
+    ) {
+      // Reuse existing profiles to avoid duplicates and ensure CPF/data maps to displayed profiles
+      insertedProfiles = existingProfiles.map((p) => ({ id: p.id }))
+    } else {
+      const existingNames = new Set(
+        (existingProfiles ?? []).map((p) => p.name.toLowerCase().trim()),
+      )
+      const resolvedProfiles = data.profiles.map((p) => {
+        const baseName = p.name.trim()
+        const nameKey = baseName.toLowerCase()
+        if (!existingNames.has(nameKey)) {
+          existingNames.add(nameKey)
+          return { ...p, name: baseName }
+        }
+        let suffix = 1
+        let candidate: string
+        do {
+          candidate = `${baseName}-${suffix}`
+          suffix++
+        } while (existingNames.has(candidate.toLowerCase()))
+        existingNames.add(candidate.toLowerCase())
+        return { ...p, name: candidate }
+      })
+
+      const { data: inserted, error: profileError } = await supabase
+        .from("profiles")
+        .insert(
+          resolvedProfiles.map((p) => ({
+            family_id: familyId,
+            name: p.name,
+            birth_year: p.birth_year,
+          })),
+        )
+        .select("id")
+
+      if (profileError || !inserted) {
+        console.error("Onboarding profile insert error:", profileError)
+        const isTableNotFound =
+          profileError?.code === "PGRST205" ||
+          profileError?.message?.includes("schema cache")
+        return NextResponse.json(
+          {
+            error: isTableNotFound
+              ? "Profiles table not found. Run the migration: Supabase Dashboard → SQL Editor → paste contents of supabase/migrations/004_ensure_profiles.sql"
+              : "Failed to create profiles",
+          },
+          { status: 500 },
+        )
       }
-      let suffix = 1
-      let candidate: string
-      do {
-        candidate = `${baseName}-${suffix}`
-        suffix++
-      } while (existingNames.has(candidate.toLowerCase()))
-      existingNames.add(candidate.toLowerCase())
-      return { ...p, name: candidate }
-    })
-
-    const { data: insertedProfiles, error: profileError } = await supabase
-      .from("profiles")
-      .insert(
-        resolvedProfiles.map((p) => ({
-          family_id: familyId,
-          name: p.name,
-          birth_year: p.birth_year,
-        })),
-      )
-      .select("id")
-
-    if (profileError || !insertedProfiles) {
-      console.error("Onboarding profile insert error:", profileError)
-      const isTableNotFound =
-        profileError?.code === "PGRST205" ||
-        profileError?.message?.includes("schema cache")
-      return NextResponse.json(
-        {
-          error: isTableNotFound
-            ? "Profiles table not found. Run the migration: Supabase Dashboard → SQL Editor → paste contents of supabase/migrations/004_ensure_profiles.sql"
-            : "Failed to create profiles",
-        },
-        { status: 500 },
-      )
+      insertedProfiles = inserted
     }
     
-    // Insert Income Configs (only for profiles with valid config)
+    // Insert or upsert Income Configs (upsert when reusing profiles)
     const incomeInserts = data.incomeConfigs
       .slice(0, insertedProfiles.length)
       .map((ic, idx) => ({
@@ -280,7 +316,9 @@ export async function POST(request: Request) {
         bonus_estimate: ic.bonus_estimate ?? 0,
         pay_frequency: ic.pay_frequency,
       }))
-    await supabase.from("income_config").insert(incomeInserts)
+    await supabase
+      .from("income_config")
+      .upsert(incomeInserts, { onConflict: "profile_id" })
     
     const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`
 

@@ -34,6 +34,11 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
         onValueChange={(_value, _name, values) => {
           onChange?.(values?.float ?? null)
         }}
+        transformRawValue={(raw) => {
+          if (!raw) return raw
+          // Comma as decimal (e.g. "1500,25" or "1,5") -> convert to period
+          return raw.replace(/(\d),(\d{1,2})(?=\D|$)/g, "$1.$2")
+        }}
         {...props}
       />
     )

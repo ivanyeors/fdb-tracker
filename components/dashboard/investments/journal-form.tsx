@@ -5,14 +5,19 @@ import { Button } from "@/components/ui/button"
 import { CurrencyInput } from "@/components/ui/currency-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { SymbolCombobox } from "@/components/dashboard/investments/symbol-combobox"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
-export function JournalForm() {
-  const { activeProfileId } = useActiveProfile()
+interface JournalFormProps {
+  onSuccess?: () => void
+}
+
+export function JournalForm({ onSuccess }: JournalFormProps) {
+  const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [type, setType] = useState<"buy" | "sell">("buy")
   const [symbol, setSymbol] = useState("")
   const [quantity, setQuantity] = useState("")
@@ -22,8 +27,8 @@ export function JournalForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!activeProfileId) {
-      toast.error("Please select a profile first.")
+    if (!activeProfileId && !activeFamilyId) {
+      toast.error("Please select a profile or family first.")
       return
     }
 
@@ -50,7 +55,8 @@ export function JournalForm() {
           quantity: qty,
           price: priceVal,
           journalText: journalText.trim() || undefined,
-          profileId: activeProfileId,
+          ...(activeProfileId && { profileId: activeProfileId }),
+          ...(activeFamilyId && !activeProfileId && { familyId: activeFamilyId }),
         }),
       })
 
@@ -64,6 +70,7 @@ export function JournalForm() {
       setQuantity("")
       setPrice(null)
       setJournalText("")
+      onSuccess?.()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong")
     } finally {
@@ -86,12 +93,11 @@ export function JournalForm() {
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-1.5">
           <Label htmlFor="journal-symbol">Symbol</Label>
-          <Input
+          <SymbolCombobox
             id="journal-symbol"
-            placeholder="e.g. DBS"
             value={symbol}
-            onChange={(e) => setSymbol(e.target.value)}
-            required
+            onChange={setSymbol}
+            placeholder="Search by ticker or name"
           />
         </div>
         <div className="space-y-1.5">

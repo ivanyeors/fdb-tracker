@@ -23,12 +23,14 @@ import {
   pathWithMode,
   type CpfBalance,
 } from "@/components/onboarding/onboarding-provider"
-import { ArrowLeft, ArrowRight, HelpCircle } from "lucide-react"
+import { ArrowLeft, ArrowRight, HelpCircle, Loader2 } from "lucide-react"
 
 export default function CpfPage() {
   const router = useRouter()
-  const { mode, profiles, userCount, cpfBalances, setCpfBalances } = useOnboarding()
+  const { mode, profiles, userCount, cpfBalances, setCpfBalances, familyId, skipOnboarding } = useOnboarding()
   const [balances, setBalances] = useState<CpfBalance[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (cpfBalances.length > 0) {
@@ -83,9 +85,24 @@ export default function CpfPage() {
     })
   }
 
-  function handleNext() {
+  async function handleNext() {
     setCpfBalances(balances)
-    router.push(pathWithMode("/onboarding/banks", mode))
+    setError(null)
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/onboarding/cpf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, familyId, cpfBalances: balances }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      router.push(pathWithMode("/onboarding/banks", mode))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -155,7 +172,9 @@ export default function CpfPage() {
           )
         })}
 
-        <div className="flex gap-3">
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
             onClick={() => router.push(pathWithMode("/onboarding/income", mode))}
@@ -163,9 +182,17 @@ export default function CpfPage() {
             <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
-          <Button onClick={handleNext}>
+          <Button onClick={handleNext} disabled={isLoading}>
+            {isLoading ? <Loader2 className="size-4 animate-spin" /> : null}
             Next
             <ArrowRight data-icon="inline-end" />
+          </Button>
+          <Button
+            variant="link"
+            className="ml-auto text-muted-foreground"
+            onClick={skipOnboarding}
+          >
+            Skip for now
           </Button>
         </div>
       </CardContent>

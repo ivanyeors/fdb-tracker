@@ -98,3 +98,54 @@ export async function getMultipleStockPrices(
     result.status === "fulfilled" ? result.value : makeFallback(tickers[i]!),
   );
 }
+
+export type StockSearchResult = {
+  ticker: string;
+  name?: string;
+  exchange?: string;
+};
+
+export async function searchStocks(query: string): Promise<StockSearchResult[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  const apiKey = process.env.EULERPOOL_API_KEY ?? "";
+  if (!apiKey) return [];
+
+  try {
+    const res = await fetch(
+      `https://api.eulerpool.com/v1/equities/search?q=${encodeURIComponent(trimmed)}`,
+      {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      },
+    );
+
+    if (!res.ok) return [];
+
+    const data = (await res.json()) as
+      | StockSearchResult[]
+      | { data?: StockSearchResult[] }
+      | { results?: StockSearchResult[] };
+    const results = Array.isArray(data)
+      ? data
+      : "data" in data && Array.isArray((data as { data: StockSearchResult[] }).data)
+        ? (data as { data: StockSearchResult[] }).data
+        : "results" in data && Array.isArray((data as { results: StockSearchResult[] }).results)
+          ? (data as { results: StockSearchResult[] }).results
+          : [];
+
+    return results
+      .slice(0, 10)
+      .map((r) => {
+        const item = typeof r === "string" ? { ticker: r } : r;
+        return {
+          ticker: String(item.ticker ?? ""),
+          name: item.name,
+          exchange: item.exchange,
+        };
+      })
+      .filter((r) => r.ticker.length > 0);
+  } catch {
+    return [];
+  }
+}

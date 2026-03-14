@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Loader2 } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -29,8 +30,10 @@ import { ArrowLeft, ArrowRight, HelpCircle } from "lucide-react"
 
 export default function ProfilesPage() {
   const router = useRouter()
-  const { mode, userCount, profiles, setProfiles } = useOnboarding()
+  const { mode, userCount, profiles, setProfiles, familyId, setFamilyId, skipOnboarding } = useOnboarding()
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   function updateProfile(index: number, field: keyof Profile, value: string) {
     const updated = [...profiles]
@@ -42,7 +45,7 @@ export default function ProfilesPage() {
     setProfiles(updated)
   }
 
-  function handleNext() {
+  async function handleNext() {
     const data = profiles.slice(0, userCount)
     const result = profilesSchema.safeParse({ profiles: data })
     if (!result.success) {
@@ -55,7 +58,30 @@ export default function ProfilesPage() {
       return
     }
     setErrors({})
-    router.push(pathWithMode("/onboarding/income", mode))
+    setError(null)
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/onboarding/profiles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          familyId,
+          profiles: data.map((p) => ({
+            name: p.name || "Person",
+            birth_year: p.birth_year ?? 1990,
+          })),
+        }),
+      })
+      const resData = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(resData.message ?? resData.error ?? "Failed to save")
+      if (resData.familyId) setFamilyId(resData.familyId)
+      router.push(pathWithMode("/onboarding/income", mode))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -119,7 +145,9 @@ export default function ProfilesPage() {
           </div>
         ))}
 
-        <div className="flex gap-3">
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
             onClick={() => router.push(pathWithMode("/onboarding/users", mode))}
@@ -127,9 +155,17 @@ export default function ProfilesPage() {
             <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
-          <Button onClick={handleNext}>
+          <Button onClick={handleNext} disabled={isLoading}>
+            {isLoading ? <Loader2 className="size-4 animate-spin" /> : null}
             Next
             <ArrowRight data-icon="inline-end" />
+          </Button>
+          <Button
+            variant="link"
+            className="ml-auto text-muted-foreground"
+            onClick={skipOnboarding}
+          >
+            Skip for now
           </Button>
         </div>
       </CardContent>

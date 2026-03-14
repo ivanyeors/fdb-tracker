@@ -38,6 +38,7 @@ import {
   ArrowLeft,
   ArrowRight,
   HelpCircle,
+  Loader2,
   Plus,
   Trash2,
 } from "lucide-react"
@@ -58,7 +59,9 @@ function isOcbcAccount(account: BankAccount) {
 
 export default function BanksPage() {
   const router = useRouter()
-  const { mode, bankAccounts, setBankAccounts } = useOnboarding()
+  const { mode, bankAccounts, setBankAccounts, familyId, skipOnboarding } = useOnboarding()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [accounts, setAccounts] = useState<BankAccount[]>(
     bankAccounts.length > 0
       ? bankAccounts.map((acc) => ({
@@ -183,10 +186,34 @@ export default function BanksPage() {
     setAccounts(updated)
   }
 
-  function handleNext() {
+  async function handleNext() {
     const valid = accounts.filter((a) => a.bank_name.trim().length > 0)
     setBankAccounts(valid)
-    router.push(pathWithMode("/onboarding/telegram", mode))
+    setError(null)
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/onboarding/banks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          familyId,
+          bankAccounts: valid.map((a) => ({
+            bank_name: a.bank_name,
+            account_type: a.account_type,
+            opening_balance: a.opening_balance ?? 0,
+            savings_goals: a.savings_goals ?? [],
+          })),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      router.push(pathWithMode("/onboarding/telegram", mode))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -375,7 +402,9 @@ export default function BanksPage() {
           Add another bank
         </Button>
 
-        <div className="flex gap-3">
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
             onClick={() => router.push(pathWithMode("/onboarding/cpf", mode))}
@@ -383,9 +412,17 @@ export default function BanksPage() {
             <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
-          <Button onClick={handleNext}>
+          <Button onClick={handleNext} disabled={isLoading}>
+            {isLoading ? <Loader2 className="size-4 animate-spin" /> : null}
             Next
             <ArrowRight data-icon="inline-end" />
+          </Button>
+          <Button
+            variant="link"
+            className="ml-auto text-muted-foreground"
+            onClick={skipOnboarding}
+          >
+            Skip for now
           </Button>
         </div>
       </CardContent>

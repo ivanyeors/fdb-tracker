@@ -25,7 +25,7 @@ import {
   pathWithMode,
   type OnboardingInvestment,
 } from "@/components/onboarding/onboarding-provider"
-import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react"
 
 const INVESTMENT_TYPES = [
   { value: "stock", label: "Stock" },
@@ -38,7 +38,9 @@ const INVESTMENT_TYPES = [
 
 export default function InvestmentsPage() {
   const router = useRouter()
-  const { mode, profiles, userCount, investments, setInvestments } = useOnboarding()
+  const { mode, profiles, userCount, investments, setInvestments, familyId, skipOnboarding } = useOnboarding()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [items, setItems] = useState<OnboardingInvestment[]>(
     investments.length > 0 ? investments : [],
   )
@@ -89,15 +91,45 @@ export default function InvestmentsPage() {
     setItems(updated)
   }
 
-  function handleNext() {
+  async function handleNext() {
     const valid = items.filter((i) => i.symbol.trim().length > 0 && i.units > 0)
     setInvestments(valid)
-    router.push(pathWithMode("/onboarding/loans", mode))
+    setError(null)
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/onboarding/investments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, familyId, investments: valid }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      router.push(pathWithMode("/onboarding/loans", mode))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  function handleSkip() {
+  async function handleSkip() {
     setInvestments([])
-    router.push(pathWithMode("/onboarding/loans", mode))
+    setError(null)
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/onboarding/investments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, familyId, investments: [] }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      router.push(pathWithMode("/onboarding/loans", mode))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -187,7 +219,9 @@ export default function InvestmentsPage() {
           Add holding
         </Button>
 
-        <div className="flex gap-3">
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
             onClick={() => router.push(pathWithMode("/onboarding/reminders", mode))}
@@ -195,12 +229,20 @@ export default function InvestmentsPage() {
             <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
-          <Button variant="outline" onClick={handleSkip}>
+          <Button variant="outline" onClick={handleSkip} disabled={isLoading}>
             Skip
           </Button>
-          <Button onClick={handleNext}>
+          <Button onClick={handleNext} disabled={isLoading}>
+            {isLoading ? <Loader2 className="size-4 animate-spin" /> : null}
             Next
             <ArrowRight data-icon="inline-end" />
+          </Button>
+          <Button
+            variant="link"
+            className="ml-auto text-muted-foreground"
+            onClick={skipOnboarding}
+          >
+            Skip setup
           </Button>
         </div>
       </CardContent>

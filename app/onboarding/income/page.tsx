@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Loader2 } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -41,9 +42,11 @@ const PAY_FREQUENCIES = [
 
 export default function IncomePage() {
   const router = useRouter()
-  const { mode, profiles, userCount, incomeConfigs, setIncomeConfigs } =
+  const { mode, profiles, userCount, incomeConfigs, setIncomeConfigs, familyId, skipOnboarding } =
     useOnboarding()
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   function updateIncome(
     index: number,
@@ -70,7 +73,7 @@ export default function IncomePage() {
     setIncomeConfigs(updated)
   }
 
-  function handleNext() {
+  async function handleNext() {
     const fieldErrors: Record<string, string> = {}
     const configs = incomeConfigs.slice(0, userCount)
 
@@ -93,7 +96,57 @@ export default function IncomePage() {
       return
     }
     setErrors({})
-    router.push(pathWithMode("/onboarding/cpf", mode))
+    setError(null)
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/onboarding/income", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          familyId,
+          incomeConfigs: configs.map((c) => ({
+            annual_salary: c.annual_salary ?? 0,
+            bonus_estimate: c.bonus_estimate ?? 0,
+            pay_frequency: c.pay_frequency,
+          })),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      router.push(pathWithMode("/onboarding/cpf", mode))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handleSkip() {
+    setError(null)
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/onboarding/income", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          familyId,
+          incomeConfigs: incomeConfigs.slice(0, userCount).map(() => ({
+            annual_salary: 0,
+            bonus_estimate: 0,
+            pay_frequency: "monthly",
+          })),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      router.push(pathWithMode("/onboarding/cpf", mode))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -177,7 +230,9 @@ export default function IncomePage() {
           </div>
         ))}
 
-        <div className="flex items-center gap-3">
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
             onClick={() => router.push(pathWithMode("/onboarding/profiles", mode))}
@@ -185,16 +240,20 @@ export default function IncomePage() {
             <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
-          <Button onClick={handleNext}>
+          <Button onClick={handleNext} disabled={isLoading}>
+            {isLoading ? <Loader2 className="size-4 animate-spin" /> : null}
             Next
             <ArrowRight data-icon="inline-end" />
           </Button>
+          <Button variant="link" className="text-muted-foreground" onClick={handleSkip} disabled={isLoading}>
+            Skip for now
+          </Button>
           <Button
             variant="link"
-            className="ml-auto"
-            onClick={() => router.push(pathWithMode("/onboarding/cpf", mode))}
+            className="ml-auto text-muted-foreground"
+            onClick={skipOnboarding}
           >
-            Skip for now
+            Skip setup
           </Button>
         </div>
       </CardContent>

@@ -25,7 +25,7 @@ import {
   pathWithMode,
   type OnboardingInsurance,
 } from "@/components/onboarding/onboarding-provider"
-import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react"
 
 const INSURANCE_TYPES = [
   { value: "term_life", label: "Term Life" },
@@ -39,8 +39,10 @@ const INSURANCE_TYPES = [
 
 export default function InsurancePage() {
   const router = useRouter()
-  const { mode, profiles, userCount, insurancePolicies, setInsurancePolicies } =
+  const { mode, profiles, userCount, insurancePolicies, setInsurancePolicies, familyId, skipOnboarding } =
     useOnboarding()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [items, setItems] = useState<OnboardingInsurance[]>(
     insurancePolicies.length > 0 ? insurancePolicies : [],
   )
@@ -94,17 +96,35 @@ export default function InsurancePage() {
     setItems(updated)
   }
 
+  async function saveAndNavigate(policyList: OnboardingInsurance[]) {
+    setInsurancePolicies(policyList)
+    setError(null)
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/onboarding/insurance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, familyId, insurancePolicies: policyList }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      router.push(pathWithMode("/onboarding/tax-reliefs", mode))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   function handleNext() {
     const valid = items.filter(
       (i) => i.name.trim().length > 0 && i.premium_amount > 0,
     )
-    setInsurancePolicies(valid)
-    router.push(pathWithMode("/onboarding/tax-reliefs", mode))
+    saveAndNavigate(valid)
   }
 
   function handleSkip() {
-    setInsurancePolicies([])
-    router.push(pathWithMode("/onboarding/tax-reliefs", mode))
+    saveAndNavigate([])
   }
 
   return (
@@ -211,7 +231,9 @@ export default function InsurancePage() {
           Add policy
         </Button>
 
-        <div className="flex gap-3">
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
             onClick={() => router.push(pathWithMode("/onboarding/loans", mode))}
@@ -219,12 +241,20 @@ export default function InsurancePage() {
             <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
-          <Button variant="outline" onClick={handleSkip}>
+          <Button variant="outline" onClick={handleSkip} disabled={isLoading}>
             Skip
           </Button>
-          <Button onClick={handleNext}>
+          <Button onClick={handleNext} disabled={isLoading}>
+            {isLoading ? <Loader2 className="size-4 animate-spin" /> : null}
             Next
             <ArrowRight data-icon="inline-end" />
+          </Button>
+          <Button
+            variant="link"
+            className="ml-auto text-muted-foreground"
+            onClick={skipOnboarding}
+          >
+            Skip setup
           </Button>
         </div>
       </CardContent>

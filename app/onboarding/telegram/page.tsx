@@ -58,7 +58,9 @@ function MethodSection({ title, children, defaultOpen }: MethodSectionProps) {
 
 export default function TelegramPage() {
   const router = useRouter()
-  const { mode, telegramChatId, setTelegramChatId } = useOnboarding()
+  const { mode, telegramChatId, setTelegramChatId, skipOnboarding } = useOnboarding()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [testStatus, setTestStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle")
@@ -163,7 +165,9 @@ export default function TelegramPage() {
           )}
         </div>
 
-        <div className="flex gap-3">
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
             onClick={() => router.push(pathWithMode("/onboarding/banks", mode))}
@@ -171,20 +175,62 @@ export default function TelegramPage() {
             <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
-          <Button onClick={() => router.push(pathWithMode("/onboarding/reminders", mode))}>
+          <Button
+            onClick={async () => {
+              setError(null)
+              setIsLoading(true)
+              try {
+                const res = await fetch("/api/onboarding/telegram", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ telegramChatId }),
+                })
+                const data = await res.json().catch(() => ({}))
+                if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+                router.push(pathWithMode("/onboarding/reminders", mode))
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Something went wrong")
+              } finally {
+                setIsLoading(false)
+              }
+            }}
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="size-4 animate-spin" /> : null}
             Next
             <ArrowRight data-icon="inline-end" />
           </Button>
-        </div>
-        <p className="text-center">
           <Button
             variant="link"
             className="text-muted-foreground"
-            onClick={() => router.push(pathWithMode("/onboarding/reminders", mode))}
+            onClick={async () => {
+              setError(null)
+              setIsLoading(true)
+              try {
+                await fetch("/api/onboarding/telegram", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ telegramChatId: "" }),
+                })
+                router.push(pathWithMode("/onboarding/reminders", mode))
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Something went wrong")
+              } finally {
+                setIsLoading(false)
+              }
+            }}
+            disabled={isLoading}
           >
             Skip for now
           </Button>
-        </p>
+          <Button
+            variant="link"
+            className="ml-auto text-muted-foreground"
+            onClick={skipOnboarding}
+          >
+            Skip setup
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )

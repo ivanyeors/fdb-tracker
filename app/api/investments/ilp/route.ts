@@ -82,16 +82,26 @@ export async function GET(request: NextRequest) {
     }
 
     const latestEntryByProduct = new Map<string, (typeof allEntries)[number]>()
+    const entriesByProduct = new Map<string, (typeof allEntries)[number][]>()
     for (const entry of allEntries) {
       if (!latestEntryByProduct.has(entry.product_id)) {
         latestEntryByProduct.set(entry.product_id, entry)
       }
+      const list = entriesByProduct.get(entry.product_id) ?? []
+      list.push(entry)
+      entriesByProduct.set(entry.product_id, list)
     }
 
-    const result = products.map((product) => ({
-      ...product,
-      latestEntry: latestEntryByProduct.get(product.id) ?? null,
-    }))
+    const result = products.map((product) => {
+      const entries = (entriesByProduct.get(product.id) ?? []).sort(
+        (a, b) => a.month.localeCompare(b.month),
+      )
+      return {
+        ...product,
+        latestEntry: latestEntryByProduct.get(product.id) ?? null,
+        entries: entries.map((e) => ({ month: e.month, fund_value: e.fund_value })),
+      }
+    })
 
     return NextResponse.json(result)
   } catch {

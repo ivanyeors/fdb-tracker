@@ -63,64 +63,123 @@ export async function GET(request: NextRequest) {
       .limit(monthCount * profileIds.length)
 
     if (balances && balances.length > 0) {
-      return NextResponse.json(balances.reverse())
+      // Aggregate by month (sum OA, SA, MA across profiles) for consistent dashboard display
+      const byMonth = new Map<
+        string,
+        { month: string; oa: number; sa: number; ma: number }
+      >()
+      for (const row of balances) {
+        const month =
+          typeof row.month === "string"
+            ? row.month.slice(0, 10)
+            : new Date(row.month).toISOString().slice(0, 10)
+        const oa = Number(row.oa) || 0
+        const sa = Number(row.sa) || 0
+        const ma = Number(row.ma) || 0
+        const existing = byMonth.get(month)
+        if (existing) {
+          existing.oa += oa
+          existing.sa += sa
+          existing.ma += ma
+        } else {
+          byMonth.set(month, { month, oa, sa, ma })
+        }
+      }
+      const aggregated = Array.from(byMonth.values()).sort(
+        (a, b) => new Date(a.month).getTime() - new Date(b.month).getTime(),
+      )
+      return NextResponse.json(aggregated)
     }
 
-    if (profileIds.length !== 1) {
-      return NextResponse.json([])
-    }
-
-    const singleProfileId = profileIds[0]!
-    const { data: profile } = await supabase
+    // Project from income when no manual data - support single or multi-profile
+    const { data: profiles } = await supabase
       .from("profiles")
       .select("id, birth_year")
-      .eq("id", singleProfileId)
-      .single()
-    if (!profile) return NextResponse.json([])
+      .in("id", profileIds)
 
-    const { data: incomeConfig } = await supabase
+    const { data: incomeConfigs } = await supabase
       .from("income_config")
-      .select("annual_salary, bonus_estimate")
-      .eq("profile_id", singleProfileId)
-      .single()
+      .select("profile_id, annual_salary, bonus_estimate")
+      .in("profile_id", profileIds)
 
-    if (!incomeConfig) {
-      return NextResponse.json([])
-    }
-
-    const currentYear = new Date().getFullYear()
-    const age = getAge(profile.birth_year, currentYear)
-    const monthlyGross = incomeConfig.annual_salary / 12
-    const contribution = calculateCpfContribution(monthlyGross, age, currentYear)
-
-    const projectedBalances = []
-    let runningOa = 0
-    let runningSa = 0
-    let runningMa = 0
+    const incomeByProfile = new Map(
+      incomeConfigs?.map((ic) => [ic.profile_id, ic]) ?? [],
+    )
+    const profileById = new Map(profiles?.map((p) => [p.id, p]) ?? [])
 
     const now = new Date()
+    const currentYear = now.getFullYear()
+    const allProjected: Array<{
+      profile_id: string
+      month: string
+      oa: number
+      sa: number
+      ma: number
+      is_manual_override: boolean
+    }> = []
 
-    for (let i = 0; i < monthCount; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - (monthCount - 1 - i), 1)
-      const yyyy = d.getFullYear()
-      const mm = String(d.getMonth() + 1).padStart(2, "0")
-      const month = `${yyyy}-${mm}-01`
+    for (const pid of profileIds) {
+      const profile = profileById.get(pid)
+      const incomeConfig = incomeByProfile.get(pid)
+      if (!profile || !incomeConfig || incomeConfig.annual_salary <= 0) continue
 
-      runningOa += contribution.oa
-      runningSa += contribution.sa
-      runningMa += contribution.ma
+      const age = getAge(profile.birth_year, currentYear)
+      const monthlyGross = incomeConfig.annual_salary / 12
+      const contribution = calculateCpfContribution(
+        monthlyGross,
+        age,
+        currentYear,
+      )
 
-      projectedBalances.push({
-        profile_id: singleProfileId,
-        month,
-        oa: Math.round(runningOa * 100) / 100,
-        sa: Math.round(runningSa * 100) / 100,
-        ma: Math.round(runningMa * 100) / 100,
-        is_manual_override: false,
-      })
+      let runningOa = 0
+      let runningSa = 0
+      let runningMa = 0
+
+      for (let i = 0; i < monthCount; i++) {
+        const d = new Date(
+          now.getFullYear(),
+          now.getMonth() - (monthCount - 1 - i),
+          1,
+        )
+        const yyyy = d.getFullYear()
+        const mm = String(d.getMonth() + 1).padStart(2, "0")
+        const month = `${yyyy}-${mm}-01`
+
+        runningOa += contribution.oa
+        runningSa += contribution.sa
+        runningMa += contribution.ma
+
+        allProjected.push({
+          profile_id: pid,
+          month,
+          oa: Math.round(runningOa * 100) / 100,
+          sa: Math.round(runningSa * 100) / 100,
+          ma: Math.round(runningMa * 100) / 100,
+          is_manual_override: false,
+        })
+      }
     }
 
-    return NextResponse.json(projectedBalances)
+    // Aggregate by month when multiple profiles (for CPF page charts)
+    const byMonth = new Map<
+      string,
+      { month: string; oa: number; sa: number; ma: number }
+    >()
+    for (const p of allProjected) {
+      const existing = byMonth.get(p.month)
+      if (existing) {
+        existing.oa += p.oa
+        existing.sa += p.sa
+        existing.ma += p.ma
+      } else {
+        byMonth.set(p.month, { month: p.month, oa: p.oa, sa: p.sa, ma: p.ma })
+      }
+    }
+    const aggregated = Array.from(byMonth.values()).sort(
+      (a, b) => new Date(a.month).getTime() - new Date(b.month).getTime(),
+    )
+
+    return NextResponse.json(aggregated)
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

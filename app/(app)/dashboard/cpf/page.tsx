@@ -369,8 +369,8 @@ export default function CpfPage() {
       setIsLoading(true)
       try {
         const params = new URLSearchParams()
-        if (activeProfileId) params.set("profileId", activeProfileId)
-        else if (activeFamilyId) params.set("familyId", activeFamilyId)
+        if (activeFamilyId) params.set("familyId", activeFamilyId)
+        else if (activeProfileId) params.set("profileId", activeProfileId)
         const qs = params.toString()
         const [balancesRes, housingRes, loansRes, retirementRes] = await Promise.all([
           fetch(`/api/cpf/balances?${qs}`),

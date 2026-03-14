@@ -31,12 +31,19 @@ export async function middleware(request: NextRequest) {
   const isOnboarding = pathname.startsWith("/onboarding")
   const isOptionalFlow = pathname.startsWith("/onboarding/optional")
   const isAddFamilyMode = request.nextUrl.searchParams.get("mode") === "new-family"
+  const isResumeMode = request.nextUrl.searchParams.get("mode") === "resume"
 
   if (!onboardingComplete && !isOnboarding) {
     return NextResponse.redirect(new URL("/onboarding", request.url))
   }
 
-  if (onboardingComplete && isOnboarding && !isAddFamilyMode && !isOptionalFlow) {
+  if (
+    onboardingComplete &&
+    isOnboarding &&
+    !isAddFamilyMode &&
+    !isOptionalFlow &&
+    !isResumeMode
+  ) {
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import {
   Tabs,
@@ -19,205 +20,323 @@ import {
   type JournalEntry,
 } from "@/components/dashboard/investments/journal-list"
 import { JournalForm } from "@/components/dashboard/investments/journal-form"
+import { AddHoldingForm } from "@/components/dashboard/investments/add-holding-form"
+import { AddIlpForm } from "@/components/dashboard/investments/add-ilp-form"
+import { AddMetalForm } from "@/components/dashboard/investments/add-metal-form"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useActiveProfile } from "@/hooks/use-active-profile"
 
-const HOLDINGS: Holding[] = [
-  {
-    symbol: "DBS",
-    type: "stock",
-    units: 200,
-    costBasis: 6800,
-    currentPrice: 36,
-    currentValue: 7200,
-    pnl: 400,
-    pnlPct: 5.88,
-    portfolioPct: 7.78,
-  },
-  {
-    symbol: "OCBC",
-    type: "stock",
-    units: 150,
-    costBasis: 1875,
-    currentPrice: 13.5,
-    currentValue: 2025,
-    pnl: 150,
-    pnlPct: 8.0,
-    portfolioPct: 2.19,
-  },
-  {
-    symbol: "AAPL",
-    type: "stock",
-    units: 10,
-    costBasis: 2150,
-    currentPrice: 235,
-    currentValue: 2350,
-    pnl: 200,
-    pnlPct: 9.3,
-    portfolioPct: 2.54,
-  },
-  {
-    symbol: "Gold",
-    type: "gold",
-    units: 1.5,
-    costBasis: 6000,
-    currentPrice: 4250,
-    currentValue: 6375,
-    pnl: 375,
-    pnlPct: 6.25,
-    portfolioPct: 6.89,
-  },
-  {
-    symbol: "Silver",
-    type: "silver",
-    units: 50,
-    costBasis: 2400,
-    currentPrice: 49,
-    currentValue: 2450,
-    pnl: 50,
-    pnlPct: 2.08,
-    portfolioPct: 2.65,
-  },
-  {
-    symbol: "Prudential ILP",
-    type: "ilp",
-    units: 1,
-    costBasis: 12000,
-    currentPrice: 13200,
-    currentValue: 13200,
-    pnl: 1200,
-    pnlPct: 10.0,
-    portfolioPct: 14.27,
-  },
-  {
-    symbol: "AIA ILP",
-    type: "ilp",
-    units: 1,
-    costBasis: 8000,
-    currentPrice: 8500,
-    currentValue: 8500,
-    pnl: 500,
-    pnlPct: 6.25,
-    portfolioPct: 9.19,
-  },
-  {
-    symbol: "STI ETF",
-    type: "etf",
-    units: 100,
-    costBasis: 3200,
-    currentPrice: 34,
-    currentValue: 3400,
-    pnl: 200,
-    pnlPct: 6.25,
-    portfolioPct: 3.68,
-  },
-]
+type IlpProductWithEntries = {
+  id: string
+  name: string
+  monthly_premium: number
+  end_date: string
+  created_at: string
+  latestEntry: { fund_value: number; month: string } | null
+  entries: { month: string; fund_value: number }[]
+}
 
-const ALLOCATION_BY_TYPE = [
-  { name: "Stocks", value: 11575, percentage: 25 },
-  { name: "Gold", value: 6375, percentage: 14 },
-  { name: "Silver", value: 2450, percentage: 5 },
-  { name: "ILP", value: 21700, percentage: 47 },
-  { name: "ETF", value: 3400, percentage: 7 },
-]
+function mapToCategoryLabel(type: string): string {
+  return type === "stock"
+    ? "Stocks"
+    : type === "etf"
+      ? "ETF"
+      : type === "gold"
+        ? "Gold"
+        : type === "silver"
+          ? "Silver"
+          : type === "ilp"
+            ? "ILP"
+            : type === "bond"
+              ? "Bonds"
+              : type.charAt(0).toUpperCase() + type.slice(1)
+}
 
-const ALLOCATION_BY_MARKET = [
-  { name: "SGX", value: 12625, percentage: 27 },
-  { name: "US", value: 2350, percentage: 5 },
-  { name: "Precious Metals", value: 8825, percentage: 19 },
-  { name: "ILP", value: 21700, percentage: 47 },
-]
-
-const PRUDENTIAL_MONTHLY = [
-  { month: "Oct", value: 12200 },
-  { month: "Nov", value: 12500 },
-  { month: "Dec", value: 12800 },
-  { month: "Jan", value: 12600 },
-  { month: "Feb", value: 13000 },
-  { month: "Mar", value: 13200 },
-]
-
-const AIA_MONTHLY = [
-  { month: "Oct", value: 8100 },
-  { month: "Nov", value: 8000 },
-  { month: "Dec", value: 8200 },
-  { month: "Jan", value: 8150 },
-  { month: "Feb", value: 8350 },
-  { month: "Mar", value: 8500 },
-]
-
-const METALS = [
-  {
-    type: "gold" as const,
-    unitsOz: 1.5,
-    buyPrice: 4300,
-    sellPrice: 4250,
-    currentValue: 6375,
-    costBasis: 6000,
-    pnl: 375,
-    pnlPct: 6.25,
-    lastUpdated: "2026-03-08 09:00 SGT",
-  },
-  {
-    type: "silver" as const,
-    unitsOz: 50,
-    buyPrice: 50,
-    sellPrice: 49,
-    currentValue: 2450,
-    costBasis: 2400,
-    pnl: 50,
-    pnlPct: 2.08,
-    lastUpdated: "2026-03-08 09:00 SGT",
-  },
-]
-
-const JOURNAL_ENTRIES: JournalEntry[] = [
-  {
-    id: "j1",
-    symbol: "DBS",
-    type: "buy",
-    quantity: 50,
-    price: 34.0,
-    journalText: "Added on dip, long term hold",
-    date: "2026-03-01",
-  },
-  {
-    id: "j2",
-    symbol: "AAPL",
-    type: "buy",
-    quantity: 5,
-    price: 215.0,
-    journalText: "Post-earnings entry",
-    date: "2026-02-15",
-  },
-  {
-    id: "j3",
-    symbol: "OCBC",
-    type: "sell",
-    quantity: 25,
-    price: 14.5,
-    journalText: "Took partial profits",
-    date: "2026-02-01",
-  },
-  {
-    id: "j4",
-    symbol: "DBS",
-    type: "buy",
-    quantity: 100,
-    price: 33.5,
-    journalText: "Initial position",
-    date: "2026-01-20",
-  },
-  {
-    id: "j5",
-    symbol: "Gold",
-    type: "buy",
-    quantity: 0.5,
-    price: 4200,
-    journalText: "Starting gold position via OCBC",
-    date: "2026-01-10",
-  },
-]
+function mapToMarketLabel(symbol: string, type: string): string {
+  if (type === "gold" || type === "silver") return "Precious Metals"
+  if (type === "ilp") return "ILP"
+  const sgxTickers = ["DBS", "OCBC", "UOB", "SIA", "STI", "G3B", "ES3", "N2IU"]
+  const upper = symbol.toUpperCase()
+  if (sgxTickers.some((t) => upper.startsWith(t) || upper.includes(t)))
+    return "SGX"
+  return "US"
+}
 
 export default function InvestmentsDetailPage() {
+  const { activeProfileId, activeFamilyId } = useActiveProfile()
+  const [holdings, setHoldings] = useState<Holding[]>([])
+  const [ilpProducts, setIlpProducts] = useState<IlpProductWithEntries[]>([])
+  const [transactions, setTransactions] = useState<JournalEntry[]>([])
+  const [metalsPrices, setMetalsPrices] = useState<
+    { metalType: string; buyPriceSgd: number; sellPriceSgd: number }[]
+  >([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  const fetchData = useCallback(async () => {
+    if (!activeProfileId && !activeFamilyId) {
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (activeProfileId) params.set("profileId", activeProfileId)
+      else if (activeFamilyId) params.set("familyId", activeFamilyId)
+
+      const [invRes, ilpRes, txRes, pricesRes] = await Promise.all([
+        fetch(`/api/investments?${params}`),
+        fetch(`/api/investments/ilp?${params}`),
+        fetch(`/api/investments/transactions?${params}&limit=100`),
+        fetch("/api/prices?metals=true"),
+      ])
+
+      if (invRes.ok) {
+        const json = await invRes.json()
+        let totalPortfolioValue = 0
+        const mapped: Holding[] = json.map(
+          (inv: {
+            symbol: string
+            type: string
+            units: number
+            cost_basis: number
+            marketValue?: number
+            currentPrice?: number
+            unrealisedPnL?: number
+            unrealisedPnLPct?: number
+          }) => {
+            const val = inv.marketValue ?? inv.units * inv.cost_basis
+            totalPortfolioValue += val
+            return {
+              symbol: inv.symbol,
+              type: inv.type,
+              units: inv.units,
+              costBasis: inv.cost_basis * inv.units,
+              currentPrice: inv.currentPrice ?? inv.cost_basis,
+              currentValue: val,
+              pnl: inv.unrealisedPnL ?? 0,
+              pnlPct: inv.unrealisedPnLPct ?? 0,
+              portfolioPct: 0,
+            }
+          },
+        )
+        const finalHoldings = mapped.map((h) => ({
+          ...h,
+          portfolioPct:
+            totalPortfolioValue > 0
+              ? (h.currentValue / totalPortfolioValue) * 100
+              : 0,
+        }))
+        setHoldings(finalHoldings)
+      }
+
+      if (ilpRes.ok) {
+        const products = await ilpRes.json()
+        const productsWithEntries = products.map(
+          (p: {
+            id: string
+            name: string
+            monthly_premium: number
+            end_date: string
+            latestEntry: { fund_value: number; month: string } | null
+            entries?: { month: string; fund_value: number }[]
+          }) => ({
+            ...p,
+            entries: p.entries ?? [],
+          }),
+        )
+        setIlpProducts(productsWithEntries)
+      }
+
+      if (txRes.ok) {
+        const txs = await txRes.json()
+        setTransactions(
+          txs.map(
+            (t: {
+              id: string
+              symbol: string
+              type: string
+              quantity: number
+              price: number
+              journal_text?: string
+              created_at: string
+            }) => ({
+              id: t.id,
+              symbol: t.symbol,
+              type: t.type as "buy" | "sell",
+              quantity: t.quantity,
+              price: t.price,
+              journalText: t.journal_text,
+              date: t.created_at.slice(0, 10),
+            }),
+          ),
+        )
+      }
+
+      if (pricesRes.ok) {
+        const { metals } = await pricesRes.json()
+        setMetalsPrices(
+          (metals ?? []).map(
+            (m: {
+              metalType: string
+              buyPriceSgd: number
+              sellPriceSgd: number
+            }) => ({
+              metalType: m.metalType,
+              buyPriceSgd: m.buyPriceSgd,
+              sellPriceSgd: m.sellPriceSgd,
+            }),
+          ),
+        )
+      }
+    } catch (error) {
+      console.error("Failed to fetch investments detail:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [activeProfileId, activeFamilyId])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  const totalValue = useMemo(
+    () => holdings.reduce((sum, h) => sum + h.currentValue, 0),
+    [holdings],
+  )
+
+  const allocationByType = useMemo(() => {
+    const grouped = new Map<string, number>()
+    holdings.forEach((h) => {
+      const label = mapToCategoryLabel(h.type)
+      grouped.set(label, (grouped.get(label) || 0) + h.currentValue)
+    })
+    return Array.from(grouped.entries())
+      .map(([name, value]) => ({
+        name,
+        value,
+        percentage: totalValue > 0 ? (value / totalValue) * 100 : 0,
+      }))
+      .sort((a, b) => b.value - a.value)
+  }, [holdings, totalValue])
+
+  const allocationByMarket = useMemo(() => {
+    const grouped = new Map<string, number>()
+    holdings.forEach((h) => {
+      const label = mapToMarketLabel(h.symbol, h.type)
+      grouped.set(label, (grouped.get(label) || 0) + h.currentValue)
+    })
+    ilpProducts.forEach((p) => {
+      const fundVal = p.latestEntry?.fund_value ?? 0
+      if (fundVal > 0) {
+        grouped.set("ILP", (grouped.get("ILP") || 0) + fundVal)
+      }
+    })
+    const ilpTotal = grouped.get("ILP") ?? 0
+    const totalWithIlp = totalValue + ilpTotal
+    return Array.from(grouped.entries())
+      .map(([name, value]) => ({
+        name,
+        value,
+        percentage:
+          totalWithIlp > 0 ? (value / totalWithIlp) * 100 : 0,
+      }))
+      .sort((a, b) => b.value - a.value)
+  }, [holdings, ilpProducts, totalValue])
+
+  const metalsHoldings = useMemo(() => {
+    const goldSilver = holdings.filter(
+      (h) => h.type === "gold" || h.type === "silver",
+    )
+    return goldSilver.map((h) => {
+      const priceData = metalsPrices.find(
+        (m) => m.metalType.toLowerCase() === h.type.toLowerCase(),
+      )
+      const sellPrice = priceData?.sellPriceSgd ?? h.currentPrice
+      const buyPrice = priceData?.buyPriceSgd ?? sellPrice
+      const currentValue = h.units * sellPrice
+      const costBasis = h.costBasis
+      const pnl = currentValue - costBasis
+      const pnlPct = costBasis > 0 ? (pnl / costBasis) * 100 : 0
+      return {
+        type: h.type as "gold" | "silver",
+        unitsOz: h.units,
+        buyPrice,
+        sellPrice,
+        currentValue,
+        costBasis,
+        pnl,
+        pnlPct,
+        lastUpdated: priceData
+          ? new Date().toLocaleString("en-SG", {
+              dateStyle: "short",
+              timeStyle: "short",
+            })
+          : "—",
+      }
+    })
+  }, [holdings, metalsPrices])
+
+  const ilpCardsData = useMemo(() => {
+    return ilpProducts.map((p: IlpProductWithEntries) => {
+      const fundValue = p.latestEntry?.fund_value ?? 0
+      const startDate = new Date(p.created_at)
+      const now = new Date()
+      const monthsPaid = Math.max(
+        0,
+        Math.floor(
+          (now.getFullYear() - startDate.getFullYear()) * 12 +
+            (now.getMonth() - startDate.getMonth()),
+        ),
+      )
+      const totalPremiumsPaid = p.monthly_premium * Math.max(1, monthsPaid)
+      const returnPct =
+        totalPremiumsPaid > 0
+          ? ((fundValue - totalPremiumsPaid) / totalPremiumsPaid) * 100
+          : 0
+      const sortedEntries = [...(p.entries ?? [])].sort(
+        (a, b) => a.month.localeCompare(b.month),
+      )
+      let monthlyData = sortedEntries.map((e) => ({
+        month: new Date(e.month + "-01").toLocaleString("en-US", {
+          month: "short",
+        }),
+        value: e.fund_value,
+      }))
+      if (monthlyData.length === 0 && fundValue > 0) {
+        monthlyData = [
+          {
+            month: new Date().toLocaleString("en-US", { month: "short" }),
+            value: fundValue,
+          },
+        ]
+      }
+      return {
+        productId: p.id,
+        name: p.name,
+        fundValue,
+        totalPremiumsPaid,
+        returnPct,
+        monthlyPremium: p.monthly_premium,
+        monthlyData,
+      }
+    })
+  }, [ilpProducts])
+
+  if (!activeProfileId && !activeFamilyId) {
+    return (
+      <div className="space-y-6 p-4 sm:p-6">
+        <SectionHeader
+          title="Investments Detail"
+          description="Full holdings, journals, and market breakdown."
+        />
+        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+          Please select a profile first.
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
@@ -229,60 +348,107 @@ export default function InvestmentsDetailPage() {
         <div className="-mx-1 overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
           <TabsList className="inline-flex w-fit flex-nowrap">
             <TabsTrigger value="holdings">Holdings</TabsTrigger>
-          <TabsTrigger value="allocation">Allocation</TabsTrigger>
-          <TabsTrigger value="ilp">ILP</TabsTrigger>
-          <TabsTrigger value="metals">Precious Metals</TabsTrigger>
-          <TabsTrigger value="journals">Journals</TabsTrigger>
+            <TabsTrigger value="allocation">Allocation</TabsTrigger>
+            <TabsTrigger value="ilp">ILP</TabsTrigger>
+            <TabsTrigger value="metals">Precious Metals</TabsTrigger>
+            <TabsTrigger value="journals">Journals</TabsTrigger>
           </TabsList>
         </div>
 
-        <TabsContent value="holdings" className="mt-4">
-          <HoldingsTable holdings={HOLDINGS} />
+        <TabsContent value="holdings" className="mt-4 space-y-4">
+          <div className="rounded-xl border p-4">
+            <h3 className="mb-4 text-sm font-medium">Add Holding</h3>
+            <AddHoldingForm onSuccess={fetchData} />
+          </div>
+          {isLoading ? (
+            <Skeleton className="h-64 w-full rounded-xl" />
+          ) : holdings.length === 0 ? (
+            <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+              No holdings found.
+            </div>
+          ) : (
+            <HoldingsTable holdings={holdings} />
+          )}
         </TabsContent>
 
         <TabsContent value="allocation" className="mt-4">
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="rounded-xl border p-4">
-              <AllocationChart data={ALLOCATION_BY_TYPE} title="By Type" />
+          {isLoading ? (
+            <div className="grid gap-6 md:grid-cols-2">
+              <Skeleton className="h-80 rounded-xl" />
+              <Skeleton className="h-80 rounded-xl" />
             </div>
-            <div className="rounded-xl border p-4">
-              <AllocationChart data={ALLOCATION_BY_MARKET} title="By Market" />
+          ) : allocationByType.length === 0 && allocationByMarket.length === 0 ? (
+            <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+              No allocation data. Add holdings to see breakdown.
             </div>
-          </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="rounded-xl border p-4">
+                <AllocationChart data={allocationByType} title="By Type" />
+              </div>
+              <div className="rounded-xl border p-4">
+                <AllocationChart data={allocationByMarket} title="By Market" />
+              </div>
+            </div>
+          )}
         </TabsContent>
 
-        <TabsContent value="ilp" className="mt-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <IlpCard
-              name="Prudential ILP"
-              fundValue={13200}
-              totalPremiumsPaid={12000}
-              returnPct={10.0}
-              monthlyPremium={500}
-              monthlyData={PRUDENTIAL_MONTHLY}
-            />
-            <IlpCard
-              name="AIA ILP"
-              fundValue={8500}
-              totalPremiumsPaid={8000}
-              returnPct={6.25}
-              monthlyPremium={350}
-              monthlyData={AIA_MONTHLY}
-            />
+        <TabsContent value="ilp" className="mt-4 space-y-4">
+          <div className="rounded-xl border p-4">
+            <h3 className="mb-4 text-sm font-medium">Add ILP Product</h3>
+            <AddIlpForm onSuccess={fetchData} />
           </div>
+          {isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Skeleton className="h-[200px] rounded-xl" />
+              <Skeleton className="h-[200px] rounded-xl" />
+            </div>
+          ) : ilpCardsData.length === 0 ? (
+            <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+              No ILP products yet. Add one above to get started.
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {ilpCardsData.map((card) => (
+                <IlpCard
+                  key={card.productId}
+                  productId={card.productId}
+                  name={card.name}
+                  fundValue={card.fundValue}
+                  totalPremiumsPaid={card.totalPremiumsPaid}
+                  returnPct={card.returnPct}
+                  monthlyPremium={card.monthlyPremium}
+                  monthlyData={card.monthlyData}
+                  onAddEntry={fetchData}
+                />
+              ))}
+            </div>
+          )}
         </TabsContent>
 
-        <TabsContent value="metals" className="mt-4">
-          <div className="max-w-lg">
-            <PreciousMetals metals={METALS} />
+        <TabsContent value="metals" className="mt-4 space-y-4">
+          <div className="max-w-lg rounded-xl border p-4">
+            <h3 className="mb-4 text-sm font-medium">Add Precious Metal</h3>
+            <AddMetalForm onSuccess={fetchData} />
           </div>
+          {isLoading ? (
+            <Skeleton className="h-48 max-w-lg rounded-xl" />
+          ) : metalsHoldings.length === 0 ? (
+            <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+              No precious metals holdings. Add gold or silver above to get started.
+            </div>
+          ) : (
+            <div className="max-w-lg">
+              <PreciousMetals metals={metalsHoldings} />
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="journals" className="mt-4 space-y-6">
-          <JournalList entries={JOURNAL_ENTRIES} />
+          <JournalList entries={transactions} />
           <div className="rounded-xl border p-4">
             <h3 className="mb-4 text-sm font-medium">Add Journal Entry</h3>
-            <JournalForm />
+            <JournalForm onSuccess={fetchData} />
           </div>
         </TabsContent>
       </Tabs>

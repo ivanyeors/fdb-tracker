@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { LineChart, Line, ResponsiveContainer } from "recharts"
+import { AddIlpEntryDialog } from "@/components/dashboard/investments/add-ilp-entry-dialog"
 
 interface MonthlyData {
   month: string
@@ -10,12 +11,14 @@ interface MonthlyData {
 }
 
 interface IlpCardProps {
+  productId?: string
   name: string
   fundValue: number
   totalPremiumsPaid: number
   returnPct: number
   monthlyPremium: number
   monthlyData: MonthlyData[]
+  onAddEntry?: () => void
 }
 
 function fmt(n: number): string {
@@ -26,17 +29,26 @@ function fmt(n: number): string {
 }
 
 export function IlpCard({
+  productId,
   name,
   fundValue,
   totalPremiumsPaid,
   returnPct,
   monthlyPremium,
   monthlyData,
+  onAddEntry,
 }: IlpCardProps) {
   return (
     <Card className="h-[200px]">
-      <CardHeader className="pb-0">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0">
         <CardTitle className="text-base font-bold">{name}</CardTitle>
+        {productId && (
+          <AddIlpEntryDialog
+            productId={productId}
+            productName={name}
+            onSuccess={onAddEntry}
+          />
+        )}
       </CardHeader>
       <CardContent className="flex gap-4">
         <div className="flex flex-1 flex-col gap-1 text-sm">
