@@ -58,7 +58,8 @@ export async function GET(request: NextRequest) {
       entries: taxEntries || [],
       reliefs: reliefInputs || [],
     })
-  } catch {
+  } catch (err) {
+    console.error("[api/tax] Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

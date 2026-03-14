@@ -1,58 +1,9 @@
--- 001_initial_schema.sql
--- Finance Dashboard Tracker — Full Initial Schema
--- All tables, constraints, indexes, and RLS setup
+-- 006_initial_schema.sql
+-- Finance Dashboard Tracker — Schema (tables not in 003, 004, 005)
+-- Depends on: households, profiles (003, 004), income_config (005)
 
 -- ============================================================
--- 1. households
--- ============================================================
-CREATE TABLE households (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_count INT NOT NULL DEFAULT 2 CHECK (user_count >= 1 AND user_count <= 6),
-  telegram_chat_id TEXT,
-  telegram_bot_token TEXT,
-  onboarding_completed_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-ALTER TABLE households ENABLE ROW LEVEL SECURITY;
-
--- ============================================================
--- 2. profiles
--- ============================================================
-CREATE TABLE profiles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  telegram_user_id TEXT,
-  birth_year INT NOT NULL CHECK (birth_year >= 1940 AND birth_year <= 2010),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (household_id, name)
-);
-
-CREATE INDEX idx_profiles_household_id ON profiles(household_id);
-
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-
--- ============================================================
--- 3. otp_tokens
--- ============================================================
-CREATE TABLE otp_tokens (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
-  otp_hash TEXT NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL,
-  used BOOLEAN NOT NULL DEFAULT false,
-  ip_address INET,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_otp_tokens_household_id ON otp_tokens(household_id);
-CREATE INDEX idx_otp_tokens_expires_at ON otp_tokens(expires_at);
-
-ALTER TABLE otp_tokens ENABLE ROW LEVEL SECURITY;
-
--- ============================================================
--- 4. bank_accounts
+-- 1. bank_accounts
 -- ============================================================
 CREATE TABLE bank_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -72,7 +23,7 @@ CREATE INDEX idx_bank_accounts_profile_id ON bank_accounts(profile_id);
 ALTER TABLE bank_accounts ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 5. monthly_cashflow
+-- 2. monthly_cashflow
 -- ============================================================
 CREATE TABLE monthly_cashflow (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -81,7 +32,7 @@ CREATE TABLE monthly_cashflow (
   inflow NUMERIC(14,2) NOT NULL DEFAULT 0,
   outflow NUMERIC(14,2) NOT NULL DEFAULT 0,
   source TEXT NOT NULL DEFAULT 'manual'
-    CHECK (source IN ('manual', 'telegram', 'ocr')),
+    CHECK (source IN ('manual', 'telegram')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (profile_id, month)
@@ -93,7 +44,7 @@ CREATE INDEX idx_monthly_cashflow_month ON monthly_cashflow(month);
 ALTER TABLE monthly_cashflow ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 6. bank_balance_snapshots
+-- 3. bank_balance_snapshots
 -- ============================================================
 CREATE TABLE bank_balance_snapshots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -111,7 +62,7 @@ CREATE INDEX idx_bank_balance_snapshots_month ON bank_balance_snapshots(month);
 ALTER TABLE bank_balance_snapshots ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 7. savings_goals
+-- 4. savings_goals
 -- ============================================================
 CREATE TABLE savings_goals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -133,7 +84,7 @@ CREATE INDEX idx_savings_goals_profile_id ON savings_goals(profile_id);
 ALTER TABLE savings_goals ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 8. goal_contributions
+-- 5. goal_contributions
 -- ============================================================
 CREATE TABLE goal_contributions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -149,7 +100,7 @@ CREATE INDEX idx_goal_contributions_goal_id ON goal_contributions(goal_id);
 ALTER TABLE goal_contributions ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 9. investments
+-- 6. investments
 -- ============================================================
 CREATE TABLE investments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -169,7 +120,7 @@ CREATE INDEX idx_investments_symbol ON investments(symbol);
 ALTER TABLE investments ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 10. investment_transactions
+-- 7. investment_transactions
 -- ============================================================
 CREATE TABLE investment_transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -193,7 +144,7 @@ CREATE INDEX idx_investment_transactions_investment_id ON investment_transaction
 ALTER TABLE investment_transactions ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 11. ilp_products
+-- 8. ilp_products
 -- ============================================================
 CREATE TABLE ilp_products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -211,7 +162,7 @@ CREATE INDEX idx_ilp_products_profile_id ON ilp_products(profile_id);
 ALTER TABLE ilp_products ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 12. ilp_entries
+-- 9. ilp_entries
 -- ============================================================
 CREATE TABLE ilp_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -228,7 +179,7 @@ CREATE INDEX idx_ilp_entries_month ON ilp_entries(month);
 ALTER TABLE ilp_entries ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 13. cpf_balances
+-- 10. cpf_balances
 -- ============================================================
 CREATE TABLE cpf_balances (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -248,7 +199,7 @@ CREATE INDEX idx_cpf_balances_month ON cpf_balances(month);
 ALTER TABLE cpf_balances ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 14. cpf_housing_usage
+-- 11. cpf_housing_usage
 -- ============================================================
 CREATE TABLE cpf_housing_usage (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -264,26 +215,7 @@ CREATE INDEX idx_cpf_housing_usage_loan_id ON cpf_housing_usage(loan_id);
 ALTER TABLE cpf_housing_usage ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 15. income_config
--- ============================================================
-CREATE TABLE income_config (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  annual_salary NUMERIC(12,2) NOT NULL,
-  bonus_estimate NUMERIC(12,2) NOT NULL DEFAULT 0,
-  pay_frequency TEXT NOT NULL DEFAULT 'monthly'
-    CHECK (pay_frequency IN ('monthly', 'bi-monthly', 'weekly')),
-  employee_cpf_rate NUMERIC(5,4),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (profile_id)
-);
-
-CREATE INDEX idx_income_config_profile_id ON income_config(profile_id);
-
-ALTER TABLE income_config ENABLE ROW LEVEL SECURITY;
-
--- ============================================================
--- 16. tax_entries
+-- 12. tax_entries
 -- ============================================================
 CREATE TABLE tax_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -300,7 +232,7 @@ CREATE INDEX idx_tax_entries_profile_id ON tax_entries(profile_id);
 ALTER TABLE tax_entries ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 17. tax_relief_inputs
+-- 13. tax_relief_inputs
 -- ============================================================
 CREATE TABLE tax_relief_inputs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -318,7 +250,7 @@ CREATE INDEX idx_tax_relief_inputs_year ON tax_relief_inputs(year);
 ALTER TABLE tax_relief_inputs ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 18. tax_relief_auto
+-- 14. tax_relief_auto
 -- ============================================================
 CREATE TABLE tax_relief_auto (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -337,7 +269,7 @@ CREATE INDEX idx_tax_relief_auto_year ON tax_relief_auto(year);
 ALTER TABLE tax_relief_auto ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 19. loans
+-- 15. loans
 -- ============================================================
 CREATE TABLE loans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -363,7 +295,7 @@ ALTER TABLE cpf_housing_usage
   FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE CASCADE;
 
 -- ============================================================
--- 20. loan_repayments
+-- 16. loan_repayments
 -- ============================================================
 CREATE TABLE loan_repayments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -381,7 +313,7 @@ CREATE INDEX idx_loan_repayments_date ON loan_repayments(date);
 ALTER TABLE loan_repayments ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 21. loan_early_repayments
+-- 17. loan_early_repayments
 -- ============================================================
 CREATE TABLE loan_early_repayments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -396,7 +328,7 @@ CREATE INDEX idx_loan_early_repayments_loan_id ON loan_early_repayments(loan_id)
 ALTER TABLE loan_early_repayments ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 22. insurance_policies
+-- 18. insurance_policies
 -- ============================================================
 CREATE TABLE insurance_policies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -421,7 +353,7 @@ CREATE INDEX idx_insurance_policies_profile_id ON insurance_policies(profile_id)
 ALTER TABLE insurance_policies ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 23. insurance_coverage_benchmarks
+-- 19. insurance_coverage_benchmarks
 -- ============================================================
 CREATE TABLE insurance_coverage_benchmarks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -438,7 +370,7 @@ CREATE INDEX idx_insurance_coverage_benchmarks_profile_id ON insurance_coverage_
 ALTER TABLE insurance_coverage_benchmarks ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 24. insurance_premium_schedule
+-- 20. insurance_premium_schedule
 -- ============================================================
 CREATE TABLE insurance_premium_schedule (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -455,7 +387,7 @@ CREATE INDEX idx_insurance_premium_schedule_policy_id ON insurance_premium_sched
 ALTER TABLE insurance_premium_schedule ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 25. prompt_schedule
+-- 21. prompt_schedule
 -- ============================================================
 CREATE TABLE prompt_schedule (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -474,7 +406,7 @@ CREATE INDEX idx_prompt_schedule_household_id ON prompt_schedule(household_id);
 ALTER TABLE prompt_schedule ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 26. bank_account_ocbc360_config
+-- 22. bank_account_ocbc360_config
 -- ============================================================
 CREATE TABLE bank_account_ocbc360_config (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -494,28 +426,7 @@ CREATE INDEX idx_bank_account_ocbc360_config_account_id ON bank_account_ocbc360_
 ALTER TABLE bank_account_ocbc360_config ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 27. ocr_uploads
--- ============================================================
-CREATE TABLE ocr_uploads (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
-  profile_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  file_url TEXT NOT NULL,
-  parsed_data JSONB,
-  status TEXT NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending', 'processing', 'parsed', 'confirmed', 'failed')),
-  month DATE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_ocr_uploads_household_id ON ocr_uploads(household_id);
-CREATE INDEX idx_ocr_uploads_profile_id ON ocr_uploads(profile_id);
-CREATE INDEX idx_ocr_uploads_status ON ocr_uploads(status);
-
-ALTER TABLE ocr_uploads ENABLE ROW LEVEL SECURITY;
-
--- ============================================================
--- 28. telegram_commands
+-- 23. telegram_commands
 -- ============================================================
 CREATE TABLE telegram_commands (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -536,7 +447,7 @@ CREATE INDEX idx_telegram_commands_created_at ON telegram_commands(created_at);
 ALTER TABLE telegram_commands ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 29. precious_metals_prices
+-- 24. precious_metals_prices
 -- ============================================================
 CREATE TABLE precious_metals_prices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -551,7 +462,7 @@ CREATE TABLE precious_metals_prices (
 ALTER TABLE precious_metals_prices ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 30. net_worth_snapshots
+-- 25. net_worth_snapshots
 -- ============================================================
 CREATE TABLE net_worth_snapshots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

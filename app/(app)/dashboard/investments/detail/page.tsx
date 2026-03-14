@@ -226,7 +226,7 @@ export default function InvestmentsDetailPage() {
       />
 
       <Tabs defaultValue="holdings">
-        <div className="-mx-1 overflow-x-auto [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
+        <div className="-mx-1 overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
           <TabsList className="inline-flex w-fit flex-nowrap">
             <TabsTrigger value="holdings">Holdings</TabsTrigger>
           <TabsTrigger value="allocation">Allocation</TabsTrigger>

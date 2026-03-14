@@ -41,10 +41,7 @@ export default function CompletePage() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        const msg =
-          data.details?.duplicateName != null
-            ? `${data.error}: "${data.details.duplicateName}". Please use a different name.`
-            : (data.error ?? "Failed to complete onboarding")
+        const msg = data.error ?? "Failed to complete onboarding"
         throw new Error(msg)
       }
       router.push("/dashboard")

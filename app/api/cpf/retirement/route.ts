@@ -114,11 +114,13 @@ export async function GET(request: NextRequest) {
       retirementSums,
       currentCpf: { oa: currentOa, sa: currentSa, ma: currentMa, total: cpfTotal },
       projectionToAge55: projection,
+      extendedProjection,
       projectedTotalAt55: projectedAt55,
       gaps: { brs: brsGap, frs: frsGap, ers: ersGap },
       benchmarkAges: { brs: brsAge, frs: frsAge, ers: ersAge },
     })
-  } catch {
+  } catch (err) {
+    console.error("[api/cpf/retirement] Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

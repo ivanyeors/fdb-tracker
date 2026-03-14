@@ -45,7 +45,8 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(policies || [])
-  } catch {
+  } catch (err) {
+    console.error("[api/insurance] Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

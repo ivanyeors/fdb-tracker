@@ -1,6 +1,6 @@
 -- 005_ensure_income_config.sql
 -- Fix: "Could not find a relationship between 'profiles' and 'income_config' in the schema cache"
--- Run this if 001_initial_schema was never applied or income_config table is missing.
+-- Run this if 006_initial_schema was never applied or income_config table is missing.
 -- Idempotent: safe to run multiple times.
 
 -- income_config (required for settings/users page embedded select)

@@ -66,6 +66,7 @@ export default async function UserSettingsPage() {
           <UserSettingsForm
             key={profile.id}
             profile={normalizeProfile(profile as Record<string, unknown>)}
+            profileCount={profiles.length}
           />
         ))}
       </div>

@@ -1,18 +1,38 @@
 "use client"
 
-import { useActionState, useEffect } from "react"
+import { useActionState, useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { updateUserProfile, UpdateUserState } from "../actions"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { updateUserProfile, deleteUserProfile } from "../actions"
 import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { Loader2, Trash2 } from "lucide-react"
 import type { ProfileWithIncome } from "./types"
 
-export function UserSettingsForm({ profile }: { profile: ProfileWithIncome }) {
+export function UserSettingsForm({
+  profile,
+  profileCount,
+}: {
+  profile: ProfileWithIncome
+  profileCount: number
+}) {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [state, action, isPending] = useActionState(updateUserProfile, {
+    success: false,
+    error: undefined,
+  })
+  const [deleteState, deleteAction, isDeletePending] = useActionState(deleteUserProfile, {
     success: false,
     error: undefined,
   })
@@ -25,11 +45,63 @@ export function UserSettingsForm({ profile }: { profile: ProfileWithIncome }) {
     }
   }, [state, profile.name])
 
+  useEffect(() => {
+    if (deleteState.success) {
+      setDeleteDialogOpen(false)
+      toast.success(`${profile.name}'s profile was deleted`)
+    } else if (deleteState.error) {
+      toast.error(deleteState.error)
+    }
+  }, [deleteState, profile.name])
+
+  const canDelete = profileCount > 1
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{profile.name}</CardTitle>
-        <CardDescription>Update profile and income settings for {profile.name}.</CardDescription>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <CardTitle>{profile.name}</CardTitle>
+            <CardDescription>Update profile and income settings for {profile.name}.</CardDescription>
+          </div>
+          {canDelete && (
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive shrink-0">
+                  <Trash2 className="h-4 w-4" />
+                  <span className="sr-only">Delete profile</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent showCloseButton={true}>
+                <DialogHeader>
+                  <DialogTitle>Delete profile</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to delete {profile.name}? This will remove their profile and
+                    associated data (income config, cashflow, CPF, loans, insurance, etc.). Bank accounts
+                    and investments linked to this profile will be unlinked but not deleted.
+                  </DialogDescription>
+                </DialogHeader>
+                <form action={deleteAction} className="contents">
+                  <input type="hidden" name="profileId" value={profile.id} />
+                  <DialogFooter showCloseButton={false}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setDeleteDialogOpen(false)}
+                      disabled={isDeletePending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" variant="destructive" disabled={isDeletePending}>
+                      {isDeletePending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Delete
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <form action={action} className="space-y-4">

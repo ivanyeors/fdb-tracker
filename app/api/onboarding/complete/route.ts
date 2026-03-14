@@ -101,7 +101,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validate unique profile names (existing + within batch)
+    // Resolve duplicate profile names: append -1, -2, etc. when name exists
     const { data: existingProfiles } = await supabase
       .from("profiles")
       .select("name")
@@ -109,25 +109,28 @@ export async function POST(request: Request) {
     const existingNames = new Set(
       (existingProfiles ?? []).map((p) => p.name.toLowerCase().trim()),
     )
-    for (const p of data.profiles) {
-      const nameKey = p.name.trim().toLowerCase()
-      if (existingNames.has(nameKey)) {
-        return NextResponse.json(
-          {
-            error: "Profile name already exists",
-            details: { duplicateName: p.name.trim() },
-          },
-          { status: 400 },
-        )
+    const resolvedProfiles = data.profiles.map((p) => {
+      const baseName = p.name.trim()
+      const nameKey = baseName.toLowerCase()
+      if (!existingNames.has(nameKey)) {
+        existingNames.add(nameKey)
+        return { ...p, name: baseName }
       }
-      existingNames.add(nameKey)
-    }
+      let suffix = 1
+      let candidate: string
+      do {
+        candidate = `${baseName}-${suffix}`
+        suffix++
+      } while (existingNames.has(candidate.toLowerCase()))
+      existingNames.add(candidate.toLowerCase())
+      return { ...p, name: candidate }
+    })
 
     // Insert Profiles
     const { data: insertedProfiles, error: profileError } = await supabase
       .from("profiles")
       .insert(
-        data.profiles.map((p) => ({
+        resolvedProfiles.map((p) => ({
           household_id: session.accountId,
           name: p.name,
           birth_year: p.birth_year,

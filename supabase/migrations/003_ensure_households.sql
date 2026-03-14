@@ -1,6 +1,6 @@
 -- 003_ensure_households.sql
 -- Fix for /otp error: "Could not find the table 'public.households' in the schema cache"
--- Run this if 001_initial_schema was never applied or households table is missing.
+-- Run this if 006_initial_schema was never applied or households table is missing.
 -- Idempotent: safe to run multiple times.
 
 -- 1. households (required for Telegram /otp and /start)

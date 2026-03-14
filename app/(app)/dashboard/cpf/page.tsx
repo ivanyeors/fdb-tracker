@@ -24,24 +24,44 @@ import { useActiveProfile } from "@/hooks/use-active-profile"
 const BRS = 110200
 const FRS = 220400
 const ERS = 440800
-const cpfSA = 15000
-
-const mockProjection = Array.from({ length: 26 }, (_, i) => ({
-  year: 2026 + i,
-  balance: Math.round(cpfSA * Math.pow(1.04, i) + 4320 * i * 1.02),
-}))
-
-const retirementBenchmarks = [
-  { label: "BRS", target: BRS, pct: Math.round((cpfSA / BRS) * 100) },
-  { label: "FRS", target: FRS, pct: Math.round((cpfSA / FRS) * 100) },
-  { label: "ERS", target: ERS, pct: Math.round((cpfSA / ERS) * 100) },
-]
 
 type CpfBalanceRow = { month: string; oa: number; sa: number; ma: number }
 
+type HousingData = {
+  oaUsed: number
+  accruedInterest: number
+  refundDue: number
+  vlRemaining: number
+}
+
+type LoanRow = {
+  id: string
+  name: string
+  type: string
+  principal: number
+  rate_pct: number
+  tenure_months: number
+  start_date: string
+  lender: string | null
+  use_cpf_oa: boolean
+}
+
+type RetirementData = {
+  currentCpf: { oa: number; sa: number; ma: number; total: number }
+  retirementSums: { brs: number; frs: number; ers: number }
+  extendedProjection: { year: number; oa: number; sa: number; ma: number; total: number }[]
+}
+
+function computeMonthlyPayment(principal: number, ratePct: number, tenureMonths: number): number {
+  if (tenureMonths <= 0) return 0
+  const r = ratePct / 100 / 12
+  if (r <= 0) return principal / tenureMonths
+  return (principal * r * Math.pow(1 + r, tenureMonths)) / (Math.pow(1 + r, tenureMonths) - 1)
+}
+
 function OverviewTab({ data }: { data: CpfBalanceRow[] }) {
   const latest = data[data.length - 1] || { oa: 0, sa: 0, ma: 0 }
-  
+
   const chartData = useMemo(() => {
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     return [...data]
@@ -138,30 +158,35 @@ function OverviewTab({ data }: { data: CpfBalanceRow[] }) {
   )
 }
 
-function HousingTab() {
+function HousingTab({ data }: { data: HousingData | null }) {
+  const oaUsed = data?.oaUsed ?? 0
+  const accruedInterest = data?.accruedInterest ?? 0
+  const refundDue = data?.refundDue ?? 0
+  const vlRemaining = data?.vlRemaining ?? 0
+
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <MetricCard
         label="CPF OA Used"
-        value="120,000"
+        value={oaUsed.toLocaleString()}
         prefix="$"
         tooltipId="CPF_HOUSING_REFUND"
       />
       <MetricCard
         label="Accrued Interest"
-        value="15,000"
+        value={accruedInterest.toLocaleString()}
         prefix="$"
         tooltipId="CPF_HOUSING_REFUND"
       />
       <MetricCard
         label="Total Refund Due"
-        value="135,000"
+        value={refundDue.toLocaleString()}
         prefix="$"
         tooltipId="CPF_HOUSING_REFUND"
       />
       <MetricCard
         label="120% VL Remaining"
-        value="45,000"
+        value={vlRemaining.toLocaleString()}
         prefix="$"
         tooltipId="CPF_HOUSING_REFUND"
       />
@@ -169,41 +194,67 @@ function HousingTab() {
   )
 }
 
-function LoansTab() {
+function LoansTab({ loans }: { loans: LoanRow[] }) {
+  const cpfLoans = loans.filter((l) => l.use_cpf_oa)
+
+  if (cpfLoans.length === 0) {
+    return (
+      <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+        No loans using CPF OA.
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>HDB Housing Loan</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <p className="text-sm text-muted-foreground">CPF Portion</p>
-              <p className="text-xl font-bold">$120,000</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Cash Portion</p>
-              <p className="text-xl font-bold">$80,000</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Outstanding Balance
-              </p>
-              <p className="text-xl font-bold">$185,000</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Monthly Payment</p>
-              <p className="text-xl font-bold">$1,200</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {cpfLoans.map((loan) => {
+        const monthlyPayment = computeMonthlyPayment(loan.principal, loan.rate_pct, loan.tenure_months)
+        return (
+          <Card key={loan.id}>
+            <CardHeader>
+              <CardTitle>{loan.name}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-sm text-muted-foreground">Principal</p>
+                  <p className="text-xl font-bold">${loan.principal.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Monthly Payment</p>
+                  <p className="text-xl font-bold">${monthlyPayment.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Rate</p>
+                  <p className="text-xl font-bold">{loan.rate_pct}%</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Tenure</p>
+                  <p className="text-xl font-bold">{loan.tenure_months} months</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })}
     </div>
   )
 }
 
-function RetirementTab() {
+function RetirementTab({ data }: { data: RetirementData | null }) {
+  const cpfTotal = data?.currentCpf.total ?? 0
+  const retirementSums = data?.retirementSums ?? { brs: BRS, frs: FRS, ers: ERS }
+  const retirementBenchmarks = [
+    { label: "BRS", target: retirementSums.brs, pct: Math.round((cpfTotal / retirementSums.brs) * 100) },
+    { label: "FRS", target: retirementSums.frs, pct: Math.round((cpfTotal / retirementSums.frs) * 100) },
+    { label: "ERS", target: retirementSums.ers, pct: Math.round((cpfTotal / retirementSums.ers) * 100) },
+  ]
+
+  const chartData = useMemo(() => {
+    const proj = data?.extendedProjection ?? []
+    return proj.map((p) => ({ year: p.year, balance: p.total }))
+  }, [data?.extendedProjection])
+
   return (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -226,61 +277,67 @@ function RetirementTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle>CPF SA Growth Projection (25 Years)</CardTitle>
+          <CardTitle>CPF Growth Projection</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={mockProjection}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis
-                dataKey="year"
-                className="text-xs"
-                tick={{ fill: "var(--color-muted-foreground)" }}
-              />
-              <YAxis
-                className="text-xs"
-                tick={{ fill: "var(--color-muted-foreground)" }}
-                tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
-              />
-              <Tooltip
-                formatter={(v) => [
-                  `$${Number(v).toLocaleString()}`,
-                  "Projected Balance",
-                ]}
-                contentStyle={{
-                  backgroundColor: "var(--color-card)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "8px",
-                }}
-              />
-              <ReferenceLine
-                y={BRS}
-                stroke="var(--color-chart-1)"
-                strokeDasharray="6 3"
-                label={{ value: "BRS", fill: "var(--color-chart-1)", fontSize: 12 }}
-              />
-              <ReferenceLine
-                y={FRS}
-                stroke="var(--color-chart-3)"
-                strokeDasharray="6 3"
-                label={{ value: "FRS", fill: "var(--color-chart-3)", fontSize: 12 }}
-              />
-              <ReferenceLine
-                y={ERS}
-                stroke="var(--color-chart-5)"
-                strokeDasharray="6 3"
-                label={{ value: "ERS", fill: "var(--color-chart-5)", fontSize: 12 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="balance"
-                stroke="var(--color-primary)"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {chartData.length === 0 ? (
+            <div className="flex h-[300px] items-center justify-center text-muted-foreground text-sm">
+              No projection data. Add income in Settings to see projections.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis
+                  dataKey="year"
+                  className="text-xs"
+                  tick={{ fill: "var(--color-muted-foreground)" }}
+                />
+                <YAxis
+                  className="text-xs"
+                  tick={{ fill: "var(--color-muted-foreground)" }}
+                  tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
+                />
+                <Tooltip
+                  formatter={(v) => [
+                    `$${Number(v).toLocaleString()}`,
+                    "Projected Balance",
+                  ]}
+                  contentStyle={{
+                    backgroundColor: "var(--color-card)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "8px",
+                  }}
+                />
+                <ReferenceLine
+                  y={BRS}
+                  stroke="var(--color-chart-1)"
+                  strokeDasharray="6 3"
+                  label={{ value: "BRS", fill: "var(--color-chart-1)", fontSize: 12 }}
+                />
+                <ReferenceLine
+                  y={FRS}
+                  stroke="var(--color-chart-3)"
+                  strokeDasharray="6 3"
+                  label={{ value: "FRS", fill: "var(--color-chart-3)", fontSize: 12 }}
+                />
+                <ReferenceLine
+                  y={ERS}
+                  stroke="var(--color-chart-5)"
+                  strokeDasharray="6 3"
+                  label={{ value: "ERS", fill: "var(--color-chart-5)", fontSize: 12 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="balance"
+                  stroke="var(--color-primary)"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -290,10 +347,13 @@ function RetirementTab() {
 export default function CpfPage() {
   const { activeProfileId } = useActiveProfile()
   const [cpfData, setCpfData] = useState<CpfBalanceRow[]>([])
+  const [housingData, setHousingData] = useState<HousingData | null>(null)
+  const [loansData, setLoansData] = useState<LoanRow[]>([])
+  const [retirementData, setRetirementData] = useState<RetirementData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchCpf() {
+    async function fetchAll() {
       if (!activeProfileId) {
         setIsLoading(false)
         return
@@ -301,13 +361,28 @@ export default function CpfPage() {
 
       setIsLoading(true)
       try {
-        const url = new URL("/api/cpf/balances", window.location.origin)
-        url.searchParams.set("profileId", activeProfileId)
+        const [balancesRes, housingRes, loansRes, retirementRes] = await Promise.all([
+          fetch(`/api/cpf/balances?profileId=${activeProfileId}`),
+          fetch(`/api/cpf/housing?profileId=${activeProfileId}`),
+          fetch(`/api/loans?profileId=${activeProfileId}`),
+          fetch(`/api/cpf/retirement?profileId=${activeProfileId}`),
+        ])
 
-        const res = await fetch(url)
-        if (res.ok) {
-          const json = await res.json()
+        if (balancesRes.ok) {
+          const json = await balancesRes.json()
           setCpfData(json || [])
+        }
+        if (housingRes.ok) {
+          const json = await housingRes.json()
+          setHousingData(json)
+        }
+        if (loansRes.ok) {
+          const json = await loansRes.json()
+          setLoansData(json || [])
+        }
+        if (retirementRes.ok) {
+          const json = await retirementRes.json()
+          setRetirementData(json)
         }
       } catch (error) {
         console.error("Failed to fetch CPF data:", error)
@@ -315,7 +390,7 @@ export default function CpfPage() {
         setIsLoading(false)
       }
     }
-    fetchCpf()
+    fetchAll()
   }, [activeProfileId])
 
   return (
@@ -331,7 +406,7 @@ export default function CpfPage() {
         </div>
       ) : (
         <Tabs defaultValue="overview">
-          <div className="-mx-1 overflow-x-auto [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
+          <div className="-mx-1 overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
             <TabsList className="inline-flex w-fit flex-nowrap">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="housing">Housing</TabsTrigger>
@@ -344,13 +419,13 @@ export default function CpfPage() {
             <OverviewTab data={cpfData} />
           </TabsContent>
           <TabsContent value="housing" className="mt-4">
-            <HousingTab />
+            <HousingTab data={housingData} />
           </TabsContent>
           <TabsContent value="loans" className="mt-4">
-            <LoansTab />
+            <LoansTab loans={loansData} />
           </TabsContent>
           <TabsContent value="retirement" className="mt-4">
-            <RetirementTab />
+            <RetirementTab data={retirementData} />
           </TabsContent>
         </Tabs>
       )}

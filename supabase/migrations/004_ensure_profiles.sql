@@ -1,6 +1,6 @@
 -- 004_ensure_profiles.sql
 -- Fix: "Could not find the table 'public.profiles' in the schema cache"
--- Run this if 001_initial_schema was never applied or profiles table is missing.
+-- Run this if 006_initial_schema was never applied or profiles table is missing.
 -- Idempotent: safe to run multiple times.
 
 -- profiles (required for dashboard layout, settings, API routes)

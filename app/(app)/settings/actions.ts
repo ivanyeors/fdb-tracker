@@ -133,6 +133,73 @@ export async function updateUserProfile(
   }
 }
 
+export type DeleteUserState = {
+  success?: boolean
+  error?: string
+}
+
+export async function deleteUserProfile(
+  prevState: DeleteUserState,
+  formData: FormData
+): Promise<DeleteUserState> {
+  try {
+    const cookieStore = await cookies()
+    const householdId = await getSessionFromCookies(cookieStore)
+    if (!householdId) {
+      return { error: "Unauthorized" }
+    }
+
+    const profileId = formData.get("profileId")
+    if (typeof profileId !== "string" || !profileId) {
+      return { error: "Invalid profile." }
+    }
+
+    const supabase = createSupabaseAdmin()
+
+    // Ensure the profile belongs to the current household
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", profileId)
+      .eq("household_id", householdId)
+      .single()
+
+    if (!profile) {
+      return { error: "Profile not found or unauthorized." }
+    }
+
+    // Prevent deleting the last profile
+    const { count } = await supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("household_id", householdId)
+
+    if (count !== null && count <= 1) {
+      return { error: "Cannot delete the last profile. A household must have at least one profile." }
+    }
+
+    const { error: deleteError } = await supabase
+      .from("profiles")
+      .delete()
+      .eq("id", profileId)
+
+    if (deleteError) {
+      console.error("Error deleting profile:", deleteError)
+      return { error: "Failed to delete profile." }
+    }
+
+    revalidatePath("/settings")
+    revalidatePath("/settings/users")
+    revalidatePath("/settings/setup")
+    revalidatePath("/dashboard")
+
+    return { success: true }
+  } catch (err) {
+    console.error("Error in deleteUserProfile:", err)
+    return { error: "An unexpected error occurred." }
+  }
+}
+
 const updateNotificationsSchema = z.object({
   telegramBotToken: z.string().optional().nullable(),
   telegramChatId: z.string().optional().nullable(),

@@ -34,7 +34,8 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(goals || [])
-  } catch {
+  } catch (err) {
+    console.error("[api/goals] Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
