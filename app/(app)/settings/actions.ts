@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { z } from "zod"
 import { getSessionFromCookies } from "@/lib/auth/session"
@@ -186,4 +187,26 @@ export async function updateHouseholdNotifications(
     console.error("Error in updateHouseholdNotifications:", err)
     return { error: "An unexpected error occurred." }
   }
+}
+
+export async function resetOnboardingAction(): Promise<void> {
+  const cookieStore = await cookies()
+  const householdId = await getSessionFromCookies(cookieStore)
+  if (!householdId) {
+    redirect("/login")
+  }
+
+  const supabase = createSupabaseAdmin()
+  const { error } = await supabase
+    .from("households")
+    .update({ onboarding_completed_at: null })
+    .eq("id", householdId)
+
+  if (error) {
+    console.error("Error resetting onboarding:", error)
+    redirect("/settings/setup?error=reset-failed")
+  }
+
+  revalidatePath("/settings/setup")
+  redirect("/onboarding")
 }

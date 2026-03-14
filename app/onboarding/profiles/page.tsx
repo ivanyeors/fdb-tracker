@@ -106,7 +106,7 @@ export default function ProfilesPage() {
                   updateProfile(i, "birth_year", year?.toString() ?? "")
                 }
                 id={`birth-year-${i}`}
-                placeholder="Select birth date"
+                placeholder="Select birth year"
                 aria-invalid={!!errors[`profiles.${i}.birth_year`]}
               />
               {errors[`profiles.${i}.birth_year`] && (

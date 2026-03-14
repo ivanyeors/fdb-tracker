@@ -1,7 +1,7 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
-import Link from "next/link"
 import { format } from "date-fns"
+import { resetOnboardingAction } from "../actions"
 import { getSessionFromCookies } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -78,9 +78,11 @@ export default async function SetupPage() {
           <div className="text-sm text-muted-foreground mb-4">
             Need to start fresh? Re-running the onboarding will let you quickly create new profiles and configuration data. (Note: Existing data won't be deleted automatically here).
           </div>
-          <Button asChild variant="outline">
-            <Link href="/onboarding">Re-run Onboarding</Link>
-          </Button>
+          <form action={resetOnboardingAction}>
+            <Button type="submit" variant="outline">
+              Re-run Onboarding
+            </Button>
+          </form>
         </CardFooter>
       </Card>
     </div>

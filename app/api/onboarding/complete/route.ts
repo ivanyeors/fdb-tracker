@@ -5,21 +5,54 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 import { z } from "zod"
 import {
-  profilesSchema,
-  incomeSchema,
   bankAccountSchema,
-  savingsGoalSchema,
   promptScheduleSchema,
 } from "@/lib/validations/onboarding"
 
+// Relaxed schemas for complete endpoint - client may send null/partial data
+const completeProfileSchema = z.object({
+  name: z.string().min(1).max(50),
+  birth_year: z
+    .number()
+    .int()
+    .min(1940)
+    .max(2010)
+    .nullable()
+    .optional()
+    .transform((v) => (v ?? 1990)),
+})
+
+const completeIncomeSchema = z.object({
+  annual_salary: z.number().min(0).nullable().optional().default(0),
+  bonus_estimate: z.number().min(0).nullable().optional().default(0),
+  pay_frequency: z.enum(["monthly", "bi-monthly", "weekly"]),
+})
+
+const completeSavingsGoalSchema = z.object({
+  name: z.string().default(""),
+  target_amount: z.number().min(0).nullable().optional().default(0),
+  current_amount: z.number().min(0).default(0),
+  deadline: z
+    .union([
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      z.literal(""),
+      z.null(),
+    ])
+    .optional()
+    .transform((v) => (v === "" || v == null ? null : v)),
+})
+
 const completeSchema = z.object({
   userCount: z.number().int().min(1).max(6),
-  profiles: profilesSchema.shape.profiles,
-  incomeConfigs: z.array(incomeSchema),
+  profiles: z.array(completeProfileSchema).min(1).max(6),
+  incomeConfigs: z.array(completeIncomeSchema),
   bankAccounts: z.array(
-    bankAccountSchema.extend({
-      savings_goals: z.array(savingsGoalSchema),
-    }),
+    bankAccountSchema
+      .omit({ profile_id: true })
+      .extend({
+        profile_id: z.string().uuid().nullable().optional(),
+        savings_goals: z.array(completeSavingsGoalSchema),
+      }),
   ),
   telegramChatId: z.string(),
   promptSchedule: z.array(promptScheduleSchema),
@@ -38,7 +71,13 @@ export async function POST(request: Request) {
     const body = await request.json()
     const parsed = completeSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid data" }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: "Invalid data",
+          details: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 },
+      )
     }
     
     const data = parsed.data
@@ -77,13 +116,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to create profiles" }, { status: 500 })
     }
     
-    // Insert Income Configs
-    const incomeInserts = data.incomeConfigs.map((ic, idx) => ({
-      profile_id: insertedProfiles[idx].id,
-      annual_salary: ic.annual_salary,
-      bonus_estimate: ic.bonus_estimate,
-      pay_frequency: ic.pay_frequency,
-    }))
+    // Insert Income Configs (only for profiles with valid config)
+    const incomeInserts = data.incomeConfigs
+      .slice(0, insertedProfiles.length)
+      .map((ic, idx) => ({
+        profile_id: insertedProfiles[idx].id,
+        annual_salary: ic.annual_salary ?? 0,
+        bonus_estimate: ic.bonus_estimate ?? 0,
+        pay_frequency: ic.pay_frequency,
+      }))
     await supabase.from("income_config").insert(incomeInserts)
     
     // Insert Bank Accounts & Goals
@@ -100,17 +141,23 @@ export async function POST(request: Request) {
         .single()
         
       if (insertedAcc && acc.savings_goals.length > 0) {
-        await supabase.from("savings_goals").insert(
-          acc.savings_goals.map(g => ({
-            household_id: session.accountId,
-            profile_id: acc.profile_id ?? null,
-            name: g.name,
-            target_amount: g.target_amount,
-            current_amount: g.current_amount,
-            deadline: g.deadline ?? null,
-            category: "custom",
-          }))
+        const validGoals = acc.savings_goals.filter(
+          (g) =>
+            (g.name?.trim() ?? "").length > 0 && (g.target_amount ?? 0) > 0,
         )
+        if (validGoals.length > 0) {
+          await supabase.from("savings_goals").insert(
+            validGoals.map((g) => ({
+              household_id: session.accountId,
+              profile_id: acc.profile_id ?? null,
+              name: g.name ?? "",
+              target_amount: g.target_amount ?? 0,
+              current_amount: g.current_amount ?? 0,
+              deadline: g.deadline ?? null,
+              category: "custom",
+            })),
+          )
+        }
       }
     }
     

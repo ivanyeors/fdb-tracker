@@ -82,3 +82,20 @@ If `/otp` returns "❌ Login is temporarily unavailable" and Vercel logs show `C
    ```
 
 3. **Supabase CLI**: If linked, run `npx supabase db push` to apply all migrations.
+
+### "Error Loading Profiles" / profiles table not found
+
+If the dashboard or settings show "Error Loading Profiles" and logs show `Could not find the table 'public.profiles' in the schema cache`, the `profiles` table was never created in your Supabase project.
+
+**Fix:**
+
+1. **Supabase SQL Editor** (recommended): Open Supabase Dashboard → SQL Editor → New query. Paste and run the contents of `supabase/migrations/004_ensure_profiles.sql`.
+
+2. **Script** (with database URL): Get the connection string from Supabase Dashboard → Project Settings → Database → Connection string (URI). Then:
+   ```bash
+   DATABASE_URL="postgresql://postgres.[ref]:[password]@..." npm run db:fix-profiles
+   ```
+
+3. **Supabase CLI**: If linked, run `npx supabase db push` to apply all migrations.
+
+**Note:** The `profiles` table depends on `households`. If you see both errors, run `003_ensure_households.sql` (or `npm run db:fix-households`) first, then apply the profiles migration.
