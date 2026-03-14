@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
 import { format } from "date-fns"
+import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -14,9 +14,7 @@ type Profile = {
 }
 
 export function ProfileSwitcher({ profiles }: { profiles: Profile[] }) {
-  const [selectedId, setSelectedId] = useState(profiles[0]?.id ?? "")
-
-  const selected = profiles.find((p) => p.id === selectedId) ?? profiles[0]
+  const { activeProfileId, setActiveProfileId } = useActiveProfile()
 
   if (!profiles.length) {
     return (
@@ -29,6 +27,9 @@ export function ProfileSwitcher({ profiles }: { profiles: Profile[] }) {
     )
   }
 
+  const selectedId = activeProfileId ?? profiles[0]?.id ?? ""
+  const selected = profiles.find((p) => p.id === selectedId) ?? profiles[0]
+
   return (
     <Card>
       <CardHeader>
@@ -38,7 +39,7 @@ export function ProfileSwitcher({ profiles }: { profiles: Profile[] }) {
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="profile-select">Active Profile</Label>
-          <Select value={selectedId} onValueChange={setSelectedId}>
+          <Select value={selectedId} onValueChange={setActiveProfileId}>
             <SelectTrigger id="profile-select" className="w-full sm:w-64">
               <SelectValue placeholder="Choose a profile" />
             </SelectTrigger>

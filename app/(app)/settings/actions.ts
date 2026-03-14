@@ -13,7 +13,7 @@ const updateUserSchema = z.object({
   birthYear: z.coerce.number().min(1900).max(new Date().getFullYear()),
   annualSalary: z.coerce.number().min(0),
   bonusEstimate: z.coerce.number().min(0).default(0),
-  payFrequency: z.enum(["monthly", "bi-weekly", "weekly"]),
+  payFrequency: z.enum(["monthly", "bi-monthly", "weekly"]),
   employeeCpfRate: z.coerce.number().min(0).max(100).optional().nullable(),
 })
 

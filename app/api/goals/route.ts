@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: true })
 
     if (profileId) {
-      query = query.eq("profile_id", profileId)
+      query = query.or(`profile_id.eq.${profileId},profile_id.is.null`)
     }
 
     const { data: goals, error } = await query

@@ -15,38 +15,68 @@ import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 
-const mockNetWorthTrend = [
-  { month: "Jan", value: 210000 },
-  { month: "Feb", value: 215000 },
-  { month: "Mar", value: 218000 },
-  { month: "Apr", value: 222000 },
-  { month: "May", value: 220000 },
-  { month: "Jun", value: 225000 },
-  { month: "Jul", value: 228000 },
-  { month: "Aug", value: 232000 },
-  { month: "Sep", value: 235000 },
-  { month: "Oct", value: 238000 },
-  { month: "Nov", value: 241000 },
-  { month: "Dec", value: 245000 },
-]
+const monthLabels: Record<string, string> = {
+  "01": "Jan",
+  "02": "Feb",
+  "03": "Mar",
+  "04": "Apr",
+  "05": "May",
+  "06": "Jun",
+  "07": "Jul",
+  "08": "Aug",
+  "09": "Sep",
+  "10": "Oct",
+  "11": "Nov",
+  "12": "Dec",
+}
+
+function formatTrendMonth(monthStr: string): string {
+  const [year, month] = monthStr.split("-")
+  return `${monthLabels[month ?? ""] ?? month} ${year}`
+}
 
 export default function OverviewPage() {
   const { activeProfileId } = useActiveProfile()
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<{
+    totalNetWorth?: number
+    liquidNetWorth?: number
+    savingsRate?: number
+    bankTotal?: number
+    cpfTotal?: number
+    investmentTotal?: number
+    loanTotal?: number
+  } | null>(null)
+  const [trendData, setTrendData] = useState<{ month: string; value: number }[]>(
+    [],
+  )
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     async function fetchOverview() {
       setIsLoading(true)
       try {
-        const url = new URL("/api/overview", window.location.origin)
-        if (activeProfileId) {
-          url.searchParams.set("profileId", activeProfileId)
-        }
-        const res = await fetch(url)
-        if (res.ok) {
-          const json = await res.json()
+        const [overviewRes, trendRes] = await Promise.all([
+          fetch(
+            `/api/overview${activeProfileId ? `?profileId=${activeProfileId}` : ""}`,
+          ),
+          fetch(
+            `/api/overview/trend?months=12${activeProfileId ? `&profileId=${activeProfileId}` : ""}`,
+          ),
+        ])
+        if (overviewRes.ok) {
+          const json = await overviewRes.json()
           setData(json)
+        }
+        if (trendRes.ok) {
+          const trend = await trendRes.json()
+          setTrendData(
+            Array.isArray(trend)
+              ? trend.map((d: { month: string; value: number }) => ({
+                  month: formatTrendMonth(d.month),
+                  value: d.value,
+                }))
+              : [],
+          )
         }
       } catch (error) {
         console.error("Failed to fetch overview:", error)
@@ -136,7 +166,7 @@ export default function OverviewPage() {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={mockNetWorthTrend}>
+            <LineChart data={trendData.length > 0 ? trendData : [{ month: "-", value: 0 }]}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis
                 dataKey="month"

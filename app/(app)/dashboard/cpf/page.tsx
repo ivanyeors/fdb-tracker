@@ -37,17 +37,23 @@ const retirementBenchmarks = [
   { label: "ERS", target: ERS, pct: Math.round((cpfSA / ERS) * 100) },
 ]
 
-function OverviewTab({ data }: { data: any[] }) {
-  const latest = data[0] || { oa: 0, sa: 0, ma: 0 }
+type CpfBalanceRow = { month: string; oa: number; sa: number; ma: number }
+
+function OverviewTab({ data }: { data: CpfBalanceRow[] }) {
+  const latest = data[data.length - 1] || { oa: 0, sa: 0, ma: 0 }
   
   const chartData = useMemo(() => {
-    // Return last 6 months ascending
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    // Clone and sort properly assuming YYYY-MM
-    return [...data].sort((a,b) => new Date(a.month).getTime() - new Date(b.month).getTime()).slice(-6).map(d => ({
-      ...d,
-      month: monthNames[new Date(d.month).getMonth()]
-    }))
+    return [...data]
+      .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
+      .slice(-6)
+      .map((d) => {
+        const date = new Date(d.month)
+        return {
+          ...d,
+          month: `${monthNames[date.getMonth()]} ${date.getFullYear()}`,
+        }
+      })
   }, [data])
 
   return (
@@ -283,7 +289,7 @@ function RetirementTab() {
 
 export default function CpfPage() {
   const { activeProfileId } = useActiveProfile()
-  const [cpfData, setCpfData] = useState<any[]>([])
+  const [cpfData, setCpfData] = useState<CpfBalanceRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {

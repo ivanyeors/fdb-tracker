@@ -7,24 +7,68 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useActiveProfile } from "@/hooks/use-active-profile"
+import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 export function JournalForm() {
+  const { activeProfileId } = useActiveProfile()
   const [type, setType] = useState<"buy" | "sell">("buy")
   const [symbol, setSymbol] = useState("")
   const [quantity, setQuantity] = useState("")
   const [price, setPrice] = useState<number | null>(null)
   const [journalText, setJournalText] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const data = {
-      type,
-      symbol,
-      quantity: parseFloat(quantity),
-      price: price ?? 0,
-      journalText: journalText || undefined,
+    if (!activeProfileId) {
+      toast.error("Please select a profile first.")
+      return
     }
-    console.log("Journal entry:", data)
+
+    const qty = parseFloat(quantity)
+    if (isNaN(qty) || qty <= 0) {
+      toast.error("Please enter a valid quantity.")
+      return
+    }
+
+    const priceVal = price ?? 0
+    if (priceVal < 0) {
+      toast.error("Please enter a valid price.")
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const res = await fetch("/api/investments/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: symbol.trim(),
+          type,
+          quantity: qty,
+          price: priceVal,
+          journalText: journalText.trim() || undefined,
+          profileId: activeProfileId,
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error ?? "Failed to add transaction")
+      }
+
+      toast.success(`${type === "buy" ? "Buy" : "Sell"} entry added successfully`)
+      setSymbol("")
+      setQuantity("")
+      setPrice(null)
+      setJournalText("")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -90,7 +134,16 @@ export function JournalForm() {
         <Input id="journal-image" type="file" accept="image/*" />
       </div>
 
-      <Button type="submit">Add Entry</Button>
+      <Button type="submit" disabled={isSubmitting}>
+        {isSubmitting ? (
+          <>
+            <Loader2 className="mr-2 size-4 animate-spin" />
+            Adding...
+          </>
+        ) : (
+          "Add Entry"
+        )}
+      </Button>
     </form>
   )
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
-import { validateSession } from "@/lib/auth/session"
+import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const createAccountSchema = z.object({
@@ -12,22 +12,38 @@ const createAccountSchema = z.object({
   openingBalance: z.number().min(0).optional(),
 })
 
-export async function GET() {
+const listQuerySchema = z.object({
+  profileId: z.string().uuid().optional(),
+})
+
+export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies()
-    const token = cookieStore.get("fdb-session")?.value
+    const token = cookieStore.get(COOKIE_NAME)?.value
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const session = await validateSession(token)
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { accountId } = session
 
+    const { searchParams } = request.nextUrl
+    const parsed = listQuerySchema.safeParse({
+      profileId: searchParams.get("profileId") ?? undefined,
+    })
+    const profileId = parsed.success ? parsed.data.profileId : undefined
+
     const supabase = createSupabaseAdmin()
 
-    const { data: accounts, error } = await supabase
+    let query = supabase
       .from("bank_accounts")
       .select("*")
       .eq("household_id", accountId)
       .order("created_at", { ascending: true })
+
+    if (profileId) {
+      query = query.or(`profile_id.eq.${profileId},profile_id.is.null`)
+    }
+
+    const { data: accounts, error } = await query
 
     if (error) {
       return NextResponse.json({ error: "Failed to fetch bank accounts" }, { status: 500 })
@@ -52,8 +68,31 @@ export async function GET() {
       }
     }
 
+    const accountIds = accounts.map((a) => a.id)
+    const latestBalances: Record<string, number> = {}
+
+    if (accountIds.length > 0) {
+      const { data: snapshots } = await supabase
+        .from("bank_balance_snapshots")
+        .select("account_id, month, closing_balance")
+        .in("account_id", accountIds)
+        .order("month", { ascending: false })
+
+      if (snapshots) {
+        for (const s of snapshots) {
+          if (!(s.account_id in latestBalances)) {
+            latestBalances[s.account_id] = s.closing_balance
+          }
+        }
+      }
+    }
+
     const result = accounts.map((account) => ({
       ...account,
+      latest_balance:
+        account.id in latestBalances
+          ? latestBalances[account.id]
+          : account.opening_balance,
       ...(account.account_type === "ocbc_360" && {
         ocbc360Config: ocbcConfigs[account.id] ?? null,
       }),
@@ -68,7 +107,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies()
-    const token = cookieStore.get("fdb-session")?.value
+    const token = cookieStore.get(COOKIE_NAME)?.value
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const session = await validateSession(token)
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

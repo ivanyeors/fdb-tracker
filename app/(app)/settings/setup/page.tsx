@@ -50,7 +50,7 @@ export default async function SetupPage() {
       <div>
         <h1 className="text-2xl font-semibold">Setup</h1>
         <p className="text-muted-foreground mt-1">
-          Review initial setup configuration or run the setup wizard again.
+          Review setup configuration or add new profiles via the onboarding wizard.
         </p>
       </div>
 
@@ -76,11 +76,11 @@ export default async function SetupPage() {
         </CardContent>
         <CardFooter className="border-t bg-muted/50 px-6 py-4">
           <div className="text-sm text-muted-foreground mb-4">
-            Need to start fresh? Re-running the onboarding will let you quickly create new profiles and configuration data. (Note: Existing data won't be deleted automatically here).
+            Add new profiles and configuration via the setup wizard. (Note: Use unique profile names; existing data won&apos;t be deleted).
           </div>
           <form action={resetOnboardingAction}>
             <Button type="submit" variant="outline">
-              Re-run Onboarding
+              New Onboarding
             </Button>
           </form>
         </CardFooter>

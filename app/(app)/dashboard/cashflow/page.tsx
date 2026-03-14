@@ -19,7 +19,9 @@ import { useActiveProfile } from "@/hooks/use-active-profile"
 
 export default function CashflowPage() {
   const { activeProfileId } = useActiveProfile()
-  const [cashflowData, setCashflowData] = useState<any[]>([])
+  const [cashflowData, setCashflowData] = useState<
+    Array<{ month: string; inflow?: number; outflow?: number }>
+  >([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -58,30 +60,47 @@ export default function CashflowPage() {
   }, [activeProfileId])
 
   const chartData = useMemo(() => {
-    // Basic grouping by month for the chart
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    const grouped = new Map<string, any>()
-    
-    cashflowData.forEach(entry => {
-      // month is format YYYY-MM-DD
-      const date = new Date(entry.month)
-      const monthLabel = monthNames[date.getMonth()]
-      
-      const current = grouped.get(monthLabel) || {
-        month: monthLabel, inflow: 0, discretionary: 0, 
-        insurance: 0, ilp: 0, loans: 0, tax: 0 
+    const grouped = new Map<
+      string,
+      {
+        month: string
+        sortKey?: string
+        inflow: number
+        discretionary: number
+        insurance: number
+        ilp: number
+        loans: number
+        tax: number
       }
-      
-      current.inflow += (entry.inflow || 0)
-      
-      // We don't have source breakdown in the generic monthly_cashflow table yet,
-      // so we dump outflow into discretionary for now to make the chart work.
-      current.discretionary += (entry.outflow || 0)
-      
-      grouped.set(monthLabel, current)
+    >()
+
+    cashflowData.forEach((entry) => {
+      const date = new Date(entry.month)
+      const year = date.getFullYear()
+      const monthLabel = `${monthNames[date.getMonth()]} ${year}`
+      const sortKey = `${year}-${String(date.getMonth() + 1).padStart(2, "0")}`
+
+      const current = grouped.get(sortKey) || {
+        month: monthLabel,
+        sortKey,
+        inflow: 0,
+        discretionary: 0,
+        insurance: 0,
+        ilp: 0,
+        loans: 0,
+        tax: 0,
+      }
+
+      current.inflow += entry.inflow || 0
+      current.discretionary += entry.outflow || 0
+
+      grouped.set(sortKey, current)
     })
-    
-    return Array.from(grouped.values())
+
+    return Array.from(grouped.values()).sort(
+      (a, b) => (a.sortKey ?? "").localeCompare(b.sortKey ?? ""),
+    )
   }, [cashflowData])
 
   const currentMonthMetrics = useMemo(() => {

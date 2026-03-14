@@ -94,26 +94,60 @@ export async function POST(request: Request) {
       .eq("id", session.accountId)
 
     if (householdError) {
+      console.error("Onboarding household update error:", householdError)
       return NextResponse.json(
         { error: "Failed to update household" },
         { status: 500 },
       )
     }
 
+    // Validate unique profile names (existing + within batch)
+    const { data: existingProfiles } = await supabase
+      .from("profiles")
+      .select("name")
+      .eq("household_id", session.accountId)
+    const existingNames = new Set(
+      (existingProfiles ?? []).map((p) => p.name.toLowerCase().trim()),
+    )
+    for (const p of data.profiles) {
+      const nameKey = p.name.trim().toLowerCase()
+      if (existingNames.has(nameKey)) {
+        return NextResponse.json(
+          {
+            error: "Profile name already exists",
+            details: { duplicateName: p.name.trim() },
+          },
+          { status: 400 },
+        )
+      }
+      existingNames.add(nameKey)
+    }
+
     // Insert Profiles
     const { data: insertedProfiles, error: profileError } = await supabase
       .from("profiles")
       .insert(
-        data.profiles.map(p => ({
+        data.profiles.map((p) => ({
           household_id: session.accountId,
           name: p.name,
           birth_year: p.birth_year,
-        }))
+        })),
       )
       .select("id")
-      
+
     if (profileError || !insertedProfiles) {
-      return NextResponse.json({ error: "Failed to create profiles" }, { status: 500 })
+      console.error("Onboarding profile insert error:", profileError)
+      const isTableNotFound =
+        profileError?.code === "PGRST205" ||
+        profileError?.message?.includes("schema cache")
+      return NextResponse.json(
+        {
+          error: isTableNotFound
+            ? "Profiles table not found. Run the migration: Supabase Dashboard → SQL Editor → paste contents of supabase/migrations/004_ensure_profiles.sql"
+            : "Failed to create profiles",
+        },
+        { status: 500 },
+      )
     }
     
     // Insert Income Configs (only for profiles with valid config)

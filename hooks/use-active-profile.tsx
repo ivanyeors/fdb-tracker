@@ -25,6 +25,19 @@ export function ActiveProfileProvider({
 }) {
   const [activeProfileId, setActiveProfileId] = React.useState<string | null>(null)
 
+  React.useEffect(() => {
+    const profileIds = new Set(profiles.map((p) => p.id))
+    if (profiles.length > 0) {
+      if (!activeProfileId) {
+        setActiveProfileId(profiles[0].id)
+      } else if (!profileIds.has(activeProfileId)) {
+        setActiveProfileId(profiles[0].id)
+      }
+    } else {
+      setActiveProfileId(null)
+    }
+  }, [profiles, activeProfileId])
+
   const value = React.useMemo<ActiveProfileContextValue>(
     () => ({ activeProfileId, setActiveProfileId, profiles }),
     [activeProfileId, profiles],

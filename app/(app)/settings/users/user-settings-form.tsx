@@ -9,18 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { updateUserProfile, UpdateUserState } from "../actions"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
-
-type ProfileWithIncome = {
-  id: string
-  name: string
-  birth_year: number
-  income_config: {
-    annual_salary: number
-    bonus_estimate: number
-    pay_frequency: string
-    employee_cpf_rate: number | null
-  } | null
-}
+import type { ProfileWithIncome } from "./types"
 
 export function UserSettingsForm({ profile }: { profile: ProfileWithIncome }) {
   const [state, action, isPending] = useActionState(updateUserProfile, {
@@ -106,7 +95,7 @@ export function UserSettingsForm({ profile }: { profile: ProfileWithIncome }) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="bi-weekly">Bi-weekly</SelectItem>
+                  <SelectItem value="bi-monthly">Bi-Monthly</SelectItem>
                   <SelectItem value="weekly">Weekly</SelectItem>
                 </SelectContent>
               </Select>

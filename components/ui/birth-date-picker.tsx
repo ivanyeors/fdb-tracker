@@ -12,6 +12,7 @@ import { CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const BIRTH_YEARS = Array.from({ length: 71 }, (_, i) => 2010 - i)
+const PLACEHOLDER_VALUE = "__none__"
 
 interface BirthDatePickerProps {
   value: number | null
@@ -32,12 +33,14 @@ export function BirthDatePicker({
   "aria-invalid": ariaInvalid,
   className,
 }: BirthDatePickerProps) {
-  const stringValue = value != null ? value.toString() : ""
+  const stringValue = value != null ? value.toString() : PLACEHOLDER_VALUE
 
   return (
     <Select
       value={stringValue}
-      onValueChange={(v) => onChange(v ? Number(v) : null)}
+      onValueChange={(v) =>
+        onChange(v && v !== PLACEHOLDER_VALUE ? Number(v) : null)
+      }
       disabled={disabled}
     >
       <SelectTrigger
@@ -45,7 +48,7 @@ export function BirthDatePicker({
         aria-invalid={ariaInvalid}
         className={cn(
           "w-full justify-start text-left font-normal",
-          !stringValue && "text-muted-foreground",
+          value == null && "text-muted-foreground",
           className
         )}
       >
@@ -53,7 +56,7 @@ export function BirthDatePicker({
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent align="start">
-        <SelectItem value="">{placeholder}</SelectItem>
+        <SelectItem value={PLACEHOLDER_VALUE}>{placeholder}</SelectItem>
         {BIRTH_YEARS.map((year) => (
           <SelectItem key={year} value={year.toString()}>
             {year}

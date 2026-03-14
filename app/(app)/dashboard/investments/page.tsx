@@ -34,7 +34,17 @@ export default function InvestmentsPage() {
           const json = await res.json()
           
           let totalPortfolioValue = 0
-          const mapped: Holding[] = json.map((inv: any) => {
+          const mapped: Holding[] = json.map(
+            (inv: {
+              symbol: string
+              type: string
+              units: number
+              cost_basis: number
+              marketValue?: number
+              currentPrice?: number
+              unrealisedPnL?: number
+              unrealisedPnLPct?: number
+            }) => {
             const val = inv.marketValue || (inv.units * inv.cost_basis)
             totalPortfolioValue += val
             return {
@@ -48,7 +58,8 @@ export default function InvestmentsPage() {
               pnlPct: inv.unrealisedPnLPct || 0,
               portfolioPct: 0, // calculated below
             }
-          })
+          },
+          )
 
           const finalHoldings = mapped.map(h => ({
             ...h,
