@@ -60,15 +60,24 @@ export async function updateUserProfile(
 
     const supabase = createSupabaseAdmin()
 
-    // Ensure the profile belongs to the current household
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id")
+      .select("id, family_id")
       .eq("id", profileId)
-      .eq("household_id", householdId)
       .single()
 
     if (!profile) {
+      return { error: "Profile not found or unauthorized." }
+    }
+
+    const { data: family } = await supabase
+      .from("families")
+      .select("id")
+      .eq("id", profile.family_id)
+      .eq("household_id", householdId)
+      .single()
+
+    if (!family) {
       return { error: "Profile not found or unauthorized." }
     }
 
@@ -156,23 +165,31 @@ export async function deleteUserProfile(
 
     const supabase = createSupabaseAdmin()
 
-    // Ensure the profile belongs to the current household
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id")
+      .select("id, family_id")
       .eq("id", profileId)
-      .eq("household_id", householdId)
       .single()
 
     if (!profile) {
       return { error: "Profile not found or unauthorized." }
     }
 
-    // Prevent deleting the last profile
+    const { data: family } = await supabase
+      .from("families")
+      .select("id")
+      .eq("id", profile.family_id)
+      .eq("household_id", householdId)
+      .single()
+
+    if (!family) {
+      return { error: "Profile not found or unauthorized." }
+    }
+
     const { count } = await supabase
       .from("profiles")
       .select("id", { count: "exact", head: true })
-      .eq("household_id", householdId)
+      .eq("family_id", profile.family_id)
 
     if (count !== null && count <= 1) {
       return { error: "Cannot delete the last profile. A household must have at least one profile." }
@@ -276,4 +293,15 @@ export async function resetOnboardingAction(): Promise<void> {
 
   revalidatePath("/settings/setup")
   redirect("/onboarding")
+}
+
+export async function addNewFamilyAction(): Promise<void> {
+  const cookieStore = await cookies()
+  const householdId = await getSessionFromCookies(cookieStore)
+  if (!householdId) {
+    redirect("/login")
+  }
+
+  revalidatePath("/settings/setup")
+  redirect("/onboarding?mode=new-family")
 }

@@ -99,6 +99,39 @@ export const TOOLTIPS = {
     details:
       "120% Valuation Limit cap; voluntary refund reduces future accrued interest.",
   },
+  CPF_BRS: {
+    label: "Basic Retirement Sum (BRS)",
+    logic: "Minimum CPF to set aside at age 55 before further housing use.",
+    explanation:
+      "Official Singapore benchmark. Property with lease to age 95+ can be pledged to meet BRS.",
+    details:
+      "2026 cohort: $110,200. CPF LIFE payout ~$890–$930/mth at BRS.",
+  },
+  CPF_FRS: {
+    label: "Full Retirement Sum (FRS)",
+    logic: "2× BRS. Higher target for retirement adequacy.",
+    explanation:
+      "Official Singapore benchmark. Standard target for CPF LIFE payouts.",
+    details:
+      "2026 cohort: $220,400. CPF LIFE payout ~$1,640–$1,750/mth at FRS.",
+  },
+  CPF_ERS: {
+    label: "Enhanced Retirement Sum (ERS)",
+    logic: "2× FRS. Maximum top-up target.",
+    explanation:
+      "Official Singapore benchmark. Highest retirement savings target.",
+    details:
+      "2026 cohort: $440,800. CPF LIFE payout ~$3,180–$3,410/mth at ERS.",
+  },
+  CPF_RETIREMENT_PROJECTION: {
+    label: "CPF Growth Projection",
+    logic:
+      "Projected OA+SA+MA over time using income, contribution rates, and interest.",
+    explanation:
+      "Horizontal lines show BRS/FRS/ERS benchmarks. See when your projection crosses each target.",
+    details:
+      "Assumes income growth ~3% p.a., CPF interest OA 2.5%/SA 4%/MA 4%. Retirement sums increase ~3.5% p.a.",
+  },
   GOAL_PROGRESS: {
     label: "Goal Progress",
     logic: "current_amount / target_amount \u00d7 100",

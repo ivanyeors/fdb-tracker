@@ -1,7 +1,7 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { format } from "date-fns"
-import { resetOnboardingAction } from "../actions"
+import { resetOnboardingAction, addNewFamilyAction } from "../actions"
 import { getSessionFromCookies } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -18,21 +18,27 @@ export default async function SetupPage() {
 
   const supabase = createSupabaseAdmin()
 
-  const [householdResult, profilesResult] = await Promise.all([
-    supabase
-      .from("households")
-      .select("onboarding_completed_at, user_count")
-      .eq("id", householdId)
-      .single(),
-    supabase
-      .from("profiles")
-      .select("id, name, birth_year, created_at")
-      .eq("household_id", householdId)
-      .order("created_at", { ascending: true }),
-  ])
+  const { data: families } = await supabase
+    .from("families")
+    .select("id, name, user_count, created_at")
+    .eq("household_id", householdId)
+    .order("created_at", { ascending: true })
 
-  const { data: household, error: householdError } = householdResult
-  const { data: profiles, error: profilesError } = profilesResult
+  const familyIds = (families ?? []).map((f) => f.id)
+  const { data: profiles } =
+    familyIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id, name, birth_year, created_at, family_id")
+          .in("family_id", familyIds)
+          .order("created_at", { ascending: true })
+      : { data: [] }
+
+  const { data: household, error: householdError } = await supabase
+    .from("households")
+    .select("onboarding_completed_at, user_count")
+    .eq("id", householdId)
+    .single()
 
   if (householdError || !household) {
     return (
@@ -45,12 +51,14 @@ export default async function SetupPage() {
     )
   }
 
+  const totalProfiles = (profiles ?? []).length
+
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Setup</h1>
         <p className="text-muted-foreground mt-1">
-          Review setup configuration or add new profiles via the onboarding wizard.
+          Review setup configuration or add new families via the onboarding wizard.
         </p>
       </div>
 
@@ -65,7 +73,10 @@ export default async function SetupPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <span className="font-semibold">Profiles configured:</span> {household.user_count}
+            <span className="font-semibold">Families:</span> {families?.length ?? 0}
+          </div>
+          <div>
+            <span className="font-semibold">Total profiles:</span> {totalProfiles}
           </div>
           <div>
             <span className="font-semibold">Setup Completed:</span>{" "}
@@ -76,11 +87,11 @@ export default async function SetupPage() {
         </CardContent>
         <CardFooter className="border-t bg-muted/50 px-6 py-4">
           <div className="text-sm text-muted-foreground mb-4">
-            Add new profiles and configuration via the setup wizard. (Note: Use unique profile names; existing data won&apos;t be deleted).
+            Add a new family profile with its own users and configuration.
           </div>
-          <form action={resetOnboardingAction}>
+          <form action={addNewFamilyAction}>
             <Button type="submit" variant="outline">
-              New Onboarding
+              Add Family
             </Button>
           </form>
         </CardFooter>

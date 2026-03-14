@@ -36,7 +36,7 @@ function formatTrendMonth(monthStr: string): string {
 }
 
 export default function OverviewPage() {
-  const { activeProfileId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [data, setData] = useState<{
     totalNetWorth?: number
     liquidNetWorth?: number
@@ -55,13 +55,13 @@ export default function OverviewPage() {
     async function fetchOverview() {
       setIsLoading(true)
       try {
+        const params = new URLSearchParams()
+        if (activeProfileId) params.set("profileId", activeProfileId)
+        if (activeFamilyId && !activeProfileId) params.set("familyId", activeFamilyId)
+        const qs = params.toString()
         const [overviewRes, trendRes] = await Promise.all([
-          fetch(
-            `/api/overview${activeProfileId ? `?profileId=${activeProfileId}` : ""}`,
-          ),
-          fetch(
-            `/api/overview/trend?months=12${activeProfileId ? `&profileId=${activeProfileId}` : ""}`,
-          ),
+          fetch(`/api/overview${qs ? `?${qs}` : ""}`),
+          fetch(`/api/overview/trend?months=12${qs ? `&${qs}` : ""}`),
         ])
         if (overviewRes.ok) {
           const json = await overviewRes.json()
@@ -85,7 +85,7 @@ export default function OverviewPage() {
       }
     }
     fetchOverview()
-  }, [activeProfileId])
+  }, [activeProfileId, activeFamilyId])
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -103,7 +103,7 @@ export default function OverviewPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <MetricCard
               label="Total Net Worth"
-              value={data?.totalNetWorth?.toLocaleString() || "0"}
+              value={data?.totalNetWorth ?? 0}
               prefix="$"
               trend={0}
               trendLabel="vs last month"
@@ -111,7 +111,7 @@ export default function OverviewPage() {
             />
             <MetricCard
               label="Liquid Net Worth"
-              value={data?.liquidNetWorth?.toLocaleString() || "0"}
+              value={data?.liquidNetWorth ?? 0}
               prefix="$"
               trend={0}
               trendLabel="vs last month"
@@ -130,28 +130,28 @@ export default function OverviewPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard
               label="Bank Total"
-              value={data?.bankTotal?.toLocaleString() || "0"}
+              value={data?.bankTotal ?? 0}
               prefix="$"
               trend={0}
               trendLabel="vs last month"
             />
             <MetricCard
               label="CPF Total"
-              value={data?.cpfTotal?.toLocaleString() || "0"}
+              value={data?.cpfTotal ?? 0}
               prefix="$"
               trend={0}
               trendLabel="vs last month"
             />
             <MetricCard
               label="Investments"
-              value={data?.investmentTotal?.toLocaleString() || "0"}
+              value={data?.investmentTotal ?? 0}
               prefix="$"
               trend={0}
               trendLabel="vs last month"
             />
             <MetricCard
               label="Loans Outstanding"
-              value={data?.loanTotal?.toLocaleString() || "0"}
+              value={data?.loanTotal ?? 0}
               prefix="$"
               trend={0}
               trendLabel="vs last month"

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { SectionHeader } from "@/components/dashboard/section-header"
+import { formatCurrency } from "@/lib/utils"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Progress } from "@/components/ui/progress"
@@ -20,13 +21,13 @@ interface Goal {
 }
 
 export default function GoalsPage() {
-  const { activeProfileId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [goals, setGoals] = useState<Goal[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     async function fetchGoals() {
-      if (!activeProfileId) {
+      if (!activeProfileId && !activeFamilyId) {
         setIsLoading(false)
         return
       }
@@ -34,7 +35,8 @@ export default function GoalsPage() {
       setIsLoading(true)
       try {
         const url = new URL("/api/goals", window.location.origin)
-        url.searchParams.set("profileId", activeProfileId)
+        if (activeProfileId) url.searchParams.set("profileId", activeProfileId)
+        else if (activeFamilyId) url.searchParams.set("familyId", activeFamilyId)
 
         const res = await fetch(url)
         if (res.ok) {
@@ -48,7 +50,7 @@ export default function GoalsPage() {
       }
     }
     fetchGoals()
-  }, [activeProfileId])
+  }, [activeProfileId, activeFamilyId])
 
   const totalTarget = useMemo(() => goals.reduce((sum, g) => sum + g.target_amount, 0), [goals])
   const totalCurrent = useMemo(() => goals.reduce((sum, g) => sum + g.current_amount, 0), [goals])
@@ -74,12 +76,12 @@ export default function GoalsPage() {
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard
               label="Total Saved"
-              value={totalCurrent.toLocaleString()}
+              value={totalCurrent}
               prefix="$"
             />
             <MetricCard
               label="Total Target"
-              value={totalTarget.toLocaleString()}
+              value={totalTarget}
               prefix="$"
             />
             <MetricCard
@@ -116,10 +118,10 @@ export default function GoalsPage() {
                   <CardContent className="flex-1 flex flex-col justify-end">
                     <div className="mb-2 flex items-baseline justify-between">
                       <span className="text-2xl font-bold">
-                        ${goal.current_amount.toLocaleString()}
+                        ${formatCurrency(goal.current_amount)}
                       </span>
                       <span className="text-sm text-muted-foreground">
-                        of ${goal.target_amount.toLocaleString()}
+                        of ${formatCurrency(goal.target_amount)}
                       </span>
                     </div>
                     <Progress value={progressPct} className="h-2 mb-2" />

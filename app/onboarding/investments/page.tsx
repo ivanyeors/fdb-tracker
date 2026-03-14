@@ -1,0 +1,209 @@
+"use client"
+
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { CurrencyInput } from "@/components/ui/currency-input"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  useOnboarding,
+  pathWithMode,
+  type OnboardingInvestment,
+} from "@/components/onboarding/onboarding-provider"
+import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react"
+
+const INVESTMENT_TYPES = [
+  { value: "stock", label: "Stock" },
+  { value: "etf", label: "ETF" },
+  { value: "gold", label: "Gold" },
+  { value: "silver", label: "Silver" },
+  { value: "ilp", label: "ILP" },
+  { value: "bond", label: "Bond" },
+] as const
+
+export default function InvestmentsPage() {
+  const router = useRouter()
+  const { mode, profiles, userCount, investments, setInvestments } = useOnboarding()
+  const [items, setItems] = useState<OnboardingInvestment[]>(
+    investments.length > 0 ? investments : [],
+  )
+
+  function addItem() {
+    setItems([
+      ...items,
+      {
+        type: "stock",
+        symbol: "",
+        units: 0,
+        cost_basis: 0,
+        profileIndex: 0,
+      },
+    ])
+  }
+
+  function removeItem(index: number) {
+    setItems(items.filter((_, i) => i !== index))
+  }
+
+  function updateItem(
+    index: number,
+    field: keyof OnboardingInvestment,
+    value: string | number,
+  ) {
+    const updated = [...items]
+    if (field === "type") {
+      updated[index] = { ...updated[index], type: value as OnboardingInvestment["type"] }
+    } else if (field === "symbol") {
+      updated[index] = { ...updated[index], symbol: value as string }
+    } else if (field === "units") {
+      updated[index] = {
+        ...updated[index],
+        units: typeof value === "number" ? value : Number(value) || 0,
+      }
+    } else if (field === "cost_basis") {
+      updated[index] = {
+        ...updated[index],
+        cost_basis: typeof value === "number" ? value : Number(value) || 0,
+      }
+    } else if (field === "profileIndex") {
+      updated[index] = {
+        ...updated[index],
+        profileIndex: typeof value === "number" ? value : Number(value) || 0,
+      }
+    }
+    setItems(updated)
+  }
+
+  function handleNext() {
+    const valid = items.filter((i) => i.symbol.trim().length > 0 && i.units > 0)
+    setInvestments(valid)
+    router.push(pathWithMode("/onboarding/loans", mode))
+  }
+
+  function handleSkip() {
+    setInvestments([])
+    router.push(pathWithMode("/onboarding/loans", mode))
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Investments (Optional)</CardTitle>
+        <CardDescription>
+          Add your investment holdings to track portfolio value and P&L.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {items.map((item, i) => (
+          <div key={i} className="space-y-3 rounded-lg border p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Holding {i + 1}</p>
+              <Button variant="ghost" size="icon-xs" onClick={() => removeItem(i)}>
+                <Trash2 className="size-3.5 text-destructive" />
+              </Button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Profile</Label>
+                <Select
+                  value={String(item.profileIndex)}
+                  onValueChange={(v) => updateItem(i, "profileIndex", Number(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {profiles.slice(0, userCount).map((p, idx) => (
+                      <SelectItem key={idx} value={String(idx)}>
+                        {p.name || `Person ${idx + 1}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Type</Label>
+                <Select
+                  value={item.type}
+                  onValueChange={(v) => updateItem(i, "type", v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INVESTMENT_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Symbol / Name</Label>
+                <Input
+                  placeholder="e.g. DBS, SPY"
+                  value={item.symbol}
+                  onChange={(e) => updateItem(i, "symbol", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Units</Label>
+                <CurrencyInput
+                  placeholder="0"
+                  value={item.units}
+                  onChange={(v) => updateItem(i, "units", v ?? 0)}
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Cost Basis ($)</Label>
+                <CurrencyInput
+                  placeholder="0.00"
+                  value={item.cost_basis}
+                  onChange={(v) => updateItem(i, "cost_basis", v ?? 0)}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+
+        <Button variant="outline" onClick={addItem}>
+          <Plus data-icon="inline-start" />
+          Add holding
+        </Button>
+
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => router.push(pathWithMode("/onboarding/reminders", mode))}
+          >
+            <ArrowLeft data-icon="inline-start" />
+            Back
+          </Button>
+          <Button variant="outline" onClick={handleSkip}>
+            Skip
+          </Button>
+          <Button onClick={handleNext}>
+            Next
+            <ArrowRight data-icon="inline-end" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}

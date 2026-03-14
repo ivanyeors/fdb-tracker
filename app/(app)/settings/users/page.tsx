@@ -25,21 +25,38 @@ export default async function UserSettingsPage() {
   }
 
   const supabase = createSupabaseAdmin()
-  const { data: profiles, error } = await supabase
-    .from("profiles")
-    .select(`
-      id,
-      name,
-      birth_year,
-      income_config (
-        annual_salary,
-        bonus_estimate,
-        pay_frequency,
-        employee_cpf_rate
-      )
-    `)
+  const activeFamilyId = cookieStore.get("fdb-active-family-id")?.value
+
+  const { data: families } = await supabase
+    .from("families")
+    .select("id")
     .eq("household_id", householdId)
     .order("created_at", { ascending: true })
+
+  const familyIds = (families ?? []).map((f) => f.id)
+  const targetFamilyId =
+    activeFamilyId && familyIds.includes(activeFamilyId)
+      ? activeFamilyId
+      : familyIds[0]
+
+  const { data: profiles, error } =
+    targetFamilyId
+      ? await supabase
+          .from("profiles")
+          .select(`
+            id,
+            name,
+            birth_year,
+            income_config (
+              annual_salary,
+              bonus_estimate,
+              pay_frequency,
+              employee_cpf_rate
+            )
+          `)
+          .eq("family_id", targetFamilyId)
+          .order("created_at", { ascending: true })
+      : { data: [], error: null }
 
   if (error || !profiles) {
     return (

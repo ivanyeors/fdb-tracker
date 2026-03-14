@@ -3,12 +3,14 @@ import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { calculateWeightedAverageCost } from "@/lib/calculations/investments"
 
 const transactionQuerySchema = z.object({
   symbol: z.string().optional(),
   type: z.enum(["buy", "sell"]).optional(),
   profileId: z.string().uuid().optional(),
+  familyId: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(500).optional(),
 })
 
@@ -20,6 +22,7 @@ const createTransactionSchema = z.object({
   journalText: z.string().optional(),
   screenshotUrl: z.string().url().optional(),
   profileId: z.string().uuid().optional(),
+  familyId: z.string().uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -36,6 +39,7 @@ export async function GET(request: NextRequest) {
       symbol: searchParams.get("symbol") ?? undefined,
       type: searchParams.get("type") ?? undefined,
       profileId: searchParams.get("profileId") ?? undefined,
+      familyId: searchParams.get("familyId") ?? undefined,
       limit: searchParams.get("limit") ?? undefined,
     })
 
@@ -43,19 +47,30 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 })
     }
 
-    const { symbol, type, profileId, limit = 50 } = parsed.data
+    const { symbol, type, profileId, familyId, limit = 50 } = parsed.data
     const supabase = createSupabaseAdmin()
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      accountId,
+      profileId ?? null,
+      familyId ?? null
+    )
+    if (!resolved) {
+      return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
+    }
+    const { familyId: resolvedFamilyId, profileIds } = resolved
+    const singleProfileId = profileIds[0] ?? null
 
     let query = supabase
       .from("investment_transactions")
       .select("*")
-      .eq("household_id", accountId)
+      .eq("family_id", resolvedFamilyId)
       .order("created_at", { ascending: false })
       .limit(limit)
 
     if (symbol) query = query.eq("symbol", symbol)
     if (type) query = query.eq("type", type)
-    if (profileId) query = query.eq("profile_id", profileId)
+    if (singleProfileId) query = query.eq("profile_id", singleProfileId)
 
     const { data, error } = await query
 
@@ -85,26 +100,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { symbol, type, quantity, price, journalText, screenshotUrl, profileId } = parsed.data
+    const { symbol, type, quantity, price, journalText, screenshotUrl, profileId, familyId } =
+      parsed.data
     const supabase = createSupabaseAdmin()
-
-    if (profileId) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", profileId)
-        .eq("household_id", accountId)
-        .single()
-
-      if (!profile) {
-        return NextResponse.json({ error: "Profile not found" }, { status: 404 })
-      }
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      accountId,
+      profileId ?? null,
+      familyId ?? null
+    )
+    if (!resolved) {
+      return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
+    }
+    if (profileId && !resolved.profileIds.includes(profileId)) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 
     const { data: existingHolding } = await supabase
       .from("investments")
       .select("*")
-      .eq("household_id", accountId)
+      .eq("family_id", resolved.familyId)
       .eq("symbol", symbol)
       .maybeSingle()
 
@@ -130,7 +145,7 @@ export async function POST(request: NextRequest) {
       const { data: transaction, error: txError } = await supabase
         .from("investment_transactions")
         .insert({
-          household_id: accountId,
+          family_id: resolved.familyId,
           investment_id: existingHolding.id,
           symbol,
           type,
@@ -175,7 +190,7 @@ export async function POST(request: NextRequest) {
       const { data: newHolding, error: insertError } = await supabase
         .from("investments")
         .insert({
-          household_id: accountId,
+          family_id: resolved.familyId,
           symbol,
           type: "stock",
           units: quantity,
@@ -195,7 +210,7 @@ export async function POST(request: NextRequest) {
     const { data: transaction, error: txError } = await supabase
       .from("investment_transactions")
       .insert({
-        household_id: accountId,
+        family_id: resolved.familyId,
         investment_id: investmentId,
         symbol,
         type,

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { SectionHeader } from "@/components/dashboard/section-header"
+import { formatCurrency } from "@/lib/utils"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { AllocationChart } from "@/components/dashboard/investments/allocation-chart"
 import {
@@ -13,13 +14,13 @@ import {
 import { useActiveProfile } from "@/hooks/use-active-profile"
 
 export default function InvestmentsPage() {
-  const { activeProfileId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     async function fetchInvestments() {
-      if (!activeProfileId) {
+      if (!activeProfileId && !activeFamilyId) {
         setIsLoading(false)
         return
       }
@@ -27,7 +28,8 @@ export default function InvestmentsPage() {
       setIsLoading(true)
       try {
         const url = new URL("/api/investments", window.location.origin)
-        url.searchParams.set("profileId", activeProfileId)
+        if (activeProfileId) url.searchParams.set("profileId", activeProfileId)
+        else if (activeFamilyId) url.searchParams.set("familyId", activeFamilyId)
 
         const res = await fetch(url)
         if (res.ok) {
@@ -75,7 +77,7 @@ export default function InvestmentsPage() {
       }
     }
     fetchInvestments()
-  }, [activeProfileId])
+  }, [activeProfileId, activeFamilyId])
 
   const totalValue = useMemo(() => holdings.reduce((sum, h) => sum + h.currentValue, 0), [holdings])
   const totalPnL = useMemo(() => holdings.reduce((sum, h) => sum + h.pnl, 0), [holdings])
@@ -128,13 +130,13 @@ export default function InvestmentsPage() {
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard
               label="Total Value"
-              value={totalValue.toLocaleString()}
+              value={totalValue}
               prefix="$"
               tooltipId="INVESTMENT_PNL"
             />
             <MetricCard
               label="Total P&L"
-              value={`${totalPnL >= 0 ? '+' : '-'}$${Math.abs(totalPnL).toLocaleString()}`}
+              value={`${totalPnL >= 0 ? '+' : '-'}$${formatCurrency(Math.abs(totalPnL))}`}
               trend={pnlPct}
             />
             <MetricCard label="Allocation Count" value={`${holdings.length} holdings`} />

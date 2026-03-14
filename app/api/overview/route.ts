@@ -4,9 +4,12 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { calculateSavingsRate } from "@/lib/calculations/bank-balance"
+import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
+import { getEffectiveOutflowForProfile } from "@/lib/api/effective-outflow"
 
 const overviewQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
+  familyId: z.string().uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -20,20 +23,32 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = request.nextUrl
     const rawProfileId = searchParams.get("profileId") ?? undefined
-    const parsed = overviewQuerySchema.safeParse({ profileId: rawProfileId })
+    const rawFamilyId = searchParams.get("familyId") ?? undefined
+    const parsed = overviewQuerySchema.safeParse({ profileId: rawProfileId, familyId: rawFamilyId })
 
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 })
     }
 
-    const profileId = parsed.data.profileId
     const supabase = createSupabaseAdmin()
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      accountId,
+      parsed.data.profileId ?? null,
+      parsed.data.familyId ?? null
+    )
+    if (!resolved) {
+      return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
+    }
+
+    const { familyId, profileIds } = resolved
+    const profileId = profileIds[0] ?? null
 
     // --- Bank Total ---
     let bankAccountQuery = supabase
       .from("bank_accounts")
       .select("id")
-      .eq("household_id", accountId)
+      .eq("family_id", familyId)
 
     if (profileId) {
       bankAccountQuery = bankAccountQuery.eq("profile_id", profileId)
@@ -80,17 +95,12 @@ export async function GET(request: NextRequest) {
         cpfTotal = cpfLatest.oa + cpfLatest.sa + cpfLatest.ma
       }
     } else {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("household_id", accountId)
-
-      if (profiles) {
-        for (const p of profiles) {
+      if (profileIds.length > 0) {
+        for (const pid of profileIds) {
           const { data: cpfLatest } = await supabase
             .from("cpf_balances")
             .select("oa, sa, ma")
-            .eq("profile_id", p.id)
+            .eq("profile_id", pid)
             .order("month", { ascending: false })
             .limit(1)
             .single()
@@ -106,7 +116,7 @@ export async function GET(request: NextRequest) {
     let investmentQuery = supabase
       .from("investments")
       .select("units, cost_basis")
-      .eq("household_id", accountId)
+      .eq("family_id", familyId)
 
     if (profileId) {
       investmentQuery = investmentQuery.eq("profile_id", profileId)
@@ -121,19 +131,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // --- Loan Total ---
-    let profileIds: string[] = []
-
-    if (profileId) {
-      profileIds = [profileId]
-    } else {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("household_id", accountId)
-
-      profileIds = profiles?.map((p) => p.id) ?? []
-    }
+    // --- Loan Total --- (profileIds already resolved above)
 
     let loanTotal = 0
 
@@ -178,35 +176,42 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // --- Savings Rate ---
+    // --- Savings Rate (using effective outflow: discretionary + insurance + ilp + loans + tax) ---
     let savingsRate = 0
 
     const cashflowQuery = profileId
       ? supabase
           .from("monthly_cashflow")
-          .select("inflow, outflow")
+          .select("profile_id, month, inflow, outflow")
           .eq("profile_id", profileId)
           .order("month", { ascending: false })
           .limit(1)
       : supabase
           .from("monthly_cashflow")
-          .select("inflow, outflow")
+          .select("profile_id, month, inflow, outflow")
           .in("profile_id", profileIds)
           .order("month", { ascending: false })
-          .limit(profileIds.length || 1)
+          .limit(profileIds.length * 2)
 
     const { data: cashflowRows } = await cashflowQuery
 
     if (cashflowRows && cashflowRows.length > 0) {
+      const latestMonth = cashflowRows[0]!.month
+      const rowsForLatest = cashflowRows.filter((r) => r.month === latestMonth)
       let totalInflow = 0
-      let totalOutflow = 0
+      let totalEffectiveOutflow = 0
 
-      for (const row of cashflowRows) {
-        totalInflow += row.inflow
-        totalOutflow += row.outflow
+      for (const row of rowsForLatest) {
+        totalInflow += row.inflow ?? 0
+        const eff = await getEffectiveOutflowForProfile(
+          supabase,
+          row.profile_id,
+          latestMonth
+        )
+        totalEffectiveOutflow += eff.total
       }
 
-      savingsRate = calculateSavingsRate(totalInflow, totalOutflow)
+      savingsRate = calculateSavingsRate(totalInflow, totalEffectiveOutflow)
     }
 
     // --- Compute net worth ---

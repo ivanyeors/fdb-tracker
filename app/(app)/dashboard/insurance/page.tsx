@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { SectionHeader } from "@/components/dashboard/section-header"
+import { formatCurrency } from "@/lib/utils"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Badge } from "@/components/ui/badge"
@@ -21,13 +22,13 @@ interface Policy {
 }
 
 export default function InsurancePage() {
-  const { activeProfileId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [policies, setPolicies] = useState<Policy[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     async function fetchPolicies() {
-      if (!activeProfileId) {
+      if (!activeProfileId && !activeFamilyId) {
         setIsLoading(false)
         return
       }
@@ -35,7 +36,8 @@ export default function InsurancePage() {
       setIsLoading(true)
       try {
         const url = new URL("/api/insurance", window.location.origin)
-        url.searchParams.set("profileId", activeProfileId)
+        if (activeProfileId) url.searchParams.set("profileId", activeProfileId)
+        else if (activeFamilyId) url.searchParams.set("familyId", activeFamilyId)
 
         const res = await fetch(url)
         if (res.ok) {
@@ -49,7 +51,7 @@ export default function InsurancePage() {
       }
     }
     fetchPolicies()
-  }, [activeProfileId])
+  }, [activeProfileId, activeFamilyId])
 
   const activePolicies = useMemo(() => policies.filter(p => p.is_active), [policies])
   const totalAnnualPremium = useMemo(() => {
@@ -85,12 +87,12 @@ export default function InsurancePage() {
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard
               label="Annual Premiums"
-              value={totalAnnualPremium.toLocaleString()}
+              value={totalAnnualPremium}
               prefix="$"
             />
             <MetricCard
               label="Total Coverage"
-              value={totalCoverage.toLocaleString()}
+              value={totalCoverage}
               prefix="$"
             />
             <MetricCard
@@ -120,14 +122,14 @@ export default function InsurancePage() {
                         {policy.type}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
-                        ${policy.premium_amount.toLocaleString()}
+                        ${formatCurrency(policy.premium_amount)}
                       </td>
                       <td className="px-4 py-3 capitalize text-muted-foreground">
                         {policy.frequency}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         {policy.coverage_amount
-                          ? `$${policy.coverage_amount.toLocaleString()}`
+                          ? `$${formatCurrency(policy.coverage_amount)}`
                           : "—"}
                       </td>
                       <td className="px-4 py-3 text-center">

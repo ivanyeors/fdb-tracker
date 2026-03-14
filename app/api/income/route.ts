@@ -3,14 +3,17 @@ import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { getAge, getCpfRates } from "@/lib/calculations/cpf"
 
 const incomeQuerySchema = z.object({
-  profileId: z.string().uuid(),
+  profileId: z.string().uuid().optional(),
+  familyId: z.string().uuid().optional(),
 })
 
 const incomeUpdateSchema = z.object({
   profileId: z.string().uuid(),
+  familyId: z.string().uuid().optional(),
   annualSalary: z.number().min(0),
   bonusEstimate: z.number().min(0).optional(),
   payFrequency: z.string().optional(),
@@ -27,26 +30,31 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = request.nextUrl
     const parsed = incomeQuerySchema.safeParse({
-      profileId: searchParams.get("profileId"),
+      profileId: searchParams.get("profileId") ?? undefined,
+      familyId: searchParams.get("familyId") ?? undefined,
     })
 
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 })
     }
 
-    const { profileId } = parsed.data
     const supabase = createSupabaseAdmin()
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", profileId)
-      .eq("household_id", accountId)
-      .single()
-
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      accountId,
+      parsed.data.profileId ?? null,
+      parsed.data.familyId ?? null
+    )
+    if (!resolved) {
+      return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
+    if (resolved.profileIds.length !== 1) {
+      return NextResponse.json(
+        { error: "Income config requires a single profile (profileId or familyId with one member)" },
+        { status: 400 }
+      )
+    }
+    const profileId = resolved.profileIds[0]!
 
     const { data: incomeConfig, error } = await supabase
       .from("income_config")
@@ -80,16 +88,23 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { profileId, annualSalary, bonusEstimate, payFrequency } = parsed.data
+    const { profileId, familyId, annualSalary, bonusEstimate, payFrequency } = parsed.data
     const supabase = createSupabaseAdmin()
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      accountId,
+      profileId,
+      familyId ?? null
+    )
+    if (!resolved || !resolved.profileIds.includes(profileId)) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+    }
 
     const { data: profile } = await supabase
       .from("profiles")
       .select("id, birth_year")
       .eq("id", profileId)
-      .eq("household_id", accountId)
       .single()
-
     if (!profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }

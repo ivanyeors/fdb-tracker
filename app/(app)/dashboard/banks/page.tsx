@@ -54,7 +54,7 @@ const OCBC360_CATEGORIES = [
 ]
 
 export default function BanksPage() {
-  const { activeProfileId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [accounts, setAccounts] = useState<
     Array<{
       id?: string
@@ -72,9 +72,8 @@ export default function BanksPage() {
       setIsLoading(true)
       try {
         const url = new URL("/api/bank-accounts", window.location.origin)
-        if (activeProfileId) {
-          url.searchParams.set("profileId", activeProfileId)
-        }
+        if (activeProfileId) url.searchParams.set("profileId", activeProfileId)
+        else if (activeFamilyId) url.searchParams.set("familyId", activeFamilyId)
         const res = await fetch(url)
         if (res.ok) {
           const json = await res.json()
@@ -87,7 +86,7 @@ export default function BanksPage() {
       }
     }
     fetchBanks()
-  }, [activeProfileId])
+  }, [activeProfileId, activeFamilyId])
 
   const ocbc360Account = accounts.find(
     (a) => a.account_type === "ocbc_360" && a.ocbc360Config,
@@ -132,7 +131,7 @@ export default function BanksPage() {
             <MetricCard
               key={acc.id || i}
               label={acc.bank_name || "Bank Account"}
-              value={(acc.latest_balance ?? acc.opening_balance ?? 0).toLocaleString()}
+              value={acc.latest_balance ?? acc.opening_balance ?? 0}
               prefix="$"
               trend={0}
               trendLabel="vs last month"

@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { TOOLTIPS } from "@/lib/tooltips"
-import { cn } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 
 interface MetricCardProps {
   label: string
@@ -50,7 +50,11 @@ export function MetricCard({
         </div>
         <p className="mt-1 text-2xl font-bold tracking-tight">
           {prefix}
-          {typeof value === "number" ? value.toLocaleString() : value}
+          {typeof value === "number"
+            ? prefix === "$"
+              ? formatCurrency(value)
+              : value.toLocaleString()
+            : value}
           {suffix}
         </p>
         {trend !== undefined && (

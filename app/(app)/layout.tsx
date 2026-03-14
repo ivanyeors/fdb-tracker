@@ -16,14 +16,30 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   const supabase = createSupabaseAdmin()
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, name, birth_year")
+  const { data: families } = await supabase
+    .from("families")
+    .select("id, name, user_count, created_at")
     .eq("household_id", accountId)
     .order("created_at", { ascending: true })
 
+  const familyIds = (families ?? []).map((f) => f.id)
+  const { data: profiles } =
+    familyIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id, name, birth_year, family_id")
+          .in("family_id", familyIds)
+          .order("created_at", { ascending: true })
+      : { data: [] }
+
+  const initialFamilyId = cookieStore.get("fdb-active-family-id")?.value ?? null
+
   return (
-    <ActiveProfileProvider profiles={profiles ?? []}>
+    <ActiveProfileProvider
+      families={families ?? []}
+      profiles={profiles ?? []}
+      initialFamilyId={initialFamilyId && familyIds.includes(initialFamilyId) ? initialFamilyId : null}
+    >
       <SidebarProvider>
         <SidebarNav />
         <SidebarInset>

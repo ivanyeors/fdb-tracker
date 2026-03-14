@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { SectionHeader } from "@/components/dashboard/section-header"
+import { formatCurrency } from "@/lib/utils"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,13 +31,13 @@ interface TaxData {
 }
 
 export default function TaxPage() {
-  const { activeProfileId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [data, setData] = useState<TaxData>({ entries: [], reliefs: [] })
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     async function fetchTax() {
-      if (!activeProfileId) {
+      if (!activeProfileId && !activeFamilyId) {
         setIsLoading(false)
         return
       }
@@ -44,7 +45,8 @@ export default function TaxPage() {
       setIsLoading(true)
       try {
         const url = new URL("/api/tax", window.location.origin)
-        url.searchParams.set("profileId", activeProfileId)
+        if (activeProfileId) url.searchParams.set("profileId", activeProfileId)
+        else if (activeFamilyId) url.searchParams.set("familyId", activeFamilyId)
 
         const res = await fetch(url)
         if (res.ok) {
@@ -58,7 +60,7 @@ export default function TaxPage() {
       }
     }
     fetchTax()
-  }, [activeProfileId])
+  }, [activeProfileId, activeFamilyId])
 
   const latestEntry = data.entries[0] ?? null
   const totalReliefs = useMemo(() => {
@@ -95,21 +97,21 @@ export default function TaxPage() {
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard
               label={`YA ${latestEntry!.year} Calculated Tax`}
-              value={latestEntry!.calculated_amount.toLocaleString()}
+              value={latestEntry!.calculated_amount}
               prefix="$"
             />
             <MetricCard
               label="Actual Paid"
               value={
                 latestEntry!.actual_amount != null
-                  ? latestEntry!.actual_amount.toLocaleString()
+                  ? latestEntry!.actual_amount
                   : "—"
               }
               prefix={latestEntry!.actual_amount != null ? "$" : ""}
             />
             <MetricCard
               label="Total Reliefs"
-              value={totalReliefs.toLocaleString()}
+              value={totalReliefs}
               prefix="$"
             />
           </div>
@@ -133,7 +135,7 @@ export default function TaxPage() {
                         {relief.relief_type.replace(/_/g, " ")}
                       </span>
                       <span className="text-sm font-medium tabular-nums">
-                        ${relief.amount.toLocaleString()}
+                        ${formatCurrency(relief.amount)}
                       </span>
                     </div>
                   ))}
@@ -176,11 +178,11 @@ export default function TaxPage() {
                             YA {entry.year}
                           </td>
                           <td className="px-4 py-3 text-right tabular-nums">
-                            ${entry.calculated_amount.toLocaleString()}
+                            ${formatCurrency(entry.calculated_amount)}
                           </td>
                           <td className="px-4 py-3 text-right tabular-nums">
                             {entry.actual_amount != null
-                              ? `$${entry.actual_amount.toLocaleString()}`
+                              ? `$${formatCurrency(entry.actual_amount)}`
                               : "—"}
                           </td>
                           <td
@@ -193,7 +195,7 @@ export default function TaxPage() {
                             }`}
                           >
                             {diff != null
-                              ? `${diff >= 0 ? "+" : "-"}$${Math.abs(diff).toLocaleString()}`
+                              ? `${diff >= 0 ? "+" : "-"}$${formatCurrency(Math.abs(diff))}`
                               : "—"}
                           </td>
                         </tr>

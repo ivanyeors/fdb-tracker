@@ -11,24 +11,29 @@ type Profile = {
   name: string
   birth_year: number
   created_at: string
+  family_id?: string
 }
 
 export function ProfileSwitcher({ profiles }: { profiles: Profile[] }) {
-  const { activeProfileId, setActiveProfileId } = useActiveProfile()
+  const { activeFamilyId, activeProfileId, setActiveProfileId } = useActiveProfile()
 
-  if (!profiles.length) {
+  const filteredProfiles = activeFamilyId
+    ? profiles.filter((p) => (p.family_id ?? "") === activeFamilyId)
+    : profiles
+
+  if (!filteredProfiles.length) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Profiles</CardTitle>
-          <CardDescription>No profiles found for this household.</CardDescription>
+          <CardDescription>No profiles found for the active family.</CardDescription>
         </CardHeader>
       </Card>
     )
   }
 
-  const selectedId = activeProfileId ?? profiles[0]?.id ?? ""
-  const selected = profiles.find((p) => p.id === selectedId) ?? profiles[0]
+  const selectedId = activeProfileId ?? filteredProfiles[0]?.id ?? ""
+  const selected = filteredProfiles.find((p) => p.id === selectedId) ?? filteredProfiles[0]
 
   return (
     <Card>
@@ -44,7 +49,7 @@ export function ProfileSwitcher({ profiles }: { profiles: Profile[] }) {
               <SelectValue placeholder="Choose a profile" />
             </SelectTrigger>
             <SelectContent>
-              {profiles.map((p) => (
+              {filteredProfiles.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}
                 </SelectItem>

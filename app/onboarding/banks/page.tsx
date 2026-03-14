@@ -30,6 +30,7 @@ import {
 import { DatePicker } from "@/components/ui/date-picker"
 import {
   useOnboarding,
+  pathWithMode,
   type BankAccount,
   type SavingsGoal,
 } from "@/components/onboarding/onboarding-provider"
@@ -57,24 +58,25 @@ function isOcbcAccount(account: BankAccount) {
 
 export default function BanksPage() {
   const router = useRouter()
-  const { bankAccounts, setBankAccounts } = useOnboarding()
+  const { mode, bankAccounts, setBankAccounts } = useOnboarding()
   const [accounts, setAccounts] = useState<BankAccount[]>(
     bankAccounts.length > 0
       ? bankAccounts.map((acc) => ({
           ...acc,
+          opening_balance: acc.opening_balance ?? 0,
           savings_goals: acc.savings_goals.map((g) => ({
             ...g,
             deadline: g.deadline ?? null,
           })),
         }))
-      : [{ bank_name: "", account_type: "savings", savings_goals: [] }],
+      : [{ bank_name: "", account_type: "savings", opening_balance: 0, savings_goals: [] }],
   )
   const [showGoals, setShowGoals] = useState<Record<number, boolean>>({})
 
   function updateAccount(
     index: number,
     field: keyof BankAccount,
-    value: string,
+    value: string | number,
   ) {
     const updated = [...accounts]
     if (field === "account_type") {
@@ -83,7 +85,12 @@ export default function BanksPage() {
         account_type: value as BankAccount["account_type"],
       }
     } else if (field === "bank_name") {
-      updated[index] = { ...updated[index], bank_name: value }
+      updated[index] = { ...updated[index], bank_name: value as string }
+    } else if (field === "opening_balance") {
+      updated[index] = {
+        ...updated[index],
+        opening_balance: typeof value === "number" ? value : Number(value) || 0,
+      }
     }
     setAccounts(updated)
   }
@@ -91,7 +98,7 @@ export default function BanksPage() {
   function addAccount() {
     setAccounts([
       ...accounts,
-      { bank_name: "", account_type: "savings", savings_goals: [] },
+      { bank_name: "", account_type: "savings", opening_balance: 0, savings_goals: [] },
     ])
   }
 
@@ -179,7 +186,7 @@ export default function BanksPage() {
   function handleNext() {
     const valid = accounts.filter((a) => a.bank_name.trim().length > 0)
     setBankAccounts(valid)
-    router.push("/onboarding/telegram")
+    router.push(pathWithMode("/onboarding/telegram", mode))
   }
 
   return (
@@ -248,6 +255,20 @@ export default function BanksPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor={`opening-balance-${i}`}>
+                Current balance (date auto-logged as today)
+              </Label>
+              <CurrencyInput
+                id={`opening-balance-${i}`}
+                placeholder="0.00"
+                value={account.opening_balance ?? 0}
+                onChange={(v) =>
+                  updateAccount(i, "opening_balance", v ?? 0)
+                }
+              />
             </div>
 
             {isOcbcAccount(account) && (
@@ -357,7 +378,7 @@ export default function BanksPage() {
         <div className="flex gap-3">
           <Button
             variant="outline"
-            onClick={() => router.push("/onboarding/income")}
+            onClick={() => router.push(pathWithMode("/onboarding/cpf", mode))}
           >
             <ArrowLeft data-icon="inline-start" />
             Back

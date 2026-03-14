@@ -24,6 +24,7 @@ export interface IncomeConfig {
 export interface BankAccount {
   bank_name: string
   account_type: "ocbc_360" | "basic" | "savings" | "fixed_deposit"
+  opening_balance?: number
   savings_goals: SavingsGoal[]
 }
 
@@ -43,13 +44,71 @@ export interface PromptScheduleConfig {
   timezone: string
 }
 
+export interface CpfBalance {
+  profileIndex: number
+  oa: number
+  sa: number
+  ma: number
+}
+
+export interface OnboardingInvestment {
+  type: "stock" | "gold" | "silver" | "ilp" | "etf" | "bond"
+  symbol: string
+  units: number
+  cost_basis: number
+  profileIndex: number
+}
+
+export interface OnboardingLoan {
+  name: string
+  type: "housing" | "personal" | "car" | "education"
+  principal: number
+  rate_pct: number
+  tenure_months: number
+  start_date: string
+  lender?: string
+  use_cpf_oa: boolean
+  profileIndex: number
+}
+
+export interface OnboardingInsurance {
+  name: string
+  type: string
+  premium_amount: number
+  frequency: "monthly" | "yearly"
+  coverage_amount?: number
+  profileIndex: number
+}
+
+export interface OnboardingIlp {
+  name: string
+  monthly_premium: number
+  end_date: string
+  profileIndex: number
+}
+
+export interface OnboardingTaxRelief {
+  relief_type: string
+  amount: number
+  profileIndex: number
+}
+
+export type OnboardingMode = "first-time" | "new-family"
+
 export interface OnboardingState {
+  mode: OnboardingMode
   userCount: number
   profiles: Profile[]
   incomeConfigs: IncomeConfig[]
   bankAccounts: BankAccount[]
+  cpfBalances: CpfBalance[]
   telegramChatId: string
   promptSchedule: PromptScheduleConfig[]
+  investments: OnboardingInvestment[]
+  loans: OnboardingLoan[]
+  insurancePolicies: OnboardingInsurance[]
+  ilpProducts: OnboardingIlp[]
+  taxReliefInputs: OnboardingTaxRelief[]
 }
 
 interface OnboardingContextValue extends OnboardingState {
@@ -57,8 +116,14 @@ interface OnboardingContextValue extends OnboardingState {
   setProfiles: (profiles: Profile[]) => void
   setIncomeConfigs: (configs: IncomeConfig[]) => void
   setBankAccounts: (accounts: BankAccount[]) => void
+  setCpfBalances: (balances: CpfBalance[]) => void
   setTelegramChatId: (chatId: string) => void
   setPromptSchedule: Dispatch<SetStateAction<PromptScheduleConfig[]>>
+  setInvestments: Dispatch<SetStateAction<OnboardingInvestment[]>>
+  setLoans: Dispatch<SetStateAction<OnboardingLoan[]>>
+  setInsurancePolicies: Dispatch<SetStateAction<OnboardingInsurance[]>>
+  setIlpProducts: Dispatch<SetStateAction<OnboardingIlp[]>>
+  setTaxReliefInputs: Dispatch<SetStateAction<OnboardingTaxRelief[]>>
 }
 
 const DEFAULT_PROMPT_SCHEDULE: PromptScheduleConfig[] = [
@@ -98,7 +163,14 @@ const DEFAULT_PROMPT_SCHEDULE: PromptScheduleConfig[] = [
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null)
 
-export function OnboardingProvider({ children }: { children: ReactNode }) {
+export function OnboardingProvider({
+  children,
+  mode: initialMode = "first-time",
+}: {
+  children: ReactNode
+  mode?: OnboardingMode
+}) {
+  const [mode] = useState<OnboardingMode>(initialMode)
   const [userCount, setUserCount] = useState(1)
   const [profiles, setProfiles] = useState<Profile[]>([
     { name: "", birth_year: null },
@@ -107,10 +179,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     { annual_salary: null, bonus_estimate: null, pay_frequency: "monthly" },
   ])
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
+  const [cpfBalances, setCpfBalances] = useState<CpfBalance[]>([])
   const [telegramChatId, setTelegramChatId] = useState("")
   const [promptSchedule, setPromptSchedule] = useState<PromptScheduleConfig[]>(
     DEFAULT_PROMPT_SCHEDULE,
   )
+  const [investments, setInvestments] = useState<OnboardingInvestment[]>([])
+  const [loans, setLoans] = useState<OnboardingLoan[]>([])
+  const [insurancePolicies, setInsurancePolicies] = useState<OnboardingInsurance[]>([])
+  const [ilpProducts, setIlpProducts] = useState<OnboardingIlp[]>([])
+  const [taxReliefInputs, setTaxReliefInputs] = useState<OnboardingTaxRelief[]>([])
 
   const handleSetUserCount = useCallback(
     (count: number) => {
@@ -149,18 +227,31 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   return (
     <OnboardingContext
       value={{
+        mode,
         userCount,
         profiles,
         incomeConfigs,
         bankAccounts,
+        cpfBalances,
         telegramChatId,
         promptSchedule,
+        investments,
+        loans,
+        insurancePolicies,
+        ilpProducts,
+        taxReliefInputs,
         setUserCount: handleSetUserCount,
         setProfiles,
         setIncomeConfigs,
         setBankAccounts,
+        setCpfBalances,
         setTelegramChatId,
         setPromptSchedule,
+        setInvestments,
+        setLoans,
+        setInsurancePolicies,
+        setIlpProducts,
+        setTaxReliefInputs,
       }}
     >
       {children}
@@ -174,4 +265,10 @@ export function useOnboarding() {
     throw new Error("useOnboarding must be used within OnboardingProvider")
   }
   return ctx
+}
+
+export function pathWithMode(path: string, mode: OnboardingMode): string {
+  if (mode !== "new-family") return path
+  const sep = path.includes("?") ? "&" : "?"
+  return `${path}${sep}mode=new-family`
 }

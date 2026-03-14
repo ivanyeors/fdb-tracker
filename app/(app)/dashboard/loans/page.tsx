@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { MetricCard } from "@/components/dashboard/metric-card"
+import { formatCurrency } from "@/lib/utils"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Badge } from "@/components/ui/badge"
 
@@ -35,13 +36,13 @@ function getRemainingMonths(startDate: string, tenureMonths: number): number {
 }
 
 export default function LoansPage() {
-  const { activeProfileId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [loans, setLoans] = useState<Loan[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     async function fetchLoans() {
-      if (!activeProfileId) {
+      if (!activeProfileId && !activeFamilyId) {
         setIsLoading(false)
         return
       }
@@ -49,7 +50,8 @@ export default function LoansPage() {
       setIsLoading(true)
       try {
         const url = new URL("/api/loans", window.location.origin)
-        url.searchParams.set("profileId", activeProfileId)
+        if (activeProfileId) url.searchParams.set("profileId", activeProfileId)
+        else if (activeFamilyId) url.searchParams.set("familyId", activeFamilyId)
 
         const res = await fetch(url)
         if (res.ok) {
@@ -63,7 +65,7 @@ export default function LoansPage() {
       }
     }
     fetchLoans()
-  }, [activeProfileId])
+  }, [activeProfileId, activeFamilyId])
 
   const totalPrincipal = useMemo(() => loans.reduce((sum, l) => sum + l.principal, 0), [loans])
   const totalMonthly = useMemo(
@@ -91,12 +93,12 @@ export default function LoansPage() {
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard
               label="Total Principal"
-              value={totalPrincipal.toLocaleString()}
+              value={totalPrincipal}
               prefix="$"
             />
             <MetricCard
               label="Est. Monthly Repayment"
-              value={totalMonthly.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              value={totalMonthly}
               prefix="$"
             />
             <MetricCard
@@ -138,13 +140,13 @@ export default function LoansPage() {
                           {loan.type}
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums">
-                          ${loan.principal.toLocaleString()}
+                          ${formatCurrency(loan.principal)}
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums">
                           {loan.rate_pct}%
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums">
-                          ${monthly.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          ${formatCurrency(monthly)}
                         </td>
                         <td className="px-4 py-3 text-right text-muted-foreground">
                           {remaining === 0 ? (

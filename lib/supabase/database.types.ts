@@ -36,37 +36,72 @@ export type Database = {
         }
         Relationships: []
       }
-      profiles: {
+      families: {
         Row: {
           id: string
           household_id: string
           name: string
-          telegram_user_id: string | null
-          birth_year: number
+          user_count: number
           created_at: string
         }
         Insert: {
           id?: string
           household_id: string
-          name: string
-          telegram_user_id?: string | null
-          birth_year: number
+          name?: string
+          user_count?: number
           created_at?: string
         }
         Update: {
           id?: string
           household_id?: string
           name?: string
-          telegram_user_id?: string | null
-          birth_year?: number
+          user_count?: number
           created_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "profiles_household_id_fkey"
+            foreignKeyName: "families_household_id_fkey"
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          id: string
+          family_id: string
+          name: string
+          telegram_user_id: string | null
+          birth_year: number
+          optional_onboarding_completed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          name: string
+          telegram_user_id?: string | null
+          birth_year: number
+          optional_onboarding_completed_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          name?: string
+          telegram_user_id?: string | null
+          birth_year?: number
+          optional_onboarding_completed_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
         ]
@@ -112,7 +147,7 @@ export type Database = {
       bank_accounts: {
         Row: {
           id: string
-          household_id: string
+          family_id: string
           profile_id: string | null
           bank_name: string
           account_type: string
@@ -122,7 +157,7 @@ export type Database = {
         }
         Insert: {
           id?: string
-          household_id: string
+          family_id: string
           profile_id?: string | null
           bank_name: string
           account_type?: string
@@ -132,7 +167,7 @@ export type Database = {
         }
         Update: {
           id?: string
-          household_id?: string
+          family_id?: string
           profile_id?: string | null
           bank_name?: string
           account_type?: string
@@ -142,10 +177,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "bank_accounts_household_id_fkey"
-            columns: ["household_id"]
+            foreignKeyName: "bank_accounts_family_id_fkey"
+            columns: ["family_id"]
             isOneToOne: false
-            referencedRelation: "households"
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
           {
@@ -236,7 +271,7 @@ export type Database = {
       savings_goals: {
         Row: {
           id: string
-          household_id: string
+          family_id: string
           profile_id: string | null
           name: string
           target_amount: number
@@ -248,7 +283,7 @@ export type Database = {
         }
         Insert: {
           id?: string
-          household_id: string
+          family_id: string
           profile_id?: string | null
           name: string
           target_amount: number
@@ -260,7 +295,7 @@ export type Database = {
         }
         Update: {
           id?: string
-          household_id?: string
+          family_id?: string
           profile_id?: string | null
           name?: string
           target_amount?: number
@@ -272,10 +307,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "savings_goals_household_id_fkey"
-            columns: ["household_id"]
+            foreignKeyName: "savings_goals_family_id_fkey"
+            columns: ["family_id"]
             isOneToOne: false
-            referencedRelation: "households"
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
           {
@@ -322,7 +357,7 @@ export type Database = {
       investments: {
         Row: {
           id: string
-          household_id: string
+          family_id: string
           profile_id: string | null
           type: string
           symbol: string
@@ -332,7 +367,7 @@ export type Database = {
         }
         Insert: {
           id?: string
-          household_id: string
+          family_id: string
           profile_id?: string | null
           type: string
           symbol: string
@@ -342,7 +377,7 @@ export type Database = {
         }
         Update: {
           id?: string
-          household_id?: string
+          family_id?: string
           profile_id?: string | null
           type?: string
           symbol?: string
@@ -352,10 +387,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "investments_household_id_fkey"
-            columns: ["household_id"]
+            foreignKeyName: "investments_family_id_fkey"
+            columns: ["family_id"]
             isOneToOne: false
-            referencedRelation: "households"
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
           {
@@ -371,7 +406,7 @@ export type Database = {
         Row: {
           id: string
           investment_id: string | null
-          household_id: string
+          family_id: string
           profile_id: string | null
           type: string
           symbol: string
@@ -384,7 +419,7 @@ export type Database = {
         Insert: {
           id?: string
           investment_id?: string | null
-          household_id: string
+          family_id: string
           profile_id?: string | null
           type: string
           symbol: string
@@ -397,7 +432,7 @@ export type Database = {
         Update: {
           id?: string
           investment_id?: string | null
-          household_id?: string
+          family_id?: string
           profile_id?: string | null
           type?: string
           symbol?: string
@@ -409,10 +444,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "investment_transactions_household_id_fkey"
-            columns: ["household_id"]
+            foreignKeyName: "investment_transactions_family_id_fkey"
+            columns: ["family_id"]
             isOneToOne: false
-            referencedRelation: "households"
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
           {
@@ -434,7 +469,7 @@ export type Database = {
       ilp_products: {
         Row: {
           id: string
-          household_id: string
+          family_id: string
           profile_id: string | null
           name: string
           monthly_premium: number
@@ -443,7 +478,7 @@ export type Database = {
         }
         Insert: {
           id?: string
-          household_id: string
+          family_id: string
           profile_id?: string | null
           name: string
           monthly_premium: number
@@ -452,7 +487,7 @@ export type Database = {
         }
         Update: {
           id?: string
-          household_id?: string
+          family_id?: string
           profile_id?: string | null
           name?: string
           monthly_premium?: number
@@ -461,10 +496,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "ilp_products_household_id_fkey"
-            columns: ["household_id"]
+            foreignKeyName: "ilp_products_family_id_fkey"
+            columns: ["family_id"]
             isOneToOne: false
-            referencedRelation: "households"
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
           {
@@ -976,7 +1011,7 @@ export type Database = {
       prompt_schedule: {
         Row: {
           id: string
-          household_id: string
+          family_id: string
           prompt_type: string
           frequency: string
           day_of_month: number
@@ -987,7 +1022,7 @@ export type Database = {
         }
         Insert: {
           id?: string
-          household_id: string
+          family_id: string
           prompt_type: string
           frequency: string
           day_of_month: number
@@ -998,7 +1033,7 @@ export type Database = {
         }
         Update: {
           id?: string
-          household_id?: string
+          family_id?: string
           prompt_type?: string
           frequency?: string
           day_of_month?: number
@@ -1009,10 +1044,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "prompt_schedule_household_id_fkey"
-            columns: ["household_id"]
+            foreignKeyName: "prompt_schedule_family_id_fkey"
+            columns: ["family_id"]
             isOneToOne: false
-            referencedRelation: "households"
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
         ]
@@ -1065,6 +1100,7 @@ export type Database = {
         Row: {
           id: string
           household_id: string
+          family_id: string | null
           profile_id: string | null
           command: string
           args: string | null
@@ -1076,17 +1112,19 @@ export type Database = {
         Insert: {
           id?: string
           household_id: string
+          family_id?: string | null
           profile_id?: string | null
           command: string
           args?: string | null
           raw_message: string
-          success: boolean
+          success?: boolean
           error_message?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           household_id?: string
+          family_id?: string | null
           profile_id?: string | null
           command?: string
           args?: string | null
@@ -1101,6 +1139,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "telegram_commands_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
           {
@@ -1142,7 +1187,7 @@ export type Database = {
       net_worth_snapshots: {
         Row: {
           id: string
-          household_id: string
+          family_id: string
           profile_id: string | null
           month: string
           liquid_net_worth: number
@@ -1155,7 +1200,7 @@ export type Database = {
         }
         Insert: {
           id?: string
-          household_id: string
+          family_id: string
           profile_id?: string | null
           month: string
           liquid_net_worth: number
@@ -1168,7 +1213,7 @@ export type Database = {
         }
         Update: {
           id?: string
-          household_id?: string
+          family_id?: string
           profile_id?: string | null
           month?: string
           liquid_net_worth?: number
@@ -1181,10 +1226,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "net_worth_snapshots_household_id_fkey"
-            columns: ["household_id"]
+            foreignKeyName: "net_worth_snapshots_family_id_fkey"
+            columns: ["family_id"]
             isOneToOne: false
-            referencedRelation: "households"
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
           {

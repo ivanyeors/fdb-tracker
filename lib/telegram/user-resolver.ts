@@ -1,6 +1,6 @@
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
-type ResolvedUser = { profileId: string; profileName: string }
+type ResolvedUser = { profileId: string; profileName: string; familyId: string }
 type ResolveError = { error: string }
 
 export async function resolveUser(
@@ -9,10 +9,20 @@ export async function resolveUser(
 ): Promise<ResolvedUser | ResolveError> {
   const supabase = createSupabaseAdmin()
 
+  const { data: families } = await supabase
+    .from("families")
+    .select("id")
+    .eq("household_id", accountId)
+
+  const familyIds = families?.map((f) => f.id) ?? []
+  if (familyIds.length === 0) {
+    return { error: "No families found. Complete onboarding first." }
+  }
+
   const { data: profiles, error } = await supabase
     .from("profiles")
-    .select("id, name")
-    .eq("household_id", accountId)
+    .select("id, name, family_id")
+    .in("family_id", familyIds)
 
   if (error) {
     return { error: `Database error: ${error.message}` }
@@ -25,7 +35,11 @@ export async function resolveUser(
   const trimmed = nameOrArgs.trim()
 
   if (profiles.length === 1 && trimmed === "") {
-    return { profileId: profiles[0].id, profileName: profiles[0].name }
+    return {
+      profileId: profiles[0].id,
+      profileName: profiles[0].name,
+      familyId: profiles[0].family_id,
+    }
   }
 
   if (trimmed === "") {
@@ -42,5 +56,9 @@ export async function resolveUser(
     return { error: `Unknown user '${trimmed}'. Known users: ${names}.` }
   }
 
-  return { profileId: match.id, profileName: match.name }
+  return {
+    profileId: match.id,
+    profileName: match.name,
+    familyId: match.family_id,
+  }
 }

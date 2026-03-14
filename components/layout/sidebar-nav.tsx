@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/sidebar"
 
 import { createSupabaseClient } from "@/lib/supabase/client"
+import { CompleteSetupNav } from "@/components/layout/complete-setup-nav"
 
 const dashboardItems = [
   { title: "Overview", href: "/dashboard", icon: BarChart3 },
@@ -72,6 +73,7 @@ export function SidebarNav() {
         <span className="text-lg font-semibold tracking-tight">fdb-tracker</span>
       </SidebarHeader>
       <SidebarContent>
+        <CompleteSetupNav />
         <SidebarGroup>
           <SidebarGroupLabel>
             <LayoutDashboard className="mr-1.5" />

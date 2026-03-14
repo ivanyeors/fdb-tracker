@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useOnboarding } from "@/components/onboarding/onboarding-provider"
+import { useOnboarding, pathWithMode } from "@/components/onboarding/onboarding-provider"
 import {
   ArrowLeft,
   ArrowRight,
@@ -58,7 +58,7 @@ function MethodSection({ title, children, defaultOpen }: MethodSectionProps) {
 
 export default function TelegramPage() {
   const router = useRouter()
-  const { telegramChatId, setTelegramChatId } = useOnboarding()
+  const { mode, telegramChatId, setTelegramChatId } = useOnboarding()
   const [testStatus, setTestStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle")
@@ -166,12 +166,12 @@ export default function TelegramPage() {
         <div className="flex gap-3">
           <Button
             variant="outline"
-            onClick={() => router.push("/onboarding/banks")}
+            onClick={() => router.push(pathWithMode("/onboarding/banks", mode))}
           >
             <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
-          <Button onClick={() => router.push("/onboarding/reminders")}>
+          <Button onClick={() => router.push(pathWithMode("/onboarding/reminders", mode))}>
             Next
             <ArrowRight data-icon="inline-end" />
           </Button>
@@ -180,7 +180,7 @@ export default function TelegramPage() {
           <Button
             variant="link"
             className="text-muted-foreground"
-            onClick={() => router.push("/onboarding/reminders")}
+            onClick={() => router.push(pathWithMode("/onboarding/reminders", mode))}
           >
             Skip for now
           </Button>

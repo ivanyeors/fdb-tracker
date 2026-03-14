@@ -3,15 +3,18 @@ import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
 
 const balancesQuerySchema = z.object({
-  profileId: z.string().uuid(),
+  profileId: z.string().uuid().optional(),
+  familyId: z.string().uuid().optional(),
   months: z.string().regex(/^\d+$/).optional(),
 })
 
 const manualOverrideSchema = z.object({
   profileId: z.string().uuid(),
+  familyId: z.string().uuid().optional(),
   month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   oa: z.number().min(0),
   sa: z.number().min(0),
@@ -29,7 +32,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = request.nextUrl
     const parsed = balancesQuerySchema.safeParse({
-      profileId: searchParams.get("profileId"),
+      profileId: searchParams.get("profileId") ?? undefined,
+      familyId: searchParams.get("familyId") ?? undefined,
       months: searchParams.get("months") ?? undefined,
     })
 
@@ -37,36 +41,47 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 })
     }
 
-    const profileId = parsed.data.profileId
+    const { profileId, familyId } = parsed.data
     const monthCount = parsed.data.months ? parseInt(parsed.data.months, 10) : 12
     const supabase = createSupabaseAdmin()
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, birth_year")
-      .eq("id", profileId)
-      .eq("household_id", accountId)
-      .single()
-
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      accountId,
+      profileId ?? null,
+      familyId ?? null
+    )
+    if (!resolved) {
+      return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
+    const { profileIds } = resolved
 
     const { data: balances } = await supabase
       .from("cpf_balances")
       .select("*")
-      .eq("profile_id", profileId)
+      .in("profile_id", profileIds)
       .order("month", { ascending: false })
-      .limit(monthCount)
+      .limit(monthCount * profileIds.length)
 
     if (balances && balances.length > 0) {
       return NextResponse.json(balances.reverse())
     }
 
+    if (profileIds.length !== 1) {
+      return NextResponse.json([])
+    }
+
+    const singleProfileId = profileIds[0]!
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, birth_year")
+      .eq("id", singleProfileId)
+      .single()
+    if (!profile) return NextResponse.json([])
+
     const { data: incomeConfig } = await supabase
       .from("income_config")
       .select("annual_salary, bonus_estimate")
-      .eq("profile_id", profileId)
+      .eq("profile_id", singleProfileId)
       .single()
 
     if (!incomeConfig) {
@@ -96,7 +111,7 @@ export async function GET(request: NextRequest) {
       runningMa += contribution.ma
 
       projectedBalances.push({
-        profile_id: profileId,
+        profile_id: singleProfileId,
         month,
         oa: Math.round(runningOa * 100) / 100,
         sa: Math.round(runningSa * 100) / 100,
@@ -127,17 +142,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { profileId, month, oa, sa, ma } = parsed.data
+    const { profileId, familyId, month, oa, sa, ma } = parsed.data
     const supabase = createSupabaseAdmin()
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", profileId)
-      .eq("household_id", accountId)
-      .single()
-
-    if (!profile) {
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      accountId,
+      profileId,
+      familyId ?? null
+    )
+    if (!resolved || !resolved.profileIds.includes(profileId)) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 

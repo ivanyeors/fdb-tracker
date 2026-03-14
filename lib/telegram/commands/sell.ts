@@ -19,7 +19,7 @@ export async function handleSell(
   const { data: existing, error: fetchError } = await supabase
     .from("investments")
     .select("id, units, cost_basis")
-    .eq("household_id", accountId)
+    .eq("family_id", user.familyId)
     .eq("profile_id", user.profileId)
     .eq("symbol", symbol)
     .single()
@@ -35,7 +35,7 @@ export async function handleSell(
   const { error: txError } = await supabase
     .from("investment_transactions")
     .insert({
-      household_id: accountId,
+      family_id: user.familyId,
       profile_id: user.profileId,
       type: "sell",
       symbol,

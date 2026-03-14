@@ -18,15 +18,24 @@ import { SectionHeader } from "@/components/dashboard/section-header"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 
 export default function CashflowPage() {
-  const { activeProfileId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [cashflowData, setCashflowData] = useState<
-    Array<{ month: string; inflow?: number; outflow?: number }>
+    Array<{
+      month: string
+      inflow: number
+      discretionary: number
+      insurance: number
+      ilp: number
+      loans: number
+      tax: number
+      totalOutflow: number
+    }>
   >([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     async function fetchCashflow() {
-      if (!activeProfileId) {
+      if (!activeProfileId && !activeFamilyId) {
         setIsLoading(false)
         return
       }
@@ -34,7 +43,8 @@ export default function CashflowPage() {
       setIsLoading(true)
       try {
         const url = new URL("/api/cashflow", window.location.origin)
-        url.searchParams.set("profileId", activeProfileId)
+        if (activeProfileId) url.searchParams.set("profileId", activeProfileId)
+        else if (activeFamilyId) url.searchParams.set("familyId", activeFamilyId)
         
         const now = new Date()
         const endMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
@@ -57,65 +67,35 @@ export default function CashflowPage() {
       }
     }
     fetchCashflow()
-  }, [activeProfileId])
+  }, [activeProfileId, activeFamilyId])
 
   const chartData = useMemo(() => {
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    const grouped = new Map<
-      string,
-      {
-        month: string
-        sortKey?: string
-        inflow: number
-        discretionary: number
-        insurance: number
-        ilp: number
-        loans: number
-        tax: number
-      }
-    >()
-
-    cashflowData.forEach((entry) => {
+    return cashflowData.map((entry) => {
       const date = new Date(entry.month)
       const year = date.getFullYear()
       const monthLabel = `${monthNames[date.getMonth()]} ${year}`
-      const sortKey = `${year}-${String(date.getMonth() + 1).padStart(2, "0")}`
-
-      const current = grouped.get(sortKey) || {
+      return {
         month: monthLabel,
-        sortKey,
-        inflow: 0,
-        discretionary: 0,
-        insurance: 0,
-        ilp: 0,
-        loans: 0,
-        tax: 0,
+        sortKey: entry.month,
+        inflow: entry.inflow,
+        discretionary: entry.discretionary,
+        insurance: entry.insurance,
+        ilp: entry.ilp,
+        loans: entry.loans,
+        tax: entry.tax,
       }
-
-      current.inflow += entry.inflow || 0
-      current.discretionary += entry.outflow || 0
-
-      grouped.set(sortKey, current)
-    })
-
-    return Array.from(grouped.values()).sort(
-      (a, b) => (a.sortKey ?? "").localeCompare(b.sortKey ?? ""),
-    )
+    }).sort((a, b) => (a.sortKey ?? "").localeCompare(b.sortKey ?? ""))
   }, [cashflowData])
 
   const currentMonthMetrics = useMemo(() => {
     if (cashflowData.length === 0) return { inflow: 0, outflow: 0 }
-    
-    // Sort descending by month
-    const sorted = [...cashflowData].sort((a, b) => new Date(b.month).getTime() - new Date(a.month).getTime())
-    const latestMonth = sorted[0].month
-    
-    const currentEntries = sorted.filter(e => e.month === latestMonth)
-    return currentEntries.reduce((acc, curr) => ({
-      inflow: acc.inflow + (curr.inflow || 0),
-      outflow: acc.outflow + (curr.outflow || 0)
-    }), { inflow: 0, outflow: 0 })
-    
+    const sorted = [...cashflowData].sort((a, b) => b.month.localeCompare(a.month))
+    const latest = sorted[0]
+    return {
+      inflow: latest?.inflow ?? 0,
+      outflow: latest?.totalOutflow ?? 0,
+    }
   }, [cashflowData])
 
   const netSavings = currentMonthMetrics.inflow - currentMonthMetrics.outflow
@@ -212,9 +192,9 @@ export default function CashflowPage() {
           </Card>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <MetricCard label="Inflow" value={currentMonthMetrics.inflow.toLocaleString()} prefix="$" />
-            <MetricCard label="Outflow" value={currentMonthMetrics.outflow.toLocaleString()} prefix="$" />
-            <MetricCard label="Net Savings" value={netSavings.toLocaleString()} prefix="$" />
+            <MetricCard label="Inflow" value={currentMonthMetrics.inflow} prefix="$" />
+            <MetricCard label="Outflow" value={currentMonthMetrics.outflow} prefix="$" />
+            <MetricCard label="Net Savings" value={netSavings} prefix="$" />
           </div>
 
           <MetricCard

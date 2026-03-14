@@ -19,6 +19,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
+import { formatCurrency } from "@/lib/utils"
+import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 
 const BRS = 110200
@@ -81,19 +83,19 @@ function OverviewTab({ data }: { data: CpfBalanceRow[] }) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <MetricCard
           label="Ordinary Account (OA)"
-          value={latest.oa.toLocaleString()}
+          value={latest.oa}
           prefix="$"
           tooltipId="CPF_OA_SA_MA"
         />
         <MetricCard
           label="Special Account (SA)"
-          value={latest.sa.toLocaleString()}
+          value={latest.sa}
           prefix="$"
           tooltipId="CPF_OA_SA_MA"
         />
         <MetricCard
           label="Medisave Account (MA)"
-          value={latest.ma.toLocaleString()}
+          value={latest.ma}
           prefix="$"
           tooltipId="CPF_OA_SA_MA"
         />
@@ -168,25 +170,25 @@ function HousingTab({ data }: { data: HousingData | null }) {
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <MetricCard
         label="CPF OA Used"
-        value={oaUsed.toLocaleString()}
+        value={oaUsed}
         prefix="$"
         tooltipId="CPF_HOUSING_REFUND"
       />
       <MetricCard
         label="Accrued Interest"
-        value={accruedInterest.toLocaleString()}
+        value={accruedInterest}
         prefix="$"
         tooltipId="CPF_HOUSING_REFUND"
       />
       <MetricCard
         label="Total Refund Due"
-        value={refundDue.toLocaleString()}
+        value={refundDue}
         prefix="$"
         tooltipId="CPF_HOUSING_REFUND"
       />
       <MetricCard
         label="120% VL Remaining"
-        value={vlRemaining.toLocaleString()}
+        value={vlRemaining}
         prefix="$"
         tooltipId="CPF_HOUSING_REFUND"
       />
@@ -218,11 +220,11 @@ function LoansTab({ loans }: { loans: LoanRow[] }) {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <p className="text-sm text-muted-foreground">Principal</p>
-                  <p className="text-xl font-bold">${loan.principal.toLocaleString()}</p>
+                  <p className="text-xl font-bold">${formatCurrency(loan.principal)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Monthly Payment</p>
-                  <p className="text-xl font-bold">${monthlyPayment.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <p className="text-xl font-bold">${formatCurrency(monthlyPayment)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Rate</p>
@@ -245,9 +247,9 @@ function RetirementTab({ data }: { data: RetirementData | null }) {
   const cpfTotal = data?.currentCpf.total ?? 0
   const retirementSums = data?.retirementSums ?? { brs: BRS, frs: FRS, ers: ERS }
   const retirementBenchmarks = [
-    { label: "BRS", target: retirementSums.brs, pct: Math.round((cpfTotal / retirementSums.brs) * 100) },
-    { label: "FRS", target: retirementSums.frs, pct: Math.round((cpfTotal / retirementSums.frs) * 100) },
-    { label: "ERS", target: retirementSums.ers, pct: Math.round((cpfTotal / retirementSums.ers) * 100) },
+    { label: "BRS", fullLabel: "Basic Retirement Sum", target: retirementSums.brs, pct: Math.round((cpfTotal / retirementSums.brs) * 100), tooltipId: "CPF_BRS" as const },
+    { label: "FRS", fullLabel: "Full Retirement Sum", target: retirementSums.frs, pct: Math.round((cpfTotal / retirementSums.frs) * 100), tooltipId: "CPF_FRS" as const },
+    { label: "ERS", fullLabel: "Enhanced Retirement Sum", target: retirementSums.ers, pct: Math.round((cpfTotal / retirementSums.ers) * 100), tooltipId: "CPF_ERS" as const },
   ]
 
   const chartData = useMemo(() => {
@@ -262,9 +264,12 @@ function RetirementTab({ data }: { data: RetirementData | null }) {
           <Card key={b.label}>
             <CardContent className="pt-1">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-medium">
-                  {b.label} (${b.target.toLocaleString()})
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-medium">
+                    {b.label} ({b.fullLabel}) — ${formatCurrency(b.target)}
+                  </p>
+                  <InfoTooltip id={b.tooltipId} />
+                </div>
                 <span className="text-sm font-bold tabular-nums">
                   {b.pct}%
                 </span>
@@ -277,7 +282,10 @@ function RetirementTab({ data }: { data: RetirementData | null }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>CPF Growth Projection</CardTitle>
+          <div className="flex items-center gap-1.5">
+            <CardTitle>CPF Growth Projection</CardTitle>
+            <InfoTooltip id="CPF_RETIREMENT_PROJECTION" />
+          </div>
         </CardHeader>
         <CardContent>
           {chartData.length === 0 ? (
@@ -313,19 +321,19 @@ function RetirementTab({ data }: { data: RetirementData | null }) {
                   y={BRS}
                   stroke="var(--color-chart-1)"
                   strokeDasharray="6 3"
-                  label={{ value: "BRS", fill: "var(--color-chart-1)", fontSize: 12 }}
+                  label={{ value: "BRS (Basic Retirement Sum)", fill: "var(--color-chart-1)", fontSize: 12 }}
                 />
                 <ReferenceLine
                   y={FRS}
                   stroke="var(--color-chart-3)"
                   strokeDasharray="6 3"
-                  label={{ value: "FRS", fill: "var(--color-chart-3)", fontSize: 12 }}
+                  label={{ value: "FRS (Full Retirement Sum)", fill: "var(--color-chart-3)", fontSize: 12 }}
                 />
                 <ReferenceLine
                   y={ERS}
                   stroke="var(--color-chart-5)"
                   strokeDasharray="6 3"
-                  label={{ value: "ERS", fill: "var(--color-chart-5)", fontSize: 12 }}
+                  label={{ value: "ERS (Enhanced Retirement Sum)", fill: "var(--color-chart-5)", fontSize: 12 }}
                 />
                 <Line
                   type="monotone"
@@ -345,27 +353,30 @@ function RetirementTab({ data }: { data: RetirementData | null }) {
 }
 
 export default function CpfPage() {
-  const { activeProfileId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [cpfData, setCpfData] = useState<CpfBalanceRow[]>([])
   const [housingData, setHousingData] = useState<HousingData | null>(null)
   const [loansData, setLoansData] = useState<LoanRow[]>([])
   const [retirementData, setRetirementData] = useState<RetirementData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-
   useEffect(() => {
     async function fetchAll() {
-      if (!activeProfileId) {
+      if (!activeProfileId && !activeFamilyId) {
         setIsLoading(false)
         return
       }
 
       setIsLoading(true)
       try {
+        const params = new URLSearchParams()
+        if (activeProfileId) params.set("profileId", activeProfileId)
+        else if (activeFamilyId) params.set("familyId", activeFamilyId)
+        const qs = params.toString()
         const [balancesRes, housingRes, loansRes, retirementRes] = await Promise.all([
-          fetch(`/api/cpf/balances?profileId=${activeProfileId}`),
-          fetch(`/api/cpf/housing?profileId=${activeProfileId}`),
-          fetch(`/api/loans?profileId=${activeProfileId}`),
-          fetch(`/api/cpf/retirement?profileId=${activeProfileId}`),
+          fetch(`/api/cpf/balances?${qs}`),
+          fetch(`/api/cpf/housing?${qs}`),
+          fetch(`/api/loans?${qs}`),
+          fetch(`/api/cpf/retirement?${qs}`),
         ])
 
         if (balancesRes.ok) {
@@ -391,7 +402,7 @@ export default function CpfPage() {
       }
     }
     fetchAll()
-  }, [activeProfileId])
+  }, [activeProfileId, activeFamilyId])
 
   return (
     <div className="space-y-6 p-4 sm:p-6">

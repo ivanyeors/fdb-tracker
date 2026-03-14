@@ -6,6 +6,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const trendQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
+  familyId: z.string().uuid().optional(),
   months: z.coerce.number().int().min(1).max(24).optional(),
 })
 
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl
     const parsed = trendQuerySchema.safeParse({
       profileId: searchParams.get("profileId") ?? undefined,
+      familyId: searchParams.get("familyId") ?? undefined,
       months: searchParams.get("months") ?? undefined,
     })
 
@@ -28,8 +30,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 })
     }
 
-    const { profileId, months = 12 } = parsed.data
+    const { profileId, familyId, months = 12 } = parsed.data
     const supabase = createSupabaseAdmin()
+    const { resolveFamilyAndProfiles } = await import("@/lib/api/resolve-family")
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      accountId,
+      profileId ?? null,
+      familyId ?? null
+    )
+    if (!resolved) {
+      return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
+    }
+    const { familyId: fid, profileIds } = resolved
+    const pid = profileIds[0] ?? null
 
     const monthKeys: string[] = []
     const now = new Date()
@@ -43,11 +57,11 @@ export async function GET(request: NextRequest) {
     let bankAccountQuery = supabase
       .from("bank_accounts")
       .select("id, opening_balance")
-      .eq("household_id", accountId)
+      .eq("family_id", fid)
 
-    if (profileId) {
+    if (pid) {
       bankAccountQuery = bankAccountQuery.or(
-        `profile_id.eq.${profileId},profile_id.is.null`,
+        `profile_id.eq.${pid},profile_id.is.null`,
       )
     }
 
@@ -56,17 +70,6 @@ export async function GET(request: NextRequest) {
     const openingByAccount = new Map(
       bankAccounts?.map((a) => [a.id, a.opening_balance]) ?? [],
     )
-
-    let profileIds: string[] = []
-    if (profileId) {
-      profileIds = [profileId]
-    } else {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("household_id", accountId)
-      profileIds = profiles?.map((p) => p.id) ?? []
-    }
 
     const allSnapshots =
       accountIds.length > 0
@@ -91,9 +94,9 @@ export async function GET(request: NextRequest) {
     let investmentQuery = supabase
       .from("investments")
       .select("units, cost_basis")
-      .eq("household_id", accountId)
-    if (profileId) {
-      investmentQuery = investmentQuery.eq("profile_id", profileId)
+      .eq("family_id", fid)
+    if (pid) {
+      investmentQuery = investmentQuery.eq("profile_id", pid)
     }
     const { data: investments } = await investmentQuery
     const investmentTotal =

@@ -1,0 +1,233 @@
+"use client"
+
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { CurrencyInput } from "@/components/ui/currency-input"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  useOnboarding,
+  pathWithMode,
+  type OnboardingInsurance,
+} from "@/components/onboarding/onboarding-provider"
+import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react"
+
+const INSURANCE_TYPES = [
+  { value: "term_life", label: "Term Life" },
+  { value: "whole_life", label: "Whole Life" },
+  { value: "integrated_shield", label: "Integrated Shield" },
+  { value: "critical_illness", label: "Critical Illness" },
+  { value: "endowment", label: "Endowment" },
+  { value: "ilp", label: "ILP" },
+  { value: "personal_accident", label: "Personal Accident" },
+] as const
+
+export default function InsurancePage() {
+  const router = useRouter()
+  const { mode, profiles, userCount, insurancePolicies, setInsurancePolicies } =
+    useOnboarding()
+  const [items, setItems] = useState<OnboardingInsurance[]>(
+    insurancePolicies.length > 0 ? insurancePolicies : [],
+  )
+
+  function addItem() {
+    setItems([
+      ...items,
+      {
+        name: "",
+        type: "term_life",
+        premium_amount: 0,
+        frequency: "yearly",
+        profileIndex: 0,
+      },
+    ])
+  }
+
+  function removeItem(index: number) {
+    setItems(items.filter((_, i) => i !== index))
+  }
+
+  function updateItem(
+    index: number,
+    field: keyof OnboardingInsurance,
+    value: string | number,
+  ) {
+    const updated = [...items]
+    if (field === "name") updated[index] = { ...updated[index], name: value as string }
+    else if (field === "type")
+      updated[index] = { ...updated[index], type: value as string }
+    else if (field === "premium_amount")
+      updated[index] = {
+        ...updated[index],
+        premium_amount: typeof value === "number" ? value : Number(value) || 0,
+      }
+    else if (field === "frequency")
+      updated[index] = {
+        ...updated[index],
+        frequency: value as "monthly" | "yearly",
+      }
+    else if (field === "coverage_amount")
+      updated[index] = {
+        ...updated[index],
+        coverage_amount: typeof value === "number" ? value : Number(value) || 0,
+      }
+    else if (field === "profileIndex")
+      updated[index] = {
+        ...updated[index],
+        profileIndex: typeof value === "number" ? value : Number(value) || 0,
+      }
+    setItems(updated)
+  }
+
+  function handleNext() {
+    const valid = items.filter(
+      (i) => i.name.trim().length > 0 && i.premium_amount > 0,
+    )
+    setInsurancePolicies(valid)
+    router.push(pathWithMode("/onboarding/tax-reliefs", mode))
+  }
+
+  function handleSkip() {
+    setInsurancePolicies([])
+    router.push(pathWithMode("/onboarding/tax-reliefs", mode))
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Insurance (Optional)</CardTitle>
+        <CardDescription>
+          Add your insurance policies for coverage tracking and outflow.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {items.map((item, i) => (
+          <div key={i} className="space-y-3 rounded-lg border p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Policy {i + 1}</p>
+              <Button variant="ghost" size="icon-xs" onClick={() => removeItem(i)}>
+                <Trash2 className="size-3.5 text-destructive" />
+              </Button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Profile</Label>
+                <Select
+                  value={String(item.profileIndex)}
+                  onValueChange={(v) => updateItem(i, "profileIndex", Number(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {profiles.slice(0, userCount).map((p, idx) => (
+                      <SelectItem key={idx} value={String(idx)}>
+                        {p.name || `Person ${idx + 1}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Type</Label>
+                <Select
+                  value={item.type}
+                  onValueChange={(v) => updateItem(i, "type", v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INSURANCE_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Policy Name</Label>
+                <Input
+                  placeholder="e.g. Term Life 500k"
+                  value={item.name}
+                  onChange={(e) => updateItem(i, "name", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Premium ($)</Label>
+                <CurrencyInput
+                  placeholder="0.00"
+                  value={item.premium_amount}
+                  onChange={(v) => updateItem(i, "premium_amount", v ?? 0)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Frequency</Label>
+                <Select
+                  value={item.frequency}
+                  onValueChange={(v) =>
+                    updateItem(i, "frequency", v as "monthly" | "yearly")
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Coverage Amount ($, optional)</Label>
+                <CurrencyInput
+                  placeholder="0.00"
+                  value={item.coverage_amount ?? null}
+                  onChange={(v) => updateItem(i, "coverage_amount", v ?? 0)}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+
+        <Button variant="outline" onClick={addItem}>
+          <Plus data-icon="inline-start" />
+          Add policy
+        </Button>
+
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => router.push(pathWithMode("/onboarding/loans", mode))}
+          >
+            <ArrowLeft data-icon="inline-start" />
+            Back
+          </Button>
+          <Button variant="outline" onClick={handleSkip}>
+            Skip
+          </Button>
+          <Button onClick={handleNext}>
+            Next
+            <ArrowRight data-icon="inline-end" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}

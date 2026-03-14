@@ -1,4 +1,7 @@
+"use client"
+
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -10,6 +13,10 @@ import {
 import { ArrowRight } from "lucide-react"
 
 export default function WelcomePage() {
+  const searchParams = useSearchParams()
+  const mode = searchParams.get("mode")
+  const href = mode ? `/onboarding/users?mode=${mode}` : "/onboarding/users"
+
   return (
     <Card>
       <CardHeader>
@@ -21,7 +28,7 @@ export default function WelcomePage() {
       </CardHeader>
       <CardContent>
         <Button asChild size="lg">
-          <Link href="/onboarding/users">
+          <Link href={href}>
             Get Started
             <ArrowRight data-icon="inline-end" />
           </Link>

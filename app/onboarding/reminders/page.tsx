@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select"
 import {
   useOnboarding,
+  pathWithMode,
   type PromptScheduleConfig,
 } from "@/components/onboarding/onboarding-provider"
 import { ArrowLeft, ArrowRight, Clock2Icon } from "lucide-react"
@@ -41,7 +42,7 @@ const PROMPT_LABELS: Record<PromptScheduleConfig["prompt_type"], string> = {
 
 export default function RemindersPage() {
   const router = useRouter()
-  const { promptSchedule, setPromptSchedule } = useOnboarding()
+  const { mode, promptSchedule, setPromptSchedule } = useOnboarding()
 
   useEffect(() => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -177,12 +178,12 @@ export default function RemindersPage() {
         <div className="flex gap-3">
           <Button
             variant="outline"
-            onClick={() => router.push("/onboarding/telegram")}
+            onClick={() => router.push(pathWithMode("/onboarding/telegram", mode))}
           >
             <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
-          <Button onClick={() => router.push("/onboarding/complete")}>
+          <Button onClick={() => router.push(pathWithMode("/onboarding/investments", mode))}>
             Next
             <ArrowRight data-icon="inline-end" />
           </Button>

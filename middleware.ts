@@ -29,12 +29,14 @@ export async function middleware(request: NextRequest) {
 
   const onboardingComplete = !!account?.onboarding_completed_at
   const isOnboarding = pathname.startsWith("/onboarding")
+  const isOptionalFlow = pathname.startsWith("/onboarding/optional")
+  const isAddFamilyMode = request.nextUrl.searchParams.get("mode") === "new-family"
 
   if (!onboardingComplete && !isOnboarding) {
     return NextResponse.redirect(new URL("/onboarding", request.url))
   }
 
-  if (onboardingComplete && isOnboarding) {
+  if (onboardingComplete && isOnboarding && !isAddFamilyMode && !isOptionalFlow) {
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 

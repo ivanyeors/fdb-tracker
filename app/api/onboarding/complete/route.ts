@@ -42,7 +42,50 @@ const completeSavingsGoalSchema = z.object({
     .transform((v) => (v === "" || v == null ? null : v)),
 })
 
+const cpfBalanceSchema = z.object({
+  profileIndex: z.number().int().min(0),
+  oa: z.number().min(0),
+  sa: z.number().min(0),
+  ma: z.number().min(0),
+})
+
+const investmentSchema = z.object({
+  type: z.enum(["stock", "gold", "silver", "ilp", "etf", "bond"]),
+  symbol: z.string(),
+  units: z.number().min(0),
+  cost_basis: z.number().min(0),
+  profileIndex: z.number().int().min(0),
+})
+
+const loanSchema = z.object({
+  name: z.string(),
+  type: z.enum(["housing", "personal", "car", "education"]),
+  principal: z.number().min(0),
+  rate_pct: z.number().min(0),
+  tenure_months: z.number().int().min(1),
+  start_date: z.string(),
+  lender: z.string().optional(),
+  use_cpf_oa: z.boolean(),
+  profileIndex: z.number().int().min(0),
+})
+
+const insuranceSchema = z.object({
+  name: z.string(),
+  type: z.string(),
+  premium_amount: z.number().min(0),
+  frequency: z.enum(["monthly", "yearly"]),
+  coverage_amount: z.number().min(0).optional(),
+  profileIndex: z.number().int().min(0),
+})
+
+const taxReliefSchema = z.object({
+  relief_type: z.string(),
+  amount: z.number().min(0),
+  profileIndex: z.number().int().min(0),
+})
+
 const completeSchema = z.object({
+  mode: z.enum(["first-time", "new-family"]).optional().default("first-time"),
   userCount: z.number().int().min(1).max(6),
   profiles: z.array(completeProfileSchema).min(1).max(6),
   incomeConfigs: z.array(completeIncomeSchema),
@@ -51,11 +94,17 @@ const completeSchema = z.object({
       .omit({ profile_id: true })
       .extend({
         profile_id: z.string().uuid().nullable().optional(),
+        opening_balance: z.number().min(0).optional(),
         savings_goals: z.array(completeSavingsGoalSchema),
       }),
   ),
+  cpfBalances: z.array(cpfBalanceSchema).optional().default([]),
   telegramChatId: z.string(),
   promptSchedule: z.array(promptScheduleSchema),
+  investments: z.array(investmentSchema).optional().default([]),
+  loans: z.array(loanSchema).optional().default([]),
+  insurancePolicies: z.array(insuranceSchema).optional().default([]),
+  taxReliefInputs: z.array(taxReliefSchema).optional().default([]),
 })
 
 export async function POST(request: Request) {
@@ -82,30 +131,100 @@ export async function POST(request: Request) {
     
     const data = parsed.data
     const supabase = createSupabaseAdmin()
-    
-    // Update household
-    const { error: householdError } = await supabase
-      .from("households")
-      .update({ 
-        user_count: data.userCount,
-        telegram_chat_id: data.telegramChatId || null,
-        onboarding_completed_at: new Date().toISOString() 
-      })
-      .eq("id", session.accountId)
+    const isNewFamily = data.mode === "new-family"
 
-    if (householdError) {
-      console.error("Onboarding household update error:", householdError)
-      return NextResponse.json(
-        { error: "Failed to update household" },
-        { status: 500 },
-      )
+    let familyId: string
+
+    if (isNewFamily) {
+      const { count: familyCount } = await supabase
+        .from("families")
+        .select("id", { count: "exact", head: true })
+        .eq("household_id", session.accountId)
+      const nextNum = (familyCount ?? 0) + 1
+      const { data: newFamily, error: familyError } = await supabase
+        .from("families")
+        .insert({
+          household_id: session.accountId,
+          name: `Family ${nextNum}`,
+          user_count: data.userCount,
+        })
+        .select("id")
+        .single()
+      if (familyError || !newFamily) {
+        console.error("Onboarding family create error:", familyError)
+        return NextResponse.json(
+          { error: "Failed to create family" },
+          { status: 500 },
+        )
+      }
+      familyId = newFamily.id
+    } else {
+      const { data: existingFamily } = await supabase
+        .from("families")
+        .select("id")
+        .eq("household_id", session.accountId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .single()
+      if (existingFamily) {
+        familyId = existingFamily.id
+        await supabase
+          .from("families")
+          .update({ user_count: data.userCount })
+          .eq("id", familyId)
+      } else {
+        const { data: newFamily, error: familyError } = await supabase
+          .from("families")
+          .insert({
+            household_id: session.accountId,
+            name: "Family 1",
+            user_count: data.userCount,
+          })
+          .select("id")
+          .single()
+        if (familyError || !newFamily) {
+          console.error("Onboarding family create error:", familyError)
+          return NextResponse.json(
+            { error: "Failed to create family" },
+            { status: 500 },
+          )
+        }
+        familyId = newFamily.id
+      }
     }
 
-    // Resolve duplicate profile names: append -1, -2, etc. when name exists
+    if (!isNewFamily) {
+      const { error: householdError } = await supabase
+        .from("households")
+        .update({
+          user_count: data.userCount,
+          telegram_chat_id: data.telegramChatId || null,
+          onboarding_completed_at: new Date().toISOString(),
+        })
+        .eq("id", session.accountId)
+      if (householdError) {
+        console.error("Onboarding household update error:", householdError)
+        return NextResponse.json(
+          { error: "Failed to update household" },
+          { status: 500 },
+        )
+      }
+    } else {
+      const { error: householdError } = await supabase
+        .from("households")
+        .update({
+          telegram_chat_id: data.telegramChatId || null,
+        })
+        .eq("id", session.accountId)
+      if (householdError) {
+        console.error("Onboarding household update error:", householdError)
+      }
+    }
+
     const { data: existingProfiles } = await supabase
       .from("profiles")
       .select("name")
-      .eq("household_id", session.accountId)
+      .eq("family_id", familyId)
     const existingNames = new Set(
       (existingProfiles ?? []).map((p) => p.name.toLowerCase().trim()),
     )
@@ -126,12 +245,11 @@ export async function POST(request: Request) {
       return { ...p, name: candidate }
     })
 
-    // Insert Profiles
     const { data: insertedProfiles, error: profileError } = await supabase
       .from("profiles")
       .insert(
         resolvedProfiles.map((p) => ({
-          household_id: session.accountId,
+          family_id: familyId,
           name: p.name,
           birth_year: p.birth_year,
         })),
@@ -164,19 +282,40 @@ export async function POST(request: Request) {
       }))
     await supabase.from("income_config").insert(incomeInserts)
     
+    const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`
+
+    // Insert CPF Balances
+    for (const cb of data.cpfBalances) {
+      const profileId = insertedProfiles[cb.profileIndex]?.id
+      if (profileId && (cb.oa > 0 || cb.sa > 0 || cb.ma > 0)) {
+        await supabase.from("cpf_balances").upsert(
+          {
+            profile_id: profileId,
+            month: currentMonth,
+            oa: cb.oa,
+            sa: cb.sa,
+            ma: cb.ma,
+            is_manual_override: true,
+          },
+          { onConflict: "profile_id,month" },
+        )
+      }
+    }
+
     // Insert Bank Accounts & Goals
     for (const acc of data.bankAccounts) {
       const { data: insertedAcc } = await supabase
         .from("bank_accounts")
         .insert({
-          household_id: session.accountId,
+          family_id: familyId,
           bank_name: acc.bank_name,
           account_type: acc.account_type,
           profile_id: acc.profile_id ?? null,
+          opening_balance: acc.opening_balance ?? 0,
         })
         .select("id")
         .single()
-        
+
       if (insertedAcc && acc.savings_goals.length > 0) {
         const validGoals = acc.savings_goals.filter(
           (g) =>
@@ -185,7 +324,7 @@ export async function POST(request: Request) {
         if (validGoals.length > 0) {
           await supabase.from("savings_goals").insert(
             validGoals.map((g) => ({
-              household_id: session.accountId,
+              family_id: familyId,
               profile_id: acc.profile_id ?? null,
               name: g.name ?? "",
               target_amount: g.target_amount ?? 0,
@@ -202,7 +341,7 @@ export async function POST(request: Request) {
     if (data.promptSchedule.length > 0) {
       await supabase.from("prompt_schedule").insert(
         data.promptSchedule.map(s => ({
-          household_id: session.accountId,
+          family_id: familyId,
           prompt_type: s.prompt_type,
           frequency: s.frequency,
           day_of_month: s.day_of_month,
@@ -211,6 +350,73 @@ export async function POST(request: Request) {
           timezone: s.timezone,
         }))
       )
+    }
+
+    // Insert Investments
+    for (const inv of data.investments) {
+      const profileId = insertedProfiles[inv.profileIndex]?.id
+      if (profileId && inv.symbol.trim() && inv.units > 0) {
+        await supabase.from("investments").insert({
+          family_id: familyId,
+          profile_id: profileId,
+          type: inv.type,
+          symbol: inv.symbol.trim(),
+          units: inv.units,
+          cost_basis: inv.cost_basis,
+        })
+      }
+    }
+
+    // Insert Loans
+    for (const loan of data.loans) {
+      const profileId = insertedProfiles[loan.profileIndex]?.id
+      if (profileId && loan.name.trim() && loan.principal > 0 && loan.tenure_months > 0) {
+        await supabase.from("loans").insert({
+          profile_id: profileId,
+          name: loan.name.trim(),
+          type: loan.type,
+          principal: loan.principal,
+          rate_pct: loan.rate_pct,
+          tenure_months: loan.tenure_months,
+          start_date: loan.start_date,
+          lender: loan.lender ?? null,
+          use_cpf_oa: loan.use_cpf_oa,
+        })
+      }
+    }
+
+    // Insert Insurance Policies
+    for (const pol of data.insurancePolicies) {
+      const profileId = insertedProfiles[pol.profileIndex]?.id
+      if (profileId && pol.name.trim() && pol.premium_amount > 0) {
+        await supabase.from("insurance_policies").insert({
+          profile_id: profileId,
+          name: pol.name.trim(),
+          type: pol.type,
+          premium_amount: pol.premium_amount,
+          frequency: pol.frequency,
+          coverage_amount: pol.coverage_amount ?? null,
+          is_active: true,
+          deduct_from_outflow: true,
+        })
+      }
+    }
+
+    // Insert Tax Relief Inputs
+    const currentYear = new Date().getFullYear()
+    for (const rel of data.taxReliefInputs) {
+      const profileId = insertedProfiles[rel.profileIndex]?.id
+      if (profileId && rel.amount > 0) {
+        await supabase.from("tax_relief_inputs").upsert(
+          {
+            profile_id: profileId,
+            year: currentYear,
+            relief_type: rel.relief_type,
+            amount: rel.amount,
+          },
+          { onConflict: "profile_id,year,relief_type" },
+        )
+      }
     }
 
     return NextResponse.json({ success: true })

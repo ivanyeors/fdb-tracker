@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/tooltip"
 import {
   useOnboarding,
+  pathWithMode,
   type Profile,
 } from "@/components/onboarding/onboarding-provider"
 import { profilesSchema } from "@/lib/validations/onboarding"
@@ -28,7 +29,7 @@ import { ArrowLeft, ArrowRight, HelpCircle } from "lucide-react"
 
 export default function ProfilesPage() {
   const router = useRouter()
-  const { userCount, profiles, setProfiles } = useOnboarding()
+  const { mode, userCount, profiles, setProfiles } = useOnboarding()
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   function updateProfile(index: number, field: keyof Profile, value: string) {
@@ -54,7 +55,7 @@ export default function ProfilesPage() {
       return
     }
     setErrors({})
-    router.push("/onboarding/income")
+    router.push(pathWithMode("/onboarding/income", mode))
   }
 
   return (
@@ -121,7 +122,7 @@ export default function ProfilesPage() {
         <div className="flex gap-3">
           <Button
             variant="outline"
-            onClick={() => router.push("/onboarding/users")}
+            onClick={() => router.push(pathWithMode("/onboarding/users", mode))}
           >
             <ArrowLeft data-icon="inline-start" />
             Back

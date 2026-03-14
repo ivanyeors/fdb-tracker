@@ -3,6 +3,7 @@ import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
 import {
   getRetirementSums,
@@ -12,7 +13,8 @@ import {
 } from "@/lib/calculations/cpf-retirement"
 
 const retirementQuerySchema = z.object({
-  profileId: z.string().uuid(),
+  profileId: z.string().uuid().optional(),
+  familyId: z.string().uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -26,21 +28,37 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = request.nextUrl
     const parsed = retirementQuerySchema.safeParse({
-      profileId: searchParams.get("profileId"),
+      profileId: searchParams.get("profileId") ?? undefined,
+      familyId: searchParams.get("familyId") ?? undefined,
     })
 
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 })
     }
 
-    const { profileId } = parsed.data
+    const { profileId, familyId } = parsed.data
     const supabase = createSupabaseAdmin()
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      accountId,
+      profileId ?? null,
+      familyId ?? null
+    )
+    if (!resolved) {
+      return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
+    }
+    if (resolved.profileIds.length !== 1) {
+      return NextResponse.json(
+        { error: "Retirement projection requires a single profile (profileId or familyId with one member)" },
+        { status: 400 }
+      )
+    }
+    const singleProfileId = resolved.profileIds[0]!
 
     const { data: profile } = await supabase
       .from("profiles")
       .select("id, birth_year")
-      .eq("id", profileId)
-      .eq("household_id", accountId)
+      .eq("id", singleProfileId)
       .single()
 
     if (!profile) {
@@ -53,13 +71,13 @@ export async function GET(request: NextRequest) {
     const { data: incomeConfig } = await supabase
       .from("income_config")
       .select("annual_salary, bonus_estimate")
-      .eq("profile_id", profileId)
+      .eq("profile_id", singleProfileId)
       .single()
 
     const { data: latestBalance } = await supabase
       .from("cpf_balances")
       .select("oa, sa, ma")
-      .eq("profile_id", profileId)
+      .eq("profile_id", singleProfileId)
       .order("month", { ascending: false })
       .limit(1)
       .single()
@@ -107,7 +125,7 @@ export async function GET(request: NextRequest) {
     const ersAge = findBenchmarkAge(extendedProjection, retirementSums.ers)
 
     return NextResponse.json({
-      profileId,
+      profileId: singleProfileId,
       birthYear: profile.birth_year,
       currentAge,
       cohortYear,

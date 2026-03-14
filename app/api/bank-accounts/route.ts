@@ -8,12 +8,14 @@ const createAccountSchema = z.object({
   bankName: z.string().min(1),
   accountType: z.string().min(1),
   profileId: z.string().uuid().optional(),
+  familyId: z.string().uuid().optional(),
   interestRatePct: z.number().min(0).optional(),
   openingBalance: z.number().min(0).optional(),
 })
 
 const listQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
+  familyId: z.string().uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -28,15 +30,30 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl
     const parsed = listQuerySchema.safeParse({
       profileId: searchParams.get("profileId") ?? undefined,
+      familyId: searchParams.get("familyId") ?? undefined,
     })
-    const profileId = parsed.success ? parsed.data.profileId : undefined
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid query" }, { status: 400 })
+    }
 
     const supabase = createSupabaseAdmin()
+    const { resolveFamilyAndProfiles } = await import("@/lib/api/resolve-family")
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      accountId,
+      parsed.data.profileId ?? null,
+      parsed.data.familyId ?? null
+    )
+    if (!resolved) {
+      return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
+    }
+    const { familyId, profileIds } = resolved
+    const profileId = profileIds[0] ?? null
 
     let query = supabase
       .from("bank_accounts")
       .select("*")
-      .eq("household_id", accountId)
+      .eq("family_id", familyId)
       .order("created_at", { ascending: true })
 
     if (profileId) {
@@ -120,26 +137,58 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { bankName, accountType, profileId, interestRatePct, openingBalance } = parsed.data
+    const { bankName, accountType, profileId, familyId, interestRatePct, openingBalance } = parsed.data
     const supabase = createSupabaseAdmin()
 
+    let targetFamilyId: string
     if (profileId) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("id")
+        .select("family_id")
         .eq("id", profileId)
-        .eq("household_id", accountId)
         .single()
-
       if (!profile) {
         return NextResponse.json({ error: "Profile not found" }, { status: 404 })
       }
+      const { data: family } = await supabase
+        .from("families")
+        .select("id")
+        .eq("id", profile.family_id)
+        .eq("household_id", accountId)
+        .single()
+      if (!family) {
+        return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+      }
+      targetFamilyId = family.id
+    } else if (familyId) {
+      const { data: family } = await supabase
+        .from("families")
+        .select("id")
+        .eq("id", familyId)
+        .eq("household_id", accountId)
+        .single()
+      if (!family) {
+        return NextResponse.json({ error: "Family not found" }, { status: 404 })
+      }
+      targetFamilyId = family.id
+    } else {
+      const { data: first } = await supabase
+        .from("families")
+        .select("id")
+        .eq("household_id", accountId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .single()
+      if (!first) {
+        return NextResponse.json({ error: "No family found" }, { status: 404 })
+      }
+      targetFamilyId = first.id
     }
 
     const { data: account, error: accountError } = await supabase
       .from("bank_accounts")
       .insert({
-        household_id: accountId,
+        family_id: targetFamilyId,
         bank_name: bankName,
         account_type: accountType,
         ...(profileId && { profile_id: profileId }),

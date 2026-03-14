@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/tooltip"
 import {
   useOnboarding,
+  pathWithMode,
   type IncomeConfig,
 } from "@/components/onboarding/onboarding-provider"
 import { incomeSchema } from "@/lib/validations/onboarding"
@@ -40,7 +41,7 @@ const PAY_FREQUENCIES = [
 
 export default function IncomePage() {
   const router = useRouter()
-  const { profiles, userCount, incomeConfigs, setIncomeConfigs } =
+  const { mode, profiles, userCount, incomeConfigs, setIncomeConfigs } =
     useOnboarding()
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -92,7 +93,7 @@ export default function IncomePage() {
       return
     }
     setErrors({})
-    router.push("/onboarding/banks")
+    router.push(pathWithMode("/onboarding/cpf", mode))
   }
 
   return (
@@ -179,7 +180,7 @@ export default function IncomePage() {
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            onClick={() => router.push("/onboarding/profiles")}
+            onClick={() => router.push(pathWithMode("/onboarding/profiles", mode))}
           >
             <ArrowLeft data-icon="inline-start" />
             Back
@@ -191,7 +192,7 @@ export default function IncomePage() {
           <Button
             variant="link"
             className="ml-auto"
-            onClick={() => router.push("/onboarding/banks")}
+            onClick={() => router.push(pathWithMode("/onboarding/cpf", mode))}
           >
             Skip for now
           </Button>

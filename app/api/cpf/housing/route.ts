@@ -3,9 +3,11 @@ import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
 const housingQuerySchema = z.object({
-  profileId: z.string().uuid(),
+  profileId: z.string().uuid().optional(),
+  familyId: z.string().uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -19,31 +21,31 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = request.nextUrl
     const parsed = housingQuerySchema.safeParse({
-      profileId: searchParams.get("profileId"),
+      profileId: searchParams.get("profileId") ?? undefined,
+      familyId: searchParams.get("familyId") ?? undefined,
     })
 
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 })
     }
 
-    const { profileId } = parsed.data
+    const { profileId, familyId } = parsed.data
     const supabase = createSupabaseAdmin()
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", profileId)
-      .eq("household_id", accountId)
-      .single()
-
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      accountId,
+      profileId ?? null,
+      familyId ?? null
+    )
+    if (!resolved) {
+      return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
+    const { profileIds } = resolved
 
     const { data: cpfLoans } = await supabase
       .from("loans")
       .select("id")
-      .eq("profile_id", profileId)
+      .in("profile_id", profileIds)
       .eq("use_cpf_oa", true)
 
     if (!cpfLoans || cpfLoans.length === 0) {

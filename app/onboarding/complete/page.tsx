@@ -17,7 +17,20 @@ export default function CompletePage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { profiles, userCount, incomeConfigs, bankAccounts, telegramChatId, promptSchedule } = useOnboarding()
+  const {
+    mode,
+    profiles,
+    userCount,
+    incomeConfigs,
+    bankAccounts,
+    cpfBalances,
+    telegramChatId,
+    promptSchedule,
+    investments,
+    loans,
+    insurancePolicies,
+    taxReliefInputs,
+  } = useOnboarding()
 
   const profileCount = profiles.filter((p) => p.name.trim()).length || userCount
   const bankCount = bankAccounts.filter((a) => a.bank_name.trim()).length
@@ -31,12 +44,18 @@ export default function CompletePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          mode,
           userCount,
           profiles: profiles.slice(0, userCount),
           incomeConfigs: incomeConfigs.slice(0, userCount),
           bankAccounts,
+          cpfBalances,
           telegramChatId,
           promptSchedule,
+          investments,
+          loans,
+          insurancePolicies,
+          taxReliefInputs,
         }),
       })
       if (!res.ok) {

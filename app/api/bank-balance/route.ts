@@ -51,10 +51,20 @@ export async function GET(request: NextRequest) {
       .from("bank_accounts")
       .select("*")
       .eq("id", bankAccountId)
-      .eq("household_id", accountId)
       .single()
 
     if (!account) {
+      return NextResponse.json({ error: "Bank account not found" }, { status: 404 })
+    }
+
+    const { data: family } = await supabase
+      .from("families")
+      .select("household_id")
+      .eq("id", account.family_id)
+      .eq("household_id", accountId)
+      .single()
+
+    if (!family) {
       return NextResponse.json({ error: "Bank account not found" }, { status: 404 })
     }
 
@@ -132,6 +142,52 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    let taxProvisionMonthly = 0
+    if (profileId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("birth_year")
+        .eq("id", profileId)
+        .single()
+      const { data: incomeConfig } = await supabase
+        .from("income_config")
+        .select("annual_salary, bonus_estimate")
+        .eq("profile_id", profileId)
+        .single()
+      if (profile && incomeConfig) {
+        const { calculateTax } = await import("@/lib/calculations/tax")
+        const { data: insurancePolicies } = await supabase
+          .from("insurance_policies")
+          .select("type, premium_amount, frequency, coverage_amount, is_active")
+          .eq("profile_id", profileId)
+        const { data: manualReliefs } = await supabase
+          .from("tax_relief_inputs")
+          .select("relief_type, amount")
+          .eq("profile_id", profileId)
+          .eq("year", new Date().getFullYear())
+        const result = calculateTax({
+          profile: { birth_year: profile.birth_year },
+          incomeConfig: {
+            annual_salary: incomeConfig.annual_salary,
+            bonus_estimate: incomeConfig.bonus_estimate ?? 0,
+          },
+          insurancePolicies: (insurancePolicies ?? []).map((p) => ({
+            type: p.type,
+            premium_amount: p.premium_amount,
+            frequency: p.frequency,
+            coverage_amount: p.coverage_amount ?? 0,
+            is_active: p.is_active,
+          })),
+          manualReliefs: (manualReliefs ?? []).map((r) => ({
+            relief_type: r.relief_type,
+            amount: r.amount,
+          })),
+          year: new Date().getFullYear(),
+        })
+        taxProvisionMonthly = result.taxPayable / 12
+      }
+    }
+
     const monthlyData = monthRange.map((month) => {
       const cf = cashflowMap[month] ?? { inflow: 0, outflow: 0 }
       return {
@@ -141,6 +197,7 @@ export async function GET(request: NextRequest) {
         insurancePremiums: insuranceMonthly,
         ilpPremiums: ilpMonthly,
         loanRepayments: loanMonthly,
+        taxProvision: taxProvisionMonthly,
       }
     })
 

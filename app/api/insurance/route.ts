@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
+
+const insuranceQuerySchema = z.object({
+  profileId: z.string().uuid().optional(),
+  familyId: z.string().uuid().optional(),
+})
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,32 +19,33 @@ export async function GET(request: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const { searchParams } = request.nextUrl
-    const profileId = searchParams.get("profileId")
+    const parsed = insuranceQuerySchema.safeParse({
+      profileId: searchParams.get("profileId") ?? undefined,
+      familyId: searchParams.get("familyId") ?? undefined,
+    })
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 })
+    }
+    if (!parsed.data.profileId && !parsed.data.familyId) {
+      return NextResponse.json({ error: "profileId or familyId required" }, { status: 400 })
+    }
 
     const supabase = createSupabaseAdmin()
-
-    // For policies, we might only have profile_id because it's tied to individuals,
-    // but the schema implies we can fetch by profile_id directly.
-    if (!profileId) {
-      return NextResponse.json({ error: "Missing profileId" }, { status: 400 })
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      session.accountId,
+      parsed.data.profileId ?? null,
+      parsed.data.familyId ?? null
+    )
+    if (!resolved) {
+      return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
-
-    // Verify profile belongs to household
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", profileId)
-      .eq("household_id", session.accountId)
-      .single()
-
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found or unauthorized" }, { status: 403 })
-    }
+    const { profileIds } = resolved
 
     const { data: policies, error } = await supabase
       .from("insurance_policies")
       .select("*")
-      .eq("profile_id", profileId)
+      .in("profile_id", profileIds)
       .order("created_at", { ascending: true })
 
     if (error) {

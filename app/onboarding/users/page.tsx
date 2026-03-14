@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { useOnboarding } from "@/components/onboarding/onboarding-provider"
+import { useOnboarding, pathWithMode } from "@/components/onboarding/onboarding-provider"
 import { cn } from "@/lib/utils"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 
@@ -17,7 +17,7 @@ const COUNTS = [1, 2, 3, 4, 5, 6] as const
 
 export default function UsersPage() {
   const router = useRouter()
-  const { userCount, setUserCount } = useOnboarding()
+  const { mode, userCount, setUserCount } = useOnboarding()
 
   return (
     <Card>
@@ -43,11 +43,11 @@ export default function UsersPage() {
         </div>
 
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => router.push("/onboarding")}>
+          <Button variant="outline" onClick={() => router.push(pathWithMode("/onboarding", mode))}>
             <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
-          <Button onClick={() => router.push("/onboarding/profiles")}>
+          <Button onClick={() => router.push(pathWithMode("/onboarding/profiles", mode))}>
             Next
             <ArrowRight data-icon="inline-end" />
           </Button>

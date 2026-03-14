@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { CurrencyInput } from "@/components/ui/currency-input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
@@ -55,6 +56,14 @@ export function UserSettingsForm({
   }, [deleteState, profile.name])
 
   const canDelete = profileCount > 1
+
+  const [annualSalary, setAnnualSalary] = useState(profile.income_config?.annual_salary ?? 0)
+  const [bonusEstimate, setBonusEstimate] = useState(profile.income_config?.bonus_estimate ?? 0)
+
+  useEffect(() => {
+    setAnnualSalary(profile.income_config?.annual_salary ?? 0)
+    setBonusEstimate(profile.income_config?.bonus_estimate ?? 0)
+  }, [profile.id, profile.income_config?.annual_salary, profile.income_config?.bonus_estimate])
 
   return (
     <Card>
@@ -135,28 +144,24 @@ export function UserSettingsForm({
           <div className="grid gap-4 md:grid-cols-2 mt-4">
             <div className="space-y-2">
               <Label htmlFor={`annualSalary-${profile.id}`}>Annual Salary ($)</Label>
-              <Input
+              <CurrencyInput
                 id={`annualSalary-${profile.id}`}
-                name="annualSalary"
-                type="number"
-                min="0"
-                step="0.01"
-                defaultValue={profile.income_config?.annual_salary ?? 0}
-                required
+                placeholder="e.g. 84,000.00"
+                value={annualSalary}
+                onChange={(v) => setAnnualSalary(v ?? 0)}
               />
+              <input type="hidden" name="annualSalary" value={annualSalary} />
             </div>
             
             <div className="space-y-2">
               <Label htmlFor={`bonusEstimate-${profile.id}`}>Bonus Estimate ($)</Label>
-              <Input
+              <CurrencyInput
                 id={`bonusEstimate-${profile.id}`}
-                name="bonusEstimate"
-                type="number"
-                min="0"
-                step="0.01"
-                defaultValue={profile.income_config?.bonus_estimate ?? 0}
-                required
+                placeholder="e.g. 5,000.00"
+                value={bonusEstimate}
+                onChange={(v) => setBonusEstimate(v ?? 0)}
               />
+              <input type="hidden" name="bonusEstimate" value={bonusEstimate} />
             </div>
             
             <div className="space-y-2">

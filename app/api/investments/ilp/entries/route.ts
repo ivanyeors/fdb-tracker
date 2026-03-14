@@ -3,9 +3,11 @@ import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
 const createEntrySchema = z.object({
   productId: z.string().uuid(),
+  familyId: z.string().uuid().optional(),
   month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   fundValue: z.number().min(0),
 })
@@ -26,14 +28,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { productId, month, fundValue } = parsed.data
+    const { productId, familyId, month, fundValue } = parsed.data
     const supabase = createSupabaseAdmin()
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      accountId,
+      null,
+      familyId ?? null
+    )
+    if (!resolved) {
+      return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
+    }
 
     const { data: product } = await supabase
       .from("ilp_products")
       .select("id")
       .eq("id", productId)
-      .eq("household_id", accountId)
+      .eq("family_id", resolved.familyId)
       .single()
 
     if (!product) {

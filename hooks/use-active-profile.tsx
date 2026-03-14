@@ -2,15 +2,28 @@
 
 import * as React from "react"
 
+const ACTIVE_FAMILY_KEY = "fdb-active-family-id"
+
 export type Profile = {
   id: string
   name: string
   birth_year: number
+  family_id?: string
+}
+
+export type Family = {
+  id: string
+  name: string
+  user_count: number
+  created_at: string
 }
 
 type ActiveProfileContextValue = {
   activeProfileId: string | null
   setActiveProfileId: (id: string | null) => void
+  activeFamilyId: string | null
+  setActiveFamilyId: (id: string | null) => void
+  families: Family[]
   profiles: Profile[]
 }
 
@@ -18,12 +31,59 @@ const ActiveProfileContext = React.createContext<ActiveProfileContextValue | nul
 
 export function ActiveProfileProvider({
   children,
-  profiles,
+  families,
+  profiles: allProfiles,
+  initialFamilyId,
 }: {
   children: React.ReactNode
+  families: Family[]
   profiles: Profile[]
+  initialFamilyId?: string | null
 }) {
+  const [activeFamilyId, setActiveFamilyIdState] = React.useState<string | null>(() => {
+    if (initialFamilyId) return initialFamilyId
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(ACTIVE_FAMILY_KEY)
+        if (stored) return stored
+      } catch {
+        // ignore
+      }
+    }
+    return null
+  })
   const [activeProfileId, setActiveProfileId] = React.useState<string | null>(null)
+
+  const setActiveFamilyId = React.useCallback((id: string | null) => {
+    setActiveFamilyIdState(id)
+    if (id) {
+      try {
+        localStorage.setItem(ACTIVE_FAMILY_KEY, id)
+      } catch {
+        // ignore
+      }
+    } else {
+      try {
+        localStorage.removeItem(ACTIVE_FAMILY_KEY)
+      } catch {
+        // ignore
+      }
+    }
+  }, [])
+
+  const effectiveFamilyId = activeFamilyId ?? families[0]?.id ?? null
+  const profiles = React.useMemo(() => {
+    if (!effectiveFamilyId) return []
+    return allProfiles.filter((p) => (p.family_id ?? effectiveFamilyId) === effectiveFamilyId)
+  }, [allProfiles, effectiveFamilyId])
+
+  React.useEffect(() => {
+    if (families.length > 0 && !effectiveFamilyId) {
+      setActiveFamilyIdState(families[0].id)
+    } else if (families.length > 0 && effectiveFamilyId && !families.some((f) => f.id === effectiveFamilyId)) {
+      setActiveFamilyIdState(families[0].id)
+    }
+  }, [families, effectiveFamilyId])
 
   React.useEffect(() => {
     const profileIds = new Set(profiles.map((p) => p.id))
@@ -39,8 +99,15 @@ export function ActiveProfileProvider({
   }, [profiles, activeProfileId])
 
   const value = React.useMemo<ActiveProfileContextValue>(
-    () => ({ activeProfileId, setActiveProfileId, profiles }),
-    [activeProfileId, profiles],
+    () => ({
+      activeProfileId,
+      setActiveProfileId,
+      activeFamilyId: effectiveFamilyId,
+      setActiveFamilyId,
+      families,
+      profiles,
+    }),
+    [activeProfileId, effectiveFamilyId, families, profiles, setActiveFamilyId],
   )
 
   return (
@@ -56,4 +123,13 @@ export function useActiveProfile() {
     throw new Error("useActiveProfile must be used within an ActiveProfileProvider.")
   }
   return ctx
+}
+
+export function getStoredActiveFamilyId(): string | null {
+  if (typeof window === "undefined") return null
+  try {
+    return localStorage.getItem(ACTIVE_FAMILY_KEY)
+  } catch {
+    return null
+  }
 }

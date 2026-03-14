@@ -72,7 +72,7 @@ async function sendTelegramMessage(
 }
 
 type ReminderContext = {
-  profiles: Array<{ name: string }>
+  profiles: Array<{ id: string; name: string }>
   dashboardUrl: string
 }
 
@@ -93,19 +93,10 @@ async function generateMessage(
 
     case "income_monthly": {
       for (const profile of ctx.profiles) {
-        const { data: profileRow } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("household_id", accountId)
-          .eq("name", profile.name)
-          .single()
-
-        if (!profileRow) continue
-
         const { data: incomeConfig } = await supabase
           .from("income_config")
           .select("annual_salary, employee_cpf_rate")
-          .eq("profile_id", profileRow.id)
+          .eq("profile_id", profile.id)
           .single()
 
         if (incomeConfig) {
@@ -122,13 +113,8 @@ async function generateMessage(
       return insuranceYearlyReminder(now.year, ctx)
 
     case "insurance_monthly": {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("household_id", accountId)
-
-      if (profiles) {
-        const profileIds = profiles.map((p) => p.id)
+      if (ctx.profiles.length > 0) {
+        const profileIds = ctx.profiles.map((p) => p.id)
         const { data: policies } = await supabase
           .from("insurance_policies")
           .select("name, premium_amount, frequency")
@@ -146,21 +132,62 @@ async function generateMessage(
     }
 
     case "tax_yearly": {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("household_id", accountId)
-
       let calculatedTax: number | null = null
-      if (profiles && profiles.length > 0) {
+      if (ctx.profiles.length > 0) {
+        const profileId = ctx.profiles[0]!.id
         const { data: taxEntry } = await supabase
           .from("tax_entries")
           .select("calculated_amount")
-          .eq("profile_id", profiles[0].id)
+          .eq("profile_id", profileId)
           .eq("year", now.year)
           .single()
 
-        if (taxEntry) calculatedTax = taxEntry.calculated_amount
+        if (taxEntry) {
+          calculatedTax = taxEntry.calculated_amount
+        } else {
+          const { calculateTax } = await import("@/lib/calculations/tax")
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("birth_year")
+            .eq("id", profileId)
+            .single()
+          const { data: incomeConfig } = await supabase
+            .from("income_config")
+            .select("annual_salary, bonus_estimate")
+            .eq("profile_id", profileId)
+            .single()
+          if (profile && incomeConfig) {
+            const { data: insurancePolicies } = await supabase
+              .from("insurance_policies")
+              .select("type, premium_amount, frequency, coverage_amount, is_active")
+              .eq("profile_id", profileId)
+            const { data: manualReliefs } = await supabase
+              .from("tax_relief_inputs")
+              .select("relief_type, amount")
+              .eq("profile_id", profileId)
+              .eq("year", now.year)
+            const result = calculateTax({
+              profile: { birth_year: profile.birth_year },
+              incomeConfig: {
+                annual_salary: incomeConfig.annual_salary,
+                bonus_estimate: incomeConfig.bonus_estimate ?? 0,
+              },
+              insurancePolicies: (insurancePolicies ?? []).map((p) => ({
+                type: p.type,
+                premium_amount: p.premium_amount,
+                frequency: p.frequency,
+                coverage_amount: p.coverage_amount ?? 0,
+                is_active: p.is_active,
+              })),
+              manualReliefs: (manualReliefs ?? []).map((r) => ({
+                relief_type: r.relief_type,
+                amount: r.amount,
+              })),
+              year: now.year,
+            })
+            calculatedTax = result.taxPayable
+          }
+        }
       }
       return taxYearlyReminder(now.year, calculatedTax, ctx)
     }
@@ -184,7 +211,7 @@ export async function GET(request: NextRequest) {
 
     const { data: schedules, error: schedError } = await supabase
       .from("prompt_schedule")
-      .select("id, household_id, prompt_type, frequency, day_of_month, month_of_year, time, timezone")
+      .select("id, family_id, prompt_type, frequency, day_of_month, month_of_year, time, timezone")
 
     if (schedError || !schedules) {
       return NextResponse.json({ error: "Failed to fetch schedules" }, { status: 500 })
@@ -197,10 +224,21 @@ export async function GET(request: NextRequest) {
       const { fire, now } = shouldFire(schedule)
       if (!fire) continue
 
+      const { data: family } = await supabase
+        .from("families")
+        .select("household_id")
+        .eq("id", schedule.family_id)
+        .single()
+
+      if (!family) {
+        errors.push(`${schedule.id}: family not found`)
+        continue
+      }
+
       const { data: account } = await supabase
         .from("households")
         .select("telegram_chat_id, telegram_bot_token")
-        .eq("id", schedule.household_id)
+        .eq("id", family.household_id)
         .single()
 
       if (!account?.telegram_chat_id || !account.telegram_bot_token) {
@@ -210,8 +248,8 @@ export async function GET(request: NextRequest) {
 
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("name")
-        .eq("household_id", schedule.household_id)
+        .select("id, name")
+        .eq("family_id", schedule.family_id)
 
       const ctx: ReminderContext = {
         profiles: profiles ?? [],
@@ -220,7 +258,7 @@ export async function GET(request: NextRequest) {
 
       const message = await generateMessage(
         schedule.prompt_type,
-        schedule.household_id,
+        family.household_id,
         now,
         ctx,
       )
