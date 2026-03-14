@@ -6,6 +6,7 @@
   "scripts": {
     "db:fix-households": "npx tsx scripts/apply-households-migration.ts",
     "db:fix-profiles": "npx tsx scripts/apply-profiles-migration.ts",
+    "db:fix-income-config": "npx tsx scripts/apply-income-config-migration.ts",
     "db:reset": "npx tsx scripts/reset-supabase.ts",
     "dev": "NODE_OPTIONS='--disable-warning=DEP0169' next dev --turbopack",
     "build": "NODE_OPTIONS='--disable-warning=DEP0169' next build",
