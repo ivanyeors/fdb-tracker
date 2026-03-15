@@ -3,6 +3,7 @@ import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { getCoverageType } from "@/lib/insurance/coverage-config"
 
 const updatePolicySchema = z.object({
   name: z.string().min(1).optional(),
@@ -21,6 +22,8 @@ const updatePolicySchema = z.object({
   frequency: z.enum(["monthly", "yearly"]).optional(),
   coverageAmount: z.number().min(0).nullable().optional(),
   yearlyOutflowDate: z.number().int().min(1).max(12).nullable().optional(),
+  currentAmount: z.number().min(0).nullable().optional(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
 })
 
 async function verifyPolicyOwnership(
@@ -76,12 +79,17 @@ export async function PATCH(
 
     const updates: Record<string, unknown> = {}
     if (parsed.data.name !== undefined) updates.name = parsed.data.name
-    if (parsed.data.type !== undefined) updates.type = parsed.data.type
+    if (parsed.data.type !== undefined) {
+      updates.type = parsed.data.type
+      updates.coverage_type = getCoverageType(parsed.data.type)
+    }
     if (parsed.data.premiumAmount !== undefined) updates.premium_amount = parsed.data.premiumAmount
     if (parsed.data.frequency !== undefined) updates.frequency = parsed.data.frequency
     if (parsed.data.coverageAmount !== undefined) updates.coverage_amount = parsed.data.coverageAmount
     if (parsed.data.yearlyOutflowDate !== undefined)
       updates.yearly_outflow_date = parsed.data.yearlyOutflowDate
+    if (parsed.data.currentAmount !== undefined) updates.current_amount = parsed.data.currentAmount
+    if (parsed.data.endDate !== undefined) updates.end_date = parsed.data.endDate
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })

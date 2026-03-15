@@ -8,6 +8,7 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts"
 
 export type WaterfallData = {
@@ -142,13 +143,31 @@ export function WaterfallChart({ data }: { data: WaterfallData }) {
     const values = chartData.map((d) => d.pv + d.uv)
     const minVal = Math.min(0, ...values)
     const maxVal = Math.max(0, ...values)
+    // Ensure 0 is always in domain so first/last bars align to axis
     return [minVal, maxVal] as [number, number]
   }, [chartData])
 
-  if (chartData.length === 0) {
+  const connectors = useMemo(() => {
+    const result: { x: number; yTop: string; yBottom: string }[] = []
+    for (let i = 0; i < chartData.length - 1; i++) {
+      const curr = chartData[i]
+      const next = chartData[i + 1]
+      // Meeting point: end of current bar = start of next (pv+uv for both pos/neg)
+      const x = curr.pv + curr.uv
+      result.push({ x, yTop: curr.name, yBottom: next.name })
+    }
+    return result
+  }, [chartData])
+
+  const hasNoData =
+    data.inflowTotal === 0 &&
+    data.outflowTotal === 0 &&
+    data.netSavings === 0
+
+  if (chartData.length === 0 || hasNoData) {
     return (
       <div className="flex h-[300px] items-center justify-center text-muted-foreground text-sm">
-        No data to display
+        No data to display for this month
       </div>
     )
   }
@@ -185,6 +204,17 @@ export function WaterfallChart({ data }: { data: WaterfallData }) {
           shape={(props) => <WaterfallBarShape {...props} />}
           label={renderBarLabel}
         />
+        {connectors.map((c, i) => (
+          <ReferenceLine
+            key={i}
+            segment={[
+              { x: c.x, y: c.yTop },
+              { x: c.x, y: c.yBottom },
+            ]}
+            stroke="var(--color-border)"
+            strokeWidth={1}
+          />
+        ))}
       </BarChart>
     </ResponsiveContainer>
   )

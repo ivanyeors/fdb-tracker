@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { LineChart, Line, ResponsiveContainer } from "recharts"
 import { AddIlpEntryDialog } from "@/components/dashboard/investments/add-ilp-entry-dialog"
+import { EditIlpDialog } from "@/components/dashboard/investments/edit-ilp-dialog"
 
 interface MonthlyData {
   month: string
@@ -17,8 +18,10 @@ interface IlpCardProps {
   totalPremiumsPaid: number
   returnPct: number
   monthlyPremium: number
+  endDate?: string
   monthlyData: MonthlyData[]
   onAddEntry?: () => void
+  onEditSuccess?: () => void
 }
 
 function fmt(n: number): string {
@@ -35,19 +38,30 @@ export function IlpCard({
   totalPremiumsPaid,
   returnPct,
   monthlyPremium,
+  endDate,
   monthlyData,
   onAddEntry,
+  onEditSuccess,
 }: IlpCardProps) {
   return (
     <Card className="h-[200px]">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0">
         <CardTitle className="text-base font-bold">{name}</CardTitle>
         {productId && (
-          <AddIlpEntryDialog
-            productId={productId}
-            productName={name}
-            onSuccess={onAddEntry}
-          />
+          <div className="flex items-center gap-1">
+            <EditIlpDialog
+              productId={productId}
+              productName={name}
+              monthlyPremium={monthlyPremium}
+              endDate={endDate ?? ""}
+              onSuccess={onEditSuccess ?? onAddEntry}
+            />
+            <AddIlpEntryDialog
+              productId={productId}
+              productName={name}
+              onSuccess={onAddEntry}
+            />
+          </div>
         )}
       </CardHeader>
       <CardContent className="flex gap-4">

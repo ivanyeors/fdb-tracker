@@ -4,6 +4,7 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
+import { getCoverageType } from "@/lib/insurance/coverage-config"
 
 const insuranceQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -73,8 +74,10 @@ const createPolicySchema = z.object({
   ]),
   premiumAmount: z.number().min(0),
   frequency: z.enum(["monthly", "yearly"]).optional(),
-  coverageAmount: z.number().min(0).optional(),
-  yearlyOutflowDate: z.number().int().min(1).max(12).optional(),
+  coverageAmount: z.number().min(0).nullable().optional(),
+  yearlyOutflowDate: z.number().int().min(1).max(12).nullable().optional(),
+  currentAmount: z.number().min(0).nullable().optional(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -103,6 +106,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 
+    const coverageType = getCoverageType(parsed.data.type)
+
     const { data: policy, error } = await supabase
       .from("insurance_policies")
       .insert({
@@ -112,7 +117,10 @@ export async function POST(request: NextRequest) {
         premium_amount: parsed.data.premiumAmount,
         frequency: parsed.data.frequency ?? "yearly",
         coverage_amount: parsed.data.coverageAmount ?? null,
+        coverage_type: coverageType,
         yearly_outflow_date: parsed.data.yearlyOutflowDate ?? null,
+        current_amount: parsed.data.currentAmount ?? null,
+        end_date: parsed.data.endDate ?? null,
       })
       .select()
       .single()

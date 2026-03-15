@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { getCoverageType, type InsuranceType } from "@/lib/insurance/coverage-config"
 import { z } from "zod"
 
 const insuranceSchema = z.object({
@@ -9,7 +10,10 @@ const insuranceSchema = z.object({
   type: z.string(),
   premium_amount: z.number().min(0).optional().default(0),
   frequency: z.enum(["monthly", "yearly"]).optional().default("yearly"),
-  coverage_amount: z.number().min(0).optional(),
+  coverage_amount: z.number().min(0).nullable().optional(),
+  yearly_outflow_date: z.number().int().min(1).max(12).nullable().optional(),
+  current_amount: z.number().min(0).nullable().optional(),
+  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   profileIndex: z.number().int().min(0),
 })
 
@@ -75,6 +79,7 @@ export async function POST(request: Request) {
     for (const pol of insurancePolicies) {
       const profileId = profiles[pol.profileIndex]?.id
       if (profileId && pol.name.trim() && pol.premium_amount > 0) {
+        const coverageType = getCoverageType(pol.type as InsuranceType)
         await supabase.from("insurance_policies").insert({
           profile_id: profileId,
           name: pol.name.trim(),
@@ -82,6 +87,10 @@ export async function POST(request: Request) {
           premium_amount: pol.premium_amount,
           frequency: pol.frequency,
           coverage_amount: pol.coverage_amount ?? null,
+          coverage_type: coverageType,
+          yearly_outflow_date: pol.yearly_outflow_date ?? null,
+          current_amount: pol.current_amount ?? null,
+          end_date: pol.end_date ?? null,
           is_active: true,
           deduct_from_outflow: true,
         })

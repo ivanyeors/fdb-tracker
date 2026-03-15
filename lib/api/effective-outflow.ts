@@ -7,6 +7,23 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { calculateTax } from "@/lib/calculations/tax"
 import { getGiroOutflowForProfile } from "@/lib/api/giro-amounts"
 
+/**
+ * Sum of monthly premiums for shared ILP products (profile_id is null) in a family.
+ * Used by cashflow API to avoid double-counting when aggregating per-profile.
+ */
+export async function getSharedIlpTotalForFamily(
+  supabase: SupabaseClient,
+  familyId: string
+): Promise<number> {
+  const { data: ilps } = await supabase
+    .from("ilp_products")
+    .select("monthly_premium")
+    .eq("family_id", familyId)
+    .is("profile_id", null)
+  if (!ilps) return 0
+  return ilps.reduce((sum, p) => sum + p.monthly_premium, 0)
+}
+
 export type EffectiveOutflowResult = {
   discretionary: number
   insurance: number
@@ -32,9 +49,9 @@ export async function getEffectiveOutflowForProfile(
     .eq("month", monthStr)
     .single()
 
-  // User reports total outflow (inclusive of tax, ILP, insurance, loans, etc.)
-  // Use it as total; do NOT add auto-deductions (would double-count)
-  // Add GIRO amounts to investments/CPF/SRS/outflow (user explicitly configured these)
+  // monthly_cashflow.outflow: user-reported outflow. Implementation treats as TOTAL outflow
+  // (inclusive of insurance, ILP, loans, tax) when present. Total = userOutflow + GIRO.
+  // Breakdown: discretionary = total - (insurance + ilp + loans + tax) for display.
   const userOutflow = cashflow?.outflow ?? 0
   const giroOutflow = await getGiroOutflowForProfile(supabase, profileId)
   const total = userOutflow + giroOutflow
@@ -126,7 +143,7 @@ export async function getEffectiveOutflowForProfile(
     tax = result.taxPayable / 12
   }
 
-  // Breakdown for display only: discretionary = total - known auto-deductions
+  // discretionary = remainder after known auto-deductions (for display breakdown)
   const discretionary = Math.max(0, total - (insurance + ilp + loans + tax))
 
   return {

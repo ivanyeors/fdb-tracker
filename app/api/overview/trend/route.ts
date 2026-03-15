@@ -99,8 +99,27 @@ export async function GET(request: NextRequest) {
       investmentQuery = investmentQuery.eq("profile_id", pid)
     }
     const { data: investments } = await investmentQuery
-    const investmentTotal =
+    const holdingsTotal =
       investments?.reduce((s, inv) => s + inv.units * inv.cost_basis, 0) ?? 0
+
+    let cashTotal = 0
+    if (pid) {
+      const { data: accountRow } = await supabase
+        .from("investment_accounts")
+        .select("cash_balance")
+        .eq("family_id", fid)
+        .eq("profile_id", pid)
+        .maybeSingle()
+      cashTotal = accountRow?.cash_balance ?? 0
+    } else {
+      const { data: accounts } = await supabase
+        .from("investment_accounts")
+        .select("cash_balance")
+        .eq("family_id", fid)
+      cashTotal = accounts?.reduce((s, a) => s + (a.cash_balance ?? 0), 0) ?? 0
+    }
+
+    const investmentTotal = holdingsTotal + cashTotal
 
     let loanTotal = 0
     if (profileIds.length > 0) {

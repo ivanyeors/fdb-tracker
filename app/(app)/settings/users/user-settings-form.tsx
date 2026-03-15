@@ -38,9 +38,14 @@ import {
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SymbolPickerDrawer } from "@/components/dashboard/investments/symbol-picker-drawer"
+import { formatCurrency } from "@/lib/utils"
+import {
+  getFieldsForType,
+  type InsuranceType,
+} from "@/lib/insurance/coverage-config"
 import { updateUserProfile, deleteUserProfile, createProfile } from "../actions"
 import { toast } from "sonner"
-import { Loader2, Trash2, UserPlus, ExternalLink, Plus, FileText, X } from "lucide-react"
+import { Loader2, Trash2, UserPlus, ExternalLink, Plus, FileText, X, Pencil } from "lucide-react"
 import type { ProfileWithIncome } from "./types"
 
 const ACCOUNT_TYPES = [
@@ -124,6 +129,8 @@ export type FinancialDataByFamily = {
     frequency: string
     coverage_amount: number | null
     yearly_outflow_date: number | null
+    current_amount: number | null
+    end_date: string | null
     profile_id: string
   }>
   cpfBalances: Array<{
@@ -660,7 +667,6 @@ function SavingsGoalsSection({
     name: "",
     target_amount: 0,
     current_amount: 0,
-    monthly_auto_amount: 0,
     deadline: "" as string | null,
     category: "custom" as const,
   })
@@ -675,7 +681,6 @@ function SavingsGoalsSection({
           name: goal.name,
           targetAmount: goal.target_amount,
           currentAmount: goal.current_amount,
-          monthlyAutoAmount: goal.monthly_auto_amount,
           deadline: goal.deadline,
           category: goal.category,
           profileId,
@@ -725,7 +730,6 @@ function SavingsGoalsSection({
           name: newGoal.name,
           targetAmount: newGoal.target_amount,
           currentAmount: newGoal.current_amount,
-          monthlyAutoAmount: newGoal.monthly_auto_amount,
           deadline: newGoal.deadline || null,
           category: newGoal.category,
           profileId,
@@ -741,7 +745,6 @@ function SavingsGoalsSection({
         name: "",
         target_amount: 0,
         current_amount: 0,
-        monthly_auto_amount: 0,
         deadline: null,
         category: "custom",
       })
@@ -799,7 +802,6 @@ function SavingsGoalsSection({
             <TableHead>Goal - Name</TableHead>
             <TableHead>Target</TableHead>
             <TableHead>Current</TableHead>
-            <TableHead>Monthly Auto</TableHead>
             <TableHead>Deadline</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -837,18 +839,6 @@ function SavingsGoalsSection({
                   />
                 </TableCell>
                 <TableCell>
-                  <CurrencyInput
-                    value={e.monthly_auto_amount}
-                    onChange={(v) =>
-                      setEditing((p) => ({
-                        ...p,
-                        [g.id]: { ...(p[g.id] ?? g), monthly_auto_amount: v ?? 0 },
-                      }))
-                    }
-                    className="h-8 w-24"
-                  />
-                </TableCell>
-                <TableCell>
                   <Input
                     type="date"
                     value={e.deadline ?? ""}
@@ -875,7 +865,7 @@ function SavingsGoalsSection({
             )
           })}
           <TableRow>
-            <TableCell colSpan={6} className="border-t">
+            <TableCell colSpan={5} className="border-t">
               <div className="flex flex-wrap gap-2 pt-2">
                 <Input
                   placeholder="Goal name"
@@ -915,6 +905,7 @@ function CPFSection({
 }) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
+  const [isEditingCpf, setIsEditingCpf] = useState(false)
   const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`
   const [oa, setOa] = useState(cpfData?.oa ?? 0)
   const [sa, setSa] = useState(cpfData?.sa ?? 0)
@@ -946,6 +937,7 @@ function CPFSection({
         throw new Error(data.error ?? "Failed to save")
       }
       toast.success("CPF balances updated")
+      setIsEditingCpf(false)
       onMutate()
       router.refresh()
     } catch (err) {
@@ -953,6 +945,13 @@ function CPFSection({
     } finally {
       setSaving(false)
     }
+  }
+
+  function handleCancel() {
+    setOa(cpfData?.oa ?? 0)
+    setSa(cpfData?.sa ?? 0)
+    setMa(cpfData?.ma ?? 0)
+    setIsEditingCpf(false)
   }
 
   return (
@@ -969,20 +968,47 @@ function CPFSection({
         </TableHeader>
         <TableBody>
           <TableRow>
-            <TableCell>
-              <CurrencyInput value={oa} onChange={(v) => setOa(v ?? 0)} className="h-8 w-28" />
-            </TableCell>
-            <TableCell>
-              <CurrencyInput value={sa} onChange={(v) => setSa(v ?? 0)} className="h-8 w-28" />
-            </TableCell>
-            <TableCell>
-              <CurrencyInput value={ma} onChange={(v) => setMa(v ?? 0)} className="h-8 w-28" />
-            </TableCell>
-            <TableCell className="text-right">
-              <Button size="sm" disabled={saving} onClick={handleSave}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-              </Button>
-            </TableCell>
+            {isEditingCpf ? (
+              <>
+                <TableCell>
+                  <CurrencyInput value={oa} onChange={(v) => setOa(v ?? 0)} className="h-8 w-28" />
+                </TableCell>
+                <TableCell>
+                  <CurrencyInput value={sa} onChange={(v) => setSa(v ?? 0)} className="h-8 w-28" />
+                </TableCell>
+                <TableCell>
+                  <CurrencyInput value={ma} onChange={(v) => setMa(v ?? 0)} className="h-8 w-28" />
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-1">
+                    <Button size="sm" variant="ghost" onClick={handleCancel}>
+                      Cancel
+                    </Button>
+                    <Button size="sm" disabled={saving} onClick={handleSave}>
+                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                    </Button>
+                  </div>
+                </TableCell>
+              </>
+            ) : (
+              <>
+                <TableCell className="text-muted-foreground">
+                  ${formatCurrency(oa)}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  ${formatCurrency(sa)}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  ${formatCurrency(ma)}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button size="sm" variant="outline" onClick={() => setIsEditingCpf(true)}>
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </Button>
+                </TableCell>
+              </>
+            )}
           </TableRow>
         </TableBody>
       </Table>
@@ -1262,61 +1288,75 @@ function InvestmentsSection({
       <>
         <SectionTitle>Investments</SectionTitle>
         <p className="text-sm text-muted-foreground">No investments. Add one below.</p>
-        <div className="flex flex-wrap gap-2 rounded-lg border p-3 mt-2">
-          {isGoldOrSilver(newInv.type) ? (
-            <Input value={effectiveNewSymbol} disabled className="h-8 w-24 bg-muted" />
-          ) : effectiveNewSymbol ? (
-            <div className="flex items-center gap-1">
-              <span className="inline-flex h-8 items-center gap-1 rounded-md border bg-muted px-2 text-sm font-medium">
-                {effectiveNewSymbol}
-                <button
-                  type="button"
-                  onClick={() => setNewInv((p) => ({ ...p, symbol: "" }))}
-                  className="rounded p-0.5 hover:bg-muted-foreground/20"
-                  aria-label="Clear symbol"
-                >
-                  <X className="size-3" />
-                </button>
-              </span>
+        <div className="flex flex-wrap gap-4 rounded-lg border p-3 mt-2">
+          <div className="space-y-1">
+            <Label>Symbol</Label>
+            {isGoldOrSilver(newInv.type) ? (
+              <Input value={effectiveNewSymbol} disabled className="h-8 w-24 bg-muted" />
+            ) : effectiveNewSymbol ? (
+              <div className="flex items-center gap-1">
+                <span className="inline-flex h-8 items-center gap-1 rounded-md border bg-muted px-2 text-sm font-medium">
+                  {effectiveNewSymbol}
+                  <button
+                    type="button"
+                    onClick={() => setNewInv((p) => ({ ...p, symbol: "" }))}
+                    className="rounded p-0.5 hover:bg-muted-foreground/20"
+                    aria-label="Clear symbol"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+                <Button size="sm" variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
+                  Change
+                </Button>
+              </div>
+            ) : (
               <Button size="sm" variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
-                Change
+                <Plus className="mr-2 size-3.5" />
+                Add symbol
               </Button>
-            </div>
-          ) : (
-            <Button size="sm" variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
-              <Plus className="mr-2 size-3.5" />
-              Add symbol
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label>Type</Label>
+            <Select
+              value={newInv.type}
+              onValueChange={(v) => setNewInv((p) => ({ ...p, type: v as typeof newInv.type }))}
+            >
+              <SelectTrigger className="h-8 w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INVESTMENT_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Units</Label>
+            <CurrencyInput
+              placeholder="Units"
+              value={newInv.units}
+              onChange={(v) => setNewInv((p) => ({ ...p, units: v ?? 0 }))}
+              className="h-8 w-20"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Cost basis</Label>
+            <CurrencyInput
+              placeholder="Cost basis"
+              value={newInv.cost_basis}
+              onChange={(v) => setNewInv((p) => ({ ...p, cost_basis: v ?? 0 }))}
+              className="h-8 w-24"
+            />
+          </div>
+          <div className="flex items-end">
+            <Button size="sm" onClick={handleAdd} disabled={adding || !effectiveNewSymbol.trim()}>
+              {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              Add
             </Button>
-          )}
-          <Select
-            value={newInv.type}
-            onValueChange={(v) => setNewInv((p) => ({ ...p, type: v as typeof newInv.type }))}
-          >
-            <SelectTrigger className="h-8 w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {INVESTMENT_TYPES.map((t) => (
-                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <CurrencyInput
-            placeholder="Units"
-            value={newInv.units}
-            onChange={(v) => setNewInv((p) => ({ ...p, units: v ?? 0 }))}
-            className="h-8 w-20"
-          />
-          <CurrencyInput
-            placeholder="Cost basis"
-            value={newInv.cost_basis}
-            onChange={(v) => setNewInv((p) => ({ ...p, cost_basis: v ?? 0 }))}
-            className="h-8 w-24"
-          />
-          <Button size="sm" onClick={handleAdd} disabled={adding || !effectiveNewSymbol.trim()}>
-            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Add
-          </Button>
+          </div>
         </div>
         <SymbolPickerDrawer
           open={symbolDrawerOpen}
@@ -1418,61 +1458,75 @@ function InvestmentsSection({
           })}
           <TableRow>
             <TableCell colSpan={5} className="border-t">
-              <div className="flex flex-wrap gap-2 pt-2">
-                {isGoldOrSilver(newInv.type) ? (
-                  <Input value={effectiveNewSymbol} disabled className="h-8 w-24 bg-muted" />
-                ) : effectiveNewSymbol ? (
-                  <div className="flex items-center gap-1">
-                    <span className="inline-flex h-8 items-center gap-1 rounded-md border bg-muted px-2 text-sm font-medium">
-                      {effectiveNewSymbol}
-                      <button
-                        type="button"
-                        onClick={() => setNewInv((p) => ({ ...p, symbol: "" }))}
-                        className="rounded p-0.5 hover:bg-muted-foreground/20"
-                        aria-label="Clear symbol"
-                      >
-                        <X className="size-3" />
-                      </button>
-                    </span>
+              <div className="flex flex-wrap gap-4 pt-2">
+                <div className="space-y-1">
+                  <Label>Symbol</Label>
+                  {isGoldOrSilver(newInv.type) ? (
+                    <Input value={effectiveNewSymbol} disabled className="h-8 w-24 bg-muted" />
+                  ) : effectiveNewSymbol ? (
+                    <div className="flex items-center gap-1">
+                      <span className="inline-flex h-8 items-center gap-1 rounded-md border bg-muted px-2 text-sm font-medium">
+                        {effectiveNewSymbol}
+                        <button
+                          type="button"
+                          onClick={() => setNewInv((p) => ({ ...p, symbol: "" }))}
+                          className="rounded p-0.5 hover:bg-muted-foreground/20"
+                          aria-label="Clear symbol"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                      <Button size="sm" variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
+                        Change
+                      </Button>
+                    </div>
+                  ) : (
                     <Button size="sm" variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
-                      Change
+                      <Plus className="mr-2 size-3.5" />
+                      Add symbol
                     </Button>
-                  </div>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
-                    <Plus className="mr-2 size-3.5" />
-                    Add symbol
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label>Type</Label>
+                  <Select
+                    value={newInv.type}
+                    onValueChange={(v) => setNewInv((p) => ({ ...p, type: v as typeof newInv.type }))}
+                  >
+                    <SelectTrigger className="h-8 w-24">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INVESTMENT_TYPES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Units</Label>
+                  <CurrencyInput
+                    placeholder="Units"
+                    value={newInv.units}
+                    onChange={(v) => setNewInv((p) => ({ ...p, units: v ?? 0 }))}
+                    className="h-8 w-20"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Cost basis</Label>
+                  <CurrencyInput
+                    placeholder="Cost basis"
+                    value={newInv.cost_basis}
+                    onChange={(v) => setNewInv((p) => ({ ...p, cost_basis: v ?? 0 }))}
+                    className="h-8 w-24"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding || !effectiveNewSymbol.trim()}>
+                    {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    Add investment
                   </Button>
-                )}
-                <Select
-                  value={newInv.type}
-                  onValueChange={(v) => setNewInv((p) => ({ ...p, type: v as typeof newInv.type }))}
-                >
-                  <SelectTrigger className="h-8 w-24">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INVESTMENT_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <CurrencyInput
-                  placeholder="Units"
-                  value={newInv.units}
-                  onChange={(v) => setNewInv((p) => ({ ...p, units: v ?? 0 }))}
-                  className="h-8 w-20"
-                />
-                <CurrencyInput
-                  placeholder="Cost basis"
-                  value={newInv.cost_basis}
-                  onChange={(v) => setNewInv((p) => ({ ...p, cost_basis: v ?? 0 }))}
-                  className="h-8 w-24"
-                />
-                <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding || !effectiveNewSymbol.trim()}>
-                  {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Add investment
-                </Button>
+                </div>
               </div>
             </TableCell>
           </TableRow>
@@ -1579,6 +1633,10 @@ function LoansSection({
       toast.error("Principal must be positive")
       return
     }
+    if (newLoan.tenure_months <= 0) {
+      toast.error("Tenure must be at least 1 month")
+      return
+    }
     setAdding(true)
     try {
       const res = await fetch("/api/loans", {
@@ -1634,36 +1692,83 @@ function LoansSection({
       <>
         <SectionTitle>Loans</SectionTitle>
         <p className="text-sm text-muted-foreground">No loans. Add one below.</p>
-        <div className="flex flex-wrap gap-2 rounded-lg border p-3 mt-2">
-          <Input
-            placeholder="Loan name"
-            value={newLoan.name}
-            onChange={(e) => setNewLoan((p) => ({ ...p, name: e.target.value }))}
-            className="h-8 w-28"
-          />
-          <Select
-            value={newLoan.type}
-            onValueChange={(v) => setNewLoan((p) => ({ ...p, type: v as typeof newLoan.type }))}
-          >
-            <SelectTrigger className="h-8 w-28">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {LOAN_TYPES.map((t) => (
-                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <CurrencyInput
-            placeholder="Principal"
-            value={newLoan.principal}
-            onChange={(v) => setNewLoan((p) => ({ ...p, principal: v ?? 0 }))}
-            className="h-8 w-24"
-          />
-          <Button size="sm" onClick={handleAdd} disabled={adding}>
-            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Add loan
-          </Button>
+        <div className="flex flex-wrap gap-4 rounded-lg border p-3 mt-2">
+          <div className="space-y-1">
+            <Label>Name</Label>
+            <Input
+              placeholder="Loan name"
+              value={newLoan.name}
+              onChange={(e) => setNewLoan((p) => ({ ...p, name: e.target.value }))}
+              className="h-8 w-28"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Type</Label>
+            <Select
+              value={newLoan.type}
+              onValueChange={(v) => setNewLoan((p) => ({ ...p, type: v as typeof newLoan.type }))}
+            >
+              <SelectTrigger className="h-8 w-28">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LOAN_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Principal</Label>
+            <CurrencyInput
+              placeholder="Principal"
+              value={newLoan.principal}
+              onChange={(v) => setNewLoan((p) => ({ ...p, principal: v ?? 0 }))}
+              className="h-8 w-24"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Rate %</Label>
+            <Input
+              type="number"
+              step={0.01}
+              min={0}
+              placeholder="0"
+              value={newLoan.rate_pct || ""}
+              onChange={(e) =>
+                setNewLoan((p) => ({ ...p, rate_pct: Number(e.target.value) || 0 }))
+              }
+              className="h-8 w-20"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Tenure (mo)</Label>
+            <Input
+              type="number"
+              min={1}
+              placeholder="Months"
+              value={newLoan.tenure_months || ""}
+              onChange={(e) =>
+                setNewLoan((p) => ({ ...p, tenure_months: Number(e.target.value) || 0 }))
+              }
+              className="h-8 w-20"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Start Date</Label>
+            <Input
+              type="date"
+              value={newLoan.start_date}
+              onChange={(e) => setNewLoan((p) => ({ ...p, start_date: e.target.value }))}
+              className="h-8 w-32"
+            />
+          </div>
+          <div className="flex items-end">
+            <Button size="sm" onClick={handleAdd} disabled={adding}>
+              {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              Add loan
+            </Button>
+          </div>
         </div>
       </>
     )
@@ -1776,36 +1881,83 @@ function LoansSection({
           })}
           <TableRow>
             <TableCell colSpan={7} className="border-t">
-              <div className="flex flex-wrap gap-2 pt-2">
-                <Input
-                  placeholder="Loan name"
-                  value={newLoan.name}
-                  onChange={(e) => setNewLoan((p) => ({ ...p, name: e.target.value }))}
-                  className="h-8 w-28"
-                />
-                <Select
-                  value={newLoan.type}
-                  onValueChange={(v) => setNewLoan((p) => ({ ...p, type: v as typeof newLoan.type }))}
-                >
-                  <SelectTrigger className="h-8 w-28">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LOAN_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <CurrencyInput
-                  placeholder="Principal"
-                  value={newLoan.principal}
-                  onChange={(v) => setNewLoan((p) => ({ ...p, principal: v ?? 0 }))}
-                  className="h-8 w-24"
-                />
-                <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding}>
-                  {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Add loan
-                </Button>
+              <div className="flex flex-wrap gap-4 pt-2">
+                <div className="space-y-1">
+                  <Label>Name</Label>
+                  <Input
+                    placeholder="Loan name"
+                    value={newLoan.name}
+                    onChange={(e) => setNewLoan((p) => ({ ...p, name: e.target.value }))}
+                    className="h-8 w-28"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Type</Label>
+                  <Select
+                    value={newLoan.type}
+                    onValueChange={(v) => setNewLoan((p) => ({ ...p, type: v as typeof newLoan.type }))}
+                  >
+                    <SelectTrigger className="h-8 w-28">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LOAN_TYPES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Principal</Label>
+                  <CurrencyInput
+                    placeholder="Principal"
+                    value={newLoan.principal}
+                    onChange={(v) => setNewLoan((p) => ({ ...p, principal: v ?? 0 }))}
+                    className="h-8 w-24"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Rate %</Label>
+                  <Input
+                    type="number"
+                    step={0.01}
+                    min={0}
+                    placeholder="0"
+                    value={newLoan.rate_pct || ""}
+                    onChange={(e) =>
+                      setNewLoan((p) => ({ ...p, rate_pct: Number(e.target.value) || 0 }))
+                    }
+                    className="h-8 w-20"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Tenure (mo)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="Months"
+                    value={newLoan.tenure_months || ""}
+                    onChange={(e) =>
+                      setNewLoan((p) => ({ ...p, tenure_months: Number(e.target.value) || 0 }))
+                    }
+                    className="h-8 w-20"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Start Date</Label>
+                  <Input
+                    type="date"
+                    value={newLoan.start_date}
+                    onChange={(e) => setNewLoan((p) => ({ ...p, start_date: e.target.value }))}
+                    className="h-8 w-32"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding}>
+                    {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    Add loan
+                  </Button>
+                </div>
               </div>
             </TableCell>
           </TableRow>
@@ -1827,16 +1979,45 @@ function InsuranceSection({
   const router = useRouter()
   const [savingId, setSavingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
-  const [newPolicy, setNewPolicy] = useState({
+  const [newPolicy, setNewPolicy] = useState<{
+    name: string
+    type: InsuranceType
+    premium_amount: number
+    frequency: "monthly" | "yearly"
+    coverage_amount: number | null
+    yearly_outflow_date: number | null
+    current_amount: number | null
+    end_date: string | null
+  }>({
     name: "",
-    type: "term_life" as const,
+    type: "term_life",
     premium_amount: 0,
-    frequency: "yearly" as const,
-    coverage_amount: 0 as number | null,
-    yearly_outflow_date: null as number | null,
+    frequency: "yearly",
+    coverage_amount: null,
+    yearly_outflow_date: null,
+    current_amount: null,
+    end_date: null,
   })
 
-  async function handleSave(policy: (typeof policies)[0]) {
+  const newPolicyFields = getFieldsForType(newPolicy.type, newPolicy.frequency)
+
+  function setNewPolicyType(type: InsuranceType) {
+    setNewPolicy((prev) => {
+      const fields = getFieldsForType(type, prev.frequency)
+      return {
+        ...prev,
+        type,
+        current_amount: fields.showCurrentAmount ? prev.current_amount : null,
+        end_date: fields.showEndDate ? prev.end_date : null,
+      }
+    })
+  }
+
+  function setNewPolicyFrequency(frequency: "monthly" | "yearly") {
+    setNewPolicy((prev) => ({ ...prev, frequency }))
+  }
+
+  async function handleSave(policy: (typeof policies)[0] & { current_amount?: number | null; end_date?: string | null }) {
     setSavingId(policy.id)
     try {
       const res = await fetch(`/api/insurance/${policy.id}`, {
@@ -1847,8 +2028,10 @@ function InsuranceSection({
           type: policy.type,
           premiumAmount: policy.premium_amount,
           frequency: policy.frequency,
-          coverageAmount: policy.coverage_amount,
-          yearlyOutflowDate: policy.yearly_outflow_date,
+          coverageAmount: policy.coverage_amount ?? undefined,
+          yearlyOutflowDate: policy.yearly_outflow_date ?? undefined,
+          currentAmount: policy.current_amount ?? undefined,
+          endDate: policy.end_date ?? undefined,
         }),
       })
       if (!res.ok) {
@@ -1882,6 +2065,10 @@ function InsuranceSection({
       toast.error("Policy name is required")
       return
     }
+    if (newPolicy.premium_amount <= 0) {
+      toast.error("Premium must be greater than 0")
+      return
+    }
     setAdding(true)
     try {
       const res = await fetch("/api/insurance", {
@@ -1893,8 +2080,10 @@ function InsuranceSection({
           type: newPolicy.type,
           premiumAmount: newPolicy.premium_amount,
           frequency: newPolicy.frequency,
-          coverageAmount: newPolicy.coverage_amount || undefined,
+          coverageAmount: newPolicy.coverage_amount ?? undefined,
           yearlyOutflowDate: newPolicy.yearly_outflow_date ?? undefined,
+          currentAmount: newPolicy.current_amount ?? undefined,
+          endDate: newPolicy.end_date ?? undefined,
         }),
       })
       if (!res.ok) {
@@ -1909,6 +2098,8 @@ function InsuranceSection({
         frequency: "yearly",
         coverage_amount: null,
         yearly_outflow_date: null,
+        current_amount: null,
+        end_date: null,
       })
       onMutate()
       router.refresh()
@@ -1919,11 +2110,17 @@ function InsuranceSection({
     }
   }
 
-  const [editing, setEditing] = useState<Record<string, (typeof policies)[0]>>({})
+  const [editing, setEditing] = useState<
+    Record<string, (typeof policies)[0] & { current_amount?: number | null; end_date?: string | null }>
+  >({})
   useEffect(() => {
-    const map: Record<string, (typeof policies)[0]> = {}
+    const map: Record<string, (typeof policies)[0] & { current_amount?: number | null; end_date?: string | null }> = {}
     for (const p of policies) {
-      map[p.id] = { ...p }
+      map[p.id] = {
+        ...p,
+        current_amount: (p as { current_amount?: number | null }).current_amount ?? null,
+        end_date: (p as { end_date?: string | null }).end_date ?? null,
+      }
     }
     setEditing(map)
   }, [policies])
@@ -1933,36 +2130,117 @@ function InsuranceSection({
       <>
         <SectionTitle>Insurance</SectionTitle>
         <p className="text-sm text-muted-foreground">No insurance policies. Add one below.</p>
-        <div className="flex flex-wrap gap-2 rounded-lg border p-3 mt-2">
-          <Input
-            placeholder="Policy name"
-            value={newPolicy.name}
-            onChange={(e) => setNewPolicy((p) => ({ ...p, name: e.target.value }))}
-            className="h-8 w-32"
-          />
-          <Select
-            value={newPolicy.type}
-            onValueChange={(v) => setNewPolicy((p) => ({ ...p, type: v as typeof newPolicy.type }))}
-          >
-            <SelectTrigger className="h-8 w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {INSURANCE_TYPES.map((t) => (
-                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <CurrencyInput
-            placeholder="Premium"
-            value={newPolicy.premium_amount}
-            onChange={(v) => setNewPolicy((p) => ({ ...p, premium_amount: v ?? 0 }))}
-            className="h-8 w-24"
-          />
-          <Button size="sm" onClick={handleAdd} disabled={adding}>
-            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Add
-          </Button>
+        <div className="flex flex-wrap gap-4 rounded-lg border p-3 mt-2">
+          <div className="space-y-1">
+            <Label>Policy name</Label>
+            <Input
+              placeholder="Policy name"
+              value={newPolicy.name}
+              onChange={(e) => setNewPolicy((p) => ({ ...p, name: e.target.value }))}
+              className="h-8 w-32"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Type</Label>
+            <Select
+              value={newPolicy.type}
+              onValueChange={(v) => setNewPolicyType(v as InsuranceType)}
+            >
+              <SelectTrigger className="h-8 w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INSURANCE_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Premium</Label>
+            <CurrencyInput
+              placeholder="Premium"
+              value={newPolicy.premium_amount}
+              onChange={(v) => setNewPolicy((p) => ({ ...p, premium_amount: v ?? 0 }))}
+              className="h-8 w-24"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Frequency</Label>
+            <Select
+              value={newPolicy.frequency}
+              onValueChange={(v) => setNewPolicyFrequency(v as "monthly" | "yearly")}
+            >
+              <SelectTrigger className="h-8 w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="yearly">Yearly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {newPolicyFields.showCoverageAmount && (
+            <div className="space-y-1">
+              <Label>{newPolicyFields.coverageAmountLabel}</Label>
+              <CurrencyInput
+                placeholder="0"
+                value={newPolicy.coverage_amount}
+                onChange={(v) => setNewPolicy((p) => ({ ...p, coverage_amount: v ?? null }))}
+                className="h-8 w-24"
+              />
+            </div>
+          )}
+          {newPolicyFields.showYearlyOutflowDate && (
+            <div className="space-y-1">
+              <Label>Yearly due month</Label>
+              <Select
+                value={newPolicy.yearly_outflow_date?.toString() ?? ""}
+                onValueChange={(v) =>
+                  setNewPolicy((p) => ({ ...p, yearly_outflow_date: v ? parseInt(v, 10) : null }))
+                }
+              >
+                <SelectTrigger className="h-8 w-24">
+                  <SelectValue placeholder="Month" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <SelectItem key={m} value={m.toString()}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {newPolicyFields.showCurrentAmount && (
+            <div className="space-y-1">
+              <Label>{newPolicyFields.currentAmountLabel}</Label>
+              <CurrencyInput
+                placeholder="0"
+                value={newPolicy.current_amount}
+                onChange={(v) => setNewPolicy((p) => ({ ...p, current_amount: v ?? null }))}
+                className="h-8 w-24"
+              />
+            </div>
+          )}
+          {newPolicyFields.showEndDate && (
+            <div className="space-y-1">
+              <Label>{newPolicyFields.endDateLabel}</Label>
+              <Input
+                type="date"
+                value={newPolicy.end_date ?? ""}
+                onChange={(e) => setNewPolicy((p) => ({ ...p, end_date: e.target.value || null }))}
+                className="h-8 w-32"
+              />
+            </div>
+          )}
+          <div className="flex items-end">
+            <Button size="sm" onClick={handleAdd} disabled={adding}>
+              {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              Add
+            </Button>
+          </div>
         </div>
       </>
     )
@@ -1978,12 +2256,19 @@ function InsuranceSection({
             <TableHead>Type</TableHead>
             <TableHead>Premium</TableHead>
             <TableHead>Frequency</TableHead>
+            <TableHead>Coverage</TableHead>
+            <TableHead>Yearly due</TableHead>
+            <TableHead>Current / End</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {policies.map((p) => {
             const e = editing[p.id] ?? p
+            const rowFields = getFieldsForType(
+              e.type as InsuranceType,
+              e.frequency as "monthly" | "yearly",
+            )
             return (
               <TableRow key={p.id}>
                 <TableCell>
@@ -1998,9 +2283,18 @@ function InsuranceSection({
                 <TableCell>
                   <Select
                     value={e.type}
-                    onValueChange={(v) =>
-                      setEditing((prev) => ({ ...prev, [p.id]: { ...(prev[p.id] ?? p), type: v } }))
-                    }
+                    onValueChange={(v) => {
+                      const fields = getFieldsForType(v as InsuranceType, e.frequency as "monthly" | "yearly")
+                      setEditing((prev) => ({
+                        ...prev,
+                        [p.id]: {
+                          ...(prev[p.id] ?? p),
+                          type: v,
+                          current_amount: fields.showCurrentAmount ? (prev[p.id] ?? p).current_amount : null,
+                          end_date: fields.showEndDate ? (prev[p.id] ?? p).end_date : null,
+                        },
+                      }))
+                    }}
                   >
                     <SelectTrigger className="h-8 w-36">
                       <SelectValue />
@@ -2040,6 +2334,81 @@ function InsuranceSection({
                     </SelectContent>
                   </Select>
                 </TableCell>
+                <TableCell>
+                  <CurrencyInput
+                    value={e.coverage_amount ?? undefined}
+                    onChange={(v) =>
+                      setEditing((prev) => ({
+                        ...prev,
+                        [p.id]: { ...(prev[p.id] ?? p), coverage_amount: v ?? null },
+                      }))
+                    }
+                    className="h-8 w-24"
+                  />
+                </TableCell>
+                <TableCell>
+                  {rowFields.showYearlyOutflowDate ? (
+                    <Select
+                      value={e.yearly_outflow_date?.toString() ?? ""}
+                      onValueChange={(val) =>
+                        setEditing((prev) => ({
+                          ...prev,
+                          [p.id]: {
+                            ...(prev[p.id] ?? p),
+                            yearly_outflow_date: val ? parseInt(val, 10) : null,
+                          },
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-16">
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                          <SelectItem key={m} value={m.toString()}>
+                            {m}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">—</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {rowFields.showCurrentAmount || rowFields.showEndDate ? (
+                    <div className="flex flex-wrap gap-1">
+                      {rowFields.showCurrentAmount && (
+                        <CurrencyInput
+                          value={e.current_amount ?? undefined}
+                          onChange={(v) =>
+                            setEditing((prev) => ({
+                              ...prev,
+                              [p.id]: { ...(prev[p.id] ?? p), current_amount: v ?? null },
+                            }))
+                          }
+                          className="h-8 w-20"
+                          placeholder="0"
+                        />
+                      )}
+                      {rowFields.showEndDate && (
+                        <Input
+                          type="date"
+                          value={e.end_date ?? ""}
+                          onChange={(ev) =>
+                            setEditing((prev) => ({
+                              ...prev,
+                              [p.id]: { ...(prev[p.id] ?? p), end_date: ev.target.value || null },
+                            }))
+                          }
+                          className="h-8 w-28"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">—</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button size="sm" variant="ghost" onClick={() => handleDelete(p.id)}>
@@ -2054,37 +2423,118 @@ function InsuranceSection({
             )
           })}
           <TableRow>
-            <TableCell colSpan={5} className="border-t">
-              <div className="flex flex-wrap gap-2 pt-2">
-                <Input
-                  placeholder="Policy name"
-                  value={newPolicy.name}
-                  onChange={(e) => setNewPolicy((prev) => ({ ...prev, name: e.target.value }))}
-                  className="h-8 w-32"
-                />
-                <Select
-                  value={newPolicy.type}
-                  onValueChange={(v) => setNewPolicy((prev) => ({ ...prev, type: v as typeof newPolicy.type }))}
-                >
-                  <SelectTrigger className="h-8 w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INSURANCE_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <CurrencyInput
-                  placeholder="Premium"
-                  value={newPolicy.premium_amount}
-                  onChange={(v) => setNewPolicy((prev) => ({ ...prev, premium_amount: v ?? 0 }))}
-                  className="h-8 w-24"
-                />
-                <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding}>
-                  {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Add insurance
-                </Button>
+            <TableCell colSpan={8} className="border-t">
+              <div className="flex flex-wrap gap-4 pt-2">
+                <div className="space-y-1">
+                  <Label>Policy name</Label>
+                  <Input
+                    placeholder="Policy name"
+                    value={newPolicy.name}
+                    onChange={(e) => setNewPolicy((prev) => ({ ...prev, name: e.target.value }))}
+                    className="h-8 w-32"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Type</Label>
+                  <Select
+                    value={newPolicy.type}
+                    onValueChange={(v) => setNewPolicyType(v as InsuranceType)}
+                  >
+                    <SelectTrigger className="h-8 w-36">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INSURANCE_TYPES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Premium</Label>
+                  <CurrencyInput
+                    placeholder="Premium"
+                    value={newPolicy.premium_amount}
+                    onChange={(v) => setNewPolicy((prev) => ({ ...prev, premium_amount: v ?? 0 }))}
+                    className="h-8 w-24"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Frequency</Label>
+                  <Select
+                    value={newPolicy.frequency}
+                    onValueChange={(v) => setNewPolicyFrequency(v as "monthly" | "yearly")}
+                  >
+                    <SelectTrigger className="h-8 w-24">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="yearly">Yearly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {newPolicyFields.showCoverageAmount && (
+                  <div className="space-y-1">
+                    <Label>{newPolicyFields.coverageAmountLabel}</Label>
+                    <CurrencyInput
+                      placeholder="0"
+                      value={newPolicy.coverage_amount}
+                      onChange={(v) => setNewPolicy((prev) => ({ ...prev, coverage_amount: v ?? null }))}
+                      className="h-8 w-24"
+                    />
+                  </div>
+                )}
+                {newPolicyFields.showYearlyOutflowDate && (
+                  <div className="space-y-1">
+                    <Label>Yearly due month</Label>
+                    <Select
+                      value={newPolicy.yearly_outflow_date?.toString() ?? ""}
+                      onValueChange={(v) =>
+                        setNewPolicy((prev) => ({ ...prev, yearly_outflow_date: v ? parseInt(v, 10) : null }))
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-24">
+                        <SelectValue placeholder="Month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                          <SelectItem key={m} value={m.toString()}>
+                            {m}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {newPolicyFields.showCurrentAmount && (
+                  <div className="space-y-1">
+                    <Label>{newPolicyFields.currentAmountLabel}</Label>
+                    <CurrencyInput
+                      placeholder="0"
+                      value={newPolicy.current_amount}
+                      onChange={(v) => setNewPolicy((prev) => ({ ...prev, current_amount: v ?? null }))}
+                      className="h-8 w-24"
+                    />
+                  </div>
+                )}
+                {newPolicyFields.showEndDate && (
+                  <div className="space-y-1">
+                    <Label>{newPolicyFields.endDateLabel}</Label>
+                    <Input
+                      type="date"
+                      value={newPolicy.end_date ?? ""}
+                      onChange={(e) => setNewPolicy((prev) => ({ ...prev, end_date: e.target.value || null }))}
+                      className="h-8 w-32"
+                    />
+                  </div>
+                )}
+                <div className="flex items-end">
+                  <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding}>
+                    {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    Add insurance
+                  </Button>
+                </div>
               </div>
             </TableCell>
           </TableRow>
@@ -2221,7 +2671,7 @@ export function FamilyMembersTable({
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="max-w-full overflow-x-auto">
+          <div className="min-w-0 max-w-full overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
             <TabsList className="inline-flex h-9 w-fit flex-nowrap">
               {profiles.map((p) => (
                 <TabsTrigger key={p.id} value={p.id} className="text-sm shrink-0 px-3">

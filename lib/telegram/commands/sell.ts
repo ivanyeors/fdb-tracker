@@ -32,10 +32,20 @@ export async function handleSell(
     return `❌ Insufficient holdings. ${user.profileName} has ${existing.units} ${symbol}.`
   }
 
+  const remainingUnits = existing.units - parsed.quantity
+
+  const { error: updateError } = await supabase
+    .from("investments")
+    .update({ units: remainingUnits })
+    .eq("id", existing.id)
+
+  if (updateError) return `❌ Update error: ${updateError.message}`
+
   const { error: txError } = await supabase
     .from("investment_transactions")
     .insert({
       family_id: user.familyId,
+      investment_id: existing.id,
       profile_id: user.profileId,
       type: "sell",
       symbol,
@@ -46,18 +56,32 @@ export async function handleSell(
 
   if (txError) return `❌ Transaction error: ${txError.message}`
 
-  const remainingUnits = existing.units - parsed.quantity
-  const newCostBasis =
-    existing.units > 0
-      ? existing.cost_basis * (remainingUnits / existing.units)
-      : 0
+  const accountFilter = {
+    family_id: user.familyId,
+    profile_id: user.profileId,
+  }
+  const { data: accountRow } = await supabase
+    .from("investment_accounts")
+    .select("id, cash_balance")
+    .match(accountFilter)
+    .maybeSingle()
 
-  const { error: updateError } = await supabase
-    .from("investments")
-    .update({ units: remainingUnits, cost_basis: newCostBasis })
-    .eq("id", existing.id)
-
-  if (updateError) return `❌ Update error: ${updateError.message}`
+  if (accountRow) {
+    await supabase
+      .from("investment_accounts")
+      .update({
+        cash_balance: accountRow.cash_balance + proceeds,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", accountRow.id)
+  } else {
+    await supabase.from("investment_accounts").insert({
+      family_id: user.familyId,
+      profile_id: user.profileId,
+      cash_balance: proceeds,
+      updated_at: new Date().toISOString(),
+    })
+  }
 
   return `✅ ${user.profileName} sold ${parsed.quantity} ${symbol} @ $${parsed.price}. Proceeds: $${proceeds}.`
 }

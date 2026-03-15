@@ -195,7 +195,7 @@ When any bank account is OCBC, an optional sub-step appears:
 - **Household → Profiles:** One household, many users (dynamic count set during onboarding)
 - **Combined comparison:** Every metric supports `profile_id` (individual) or `null` (combined). Dashboard shows individual vs combined toggle.
 - **CPF is separate:** CPF balances are never added to bank account totals. Net worth shows them as a distinct category.
-- **Outflow deduplication:** Insurance, ILP, tax, loan repayments, stock purchases each tracked in their own tables. The `monthly_cashflow.outflow` field represents **discretionary outflow only**. Total effective outflow = discretionary + sum of all tracked deductions.
+- **Outflow deduplication:** Insurance, ILP, tax, loan repayments, stock purchases each tracked in their own tables. The `monthly_cashflow.outflow` field can represent **total outflow** (implementation default) or discretionary only. When total: effective outflow = userOutflow + GIRO; discretionary = total − (insurance + ILP + loans + tax).
 
 ---
 

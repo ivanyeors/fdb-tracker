@@ -25,6 +25,7 @@ import {
   pathWithMode,
   type OnboardingInsurance,
 } from "@/components/onboarding/onboarding-provider"
+import { getFieldsForType, type InsuranceType } from "@/lib/insurance/coverage-config"
 import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react"
 
 const INSURANCE_TYPES = [
@@ -60,6 +61,18 @@ export default function InsurancePage() {
     ])
   }
 
+  function updateItemWithTypeReset(index: number, type: string) {
+    const fields = getFieldsForType(type as InsuranceType, items[index].frequency)
+    const updated = [...items]
+    updated[index] = {
+      ...updated[index],
+      type,
+      current_amount: fields.showCurrentAmount ? updated[index].current_amount : null,
+      end_date: fields.showEndDate ? updated[index].end_date : null,
+    }
+    setItems(updated)
+  }
+
   function removeItem(index: number) {
     setItems(items.filter((_, i) => i !== index))
   }
@@ -67,7 +80,7 @@ export default function InsurancePage() {
   function updateItem(
     index: number,
     field: keyof OnboardingInsurance,
-    value: string | number,
+    value: string | number | null,
   ) {
     const updated = [...items]
     if (field === "name") updated[index] = { ...updated[index], name: value as string }
@@ -87,6 +100,21 @@ export default function InsurancePage() {
       updated[index] = {
         ...updated[index],
         coverage_amount: typeof value === "number" ? value : Number(value) || 0,
+      }
+    else if (field === "yearly_outflow_date")
+      updated[index] = {
+        ...updated[index],
+        yearly_outflow_date: typeof value === "number" ? value : Number(value) || null,
+      }
+    else if (field === "current_amount")
+      updated[index] = {
+        ...updated[index],
+        current_amount: typeof value === "number" ? value : Number(value) || null,
+      }
+    else if (field === "end_date")
+      updated[index] = {
+        ...updated[index],
+        end_date: typeof value === "string" ? value || null : null,
       }
     else if (field === "profileIndex")
       updated[index] = {
@@ -167,7 +195,7 @@ export default function InsurancePage() {
                 <Label>Type</Label>
                 <Select
                   value={item.type}
-                  onValueChange={(v) => updateItem(i, "type", v)}
+                  onValueChange={(v) => updateItemWithTypeReset(i, v)}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -214,14 +242,65 @@ export default function InsurancePage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>Coverage Amount ($, optional)</Label>
-                <CurrencyInput
-                  placeholder="0.00"
-                  value={item.coverage_amount ?? null}
-                  onChange={(v) => updateItem(i, "coverage_amount", v ?? 0)}
-                />
-              </div>
+              {(() => {
+                const fields = getFieldsForType(item.type as InsuranceType, item.frequency)
+                return (
+                  <>
+                    {fields.showCoverageAmount && (
+                      <div className="space-y-1.5">
+                        <Label>{fields.coverageAmountLabel} ($, optional)</Label>
+                        <CurrencyInput
+                          placeholder="0.00"
+                          value={item.coverage_amount ?? null}
+                          onChange={(v) => updateItem(i, "coverage_amount", v ?? 0)}
+                        />
+                      </div>
+                    )}
+                    {fields.showYearlyOutflowDate && (
+                      <div className="space-y-1.5">
+                        <Label>Yearly due month</Label>
+                        <Select
+                          value={item.yearly_outflow_date?.toString() ?? ""}
+                          onValueChange={(v) =>
+                            updateItem(i, "yearly_outflow_date", v ? parseInt(v, 10) : null)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Month" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 12 }, (_, m) => m + 1).map((m) => (
+                              <SelectItem key={m} value={String(m)}>
+                                {m}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {fields.showCurrentAmount && (
+                      <div className="space-y-1.5">
+                        <Label>{fields.currentAmountLabel} ($, optional)</Label>
+                        <CurrencyInput
+                          placeholder="0.00"
+                          value={item.current_amount ?? null}
+                          onChange={(v) => updateItem(i, "current_amount", v ?? 0)}
+                        />
+                      </div>
+                    )}
+                    {fields.showEndDate && (
+                      <div className="space-y-1.5">
+                        <Label>{fields.endDateLabel}</Label>
+                        <Input
+                          type="date"
+                          value={item.end_date ?? ""}
+                          onChange={(e) => updateItem(i, "end_date", e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           </div>
         ))}

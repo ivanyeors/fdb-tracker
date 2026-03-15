@@ -4,7 +4,10 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
-import { getEffectiveOutflowForProfile } from "@/lib/api/effective-outflow"
+import {
+  getEffectiveOutflowForProfile,
+  getSharedIlpTotalForFamily,
+} from "@/lib/api/effective-outflow"
 import {
   getEffectiveInflowForProfile,
   getEffectiveInflowWithBreakdown,
@@ -80,7 +83,7 @@ export async function GET(request: NextRequest) {
       if (!resolved) {
         return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
       }
-      const { profileIds } = resolved
+      const { profileIds, familyId: resolvedFamilyId } = resolved
 
       let inflowTotal = 0
       const inflowBreakdown: { salary?: number; bonus?: number; income?: number } = {}
@@ -110,6 +113,10 @@ export async function GET(request: NextRequest) {
         loans += eff.loans
         tax += eff.tax
       }
+
+      // Add shared ILP products (profile_id null) once to avoid double-counting
+      const sharedIlp = await getSharedIlpTotalForFamily(supabase, resolvedFamilyId)
+      ilp += sharedIlp
 
       const outflowTotal = discretionary + insurance + ilp + loans + tax
       const netSavings = inflowTotal - outflowTotal
@@ -156,7 +163,7 @@ export async function GET(request: NextRequest) {
     if (!resolved) {
       return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
-    const { profileIds } = resolved
+    const { profileIds, familyId: resolvedFamilyId } = resolved
 
     const { data: cashflowRows, error } = await supabase
       .from("monthly_cashflow")
@@ -209,6 +216,10 @@ export async function GET(request: NextRequest) {
         loans += eff.loans
         tax += eff.tax
       }
+
+      // Add shared ILP products (profile_id null) once per month
+      const sharedIlp = await getSharedIlpTotalForFamily(supabase, resolvedFamilyId)
+      ilp += sharedIlp
 
       const totalOutflow = discretionary + insurance + ilp + loans + tax
       result.push({

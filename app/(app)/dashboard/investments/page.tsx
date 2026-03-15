@@ -16,6 +16,7 @@ import { useActiveProfile } from "@/hooks/use-active-profile"
 export default function InvestmentsPage() {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [holdings, setHoldings] = useState<Holding[]>([])
+  const [cashBalance, setCashBalance] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -27,13 +28,22 @@ export default function InvestmentsPage() {
 
       setIsLoading(true)
       try {
-        const url = new URL("/api/investments", window.location.origin)
-        if (activeProfileId) url.searchParams.set("profileId", activeProfileId)
-        else if (activeFamilyId) url.searchParams.set("familyId", activeFamilyId)
+        const params = new URLSearchParams()
+        if (activeProfileId) params.set("profileId", activeProfileId)
+        else if (activeFamilyId) params.set("familyId", activeFamilyId)
 
-        const res = await fetch(url)
-        if (res.ok) {
-          const json = await res.json()
+        const [invRes, accountRes] = await Promise.all([
+          fetch(`/api/investments?${params}`),
+          fetch(`/api/investments/account?${params}`),
+        ])
+
+        if (accountRes.ok) {
+          const accountJson = await accountRes.json()
+          setCashBalance(accountJson.cashBalance ?? 0)
+        }
+
+        if (invRes.ok) {
+          const json = await invRes.json()
           
           let totalPortfolioValue = 0
           const mapped: Holding[] = json.map(
@@ -79,7 +89,11 @@ export default function InvestmentsPage() {
     fetchInvestments()
   }, [activeProfileId, activeFamilyId])
 
-  const totalValue = useMemo(() => holdings.reduce((sum, h) => sum + h.currentValue, 0), [holdings])
+  const holdingsValue = useMemo(
+    () => holdings.reduce((sum, h) => sum + h.currentValue, 0),
+    [holdings],
+  )
+  const totalValue = holdingsValue + cashBalance
   const totalPnL = useMemo(() => holdings.reduce((sum, h) => sum + h.pnl, 0), [holdings])
   const totalCost = useMemo(() => holdings.reduce((sum, h) => sum + h.costBasis, 0), [holdings])
   
@@ -121,7 +135,7 @@ export default function InvestmentsPage() {
         <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
           Loading investments...
         </div>
-      ) : holdings.length === 0 ? (
+      ) : holdings.length === 0 && cashBalance === 0 ? (
         <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
           No investment data found for this profile.
         </div>
@@ -141,6 +155,12 @@ export default function InvestmentsPage() {
             />
             <MetricCard label="Allocation Count" value={`${holdings.length} holdings`} />
           </div>
+
+          {cashBalance !== 0 && (
+            <p className="text-sm text-muted-foreground">
+              Holdings: ${formatCurrency(holdingsValue)} | Cash: ${formatCurrency(cashBalance)}
+            </p>
+          )}
 
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="rounded-xl border p-4">

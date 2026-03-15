@@ -123,6 +123,12 @@ export async function POST(request: NextRequest) {
       .eq("symbol", symbol)
       .maybeSingle()
 
+    const amount = quantity * price
+    const accountFilter = {
+      family_id: resolved.familyId,
+      profile_id: profileId ?? null,
+    }
+
     if (type === "sell") {
       if (!existingHolding || existingHolding.units < quantity) {
         return NextResponse.json(
@@ -140,6 +146,29 @@ export async function POST(request: NextRequest) {
 
       if (updateError) {
         return NextResponse.json({ error: "Failed to update holding" }, { status: 500 })
+      }
+
+      const { data: accountRow } = await supabase
+        .from("investment_accounts")
+        .select("id, cash_balance")
+        .match(accountFilter)
+        .maybeSingle()
+
+      if (accountRow) {
+        await supabase
+          .from("investment_accounts")
+          .update({
+            cash_balance: accountRow.cash_balance + amount,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", accountRow.id)
+      } else {
+        await supabase.from("investment_accounts").insert({
+          family_id: resolved.familyId,
+          profile_id: profileId ?? null,
+          cash_balance: amount,
+          updated_at: new Date().toISOString(),
+        })
       }
 
       const { data: transaction, error: txError } = await supabase
@@ -205,6 +234,29 @@ export async function POST(request: NextRequest) {
       }
 
       investmentId = newHolding.id
+    }
+
+    const { data: accountRow } = await supabase
+      .from("investment_accounts")
+      .select("id, cash_balance")
+      .match(accountFilter)
+      .maybeSingle()
+
+    if (accountRow) {
+      await supabase
+        .from("investment_accounts")
+        .update({
+          cash_balance: accountRow.cash_balance - amount,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", accountRow.id)
+    } else {
+      await supabase.from("investment_accounts").insert({
+        family_id: resolved.familyId,
+        profile_id: profileId ?? null,
+        cash_balance: -amount,
+        updated_at: new Date().toISOString(),
+      })
     }
 
     const { data: transaction, error: txError } = await supabase

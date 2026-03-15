@@ -21,6 +21,7 @@ import {
 } from "@/components/dashboard/investments/journal-list"
 import { JournalForm } from "@/components/dashboard/investments/journal-form"
 import { AddHoldingForm } from "@/components/dashboard/investments/add-holding-form"
+import { InvestmentAccountBalance } from "@/components/dashboard/investments/investment-account-balance"
 import { AddIlpForm } from "@/components/dashboard/investments/add-ilp-form"
 import { AddMetalForm } from "@/components/dashboard/investments/add-metal-form"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -318,6 +319,7 @@ export default function InvestmentsDetailPage() {
         totalPremiumsPaid,
         returnPct,
         monthlyPremium: p.monthly_premium,
+        endDate: p.end_date,
         monthlyData,
       }
     })
@@ -345,7 +347,7 @@ export default function InvestmentsDetailPage() {
       />
 
       <Tabs defaultValue="holdings">
-        <div className="-mx-1 overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
+        <div className="-mx-1 min-w-0 overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
           <TabsList className="inline-flex w-fit flex-nowrap">
             <TabsTrigger value="holdings">Holdings</TabsTrigger>
             <TabsTrigger value="allocation">Allocation</TabsTrigger>
@@ -356,6 +358,7 @@ export default function InvestmentsDetailPage() {
         </div>
 
         <TabsContent value="holdings" className="mt-4 space-y-4">
+          <InvestmentAccountBalance onSuccess={fetchData} />
           <div className="rounded-xl border p-4">
             <h3 className="mb-4 text-sm font-medium">Add Holding</h3>
             <AddHoldingForm onSuccess={fetchData} />
@@ -418,8 +421,10 @@ export default function InvestmentsDetailPage() {
                   totalPremiumsPaid={card.totalPremiumsPaid}
                   returnPct={card.returnPct}
                   monthlyPremium={card.monthlyPremium}
+                  endDate={card.endDate}
                   monthlyData={card.monthlyData}
                   onAddEntry={fetchData}
+                  onEditSuccess={fetchData}
                 />
               ))}
             </div>

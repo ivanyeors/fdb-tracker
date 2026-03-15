@@ -11,7 +11,7 @@ export function ProfileToggle() {
       value={activeProfileId ?? "combined"}
       onValueChange={(v) => setActiveProfileId(v === "combined" ? null : v)}
     >
-      <div className="max-w-[180px] overflow-x-auto no-scrollbar sm:max-w-none [-webkit-overflow-scrolling:touch]">
+      <div className="min-w-0 max-w-[180px] overflow-x-auto no-scrollbar sm:max-w-none [-webkit-overflow-scrolling:touch] [overscroll-behavior-x:contain]">
         <TabsList className="inline-flex h-7 w-fit flex-nowrap">
           <TabsTrigger value="combined" className="text-xs shrink-0 px-2">
             Combined

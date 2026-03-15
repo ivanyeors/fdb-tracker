@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
         name: parsed.data.name,
         target_amount: parsed.data.targetAmount,
         current_amount: parsed.data.currentAmount ?? 0,
-        monthly_auto_amount: parsed.data.monthlyAutoAmount ?? 0,
+        monthly_auto_amount: 0,
         deadline: parsed.data.deadline ?? null,
         category: parsed.data.category ?? "custom",
         ...(parsed.data.profileId && { profile_id: parsed.data.profileId }),

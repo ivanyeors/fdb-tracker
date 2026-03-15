@@ -114,9 +114,10 @@ export default function OverviewPage() {
             fetch(`/api/goals${qs}`),
             fetch(`/api/insurance${qs}`),
           ])
+        let overviewJson: { latestMonth?: string | null } | null = null
         if (overviewRes.ok) {
-          const json = await overviewRes.json()
-          setData(json)
+          overviewJson = await overviewRes.json()
+          setData(overviewJson)
         }
         if (cashflowRes.ok) {
           const cashflow = await cashflowRes.json()
@@ -124,7 +125,11 @@ export default function OverviewPage() {
             ? cashflow.map((r: { month: string }) => r.month).reverse()
             : []
           setCashflowMonths(months)
-          setSelectedMonth((prev) => (prev ?? months[0] ?? null))
+          const preferred =
+            overviewJson?.latestMonth && months.includes(overviewJson.latestMonth)
+              ? overviewJson.latestMonth
+              : months[0] ?? null
+          setSelectedMonth((prev) => (prev ?? preferred))
         }
         if (ilpRes.ok) {
           const products = await ilpRes.json()
@@ -203,6 +208,7 @@ export default function OverviewPage() {
         totalPremiumsPaid,
         returnPct,
         monthlyPremium: p.monthly_premium,
+        endDate: p.end_date,
         monthlyData,
       }
     })
@@ -456,8 +462,10 @@ export default function OverviewPage() {
                     totalPremiumsPaid={card.totalPremiumsPaid}
                     returnPct={card.returnPct}
                     monthlyPremium={card.monthlyPremium}
+                    endDate={card.endDate}
                     monthlyData={card.monthlyData}
                     onAddEntry={refreshIlp}
+                    onEditSuccess={refreshIlp}
                   />
                 ))}
               </div>

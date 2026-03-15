@@ -79,6 +79,9 @@ export interface OnboardingInsurance {
   premium_amount: number
   frequency: "monthly" | "yearly"
   coverage_amount?: number
+  yearly_outflow_date?: number | null
+  current_amount?: number | null
+  end_date?: string | null
   profileIndex: number
 }
 

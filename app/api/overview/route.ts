@@ -5,7 +5,10 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { calculateSavingsRate } from "@/lib/calculations/bank-balance"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
-import { getEffectiveOutflowForProfile } from "@/lib/api/effective-outflow"
+import {
+  getEffectiveOutflowForProfile,
+  getSharedIlpTotalForFamily,
+} from "@/lib/api/effective-outflow"
 import { getEffectiveInflowForProfile } from "@/lib/api/effective-inflow"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
 
@@ -133,7 +136,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // --- Investment Total ---
+    // --- Investment Total (holdings + cash balance) ---
     let investmentQuery = supabase
       .from("investments")
       .select("units, cost_basis")
@@ -144,13 +147,32 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: investments } = await investmentQuery
-    let investmentTotal = 0
+    let holdingsTotal = 0
 
     if (investments) {
       for (const inv of investments) {
-        investmentTotal += inv.units * inv.cost_basis
+        holdingsTotal += inv.units * inv.cost_basis
       }
     }
+
+    let cashTotal = 0
+    if (profileId) {
+      const { data: accountRow } = await supabase
+        .from("investment_accounts")
+        .select("cash_balance")
+        .eq("family_id", familyId)
+        .eq("profile_id", profileId)
+        .maybeSingle()
+      cashTotal = accountRow?.cash_balance ?? 0
+    } else {
+      const { data: accounts } = await supabase
+        .from("investment_accounts")
+        .select("cash_balance")
+        .eq("family_id", familyId)
+      cashTotal = accounts?.reduce((s, a) => s + (a.cash_balance ?? 0), 0) ?? 0
+    }
+
+    const investmentTotal = holdingsTotal + cashTotal
 
     // --- Loan Total --- (profileIds already resolved above)
 
@@ -238,6 +260,10 @@ export async function GET(request: NextRequest) {
         )
         totalEffectiveOutflow += eff.total
       }
+
+      // Add shared ILP products (profile_id null) once
+      const sharedIlp = await getSharedIlpTotalForFamily(supabase, familyId)
+      totalEffectiveOutflow += sharedIlp
 
       latestInflow = totalInflow
       latestOutflow = totalEffectiveOutflow

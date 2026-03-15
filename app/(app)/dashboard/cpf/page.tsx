@@ -417,7 +417,7 @@ export default function CpfPage() {
         </div>
       ) : (
         <Tabs defaultValue="overview">
-          <div className="-mx-1 overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
+          <div className="-mx-1 min-w-0 overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
             <TabsList className="inline-flex w-fit flex-nowrap">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="housing">Housing</TabsTrigger>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { formatCurrency } from "@/lib/utils"
+import { calculateMonthlyAuto } from "@/lib/calculations/savings-goals"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Progress } from "@/components/ui/progress"
@@ -97,6 +98,11 @@ export default function GoalsPage() {
                 : 100
               
               const isCompleted = progressPct >= 100
+              const suggestedMonthly = calculateMonthlyAuto(
+                goal.target_amount,
+                goal.current_amount,
+                goal.deadline
+              )
 
               return (
                 <Card key={goal.id} className="flex flex-col">
@@ -125,11 +131,18 @@ export default function GoalsPage() {
                       </span>
                     </div>
                     <Progress value={progressPct} className="h-2 mb-2" />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>{progressPct.toFixed(1)}%</span>
-                      {goal.deadline && (
+                    <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+                      <div className="flex justify-between">
+                        <span>{progressPct.toFixed(1)}%</span>
+                        {goal.deadline && (
+                          <span>
+                            Target: {new Date(goal.deadline).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      {suggestedMonthly != null && (
                         <span>
-                          Target: {new Date(goal.deadline).toLocaleDateString()}
+                          Suggested monthly: ${formatCurrency(suggestedMonthly)}
                         </span>
                       )}
                     </div>

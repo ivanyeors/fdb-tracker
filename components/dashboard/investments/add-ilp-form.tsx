@@ -18,6 +18,7 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
   const [name, setName] = useState("")
   const [monthlyPremium, setMonthlyPremium] = useState<number | null>(null)
   const [endDate, setEndDate] = useState("")
+  const [initialFundValue, setInitialFundValue] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -57,10 +58,33 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
         throw new Error(err.error ?? "Failed to add ILP product")
       }
 
+      const product = await res.json()
+      const fundVal = initialFundValue ?? 0
+      const familyId = product?.family_id ?? activeFamilyId
+      if (fundVal > 0 && product?.id && familyId) {
+        const now = new Date()
+        const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
+        const entryRes = await fetch("/api/investments/ilp/entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productId: product.id,
+            familyId,
+            month,
+            fundValue: fundVal,
+          }),
+        })
+        if (!entryRes.ok) {
+          const err = await entryRes.json().catch(() => ({}))
+          throw new Error(err.error ?? "Failed to add initial fund value")
+        }
+      }
+
       toast.success("ILP product added successfully")
       setName("")
       setMonthlyPremium(null)
       setEndDate("")
+      setInitialFundValue(null)
       onSuccess?.()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong")
@@ -93,7 +117,7 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="ilp-end-date">End date</Label>
+          <Label htmlFor="ilp-end-date">Premium end date</Label>
           <Input
             id="ilp-end-date"
             type="date"
@@ -101,6 +125,18 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
             onChange={(e) => setEndDate(e.target.value)}
             required
           />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="ilp-initial-value">Initial fund value ($, optional)</Label>
+          <CurrencyInput
+            id="ilp-initial-value"
+            placeholder="0.00"
+            value={initialFundValue}
+            onChange={(v) => setInitialFundValue(v)}
+          />
+          <p className="text-xs text-muted-foreground">
+            If provided, creates the first monthly value entry for the current month.
+          </p>
         </div>
       </div>
       <Button type="submit" disabled={isSubmitting}>
