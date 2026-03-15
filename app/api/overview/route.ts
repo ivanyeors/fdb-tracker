@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     // --- Bank Total ---
     let bankAccountQuery = supabase
       .from("bank_accounts")
-      .select("id, opening_balance")
+      .select("id, opening_balance, locked_amount")
       .eq("family_id", familyId)
 
     if (profileId) {
@@ -62,9 +62,14 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: bankAccounts } = await bankAccountQuery
-    const accountIds = bankAccounts?.map((a) => a.id) ?? []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const accounts = (bankAccounts as any[]) ?? []
+    const accountIds = accounts.map((a) => a.id)
     const openingByAccount = new Map(
-      bankAccounts?.map((a) => [a.id, a.opening_balance ?? 0]) ?? [],
+      accounts.map((a) => [a.id, a.opening_balance ?? 0]),
+    )
+    const lockedByAccount = new Map(
+      accounts.map((a) => [a.id, a.locked_amount ?? 0]),
     )
 
     let bankTotal = 0
@@ -85,8 +90,9 @@ export async function GET(request: NextRequest) {
         }
       }
       for (const accId of accountIds) {
-        bankTotal +=
-          latestByAccount.get(accId) ?? openingByAccount.get(accId) ?? 0
+        const bal = latestByAccount.get(accId) ?? openingByAccount.get(accId) ?? 0
+        const locked = lockedByAccount.get(accId) ?? 0
+        bankTotal += Math.max(0, bal - locked)
       }
     }
 

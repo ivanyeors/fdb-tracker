@@ -167,31 +167,33 @@ function HousingTab({ data }: { data: HousingData | null }) {
   const vlRemaining = data?.vlRemaining ?? 0
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <MetricCard
-        label="CPF OA Used"
-        value={oaUsed}
-        prefix="$"
-        tooltipId="CPF_HOUSING_REFUND"
-      />
-      <MetricCard
-        label="Accrued Interest"
-        value={accruedInterest}
-        prefix="$"
-        tooltipId="CPF_HOUSING_REFUND"
-      />
-      <MetricCard
-        label="Total Refund Due"
-        value={refundDue}
-        prefix="$"
-        tooltipId="CPF_HOUSING_REFUND"
-      />
-      <MetricCard
-        label="120% VL Remaining"
-        value={vlRemaining}
-        prefix="$"
-        tooltipId="CPF_HOUSING_REFUND"
-      />
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <MetricCard
+          label="CPF OA Used"
+          value={oaUsed}
+          prefix="$"
+          tooltipId="CPF_HOUSING_REFUND"
+        />
+        <MetricCard
+          label="Accrued Interest"
+          value={accruedInterest}
+          prefix="$"
+          tooltipId="CPF_HOUSING_REFUND"
+        />
+        <MetricCard
+          label="Total Refund Due"
+          value={refundDue}
+          prefix="$"
+          tooltipId="CPF_HOUSING_REFUND"
+        />
+        <MetricCard
+          label="120% VL Remaining"
+          value={vlRemaining}
+          prefix="$"
+          tooltipId="CPF_HOUSING_REFUND"
+        />
+      </div>
     </div>
   )
 }
@@ -369,8 +371,8 @@ export default function CpfPage() {
       setIsLoading(true)
       try {
         const params = new URLSearchParams()
-        if (activeFamilyId) params.set("familyId", activeFamilyId)
-        else if (activeProfileId) params.set("profileId", activeProfileId)
+        if (activeProfileId) params.set("profileId", activeProfileId)
+        else if (activeFamilyId) params.set("familyId", activeFamilyId)
         const qs = params.toString()
         const [balancesRes, housingRes, loansRes, retirementRes] = await Promise.all([
           fetch(`/api/cpf/balances?${qs}`),
@@ -420,8 +422,7 @@ export default function CpfPage() {
           <div className="-mx-1 min-w-0 overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
             <TabsList className="inline-flex w-fit flex-nowrap">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="housing">Housing</TabsTrigger>
-              <TabsTrigger value="loans">Loans</TabsTrigger>
+              <TabsTrigger value="housing">Housing Loan</TabsTrigger>
               <TabsTrigger value="retirement">Retirement</TabsTrigger>
             </TabsList>
           </div>
@@ -429,10 +430,9 @@ export default function CpfPage() {
           <TabsContent value="overview" className="mt-4">
             <OverviewTab data={cpfData} />
           </TabsContent>
-          <TabsContent value="housing" className="mt-4">
+          <TabsContent value="housing" className="mt-4 space-y-6">
             <HousingTab data={housingData} />
-          </TabsContent>
-          <TabsContent value="loans" className="mt-4">
+            <SectionHeader title="Active CPF Loans" />
             <LoansTab loans={loansData} />
           </TabsContent>
           <TabsContent value="retirement" className="mt-4">

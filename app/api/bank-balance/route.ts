@@ -122,7 +122,8 @@ export async function GET(request: NextRequest) {
     )
 
     const timeline = buildBalanceTimeline({
-      openingBalance: account.opening_balance,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      openingBalance: account.opening_balance - ((account as any).locked_amount ?? 0),
       monthlyData,
     })
 

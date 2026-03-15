@@ -11,6 +11,7 @@ const createAccountSchema = z.object({
   familyId: z.string().uuid().optional(),
   interestRatePct: z.number().min(0).optional(),
   openingBalance: z.number().min(0).optional(),
+  lockedAmount: z.number().min(0).optional(),
 })
 
 const listQuerySchema = z.object({
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { bankName, accountType, profileId, familyId, interestRatePct, openingBalance } = parsed.data
+    const { bankName, accountType, profileId, familyId, interestRatePct, openingBalance, lockedAmount } = parsed.data
     const supabase = createSupabaseAdmin()
 
     let targetFamilyId: string
@@ -194,6 +195,7 @@ export async function POST(request: NextRequest) {
         ...(profileId && { profile_id: profileId }),
         ...(interestRatePct !== undefined && { interest_rate_pct: interestRatePct }),
         ...(openingBalance !== undefined && { opening_balance: openingBalance }),
+        ...(lockedAmount !== undefined && { locked_amount: lockedAmount }),
       })
       .select()
       .single()

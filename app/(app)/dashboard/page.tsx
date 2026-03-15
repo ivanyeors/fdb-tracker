@@ -9,6 +9,8 @@ import { SectionHeader } from "@/components/dashboard/section-header"
 import { IlpCard } from "@/components/dashboard/investments/ilp-card"
 import { WaterfallChart, type WaterfallData } from "@/components/dashboard/cashflow/waterfall-chart"
 import { CashflowSankey } from "@/components/dashboard/cashflow/cashflow-sankey"
+import { JournalList, type JournalEntry } from "@/components/dashboard/investments/journal-list"
+import { JournalForm } from "@/components/dashboard/investments/journal-form"
 import {
   Select,
   SelectContent,
@@ -85,7 +87,13 @@ export default function OverviewPage() {
   const [ilpProducts, setIlpProducts] = useState<IlpProductWithEntries[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
   const [policies, setPolicies] = useState<Policy[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [transactions, setTransactions] = useState<JournalEntry[]>([])
+  const [isOverviewLoading, setIsOverviewLoading] = useState(true)
+  const [isCashflowLoading, setIsCashflowLoading] = useState(true)
+  const [isIlpLoading, setIsIlpLoading] = useState(true)
+  const [isGoalsLoading, setIsGoalsLoading] = useState(true)
+  const [isInsuranceLoading, setIsInsuranceLoading] = useState(true)
+  const [isTxLoading, setIsTxLoading] = useState(true)
 
   const params = useMemo(() => {
     const p = new URLSearchParams()
@@ -95,64 +103,110 @@ export default function OverviewPage() {
   }, [activeProfileId, activeFamilyId])
 
   useEffect(() => {
-    async function fetchAll() {
-      setIsLoading(true)
-      try {
-        const qs = params ? `?${params}` : ""
-        const now = new Date()
-        const endMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-        now.setMonth(now.getMonth() - 11)
-        const startMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
+    function fetchAll() {
+      setIsOverviewLoading(true)
+      setIsCashflowLoading(true)
+      setIsIlpLoading(true)
+      setIsGoalsLoading(true)
+      setIsInsuranceLoading(true)
+      setIsTxLoading(true)
+      
+      const qs = params ? `?${params}` : ""
+      const now = new Date()
+      const endMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
+      now.setMonth(now.getMonth() - 11)
+      const startMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
 
-        const [overviewRes, cashflowRes, ilpRes, goalsRes, insuranceRes] =
-          await Promise.all([
-            fetch(`/api/overview${qs}`),
-            fetch(
-              `/api/cashflow?startMonth=${startMonth}&endMonth=${endMonth}${params ? `&${params}` : ""}`,
-            ),
-            fetch(`/api/investments/ilp${qs}`),
-            fetch(`/api/goals${qs}`),
-            fetch(`/api/insurance${qs}`),
-          ])
-        let overviewJson: { latestMonth?: string | null } | null = null
-        if (overviewRes.ok) {
-          overviewJson = await overviewRes.json()
-          setData(overviewJson)
-        }
-        if (cashflowRes.ok) {
-          const cashflow = await cashflowRes.json()
-          const months = Array.isArray(cashflow)
-            ? cashflow.map((r: { month: string }) => r.month).reverse()
-            : []
-          setCashflowMonths(months)
-          const preferred =
-            overviewJson?.latestMonth && months.includes(overviewJson.latestMonth)
-              ? overviewJson.latestMonth
-              : months[0] ?? null
-          setSelectedMonth((prev) => (prev ?? preferred))
-        }
-        if (ilpRes.ok) {
-          const products = await ilpRes.json()
-          setIlpProducts(
-            (products ?? []).map((p: IlpProductWithEntries) => ({
-              ...p,
-              entries: p.entries ?? [],
-            })),
-          )
-        }
-        if (goalsRes.ok) {
-          const json = await goalsRes.json()
-          setGoals(json ?? [])
-        }
-        if (insuranceRes.ok) {
-          const json = await insuranceRes.json()
-          setPolicies(json ?? [])
-        }
-      } catch (error) {
-        console.error("Failed to fetch overview:", error)
-      } finally {
-        setIsLoading(false)
-      }
+      let latestMonthFromOverview: string | null = null
+
+      fetch(`/api/overview${qs}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (d) {
+            setData(d)
+            latestMonthFromOverview = d.latestMonth ?? null
+          }
+          setIsOverviewLoading(false)
+        })
+        .catch(() => setIsOverviewLoading(false))
+
+      fetch(`/api/cashflow?startMonth=${startMonth}&endMonth=${endMonth}${params ? `&${params}` : ""}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((cashflow) => {
+          if (cashflow) {
+            const months = Array.isArray(cashflow)
+              ? cashflow.map((r: { month: string }) => r.month).reverse()
+              : []
+            setCashflowMonths(months)
+            const preferred =
+              latestMonthFromOverview && months.includes(latestMonthFromOverview)
+                ? latestMonthFromOverview
+                : months[0] ?? null
+            setSelectedMonth((prev) => (prev ?? preferred))
+          }
+          setIsCashflowLoading(false)
+        })
+        .catch(() => setIsCashflowLoading(false))
+
+      fetch(`/api/investments/ilp${qs}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((products) => {
+          if (products) {
+            setIlpProducts(
+              products.map((p: IlpProductWithEntries) => ({
+                ...p,
+                entries: p.entries ?? [],
+              })),
+            )
+          }
+          setIsIlpLoading(false)
+        })
+        .catch(() => setIsIlpLoading(false))
+
+      fetch(`/api/goals${qs}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((json) => {
+          if (json) setGoals(json)
+          setIsGoalsLoading(false)
+        })
+        .catch(() => setIsGoalsLoading(false))
+
+      fetch(`/api/insurance${qs}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((json) => {
+          if (json) setPolicies(json)
+          setIsInsuranceLoading(false)
+        })
+        .catch(() => setIsInsuranceLoading(false))
+
+      fetch(`/api/investments/transactions${qs ? `${qs}&limit=100` : "?limit=100"}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((txs) => {
+          if (txs) {
+            setTransactions(
+              txs.map(
+              (t: {
+                id: string
+                symbol: string
+                type: string
+                quantity: number
+                price: number
+                journal_text?: string
+                created_at: string
+              }) => ({
+                id: t.id,
+                symbol: t.symbol,
+                type: t.type as "buy" | "sell",
+                quantity: t.quantity,
+                price: t.price,
+                journalText: t.journal_text,
+                date: t.created_at.slice(0, 10),
+              })),
+            )
+          }
+          setIsTxLoading(false)
+        })
+        .catch(() => setIsTxLoading(false))
     }
     fetchAll()
   }, [params])
@@ -244,6 +298,37 @@ export default function OverviewPage() {
       })
   }
 
+  const refreshTransactions = () => {
+    const qs = params ? `?${params}` : ""
+    fetch(`/api/investments/transactions${qs ? `${qs}&limit=100` : "?limit=100"}`)
+      .then((r) => r.ok && r.json())
+      .then((txs) => {
+        if (txs) {
+          setTransactions(
+            txs.map(
+              (t: {
+                id: string
+                symbol: string
+                type: string
+                quantity: number
+                price: number
+                journal_text?: string
+                created_at: string
+              }) => ({
+                id: t.id,
+                symbol: t.symbol,
+                type: t.type as "buy" | "sell",
+                quantity: t.quantity,
+                price: t.price,
+                journalText: t.journal_text,
+                date: t.created_at.slice(0, 10),
+              }),
+            ),
+          )
+        }
+      })
+  }
+
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
@@ -251,7 +336,7 @@ export default function OverviewPage() {
         description="Net worth, savings rate, and key metrics at a glance."
       />
 
-      {isLoading ? (
+      {isOverviewLoading ? (
         <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
           Loading metrics...
         </div>
@@ -369,7 +454,9 @@ export default function OverviewPage() {
                 <CardTitle className="text-base">Savings Goals</CardTitle>
               </CardHeader>
               <CardContent>
-                {goals.length === 0 ? (
+                {isGoalsLoading ? (
+                  <div className="animate-pulse h-16 w-full rounded bg-muted"></div>
+                ) : goals.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No savings goals. Create one in Savings Goals.
                   </p>
@@ -418,7 +505,9 @@ export default function OverviewPage() {
                 <CardTitle className="text-base">Insurance Coverage</CardTitle>
               </CardHeader>
               <CardContent>
-                {policies.length === 0 ? (
+                {isInsuranceLoading ? (
+                  <div className="animate-pulse h-16 w-full rounded bg-muted"></div>
+                ) : policies.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No insurance policies. Add in Insurance.
                   </p>
@@ -440,7 +529,9 @@ export default function OverviewPage() {
             </Card>
           </div>
 
-          {ilpCardsData.length > 0 && (
+          {isIlpLoading ? (
+            <div className="animate-pulse h-24 w-full rounded-xl bg-muted"></div>
+          ) : ilpCardsData.length > 0 ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">ILP Performance</h3>
@@ -470,9 +561,7 @@ export default function OverviewPage() {
                 ))}
               </div>
             </div>
-          )}
-
-          {!isLoading && ilpProducts.length === 0 && (activeProfileId || activeFamilyId) && (
+          ) : (activeProfileId || activeFamilyId) ? (
             <div className="rounded-lg border bg-card p-4 text-center text-sm text-muted-foreground">
               No ILP plans. Add one in{" "}
               <Link href="/dashboard/investments/detail" className="text-primary hover:underline">
@@ -480,7 +569,7 @@ export default function OverviewPage() {
               </Link>
               .
             </div>
-          )}
+          ) : null}
         </>
       )}
 
@@ -549,6 +638,25 @@ export default function OverviewPage() {
               View cashflow
               <ArrowRight className="size-4" />
             </Link>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="space-y-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle>Trading / Investment Journal</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6 pt-4">
+            {isTxLoading ? (
+              <div className="animate-pulse h-32 w-full rounded-xl bg-muted"></div>
+            ) : (
+              <JournalList entries={transactions} />
+            )}
+            <div className="rounded-xl border p-4">
+              <h3 className="mb-4 text-sm font-medium">Add Journal Entry</h3>
+              <JournalForm onSuccess={refreshTransactions} />
+            </div>
           </CardContent>
         </Card>
       </div>

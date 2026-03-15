@@ -79,8 +79,49 @@ async function handleStartCommand(
   await reply(
     "👋 Welcome to fdb-tracker!\n\n" +
       "Use /otp to get a one-time password for logging in.\n" +
+      "Use /link <token> to link your profile.\n" +
       "Type / to see all available commands.",
   )
+}
+
+async function handleLinkCommand(
+  chatId: string,
+  fromUserId: number | null,
+  token: string,
+  reply: (text: string) => Promise<unknown>,
+): Promise<void> {
+  if (!token) {
+    await reply("❌ Please provide the token: /link <your-token>")
+    return
+  }
+
+  const supabase = createSupabaseAdmin()
+  const { data: profile, error: lookupError } = await supabase
+    .from("profiles")
+    .select("id, name")
+    .eq("telegram_link_token", token)
+    .maybeSingle()
+
+  if (lookupError || !profile) {
+    await reply("❌ Invalid or expired link token.")
+    return
+  }
+
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({ 
+      telegram_chat_id: String(chatId), 
+      telegram_user_id: String(fromUserId ?? chatId),
+      telegram_last_used: new Date().toISOString() 
+    })
+    .eq("id", profile.id)
+
+  if (updateError) {
+    await reply("❌ Failed to link account. Please try again.")
+    return
+  }
+
+  await reply(`✅ Successfully linked your Telegram to profile: ${profile.name}`)
 }
 
 async function handleOtpCommand(
@@ -168,6 +209,13 @@ function ensureHandlers() {
       return
     }
 
+    if (parsed.command === "link") {
+      await handleLinkCommand(String(chatId), msg.from?.id ?? null, parsed.rest.trim(), (text) => 
+        bot.telegram.sendMessage(chatId, text)
+      )
+      return
+    }
+
     const accountId = await getOrCreateAccount(String(chatId))
     if (!accountId) {
       await ctx.reply("❌ Could not resolve your account. Try /otp first to set up.")
@@ -222,6 +270,14 @@ function ensureHandlers() {
       await handleOtpCommand(ctx.chat, null, (text) =>
         bot.telegram.sendMessage(ctx.chat.id, text),
       )
+      return
+    }
+
+    if (parsed.command === "link") {
+      await handleLinkCommand(String(ctx.chat.id), null, parsed.rest.trim(), (text) => 
+        bot.telegram.sendMessage(ctx.chat.id, text)
+      )
+      return
     }
   })
 }

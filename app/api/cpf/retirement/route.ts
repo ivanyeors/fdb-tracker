@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       .from("income_config")
       .select("annual_salary, bonus_estimate")
       .eq("profile_id", singleProfileId)
-      .single()
+      .maybeSingle()
 
     const { data: latestBalance } = await supabase
       .from("cpf_balances")

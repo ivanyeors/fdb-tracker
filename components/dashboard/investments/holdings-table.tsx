@@ -23,6 +23,7 @@ export interface Holding {
   pnl: number
   pnlPct: number
   portfolioPct: number
+  createdAt?: string
 }
 
 type SortKey = keyof Holding
@@ -69,7 +70,7 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
     { key: "symbol", label: "Symbol" },
     { key: "type", label: "Type" },
     { key: "units", label: "Units" },
-    { key: "costBasis", label: "Cost Basis" },
+    { key: "costBasis", label: "Total Invested" },
     { key: "currentValue", label: "Current Value" },
     { key: "pnl", label: "P&L ($)" },
     { key: "pnlPct", label: "P&L (%)" },

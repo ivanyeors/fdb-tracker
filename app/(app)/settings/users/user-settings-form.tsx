@@ -89,6 +89,7 @@ export type FinancialDataByFamily = {
     account_type: string
     opening_balance: number
     interest_rate_pct: number | null
+    locked_amount?: number
     profile_id: string | null
   }>
   savingsGoals: Array<{
@@ -361,6 +362,67 @@ function ProfileSection({
   )
 }
 
+function TelegramSection({ profile }: { profile: ProfileWithIncome }) {
+  const router = useRouter()
+  const [token, setToken] = useState<string | null>(profile.telegram_link_token ?? null)
+  const [generating, setGenerating] = useState(false)
+
+  // Update local token when profile updates from server
+  useEffect(() => {
+    setToken(profile.telegram_link_token ?? null)
+  }, [profile.telegram_link_token])
+
+  async function handleGenerate() {
+    setGenerating(true)
+    try {
+      const res = await fetch("/api/telegram/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId: profile.id }),
+      })
+      if (!res.ok) throw new Error("Failed to generate token")
+      const data = await res.json()
+      setToken(data.token)
+      toast.success("Link token generated")
+      router.refresh()
+    } catch {
+      toast.error("Failed to generate token")
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const isConnected = !!profile.telegram_user_id
+  const lastUsed = profile.telegram_last_used ? new Date(profile.telegram_last_used).toLocaleDateString() : "Never"
+
+  return (
+    <>
+      <SectionTitle>Telegram Integration</SectionTitle>
+      <div className="space-y-4 rounded-lg border p-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium">Status: {isConnected ? "Connected" : "Not Connected"}</p>
+            {isConnected && <p className="text-xs text-muted-foreground mt-1">Last used: {lastUsed}</p>}
+          </div>
+          <Button size="sm" variant="outline" onClick={handleGenerate} disabled={generating}>
+            {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {token ? "Regenerate Token" : "Generate Link Token"}
+          </Button>
+        </div>
+        
+        {token && (
+          <div className="rounded-md bg-muted p-3 text-sm">
+            <p className="font-mono text-xs break-all selectable">{token}</p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Copy this token and send <code className="bg-background px-1 rounded border">/link {token}</code> to the Telegram bot to connect.
+            </p>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
 function BanksSection({
   banks,
   profileId,
@@ -380,6 +442,7 @@ function BanksSection({
     account_type: "savings" as const,
     opening_balance: 0,
     interest_rate_pct: 0,
+    locked_amount: 0,
   })
 
   async function handleSave(account: (typeof banks)[0]) {
@@ -394,6 +457,7 @@ function BanksSection({
           profileId: account.profile_id,
           openingBalance: account.opening_balance,
           interestRatePct: account.interest_rate_pct ?? 0,
+          lockedAmount: account.locked_amount ?? 0,
         }),
       })
       if (!res.ok) {
@@ -439,6 +503,7 @@ function BanksSection({
           familyId,
           openingBalance: newBank.opening_balance,
           interestRatePct: newBank.interest_rate_pct || undefined,
+          lockedAmount: newBank.locked_amount || 0,
         }),
       })
       if (!res.ok) {
@@ -446,7 +511,7 @@ function BanksSection({
         throw new Error(data.error ?? "Failed to add")
       }
       toast.success("Bank account added")
-      setNewBank({ bank_name: "", account_type: "savings", opening_balance: 0, interest_rate_pct: 0 })
+      setNewBank({ bank_name: "", account_type: "savings", opening_balance: 0, interest_rate_pct: 0, locked_amount: 0 })
       onMutate()
       router.refresh()
     } catch (err) {
@@ -516,6 +581,7 @@ function BanksSection({
             <TableHead>Bank - Name</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Balance</TableHead>
+            <TableHead>Locked</TableHead>
             <TableHead>Interest %</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -566,7 +632,19 @@ function BanksSection({
                         [b.id]: { ...(p[b.id] ?? b), opening_balance: v ?? 0 },
                       }))
                     }
-                    className="h-8 w-28"
+                    className="h-8 w-24"
+                  />
+                </TableCell>
+                <TableCell>
+                  <CurrencyInput
+                    value={e.locked_amount}
+                    onChange={(v) =>
+                      setEditing((p) => ({
+                        ...p,
+                        [b.id]: { ...(p[b.id] ?? b), locked_amount: v ?? 0 },
+                      }))
+                    }
+                    className="h-8 w-24"
                   />
                 </TableCell>
                 <TableCell>
@@ -609,7 +687,7 @@ function BanksSection({
             )
           })}
           <TableRow>
-            <TableCell colSpan={5} className="border-t">
+            <TableCell colSpan={6} className="border-t">
               <div className="flex flex-wrap gap-2 pt-2">
                 <Input
                   placeholder="Bank name"
@@ -634,7 +712,13 @@ function BanksSection({
                   placeholder="Balance"
                   value={newBank.opening_balance}
                   onChange={(v) => setNewBank((p) => ({ ...p, opening_balance: v ?? 0 }))}
-                  className="h-8 w-28"
+                  className="h-8 w-24"
+                />
+                <CurrencyInput
+                  placeholder="Locked"
+                  value={newBank.locked_amount}
+                  onChange={(v) => setNewBank((p) => ({ ...p, locked_amount: v ?? 0 }))}
+                  className="h-8 w-24"
                 />
                 <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding}>
                   {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -2698,6 +2782,7 @@ export function FamilyMembersTable({
                   onMutate={handleMutate}
                 />
                 <ProfileSection profile={p} profileCount={profiles.length} />
+                <TelegramSection profile={p} />
                 <BanksSection
                   banks={profileBanks}
                   profileId={p.id}

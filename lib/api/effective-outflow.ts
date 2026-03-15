@@ -49,12 +49,11 @@ export async function getEffectiveOutflowForProfile(
     .eq("month", monthStr)
     .single()
 
-  // monthly_cashflow.outflow: user-reported outflow. Implementation treats as TOTAL outflow
-  // (inclusive of insurance, ILP, loans, tax) when present. Total = userOutflow + GIRO.
-  // Breakdown: discretionary = total - (insurance + ilp + loans + tax) for display.
+  // monthly_cashflow.outflow: user-reported discretionary outflow.
+  // The user inputs their variable spending, and we ADDD fixed costs on top of it.
   const userOutflow = cashflow?.outflow ?? 0
   const giroOutflow = await getGiroOutflowForProfile(supabase, profileId)
-  const total = userOutflow + giroOutflow
+  const discretionary = userOutflow + giroOutflow
 
   let insurance = 0
   const { data: policies } = await supabase
@@ -143,8 +142,7 @@ export async function getEffectiveOutflowForProfile(
     tax = result.taxPayable / 12
   }
 
-  // discretionary = remainder after known auto-deductions (for display breakdown)
-  const discretionary = Math.max(0, total - (insurance + ilp + loans + tax))
+  const total = discretionary + insurance + ilp + loans + tax
 
   return {
     discretionary,

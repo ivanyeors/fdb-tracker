@@ -1,0 +1,74 @@
+
+> fdb-tracker@0.0.1 lint
+> eslint
+
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/app/(app)/dashboard/investments/page.tsx
+  19:3   warning  'JournalList' is defined but never used   @typescript-eslint/no-unused-vars
+  20:8   warning  'JournalEntry' is defined but never used  @typescript-eslint/no-unused-vars
+  22:10  warning  'JournalForm' is defined but never used   @typescript-eslint/no-unused-vars
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/app/(app)/dashboard/page.tsx
+   92:10  warning  'isCashflowLoading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  187:27  error    Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+  299:25  error    Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/app/(app)/settings/notifications/notification-settings-form.tsx
+  4:69  warning  'CardFooter' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/app/(app)/settings/setup/page.tsx
+  4:10  warning  'resetOnboardingAction' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/app/(app)/settings/theme-selector.tsx
+  17:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/app/(app)/settings/theme-selector.tsx:17:5
+  15 |   // Avoid hydration mismatch by only rendering after mount
+  16 |   useEffect(() => {
+> 17 |     setMounted(true)
+     |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  18 |   }, [])
+  19 |
+  20 |   if (!mounted) {  react-hooks/set-state-in-effect
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/app/api/bank-accounts/route.ts
+  51:23  warning  'profileIds' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/app/api/bank-balance/route.ts
+  125:62  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/app/api/goals/route.ts
+  41:23  warning  'profileIds' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/app/api/investments/route.ts
+  53:23  warning  'profileIds' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/app/api/overview/route.ts
+  65:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/app/api/telegram/token/route.ts
+  51:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/app/layout.tsx
+  1:10  warning  'Geist' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/components/dashboard/investments/journal-list.tsx
+  156:21  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/lib/calculations/tax-reliefs.ts
+  39:29  warning  '_status' is defined but never used        @typescript-eslint/no-unused-vars
+  44:30  warning  '_parents' is defined but never used       @typescript-eslint/no-unused-vars
+  49:30  warning  '_spouseIncome' is defined but never used  @typescript-eslint/no-unused-vars
+  54:28  warning  '_children' is defined but never used      @typescript-eslint/no-unused-vars
+
+/Volumes/Crucial SSD 2TB/Projects/fdb-tracker/lib/calculations/tax.ts
+  79:3  warning  '_year' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+✖ 22 problems (6 errors, 16 warnings)
+

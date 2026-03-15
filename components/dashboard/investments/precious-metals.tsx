@@ -15,6 +15,7 @@ interface MetalHolding {
   pnl: number
   pnlPct: number
   lastUpdated: string
+  dateAdded: string
 }
 
 interface PreciousMetalsProps {
@@ -73,6 +74,10 @@ export function PreciousMetals({ metals }: PreciousMetalsProps) {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Current Value</span>
                   <span className="font-medium">${fmt(m.currentValue)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Date Added</span>
+                  <span className="font-medium">{m.dateAdded}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">P&L</span>

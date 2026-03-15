@@ -10,6 +10,7 @@ const updateAccountSchema = z.object({
   profileId: z.string().uuid().nullable().optional(),
   interestRatePct: z.number().min(0).optional(),
   openingBalance: z.number().min(0).optional(),
+  lockedAmount: z.number().min(0).optional(),
 })
 
 async function verifyAccountOwnership(
@@ -63,6 +64,7 @@ export async function PATCH(
     if (parsed.data.profileId !== undefined) updates.profile_id = parsed.data.profileId
     if (parsed.data.interestRatePct !== undefined) updates.interest_rate_pct = parsed.data.interestRatePct
     if (parsed.data.openingBalance !== undefined) updates.opening_balance = parsed.data.openingBalance
+    if (parsed.data.lockedAmount !== undefined) updates.locked_amount = parsed.data.lockedAmount
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })
