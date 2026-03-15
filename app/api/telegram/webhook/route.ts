@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { getBot } from "@/lib/telegram/bot"
+import { Scenes, session } from "telegraf"
+
+import { getBot, MyContext } from "@/lib/telegram/bot"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { generateAndStoreOtp } from "@/lib/auth/otp"
-import { handleInflow } from "@/lib/telegram/commands/inflow"
-import { handleOutflow } from "@/lib/telegram/commands/outflow"
-import { handleBuy } from "@/lib/telegram/commands/buy"
-import { handleSell } from "@/lib/telegram/commands/sell"
-import { handleStockImg } from "@/lib/telegram/commands/stockimg"
-import { handleIlp } from "@/lib/telegram/commands/ilp"
-import { handleGoaladd } from "@/lib/telegram/commands/goaladd"
-import { handleRepay } from "@/lib/telegram/commands/repay"
-import { handleEarlyrepay } from "@/lib/telegram/commands/earlyrepay"
+import { supabaseSessionStore } from "@/lib/telegram/session"
+import { inflowScene } from "@/lib/telegram/scenes/inflow-scene"
+import { outflowScene } from "@/lib/telegram/scenes/outflow-scene"
+import { buySellScene } from "@/lib/telegram/scenes/buy-sell-scene"
+import { ilpScene } from "@/lib/telegram/scenes/ilp-scene"
+import { goalAddScene } from "@/lib/telegram/scenes/goaladd-scene"
+import { repayScene } from "@/lib/telegram/scenes/repay-scene"
+import { stockImgScene } from "@/lib/telegram/scenes/stockimg-scene"
 
 async function getOrCreateAccount(chatId: string): Promise<string | null> {
   try {
@@ -50,16 +51,7 @@ async function getOrCreateAccount(chatId: string): Promise<string | null> {
 
 type CommandHandler = (accountId: string, text: string) => Promise<string>
 
-const textCommands: Record<string, CommandHandler> = {
-  in: handleInflow,
-  out: handleOutflow,
-  buy: handleBuy,
-  sell: handleSell,
-  ilp: handleIlp,
-  goaladd: handleGoaladd,
-  repay: handleRepay,
-  earlyrepay: handleEarlyrepay,
-}
+const textCommands: Record<string, CommandHandler> = {}
 
 function extractCommand(text: string): { command: string; rest: string } | null {
   const match = text.match(/^\/(\w+)(@\S+)?\s*([\s\S]*)$/)
@@ -172,6 +164,11 @@ function ensureHandlers() {
 
   const bot = getBot()
 
+  const stage = new Scenes.Stage<MyContext>([inflowScene, outflowScene, buySellScene, ilpScene, goalAddScene, repayScene, stockImgScene])
+
+  bot.use(session({ store: supabaseSessionStore }))
+  bot.use(stage.middleware())
+
   bot.catch((err) => {
     console.error("[telegram/webhook] Bot error:", err)
   })
@@ -222,6 +219,58 @@ function ensureHandlers() {
       return
     }
 
+    if (parsed.command === "in") {
+      ;(ctx.state as any).accountId = accountId
+      await ctx.scene.enter("inflow_wizard")
+      return
+    }
+
+    if (parsed.command === "out") {
+      ;(ctx.state as any).accountId = accountId
+      await ctx.scene.enter("outflow_wizard")
+      return
+    }
+
+    if (parsed.command === "buy") {
+      ;(ctx.state as any).accountId = accountId
+      ;(ctx.state as any).type = "buy"
+      await ctx.scene.enter("buy_sell_wizard")
+      return
+    }
+    
+    if (parsed.command === "sell") {
+      ;(ctx.state as any).accountId = accountId
+      ;(ctx.state as any).type = "sell"
+      await ctx.scene.enter("buy_sell_wizard")
+      return
+    }
+
+    if (parsed.command === "ilp") {
+      ;(ctx.state as any).accountId = accountId
+      await ctx.scene.enter("ilp_wizard")
+      return
+    }
+
+    if (parsed.command === "goaladd") {
+      ;(ctx.state as any).accountId = accountId
+      await ctx.scene.enter("goaladd_wizard")
+      return
+    }
+
+    if (parsed.command === "repay") {
+      ;(ctx.state as any).accountId = accountId
+      ;(ctx.state as any).isEarlyRepayment = false
+      await ctx.scene.enter("repay_wizard")
+      return
+    }
+
+    if (parsed.command === "earlyrepay") {
+      ;(ctx.state as any).accountId = accountId
+      ;(ctx.state as any).isEarlyRepayment = true
+      await ctx.scene.enter("repay_wizard")
+      return
+    }
+
     if (parsed.command === "stockimg") {
       let fileId: string | undefined
       if ("photo" in msg && Array.isArray(msg.photo) && msg.photo.length > 0) {
@@ -236,8 +285,12 @@ function ensureHandlers() {
         const photos = msg.reply_to_message.photo as Array<{ file_id: string }>
         fileId = photos[photos.length - 1].file_id
       }
-      const reply = await handleStockImg(accountId, msg.text, fileId)
-      await ctx.reply(reply)
+      
+      ;(ctx.state as any).accountId = accountId
+      if (fileId) { (ctx.state as any).fileId = fileId }
+      if (parsed.rest.trim()) { (ctx.state as any).symbol = parsed.rest.trim().toUpperCase() }
+      
+      await ctx.scene.enter("stockimg_wizard")
       return
     }
 

@@ -460,7 +460,7 @@ CREATE TABLE loans (
 
 | # | Task | Detail |
 |---|------|--------|
-| 2.3.1 | Install charting library | `npm install recharts` (or `@tremor/react` for pre-styled dashboard charts) |
+| 2.3.1 | Install charting library | `npm install @visx/axis @visx/shape @visx/scale @visx/group @visx/responsive @visx/sankey @visx/tooltip @visx/grid @visx/legend @visx/curve` (visx) |
 | 2.3.2 | Create `components/dashboard/metric-card.tsx` | Reusable card: label, value, trend arrow, tooltip icon. Used for hero metrics and mini cards. |
 | 2.3.3 | Create `components/dashboard/section-header.tsx` | Section title + optional description + profile toggle context |
 | 2.3.4 | Build `app/dashboard/page.tsx` (Overview) | **Hero metrics:** Total Net Worth (CPF labeled), Liquid Net Worth, Savings Rate. **Mini cards:** Bank total, CPF total, Investments total, Loans outstanding. **Chart:** Net worth trend (line, 12mo). All filtered by active profile. |
@@ -1105,7 +1105,7 @@ telegraf                  # Telegram bot framework
 zod                       # Schema validation
 jose                      # JWT session management
 date-fns                  # Date math for CPF/loans/amortization
-recharts                  # Charting library for dashboard
+@visx/*                   # Charting library for dashboard (visx)
 ```
 
 ### shadcn Components (to add via CLI)

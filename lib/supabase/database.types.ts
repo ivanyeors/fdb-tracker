@@ -1211,7 +1211,7 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
+      },
       telegram_commands: {
         Row: {
           id: string
@@ -1356,6 +1356,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      },
+      telegram_sessions: {
+        Row: {
+          id: string
+          session_data: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          session_data?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          session_data?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {

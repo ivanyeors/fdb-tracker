@@ -11,3 +11,11 @@ ADD COLUMN IF NOT EXISTS "locked_amount" numeric(12,2) DEFAULT 0;
 ALTER TABLE "public"."investments"
 ADD COLUMN IF NOT EXISTS "date_added" date;
 
+
+CREATE TABLE IF NOT EXISTS "public"."telegram_sessions" (
+  "id" text PRIMARY KEY,
+  "session_data" jsonb DEFAULT '{}'::jsonb NOT NULL,
+  "updated_at" timestamp with time zone DEFAULT now()
+);
+
+ALTER TABLE "public"."telegram_sessions" ENABLE ROW LEVEL SECURITY;

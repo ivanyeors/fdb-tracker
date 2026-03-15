@@ -1,8 +1,12 @@
 "use client"
 
 import { useMemo } from "react"
-import { Sankey, Tooltip, ResponsiveContainer } from "recharts"
-import type { SankeyNodeProps } from "recharts"
+import { Sankey, sankeyCenter } from "@visx/sankey"
+import { Group } from "@visx/group"
+import { BarRounded, LinkHorizontal } from "@visx/shape"
+import { useTooltip, TooltipWithBounds } from "@visx/tooltip"
+import { ParentSize } from "@visx/responsive"
+import type { SankeyNode } from "@visx/sankey"
 import type { WaterfallData } from "./waterfall-chart"
 import { formatCurrency } from "@/lib/utils"
 
@@ -19,23 +23,24 @@ const NODE_COLORS: Record<string, string> = {
   Tax: NEGATIVE_FILL,
 }
 
-type SankeyNodeData = { name: string; nodeValue?: number }
+type SankeyNodeDatum = { name: string }
+type SankeyLinkDatum = object
 
 function buildSankeyData(data: WaterfallData): {
-  nodes: SankeyNodeData[]
+  nodes: SankeyNodeDatum[]
   links: { source: number; target: number; value: number }[]
 } {
   const { inflowTotal, outflowBreakdown, netSavings } = data
   const { discretionary, insurance, ilp, loans, tax } = outflowBreakdown
 
-  const nodes: SankeyNodeData[] = [
-    { name: "Inflow", nodeValue: inflowTotal },
-    { name: "Spending", nodeValue: discretionary },
-    { name: "Insurance", nodeValue: insurance },
-    { name: "ILP", nodeValue: ilp },
-    { name: "Loans", nodeValue: loans },
-    { name: "Tax", nodeValue: tax },
-    { name: "Savings", nodeValue: netSavings },
+  const nodes: SankeyNodeDatum[] = [
+    { name: "Inflow" },
+    { name: "Spending" },
+    { name: "Insurance" },
+    { name: "ILP" },
+    { name: "Loans" },
+    { name: "Tax" },
+    { name: "Savings" },
   ]
 
   const links: { source: number; target: number; value: number }[] = []
@@ -54,45 +59,29 @@ function buildSankeyData(data: WaterfallData): {
   return { nodes, links }
 }
 
-function SankeyNode(props: SankeyNodeProps) {
-  const { payload, x, y, width, height } = props
-  const fill = NODE_COLORS[payload.name] ?? "var(--color-muted-foreground)"
-  const displayValue = (payload as { nodeValue?: number }).nodeValue ?? Number(payload.value ?? 0)
-  const isSourceNode = payload.name === "Inflow"
-  const label = `${payload.name}: ${displayValue >= 0 ? "$" : "-$"}${formatCurrency(Math.abs(displayValue))}`
-  const textX = isSourceNode ? (x ?? 0) + (width ?? 0) + 8 : (x ?? 0) - 8
-  const textY = (y ?? 0) + (height ?? 0) / 2
-  const textAnchor = isSourceNode ? "start" : "end"
-
-  return (
-    <g>
-      <rect
-        x={x}
-        y={y}
-        width={width}
-        height={height}
-        fill={fill}
-        stroke="var(--color-border)"
-        strokeWidth={1}
-      />
-      {displayValue !== 0 && (
-        <text
-          x={textX}
-          y={textY}
-          textAnchor={textAnchor}
-          dominantBaseline="middle"
-          fill="var(--color-foreground)"
-          fontSize={12}
-        >
-          {label}
-        </text>
-      )}
-    </g>
-  )
-}
-
-export function CashflowSankey({ data }: { data: WaterfallData }) {
+function CashflowSankeyInner({
+  data,
+  width,
+  height,
+}: {
+  data: WaterfallData
+  width: number
+  height: number
+}) {
   const sankeyData = useMemo(() => buildSankeyData(data), [data])
+  const root = useMemo(
+    () =>
+      ({
+        nodes: sankeyData.nodes.map((n) => ({ ...n })),
+        links: sankeyData.links.map((l) => ({ source: l.source, target: l.target, value: l.value })),
+      }) as { nodes: SankeyNodeDatum[]; links: { source: number; target: number; value: number }[] },
+    [sankeyData]
+  )
+  const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, hideTooltip, showTooltip } = useTooltip<{
+    type: "link" | "node"
+    label: string
+    value?: number
+  }>()
 
   const hasData = sankeyData.links.some((l) => l.value > 0)
   if (!hasData) {
@@ -103,44 +92,139 @@ export function CashflowSankey({ data }: { data: WaterfallData }) {
     )
   }
 
+  const xMax = width - 200
+  const yMax = height - 80
+
+  if (width < 10) return null
+
   return (
-    <div className="w-full overflow-visible">
-      <ResponsiveContainer width="100%" height={340}>
-        <Sankey
-          data={sankeyData}
-          node={SankeyNode}
-          link={{
-            fill: "var(--color-muted-foreground)",
-            fillOpacity: 0.4,
-          }}
+    <div className="relative w-full">
+      <svg width={width} height={height}>
+        <Sankey<SankeyNodeDatum, SankeyLinkDatum>
+          root={root}
+          size={[xMax, yMax]}
           nodeWidth={14}
           nodePadding={24}
-          linkCurvature={0.5}
-          margin={{ top: 40, right: 100, bottom: 40, left: 100 }}
-          sort={false}
+          nodeAlign={sankeyCenter}
         >
-        <Tooltip
-          formatter={(value) => [`$${formatCurrency(Number(value ?? 0))}`, ""]}
-          labelFormatter={(label) =>
-            typeof label === "string" ? label.replace(" - ", " → ") : String(label ?? "")
-          }
-          contentStyle={{
+          {({ graph, createPath }) => (
+            <Group top={40} left={100}>
+              {graph.links.map((link, i) => {
+                const sourceNode = link.source as SankeyNode<SankeyNodeDatum, SankeyLinkDatum>
+                const targetNode = link.target as SankeyNode<SankeyNodeDatum, SankeyLinkDatum>
+                const fill = NODE_COLORS[sourceNode.name] ?? "var(--color-muted-foreground)"
+                return (
+                  <LinkHorizontal
+                    key={i}
+                    data={link}
+                    path={createPath}
+                    fill="transparent"
+                    stroke={fill}
+                    strokeWidth={Math.max(link.width ?? 0, 1)}
+                    strokeOpacity={0.4}
+                    onMouseMove={(e) => {
+                      const rect = (e.target as SVGElement).getBoundingClientRect()
+                      showTooltip({
+                        tooltipData: {
+                          type: "link",
+                          label: `${sourceNode.name} → ${targetNode.name}`,
+                          value: link.value,
+                        },
+                        tooltipLeft: rect.left + rect.width / 2,
+                        tooltipTop: rect.top,
+                      })
+                    }}
+                    onMouseLeave={hideTooltip}
+                  />
+                )
+              })}
+              {graph.nodes.map((node, i) => {
+                const fill = NODE_COLORS[node.name] ?? "var(--color-muted-foreground)"
+                const nodeValue = node.value ?? 0
+                const isSourceNode = node.name === "Inflow"
+                const label = `${node.name}: $${formatCurrency(nodeValue)}`
+                const x0 = node.x0 ?? 0
+                const x1 = node.x1 ?? 0
+                const y0 = node.y0 ?? 0
+                const y1 = node.y1 ?? 0
+
+                return (
+                  <Group key={i}>
+                    <BarRounded
+                      x={x0}
+                      y={y0}
+                      width={x1 - x0}
+                      height={y1 - y0}
+                      radius={3}
+                      fill={fill}
+                      stroke="var(--color-border)"
+                      strokeWidth={1}
+                      all
+                      onMouseMove={(e) => {
+                        const rect = (e.target as SVGElement).getBoundingClientRect()
+                        showTooltip({
+                          tooltipData: {
+                            type: "node",
+                            label: node.name,
+                            value: nodeValue,
+                          },
+                          tooltipLeft: rect.left + rect.width / 2,
+                          tooltipTop: rect.top,
+                        })
+                      }}
+                      onMouseLeave={hideTooltip}
+                    />
+                    {nodeValue !== 0 && (
+                      <text
+                        x={isSourceNode ? x1 + 8 : x0 - 8}
+                        y={y0 + (y1 - y0) / 2}
+                        textAnchor={isSourceNode ? "start" : "end"}
+                        dominantBaseline="middle"
+                        fill="var(--color-foreground)"
+                        fontSize={12}
+                      >
+                        {label}
+                      </text>
+                    )}
+                  </Group>
+                )
+              })}
+            </Group>
+          )}
+        </Sankey>
+      </svg>
+      {tooltipOpen && tooltipData && (
+        <TooltipWithBounds
+          key={`${tooltipData.label}-${tooltipLeft}-${tooltipTop}`}
+          top={tooltipTop}
+          left={tooltipLeft}
+          style={{
             backgroundColor: "var(--color-card)",
             border: "1px solid var(--color-border)",
             borderRadius: "8px",
-            color: "var(--color-card-foreground)",
             padding: "10px 12px",
-          }}
-          labelStyle={{
-            color: "var(--color-card-foreground)",
-            marginBottom: "4px",
-          }}
-          itemStyle={{
+            fontSize: 12,
             color: "var(--color-card-foreground)",
           }}
-        />
-        </Sankey>
-      </ResponsiveContainer>
+        >
+          <div className="font-medium">{tooltipData.label}</div>
+          {tooltipData.value !== undefined && (
+            <div>${formatCurrency(tooltipData.value)}</div>
+          )}
+        </TooltipWithBounds>
+      )}
+    </div>
+  )
+}
+
+export function CashflowSankey({ data }: { data: WaterfallData }) {
+  return (
+    <div className="h-[340px] w-full overflow-visible">
+      <ParentSize>
+        {({ width, height }) => (
+          <CashflowSankeyInner data={data} width={width} height={height ?? 340} />
+        )}
+      </ParentSize>
     </div>
   )
 }

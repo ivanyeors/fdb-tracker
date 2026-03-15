@@ -1,8 +1,13 @@
 "use client"
 
+import { useMemo } from "react"
+import { LinePath } from "@visx/shape"
+import { curveMonotoneX } from "@visx/curve"
+import { scalePoint, scaleLinear } from "@visx/scale"
+import { Group } from "@visx/group"
+import { ParentSize } from "@visx/responsive"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import { LineChart, Line, ResponsiveContainer } from "recharts"
 import { AddIlpEntryDialog } from "@/components/dashboard/investments/add-ilp-entry-dialog"
 import { EditIlpDialog } from "@/components/dashboard/investments/edit-ilp-dialog"
 
@@ -31,6 +36,58 @@ function fmt(n: number): string {
   })
 }
 
+function IlpLineChart({
+  data,
+  stroke,
+  width,
+  height,
+}: {
+  data: MonthlyData[]
+  stroke: string
+  width: number
+  height: number
+}) {
+  const xScale = useMemo(
+    () =>
+      scalePoint<string>({
+        domain: data.map((d) => d.month),
+        range: [0, width],
+        padding: 0.5,
+      }),
+    [data, width]
+  )
+
+  const yScale = useMemo(() => {
+    const values = data.map((d) => d.value)
+    const min = Math.min(...values, 0)
+    const max = Math.max(...values, 0)
+    const padding = (max - min) * 0.1 || 1
+    return scaleLinear<number>({
+      domain: [min - padding, max + padding],
+      range: [height, 0],
+    })
+  }, [data, height])
+
+  if (data.length === 0 || width < 10) return null
+
+  return (
+    <svg width={width} height={height}>
+      <Group>
+        <LinePath<MonthlyData>
+          data={data}
+          x={(d) => (xScale(d.month) ?? 0) + (xScale.step() ?? 0) / 2}
+          y={(d) => yScale(d.value) ?? 0}
+          curve={curveMonotoneX}
+          stroke={stroke}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Group>
+    </svg>
+  )
+}
+
 export function IlpCard({
   productId,
   name,
@@ -43,6 +100,9 @@ export function IlpCard({
   onAddEntry,
   onEditSuccess,
 }: IlpCardProps) {
+  const stroke =
+    returnPct >= 0 ? "var(--color-chart-positive)" : "var(--color-chart-negative)"
+
   return (
     <Card className="h-[200px]">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0">
@@ -92,17 +152,16 @@ export function IlpCard({
           </div>
         </div>
         <div className="h-16 w-24 self-center">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={monthlyData}>
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke={returnPct >= 0 ? "var(--color-chart-positive)" : "var(--color-chart-negative)"}
-                strokeWidth={2}
-                dot={false}
+          <ParentSize>
+            {({ width, height }) => (
+              <IlpLineChart
+                data={monthlyData}
+                stroke={stroke}
+                width={width}
+                height={height ?? 64}
               />
-            </LineChart>
-          </ResponsiveContainer>
+            )}
+          </ParentSize>
         </div>
       </CardContent>
     </Card>

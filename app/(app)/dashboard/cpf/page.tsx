@@ -1,20 +1,9 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  ReferenceLine,
-} from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { CpfOverviewChart } from "@/components/dashboard/cpf/cpf-overview-chart"
+import { CpfRetirementChart } from "@/components/dashboard/cpf/cpf-retirement-chart"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { MetricCard } from "@/components/dashboard/metric-card"
@@ -106,54 +95,7 @@ function OverviewTab({ data }: { data: CpfBalanceRow[] }) {
           <CardTitle>Monthly Contribution Projections (6 Months)</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis
-                dataKey="month"
-                className="text-xs"
-                tick={{ fill: "var(--color-muted-foreground)" }}
-              />
-              <YAxis
-                className="text-xs"
-                tick={{ fill: "var(--color-muted-foreground)" }}
-                tickFormatter={(v: number) => `$${(v / 1000).toFixed(1)}k`}
-              />
-              <Tooltip
-                formatter={(v, name) => [
-                  `$${Number(v).toLocaleString()}`,
-                  String(name).toUpperCase(),
-                ]}
-                contentStyle={{
-                  backgroundColor: "var(--color-card)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "8px",
-                }}
-              />
-              <Legend />
-              <Bar
-                dataKey="oa"
-                name="OA"
-                stackId="cpf"
-                fill="var(--color-chart-neutral)"
-                radius={[0, 0, 0, 0]}
-              />
-              <Bar
-                dataKey="sa"
-                name="SA"
-                stackId="cpf"
-                fill="var(--color-chart-neutral)"
-                radius={[0, 0, 0, 0]}
-              />
-              <Bar
-                dataKey="ma"
-                name="MA"
-                stackId="cpf"
-                fill="var(--color-chart-neutral)"
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          <CpfOverviewChart data={chartData} />
         </CardContent>
       </Card>
     </div>
@@ -295,58 +237,7 @@ function RetirementTab({ data }: { data: RetirementData | null }) {
               No projection data. Add income in Settings to see projections.
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis
-                  dataKey="year"
-                  className="text-xs"
-                  tick={{ fill: "var(--color-muted-foreground)" }}
-                />
-                <YAxis
-                  className="text-xs"
-                  tick={{ fill: "var(--color-muted-foreground)" }}
-                  tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
-                />
-                <Tooltip
-                  formatter={(v) => [
-                    `$${Number(v).toLocaleString()}`,
-                    "Projected Balance",
-                  ]}
-                  contentStyle={{
-                    backgroundColor: "var(--color-card)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "8px",
-                  }}
-                />
-                <ReferenceLine
-                  y={BRS}
-                  stroke="var(--color-chart-neutral)"
-                  strokeDasharray="6 3"
-                  label={{ value: "BRS (Basic Retirement Sum)", fill: "var(--color-chart-neutral)", fontSize: 12 }}
-                />
-                <ReferenceLine
-                  y={FRS}
-                  stroke="var(--color-chart-neutral)"
-                  strokeDasharray="6 3"
-                  label={{ value: "FRS (Full Retirement Sum)", fill: "var(--color-chart-neutral)", fontSize: 12 }}
-                />
-                <ReferenceLine
-                  y={ERS}
-                  stroke="var(--color-chart-neutral)"
-                  strokeDasharray="6 3"
-                  label={{ value: "ERS (Enhanced Retirement Sum)", fill: "var(--color-chart-neutral)", fontSize: 12 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="balance"
-                  stroke="var(--color-chart-neutral)"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <CpfRetirementChart data={chartData} />
           )}
         </CardContent>
       </Card>

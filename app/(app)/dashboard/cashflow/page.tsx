@@ -1,18 +1,8 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  Line,
-} from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { CashflowChart } from "@/components/dashboard/cashflow/cashflow-chart"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { useActiveProfile } from "@/hooks/use-active-profile"
@@ -122,72 +112,7 @@ export default function CashflowPage() {
               <CardTitle>12-Month Cashflow</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis
-                    dataKey="month"
-                    className="text-xs"
-                    tick={{ fill: "var(--color-muted-foreground)" }}
-                  />
-                  <YAxis
-                    className="text-xs"
-                    tick={{ fill: "var(--color-muted-foreground)" }}
-                    tickFormatter={(v: number) => `$${(v / 1000).toFixed(1)}k`}
-                  />
-                  <Tooltip
-                    formatter={(v, name) => [
-                      `$${Number(v).toLocaleString()}`,
-                      String(name).charAt(0).toUpperCase() + String(name).slice(1),
-                    ]}
-                    contentStyle={{
-                      backgroundColor: "var(--color-card)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: "8px",
-                    }}
-                  />
-                  <Legend />
-                  <Bar
-                    dataKey="discretionary"
-                    name="Spending"
-                    stackId="outflow"
-                    fill="var(--color-chart-negative)"
-                  />
-                  <Bar
-                    dataKey="insurance"
-                    name="Insurance"
-                    stackId="outflow"
-                    fill="var(--color-chart-negative)"
-                  />
-                  <Bar
-                    dataKey="ilp"
-                    name="ILP"
-                    stackId="outflow"
-                    fill="var(--color-chart-negative)"
-                  />
-                  <Bar
-                    dataKey="loans"
-                    name="Loans"
-                    stackId="outflow"
-                    fill="var(--color-chart-negative)"
-                  />
-                  <Bar
-                    dataKey="tax"
-                    name="Tax"
-                    stackId="outflow"
-                    fill="var(--color-chart-negative)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="inflow"
-                    name="Inflow"
-                    stroke="var(--color-chart-positive)"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              <CashflowChart data={chartData} />
             </CardContent>
           </Card>
 
