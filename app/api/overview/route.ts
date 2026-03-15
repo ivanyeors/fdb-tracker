@@ -199,6 +199,9 @@ export async function GET(request: NextRequest) {
 
     // --- Savings Rate (using effective outflow: discretionary + insurance + ilp + loans + tax) ---
     let savingsRate = 0
+    let latestInflow = 0
+    let latestOutflow = 0
+    let latestMonth: string | null = null
 
     const cashflowQuery = profileId
       ? supabase
@@ -217,7 +220,7 @@ export async function GET(request: NextRequest) {
     const { data: cashflowRows } = await cashflowQuery
 
     if (cashflowRows && cashflowRows.length > 0) {
-      const latestMonth = cashflowRows[0]!.month
+      latestMonth = cashflowRows[0]!.month
       const rowsForLatest = cashflowRows.filter((r) => r.month === latestMonth)
       let totalInflow = 0
       let totalEffectiveOutflow = 0
@@ -226,16 +229,18 @@ export async function GET(request: NextRequest) {
         totalInflow += await getEffectiveInflowForProfile(
           supabase,
           row.profile_id,
-          latestMonth,
+          latestMonth!,
         )
         const eff = await getEffectiveOutflowForProfile(
           supabase,
           row.profile_id,
-          latestMonth
+          latestMonth!
         )
         totalEffectiveOutflow += eff.total
       }
 
+      latestInflow = totalInflow
+      latestOutflow = totalEffectiveOutflow
       savingsRate = calculateSavingsRate(totalInflow, totalEffectiveOutflow)
     }
 
@@ -251,6 +256,9 @@ export async function GET(request: NextRequest) {
       liquidNetWorth: Math.round(liquidNetWorth * 100) / 100,
       totalNetWorth: Math.round(totalNetWorth * 100) / 100,
       savingsRate: Math.round(savingsRate * 100) / 100,
+      latestInflow: Math.round(latestInflow * 100) / 100,
+      latestOutflow: Math.round(latestOutflow * 100) / 100,
+      latestMonth,
     })
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

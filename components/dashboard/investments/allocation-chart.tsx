@@ -10,13 +10,13 @@ import {
   type PieLabelRenderProps,
 } from "recharts"
 
-const COLORS = [
-  "#4f7942",
-  "#6b8e5a",
-  "#8fbc8f",
-  "#b8d4a3",
-  "#dcedc8",
-  "#a8c896",
+const GREY_SHADES = [
+  "var(--color-chart-neutral)",
+  "oklch(0.50 0.02 250)",
+  "oklch(0.60 0.02 250)",
+  "oklch(0.45 0.02 250)",
+  "oklch(0.70 0.02 250)",
+  "oklch(0.55 0.02 250)",
 ]
 
 interface AllocationData {
@@ -100,7 +100,7 @@ export function AllocationChart({ data, title }: AllocationChartProps) {
             labelLine={false}
           >
             {data.map((_, i) => (
-              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              <Cell key={i} fill={GREY_SHADES[i % GREY_SHADES.length]} />
             ))}
           </Pie>
           <text

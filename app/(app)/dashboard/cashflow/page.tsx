@@ -149,40 +149,40 @@ export default function CashflowPage() {
                   <Legend />
                   <Bar
                     dataKey="discretionary"
-                    name="Discretionary"
+                    name="Spending"
                     stackId="outflow"
-                    fill="var(--color-chart-1)"
+                    fill="var(--color-chart-negative)"
                   />
                   <Bar
                     dataKey="insurance"
                     name="Insurance"
                     stackId="outflow"
-                    fill="var(--color-chart-2)"
+                    fill="var(--color-chart-negative)"
                   />
                   <Bar
                     dataKey="ilp"
                     name="ILP"
                     stackId="outflow"
-                    fill="var(--color-chart-3)"
+                    fill="var(--color-chart-negative)"
                   />
                   <Bar
                     dataKey="loans"
                     name="Loans"
                     stackId="outflow"
-                    fill="var(--color-chart-4)"
+                    fill="var(--color-chart-negative)"
                   />
                   <Bar
                     dataKey="tax"
                     name="Tax"
                     stackId="outflow"
-                    fill="var(--color-chart-5)"
+                    fill="var(--color-chart-negative)"
                     radius={[4, 4, 0, 0]}
                   />
                   <Line
                     type="monotone"
                     dataKey="inflow"
                     name="Inflow"
-                    stroke="var(--color-primary)"
+                    stroke="var(--color-chart-positive)"
                     strokeWidth={2}
                     dot={false}
                   />

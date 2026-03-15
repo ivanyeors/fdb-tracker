@@ -135,21 +135,21 @@ function OverviewTab({ data }: { data: CpfBalanceRow[] }) {
                 dataKey="oa"
                 name="OA"
                 stackId="cpf"
-                fill="var(--color-chart-1)"
+                fill="var(--color-chart-neutral)"
                 radius={[0, 0, 0, 0]}
               />
               <Bar
                 dataKey="sa"
                 name="SA"
                 stackId="cpf"
-                fill="var(--color-chart-3)"
+                fill="var(--color-chart-neutral)"
                 radius={[0, 0, 0, 0]}
               />
               <Bar
                 dataKey="ma"
                 name="MA"
                 stackId="cpf"
-                fill="var(--color-chart-5)"
+                fill="var(--color-chart-neutral)"
                 radius={[4, 4, 0, 0]}
               />
             </BarChart>
@@ -319,26 +319,26 @@ function RetirementTab({ data }: { data: RetirementData | null }) {
                 />
                 <ReferenceLine
                   y={BRS}
-                  stroke="var(--color-chart-1)"
+                  stroke="var(--color-chart-neutral)"
                   strokeDasharray="6 3"
-                  label={{ value: "BRS (Basic Retirement Sum)", fill: "var(--color-chart-1)", fontSize: 12 }}
+                  label={{ value: "BRS (Basic Retirement Sum)", fill: "var(--color-chart-neutral)", fontSize: 12 }}
                 />
                 <ReferenceLine
                   y={FRS}
-                  stroke="var(--color-chart-3)"
+                  stroke="var(--color-chart-neutral)"
                   strokeDasharray="6 3"
-                  label={{ value: "FRS (Full Retirement Sum)", fill: "var(--color-chart-3)", fontSize: 12 }}
+                  label={{ value: "FRS (Full Retirement Sum)", fill: "var(--color-chart-neutral)", fontSize: 12 }}
                 />
                 <ReferenceLine
                   y={ERS}
-                  stroke="var(--color-chart-5)"
+                  stroke="var(--color-chart-neutral)"
                   strokeDasharray="6 3"
-                  label={{ value: "ERS (Enhanced Retirement Sum)", fill: "var(--color-chart-5)", fontSize: 12 }}
+                  label={{ value: "ERS (Enhanced Retirement Sum)", fill: "var(--color-chart-neutral)", fontSize: 12 }}
                 />
                 <Line
                   type="monotone"
                   dataKey="balance"
-                  stroke="var(--color-primary)"
+                  stroke="var(--color-chart-neutral)"
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 4 }}

@@ -83,7 +83,7 @@ export function IlpCard({
               <Line
                 type="monotone"
                 dataKey="value"
-                stroke={returnPct >= 0 ? "#10b981" : "#ef4444"}
+                stroke={returnPct >= 0 ? "var(--color-chart-positive)" : "var(--color-chart-negative)"}
                 strokeWidth={2}
                 dot={false}
               />

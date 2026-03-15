@@ -5,13 +5,17 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { getEffectiveOutflowForProfile } from "@/lib/api/effective-outflow"
-import { getEffectiveInflowForProfile } from "@/lib/api/effective-inflow"
+import {
+  getEffectiveInflowForProfile,
+  getEffectiveInflowWithBreakdown,
+} from "@/lib/api/effective-inflow"
 
 const cashflowQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
   familyId: z.string().uuid().optional(),
-  startMonth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  endMonth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startMonth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  endMonth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 })
 
 const cashflowBodySchema = z.object({
@@ -53,15 +57,95 @@ export async function GET(request: NextRequest) {
     const parsed = cashflowQuerySchema.safeParse({
       profileId: searchParams.get("profileId") ?? undefined,
       familyId: searchParams.get("familyId") ?? undefined,
-      startMonth: searchParams.get("startMonth"),
-      endMonth: searchParams.get("endMonth"),
+      startMonth: searchParams.get("startMonth") ?? undefined,
+      endMonth: searchParams.get("endMonth") ?? undefined,
+      month: searchParams.get("month") ?? undefined,
     })
 
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 })
     }
 
-    const { profileId, familyId, startMonth, endMonth } = parsed.data
+    const { profileId, familyId, startMonth, endMonth, month } = parsed.data
+
+    // Waterfall mode: single month with breakdown
+    if (month) {
+      const supabase = createSupabaseAdmin()
+      const resolved = await resolveFamilyAndProfiles(
+        supabase,
+        accountId,
+        profileId ?? null,
+        familyId ?? null
+      )
+      if (!resolved) {
+        return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
+      }
+      const { profileIds } = resolved
+
+      let inflowTotal = 0
+      const inflowBreakdown: { salary?: number; bonus?: number; income?: number } = {}
+      let discretionary = 0
+      let insurance = 0
+      let ilp = 0
+      let loans = 0
+      let tax = 0
+
+      for (const pid of profileIds) {
+        const inflow = await getEffectiveInflowWithBreakdown(supabase, pid, month)
+        inflowTotal += inflow.total
+        if (inflow.salary != null) {
+          inflowBreakdown.salary = (inflowBreakdown.salary ?? 0) + inflow.salary
+        }
+        if (inflow.bonus != null) {
+          inflowBreakdown.bonus = (inflowBreakdown.bonus ?? 0) + inflow.bonus
+        }
+        if (inflow.income != null) {
+          inflowBreakdown.income = (inflowBreakdown.income ?? 0) + inflow.income
+        }
+
+        const eff = await getEffectiveOutflowForProfile(supabase, pid, month)
+        discretionary += eff.discretionary
+        insurance += eff.insurance
+        ilp += eff.ilp
+        loans += eff.loans
+        tax += eff.tax
+      }
+
+      const outflowTotal = discretionary + insurance + ilp + loans + tax
+      const netSavings = inflowTotal - outflowTotal
+
+      const roundedInflowBreakdown =
+        Object.keys(inflowBreakdown).length > 0
+          ? Object.fromEntries(
+              Object.entries(inflowBreakdown).map(([k, v]) => [
+                k,
+                Math.round((v ?? 0) * 100) / 100,
+              ])
+            )
+          : undefined
+
+      return NextResponse.json({
+        month,
+        inflowTotal: Math.round(inflowTotal * 100) / 100,
+        inflowBreakdown: roundedInflowBreakdown,
+        outflowTotal: Math.round(outflowTotal * 100) / 100,
+        outflowBreakdown: {
+          discretionary: Math.round(discretionary * 100) / 100,
+          insurance: Math.round(insurance * 100) / 100,
+          ilp: Math.round(ilp * 100) / 100,
+          loans: Math.round(loans * 100) / 100,
+          tax: Math.round(tax * 100) / 100,
+        },
+        netSavings: Math.round(netSavings * 100) / 100,
+      })
+    }
+
+    if (!startMonth || !endMonth) {
+      return NextResponse.json(
+        { error: "startMonth and endMonth required when month is not provided" },
+        { status: 400 }
+      )
+    }
     const supabase = createSupabaseAdmin()
     const resolved = await resolveFamilyAndProfiles(
       supabase,
