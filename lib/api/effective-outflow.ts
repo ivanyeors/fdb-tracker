@@ -5,6 +5,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { calculateTax } from "@/lib/calculations/tax"
+import { getGiroOutflowForProfile } from "@/lib/api/giro-amounts"
 
 export type EffectiveOutflowResult = {
   discretionary: number
@@ -31,7 +32,12 @@ export async function getEffectiveOutflowForProfile(
     .eq("month", monthStr)
     .single()
 
-  const discretionary = cashflow?.outflow ?? 0
+  // User reports total outflow (inclusive of tax, ILP, insurance, loans, etc.)
+  // Use it as total; do NOT add auto-deductions (would double-count)
+  // Add GIRO amounts to investments/CPF/SRS/outflow (user explicitly configured these)
+  const userOutflow = cashflow?.outflow ?? 0
+  const giroOutflow = await getGiroOutflowForProfile(supabase, profileId)
+  const total = userOutflow + giroOutflow
 
   let insurance = 0
   const { data: policies } = await supabase
@@ -120,7 +126,8 @@ export async function getEffectiveOutflowForProfile(
     tax = result.taxPayable / 12
   }
 
-  const total = discretionary + insurance + ilp + loans + tax
+  // Breakdown for display only: discretionary = total - known auto-deductions
+  const discretionary = Math.max(0, total - (insurance + ilp + loans + tax))
 
   return {
     discretionary,

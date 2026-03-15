@@ -19,6 +19,7 @@ import {
   Bell,
   Wrench,
   LogOut,
+  Repeat,
 } from "lucide-react"
 
 import {
@@ -52,6 +53,7 @@ const dashboardItems = [
 const settingsItems = [
   { title: "General", href: "/settings", icon: Sliders },
   { title: "User Settings", href: "/settings/users", icon: Users },
+  { title: "GIRO Rules", href: "/settings/giro", icon: Repeat },
   { title: "Notifications", href: "/settings/notifications", icon: Bell },
   { title: "Setup", href: "/settings/setup", icon: Wrench },
 ]

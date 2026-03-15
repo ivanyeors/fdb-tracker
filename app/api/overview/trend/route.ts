@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
     const { familyId: fid, profileIds } = resolved
-    const pid = profileIds[0] ?? null
+    const pid = parsed.data.profileId ?? null
 
     const monthKeys: string[] = []
     const now = new Date()

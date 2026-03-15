@@ -119,9 +119,9 @@ export function AllocationChart({ data, title }: AllocationChartProps) {
             ]}
             contentStyle={{
               borderRadius: "8px",
-              border: "1px solid hsl(var(--border))",
-              background: "hsl(var(--popover))",
-              color: "hsl(var(--popover-foreground))",
+              border: "1px solid rgb(38 38 38)",
+              background: "#0a0a0a",
+              color: "#fafafa",
             }}
           />
           <Legend

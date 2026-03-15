@@ -58,3 +58,71 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
+
+const createPolicySchema = z.object({
+  profileId: z.string().uuid(),
+  name: z.string().min(1),
+  type: z.enum([
+    "term_life",
+    "whole_life",
+    "integrated_shield",
+    "critical_illness",
+    "endowment",
+    "ilp",
+    "personal_accident",
+  ]),
+  premiumAmount: z.number().min(0),
+  frequency: z.enum(["monthly", "yearly"]).optional(),
+  coverageAmount: z.number().min(0).optional(),
+  yearlyOutflowDate: z.number().int().min(1).max(12).optional(),
+})
+
+export async function POST(request: NextRequest) {
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get(COOKIE_NAME)?.value
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const session = await validateSession(token)
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const { accountId } = session
+
+    const body = await request.json()
+    const parsed = createPolicySchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 })
+    }
+
+    const supabase = createSupabaseAdmin()
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      accountId,
+      parsed.data.profileId,
+      null
+    )
+    if (!resolved) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+    }
+
+    const { data: policy, error } = await supabase
+      .from("insurance_policies")
+      .insert({
+        profile_id: parsed.data.profileId,
+        name: parsed.data.name,
+        type: parsed.data.type,
+        premium_amount: parsed.data.premiumAmount,
+        frequency: parsed.data.frequency ?? "yearly",
+        coverage_amount: parsed.data.coverageAmount ?? null,
+        yearly_outflow_date: parsed.data.yearlyOutflowDate ?? null,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: "Failed to create insurance policy" }, { status: 500 })
+    }
+    return NextResponse.json(policy, { status: 201 })
+  } catch (err) {
+    console.error("[api/insurance] POST Error:", err)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}

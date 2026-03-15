@@ -21,7 +21,7 @@ export const incomeSchema = z.object({
 
 export const bankAccountSchema = z.object({
   bank_name: z.string().min(1),
-  account_type: z.enum(["ocbc_360", "basic", "savings", "fixed_deposit"]),
+  account_type: z.enum(["ocbc_360", "basic", "savings", "fixed_deposit", "srs"]),
   profile_id: z.string().uuid().nullable(),
   opening_balance: z.number().min(0).optional(),
 })

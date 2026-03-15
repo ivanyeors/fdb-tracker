@@ -192,6 +192,74 @@ export type Database = {
           },
         ]
       }
+      giro_rules: {
+        Row: {
+          id: string
+          family_id: string
+          profile_id: string | null
+          source_bank_account_id: string
+          amount: number
+          destination_type: string
+          destination_bank_account_id: string | null
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          profile_id?: string | null
+          source_bank_account_id: string
+          amount: number
+          destination_type: string
+          destination_bank_account_id?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          profile_id?: string | null
+          source_bank_account_id?: string
+          amount?: number
+          destination_type?: string
+          destination_bank_account_id?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "giro_rules_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "giro_rules_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "giro_rules_source_bank_account_id_fkey"
+            columns: ["source_bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "giro_rules_destination_bank_account_id_fkey"
+            columns: ["destination_bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monthly_cashflow: {
         Row: {
           id: string

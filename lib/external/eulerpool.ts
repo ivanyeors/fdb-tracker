@@ -63,12 +63,12 @@ export async function getStockPrice(ticker: string): Promise<StockPrice> {
   const apiKey = process.env.EULERPOOL_API_KEY ?? "";
 
   try {
-    const res = await fetch(
+    const url = new URL(
       `https://api.eulerpool.com/v1/equities/${encodeURIComponent(ticker)}/price`,
-      {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      },
     );
+    url.searchParams.set("token", apiKey);
+
+    const res = await fetch(url.toString());
 
     monthlyRequestCount++;
 
@@ -105,47 +105,82 @@ export type StockSearchResult = {
   exchange?: string;
 };
 
+function extractResultsFromResponse(data: unknown): Record<string, unknown>[] {
+  if (Array.isArray(data)) return data as Record<string, unknown>[];
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    for (const key of ["results", "data", "items", "equities"]) {
+      const val = obj[key];
+      if (Array.isArray(val)) return val as Record<string, unknown>[];
+      if (val && typeof val === "object" && !Array.isArray(val)) {
+        const inner = val as Record<string, unknown>;
+        for (const k of ["stocks", "equities", "list"]) {
+          if (Array.isArray(inner[k])) return inner[k] as Record<string, unknown>[];
+        }
+      }
+    }
+  }
+  return [];
+}
+
 export async function searchStocks(query: string): Promise<StockSearchResult[]> {
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
 
   const apiKey = process.env.EULERPOOL_API_KEY ?? "";
-  if (!apiKey) return [];
+  if (!apiKey) {
+    console.warn("[eulerpool] EULERPOOL_API_KEY not configured. Stock search disabled.");
+    return [];
+  }
 
   try {
-    const res = await fetch(
-      `https://api.eulerpool.com/v1/equities/search?q=${encodeURIComponent(trimmed)}`,
-      {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      },
-    );
+    const url = new URL("https://api.eulerpool.com/api/1/equity/search");
+    url.searchParams.set("q", trimmed);
+    url.searchParams.set("token", apiKey);
 
-    if (!res.ok) return [];
+    const res = await fetch(url.toString());
 
-    const data = (await res.json()) as
-      | StockSearchResult[]
-      | { data?: StockSearchResult[] }
-      | { results?: StockSearchResult[] };
-    const results = Array.isArray(data)
-      ? data
-      : "data" in data && Array.isArray((data as { data: StockSearchResult[] }).data)
-        ? (data as { data: StockSearchResult[] }).data
-        : "results" in data && Array.isArray((data as { results: StockSearchResult[] }).results)
-          ? (data as { results: StockSearchResult[] }).results
-          : [];
+    if (!res.ok) {
+      console.warn(`[eulerpool] Search API returned ${res.status} for query "${trimmed}"`);
+      return [];
+    }
 
-    return results
-      .slice(0, 10)
+    const data = (await res.json()) as unknown;
+    const rawResults = extractResultsFromResponse(data);
+
+    const mapped = rawResults
       .map((r) => {
-        const item = typeof r === "string" ? { ticker: r } : r;
+        const item = typeof r === "string" ? { ticker: r } : (r as Record<string, unknown>);
+        const ticker = String(item.ticker ?? item.symbol ?? item.id ?? "");
+        const type = (item.type as string | undefined) ?? "";
         return {
-          ticker: String(item.ticker ?? ""),
-          name: item.name,
-          exchange: item.exchange,
+          ticker,
+          name: (item.name as string | undefined) ?? undefined,
+          exchange: (item.exchange as string | undefined) ?? (item.type as string | undefined),
+          type: type.toLowerCase(),
         };
       })
       .filter((r) => r.ticker.length > 0);
-  } catch {
+
+    const queryUpper = trimmed.toUpperCase();
+    mapped.sort((a, b) => {
+      const aExact = a.ticker.toUpperCase() === queryUpper;
+      const bExact = b.ticker.toUpperCase() === queryUpper;
+      if (aExact && !bExact) return -1;
+      if (!aExact && bExact) return 1;
+      const typeOrder = (t: string) => (t === "stock" ? 0 : t === "etf" ? 1 : 2);
+      return typeOrder(a.type) - typeOrder(b.type);
+    });
+
+    return mapped
+      .slice(0, 12)
+      .map(({ ticker, name, exchange, type }) => ({
+        ticker,
+        name,
+        exchange: exchange ?? (type ? type.charAt(0).toUpperCase() + type.slice(1) : undefined),
+      }));
+  } catch (err) {
+    console.warn("[eulerpool] Search failed:", err);
     return [];
   }
 }

@@ -4,6 +4,11 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { buildBalanceTimeline } from "@/lib/calculations/bank-balance"
+import { getEffectiveInflowForProfile } from "@/lib/api/effective-inflow"
+import {
+  getGiroDebitForAccount,
+  getGiroCreditForAccount,
+} from "@/lib/api/giro-amounts"
 
 const balanceQuerySchema = z.object({
   accountId: z.string().uuid(),
@@ -91,115 +96,30 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let insuranceMonthly = 0
-    let ilpMonthly = 0
-    let loanMonthly = 0
+    // User's outflow is total (inclusive of insurance, ILP, loans, tax)
+    // Add GIRO debit from this account and credit to this account
+    const [giroDebit, giroCredit] = await Promise.all([
+      getGiroDebitForAccount(supabase, bankAccountId),
+      getGiroCreditForAccount(supabase, bankAccountId),
+    ])
 
-    if (profileId) {
-      const { data: policies } = await supabase
-        .from("insurance_policies")
-        .select("premium_amount, frequency, is_active, deduct_from_outflow")
-        .eq("profile_id", profileId)
-        .eq("is_active", true)
-        .eq("deduct_from_outflow", true)
-
-      if (policies) {
-        for (const p of policies) {
-          insuranceMonthly += p.frequency === "monthly"
-            ? p.premium_amount
-            : p.premium_amount / 12
+    const monthlyData = await Promise.all(
+      monthRange.map(async (month) => {
+        const cf = cashflowMap[month] ?? { inflow: 0, outflow: 0 }
+        const resolvedInflow = profileId
+          ? await getEffectiveInflowForProfile(supabase, profileId, month)
+          : cf.inflow
+        return {
+          month,
+          inflow: resolvedInflow + giroCredit,
+          discretionaryOutflow: cf.outflow + giroDebit,
+          insurancePremiums: 0,
+          ilpPremiums: 0,
+          loanRepayments: 0,
+          taxProvision: 0,
         }
-      }
-
-      const { data: ilps } = await supabase
-        .from("ilp_products")
-        .select("monthly_premium")
-        .eq("profile_id", profileId)
-
-      if (ilps) {
-        for (const ilp of ilps) {
-          ilpMonthly += ilp.monthly_premium
-        }
-      }
-
-      const { data: loans } = await supabase
-        .from("loans")
-        .select("id, principal, rate_pct, tenure_months")
-        .eq("profile_id", profileId)
-
-      if (loans) {
-        for (const loan of loans) {
-          const monthlyRate = loan.rate_pct / 100 / 12
-          if (monthlyRate > 0 && loan.tenure_months > 0) {
-            const payment =
-              (loan.principal * monthlyRate) /
-              (1 - Math.pow(1 + monthlyRate, -loan.tenure_months))
-            loanMonthly += payment
-          } else if (loan.tenure_months > 0) {
-            loanMonthly += loan.principal / loan.tenure_months
-          }
-        }
-      }
-    }
-
-    let taxProvisionMonthly = 0
-    if (profileId) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("birth_year")
-        .eq("id", profileId)
-        .single()
-      const { data: incomeConfig } = await supabase
-        .from("income_config")
-        .select("annual_salary, bonus_estimate")
-        .eq("profile_id", profileId)
-        .single()
-      if (profile && incomeConfig) {
-        const { calculateTax } = await import("@/lib/calculations/tax")
-        const { data: insurancePolicies } = await supabase
-          .from("insurance_policies")
-          .select("type, premium_amount, frequency, coverage_amount, is_active")
-          .eq("profile_id", profileId)
-        const { data: manualReliefs } = await supabase
-          .from("tax_relief_inputs")
-          .select("relief_type, amount")
-          .eq("profile_id", profileId)
-          .eq("year", new Date().getFullYear())
-        const result = calculateTax({
-          profile: { birth_year: profile.birth_year },
-          incomeConfig: {
-            annual_salary: incomeConfig.annual_salary,
-            bonus_estimate: incomeConfig.bonus_estimate ?? 0,
-          },
-          insurancePolicies: (insurancePolicies ?? []).map((p) => ({
-            type: p.type,
-            premium_amount: p.premium_amount,
-            frequency: p.frequency,
-            coverage_amount: p.coverage_amount ?? 0,
-            is_active: p.is_active,
-          })),
-          manualReliefs: (manualReliefs ?? []).map((r) => ({
-            relief_type: r.relief_type,
-            amount: r.amount,
-          })),
-          year: new Date().getFullYear(),
-        })
-        taxProvisionMonthly = result.taxPayable / 12
-      }
-    }
-
-    const monthlyData = monthRange.map((month) => {
-      const cf = cashflowMap[month] ?? { inflow: 0, outflow: 0 }
-      return {
-        month,
-        inflow: cf.inflow,
-        discretionaryOutflow: cf.outflow,
-        insurancePremiums: insuranceMonthly,
-        ilpPremiums: ilpMonthly,
-        loanRepayments: loanMonthly,
-        taxProvision: taxProvisionMonthly,
-      }
-    })
+      }),
+    )
 
     const timeline = buildBalanceTimeline({
       openingBalance: account.opening_balance,

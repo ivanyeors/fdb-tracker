@@ -48,6 +48,7 @@ const ACCOUNT_TYPES = [
   { value: "basic", label: "Basic Savings" },
   { value: "savings", label: "Savings" },
   { value: "fixed_deposit", label: "Fixed Deposit" },
+  { value: "srs", label: "SRS" },
 ] as const
 
 function isOcbcAccount(account: BankAccount) {

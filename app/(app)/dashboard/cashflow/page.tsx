@@ -104,7 +104,7 @@ export default function CashflowPage() {
     <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
         title="Cashflow"
-        description="Monthly inflow vs outflow breakdown."
+        description="Monthly inflow vs outflow. Outflow is your total (inclusive of tax, insurance, ILP, loans); breakdown is estimated from known deductions."
       />
 
       {isLoading ? (

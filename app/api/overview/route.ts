@@ -6,6 +6,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { calculateSavingsRate } from "@/lib/calculations/bank-balance"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { getEffectiveOutflowForProfile } from "@/lib/api/effective-outflow"
+import { getEffectiveInflowForProfile } from "@/lib/api/effective-inflow"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
 
 const overviewQuerySchema = z.object({
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { familyId, profileIds } = resolved
-    const profileId = profileIds[0] ?? null
+    const profileId = parsed.data.profileId ?? null
 
     // --- Bank Total ---
     let bankAccountQuery = supabase
@@ -222,7 +223,11 @@ export async function GET(request: NextRequest) {
       let totalEffectiveOutflow = 0
 
       for (const row of rowsForLatest) {
-        totalInflow += row.inflow ?? 0
+        totalInflow += await getEffectiveInflowForProfile(
+          supabase,
+          row.profile_id,
+          latestMonth,
+        )
         const eff = await getEffectiveOutflowForProfile(
           supabase,
           row.profile_id,

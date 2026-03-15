@@ -5,6 +5,7 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { getEffectiveOutflowForProfile } from "@/lib/api/effective-outflow"
+import { getEffectiveInflowForProfile } from "@/lib/api/effective-inflow"
 
 const cashflowQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -115,17 +116,17 @@ export async function GET(request: NextRequest) {
       let tax = 0
 
       for (const pid of profileIds) {
-        const cf = cashflowByProfileMonth.get(`${pid}:${month}`) ?? { inflow: 0, outflow: 0 }
-        inflow += cf.inflow
-        discretionary += cf.outflow
+        inflow += await getEffectiveInflowForProfile(supabase, pid, month)
 
         const eff = await getEffectiveOutflowForProfile(supabase, pid, month)
+        discretionary += eff.discretionary
         insurance += eff.insurance
         ilp += eff.ilp
         loans += eff.loans
         tax += eff.tax
       }
 
+      const totalOutflow = discretionary + insurance + ilp + loans + tax
       result.push({
         month,
         inflow,
@@ -134,7 +135,7 @@ export async function GET(request: NextRequest) {
         ilp,
         loans,
         tax,
-        totalOutflow: discretionary + insurance + ilp + loans + tax,
+        totalOutflow,
       })
     }
 

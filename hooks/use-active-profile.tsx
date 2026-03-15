@@ -115,10 +115,8 @@ export function ActiveProfileProvider({
   React.useEffect(() => {
     const profileIds = new Set(profiles.map((p) => p.id))
     if (profiles.length > 0) {
-      if (!activeProfileId) {
-        setActiveProfileId(profiles[0].id)
-      } else if (!profileIds.has(activeProfileId)) {
-        setActiveProfileId(profiles[0].id)
+      if (activeProfileId && !profileIds.has(activeProfileId)) {
+        setActiveProfileId(null)
       }
     } else {
       setActiveProfileId(null)

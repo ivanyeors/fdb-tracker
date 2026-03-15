@@ -25,7 +25,7 @@ export interface IncomeConfig {
 
 export interface BankAccount {
   bank_name: string
-  account_type: "ocbc_360" | "basic" | "savings" | "fixed_deposit"
+  account_type: "ocbc_360" | "basic" | "savings" | "fixed_deposit" | "srs"
   opening_balance?: number
   savings_goals: SavingsGoal[]
 }

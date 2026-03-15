@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
 
     const mappedBankAccounts = (bankAccounts ?? []).map((acc) => ({
       bank_name: acc.bank_name,
-      account_type: acc.account_type as "ocbc_360" | "basic" | "savings" | "fixed_deposit",
+      account_type: acc.account_type as "ocbc_360" | "basic" | "savings" | "fixed_deposit" | "srs",
       opening_balance: acc.opening_balance ?? 0,
       savings_goals: [] as { name: string; target_amount: number | null; current_amount: number; deadline: string | null }[],
     }))

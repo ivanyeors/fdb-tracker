@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button"
 import { CurrencyInput } from "@/components/ui/currency-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { SymbolCombobox } from "@/components/dashboard/investments/symbol-combobox"
+import { SymbolPickerDrawer } from "@/components/dashboard/investments/symbol-picker-drawer"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useActiveProfile } from "@/hooks/use-active-profile"
-import { Loader2 } from "lucide-react"
+import { Loader2, Plus, X } from "lucide-react"
 import { toast } from "sonner"
 
 interface JournalFormProps {
@@ -20,6 +20,7 @@ export function JournalForm({ onSuccess }: JournalFormProps) {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [type, setType] = useState<"buy" | "sell">("buy")
   const [symbol, setSymbol] = useState("")
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [quantity, setQuantity] = useState("")
   const [price, setPrice] = useState<number | null>(null)
   const [journalText, setJournalText] = useState("")
@@ -93,11 +94,50 @@ export function JournalForm({ onSuccess }: JournalFormProps) {
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-1.5">
           <Label htmlFor="journal-symbol">Symbol</Label>
-          <SymbolCombobox
-            id="journal-symbol"
-            value={symbol}
-            onChange={setSymbol}
-            placeholder="Search by ticker or name"
+          {symbol ? (
+            <div className="flex items-center gap-2">
+              <span
+                id="journal-symbol"
+                className="inline-flex items-center gap-1 rounded-md border bg-muted px-3 py-2 text-sm font-medium"
+              >
+                {symbol}
+                <button
+                  type="button"
+                  onClick={() => setSymbol("")}
+                  className="rounded p-0.5 hover:bg-muted-foreground/20"
+                  aria-label="Clear symbol"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setDrawerOpen(true)}
+              >
+                Change
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              id="journal-symbol"
+              className="w-full justify-start text-muted-foreground"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <Plus className="mr-2 size-4" />
+              Add symbol
+            </Button>
+          )}
+          <SymbolPickerDrawer
+            open={drawerOpen}
+            onOpenChange={setDrawerOpen}
+            onSelect={(s) => {
+              setSymbol(s)
+              setDrawerOpen(false)
+            }}
           />
         </div>
         <div className="space-y-1.5">

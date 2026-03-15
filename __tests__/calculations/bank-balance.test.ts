@@ -66,17 +66,6 @@ describe("calculateClosingBalance", () => {
     expect(closing).toBe(11900);
   });
 
-  it("subtracts stock purchases", () => {
-    const outflow = getEffectiveOutflow({
-      discretionary: 3000,
-      insurancePremiums: 0,
-      ilpPremiums: 0,
-      loanRepayments: 0,
-    });
-    const closing = calculateClosingBalance(10000, 5000, outflow, 1000);
-    expect(closing).toBe(11000);
-  });
-
   it("can result in negative closing balance", () => {
     const outflow = getEffectiveOutflow({
       discretionary: 10000,
@@ -88,16 +77,6 @@ describe("calculateClosingBalance", () => {
     expect(closing).toBe(-4000);
   });
 
-  it("defaults stock purchases to 0 when omitted", () => {
-    const outflow = getEffectiveOutflow({
-      discretionary: 1000,
-      insurancePremiums: 0,
-      ilpPremiums: 0,
-      loanRepayments: 0,
-    });
-    const closing = calculateClosingBalance(5000, 3000, outflow);
-    expect(closing).toBe(7000);
-  });
 });
 
 describe("buildBalanceTimeline", () => {
@@ -166,24 +145,6 @@ describe("buildBalanceTimeline", () => {
     expect(timeline[0].month).toBe("2026-06");
   });
 
-  it("includes stock purchases in balance calculation", () => {
-    const timeline = buildBalanceTimeline({
-      openingBalance: 10000,
-      monthlyData: [
-        {
-          month: "2026-01",
-          inflow: 5000,
-          discretionaryOutflow: 2000,
-          insurancePremiums: 0,
-          ilpPremiums: 0,
-          loanRepayments: 0,
-          stockPurchasesNet: 1000,
-        },
-      ],
-    });
-    expect(timeline[0].closingBalance).toBe(12000);
-    expect(timeline[0].stockPurchasesNet).toBe(1000);
-  });
 });
 
 describe("calculateSavingsRate", () => {

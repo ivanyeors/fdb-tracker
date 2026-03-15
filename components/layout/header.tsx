@@ -1,10 +1,12 @@
 "use client"
 
-import { usePathname } from "next/navigation"
+import { useEffect } from "react"
+import { usePathname, useSearchParams } from "next/navigation"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { ProfileToggle } from "@/components/layout/profile-toggle"
 import { FamilySwitcher } from "@/components/layout/family-switcher"
+import { useActiveProfile } from "@/hooks/use-active-profile"
 
 const breadcrumbMap: Record<string, string> = {
   "/dashboard": "Overview",
@@ -19,12 +21,25 @@ const breadcrumbMap: Record<string, string> = {
   "/dashboard/tax": "Tax",
   "/settings": "General Settings",
   "/settings/users": "User Settings",
+  "/settings/giro": "GIRO Rules",
   "/settings/notifications": "Notifications",
   "/settings/setup": "Setup",
 }
 
 export function Header() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const { setActiveProfileId, profiles } = useActiveProfile()
+
+  useEffect(() => {
+    if (pathname.startsWith("/dashboard") && searchParams.has("profileId")) {
+      const profileId = searchParams.get("profileId")
+      if (profileId && profiles.some((p) => p.id === profileId)) {
+        setActiveProfileId(profileId)
+      }
+    }
+  }, [pathname, searchParams, setActiveProfileId, profiles])
+
   const sectionName = breadcrumbMap[pathname] ?? "Dashboard"
 
   return (

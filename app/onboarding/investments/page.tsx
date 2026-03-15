@@ -25,7 +25,8 @@ import {
   pathWithMode,
   type OnboardingInvestment,
 } from "@/components/onboarding/onboarding-provider"
-import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react"
+import { SymbolPickerDrawer } from "@/components/dashboard/investments/symbol-picker-drawer"
+import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2, X } from "lucide-react"
 
 const INVESTMENT_TYPES = [
   { value: "stock", label: "Stock" },
@@ -44,6 +45,7 @@ export default function InvestmentsPage() {
   const [items, setItems] = useState<OnboardingInvestment[]>(
     investments.length > 0 ? investments : [],
   )
+  const [symbolDrawerIndex, setSymbolDrawerIndex] = useState<number | null>(null)
 
   function addItem() {
     setItems([
@@ -69,7 +71,12 @@ export default function InvestmentsPage() {
   ) {
     const updated = [...items]
     if (field === "type") {
-      updated[index] = { ...updated[index], type: value as OnboardingInvestment["type"] }
+      const newType = value as OnboardingInvestment["type"]
+      updated[index] = {
+        ...updated[index],
+        type: newType,
+        symbol: newType === "gold" ? "Gold" : newType === "silver" ? "Silver" : updated[index].symbol,
+      }
     } else if (field === "symbol") {
       updated[index] = { ...updated[index], symbol: value as string }
     } else if (field === "units") {
@@ -188,11 +195,45 @@ export default function InvestmentsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Symbol / Name</Label>
-                <Input
-                  placeholder="e.g. DBS, SPY"
-                  value={item.symbol}
-                  onChange={(e) => updateItem(i, "symbol", e.target.value)}
-                />
+                {(item.type === "gold" || item.type === "silver") ? (
+                  <Input
+                    value={item.type === "gold" ? "Gold" : "Silver"}
+                    disabled
+                    className="bg-muted"
+                  />
+                ) : item.symbol ? (
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-md border bg-muted px-3 py-2 text-sm font-medium">
+                      {item.symbol}
+                      <button
+                        type="button"
+                        onClick={() => updateItem(i, "symbol", "")}
+                        className="rounded p-0.5 hover:bg-muted-foreground/20"
+                        aria-label="Clear symbol"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSymbolDrawerIndex(i)}
+                    >
+                      Change
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-start text-muted-foreground"
+                    onClick={() => setSymbolDrawerIndex(i)}
+                  >
+                    <Plus className="mr-2 size-4" />
+                    Add symbol
+                  </Button>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Units</Label>
@@ -218,6 +259,17 @@ export default function InvestmentsPage() {
           <Plus data-icon="inline-start" />
           Add holding
         </Button>
+
+        <SymbolPickerDrawer
+          open={symbolDrawerIndex !== null}
+          onOpenChange={(open) => !open && setSymbolDrawerIndex(null)}
+          onSelect={(s) => {
+            if (symbolDrawerIndex !== null) {
+              updateItem(symbolDrawerIndex, "symbol", s)
+              setSymbolDrawerIndex(null)
+            }
+          }}
+        />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 

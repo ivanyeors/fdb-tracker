@@ -12,7 +12,6 @@ export type MonthlyBalance = {
   openingBalance: number;
   inflow: number;
   effectiveOutflow: EffectiveOutflowBreakdown;
-  stockPurchasesNet: number;
   closingBalance: number;
 };
 
@@ -47,9 +46,8 @@ export function calculateClosingBalance(
   openingBalance: number,
   inflow: number,
   effectiveOutflow: EffectiveOutflowBreakdown,
-  stockPurchasesNet?: number,
 ): number {
-  return openingBalance + inflow - effectiveOutflow.total - (stockPurchasesNet ?? 0);
+  return openingBalance + inflow - effectiveOutflow.total;
 }
 
 export function buildBalanceTimeline(params: {
@@ -62,7 +60,6 @@ export function buildBalanceTimeline(params: {
     ilpPremiums: number;
     loanRepayments: number;
     taxProvision?: number;
-    stockPurchasesNet?: number;
   }>;
 }): BalanceTimeline {
   const timeline: BalanceTimeline = [];
@@ -77,13 +74,10 @@ export function buildBalanceTimeline(params: {
       taxProvision: data.taxProvision,
     });
 
-    const stockPurchasesNet = data.stockPurchasesNet ?? 0;
-
     const closingBalance = calculateClosingBalance(
       currentOpening,
       data.inflow,
       effectiveOutflow,
-      stockPurchasesNet,
     );
 
     timeline.push({
@@ -91,7 +85,6 @@ export function buildBalanceTimeline(params: {
       openingBalance: currentOpening,
       inflow: data.inflow,
       effectiveOutflow,
-      stockPurchasesNet,
       closingBalance,
     });
 

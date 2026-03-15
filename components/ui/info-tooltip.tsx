@@ -39,18 +39,21 @@ export function InfoTooltip({ id, side = "top", className }: InfoTooltipProps) {
             )}
           />
         </HoverCardTrigger>
-        <HoverCardContent side={side} className="w-72 space-y-2 text-sm">
+        <HoverCardContent
+          side={side}
+          className="w-72 space-y-2 border-neutral-800 bg-neutral-950 text-sm text-neutral-50 ring-neutral-800"
+        >
           <p className="font-medium leading-none">{entry.label}</p>
           <p>
-            <span className="font-medium text-muted-foreground">How: </span>
+            <span className="font-medium text-neutral-400">How: </span>
             {entry.logic}
           </p>
           <p>
-            <span className="font-medium text-muted-foreground">What: </span>
+            <span className="font-medium text-neutral-400">What: </span>
             {entry.explanation}
           </p>
           <p>
-            <span className="font-medium text-muted-foreground">Note: </span>
+            <span className="font-medium text-neutral-400">Note: </span>
             {entry.details}
           </p>
         </HoverCardContent>

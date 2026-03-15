@@ -18,9 +18,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([])
     }
 
+    const apiKey = process.env.EULERPOOL_API_KEY ?? ""
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Stock search is not configured" },
+        { status: 503 },
+      )
+    }
+
     const results = await searchStocks(q)
     return NextResponse.json(results)
-  } catch {
+  } catch (err) {
+    console.error("[api/stocks/search] Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

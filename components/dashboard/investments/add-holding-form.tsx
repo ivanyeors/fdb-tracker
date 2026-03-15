@@ -12,9 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { SymbolCombobox } from "@/components/dashboard/investments/symbol-combobox"
+import { SymbolPickerDrawer } from "@/components/dashboard/investments/symbol-picker-drawer"
 import { useActiveProfile } from "@/hooks/use-active-profile"
-import { Loader2 } from "lucide-react"
+import { Loader2, Plus, X } from "lucide-react"
 import { toast } from "sonner"
 
 const HOLDING_TYPES = [
@@ -32,6 +32,7 @@ interface AddHoldingFormProps {
 export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [symbol, setSymbol] = useState("")
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [type, setType] = useState<"stock" | "etf" | "gold" | "silver" | "bond">(
     "stock",
   )
@@ -132,14 +133,51 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
               disabled
               className="bg-muted"
             />
+          ) : symbol ? (
+            <div className="flex items-center gap-2">
+              <span
+                id="holding-symbol"
+                className="inline-flex items-center gap-1 rounded-md border bg-muted px-3 py-2 text-sm font-medium"
+              >
+                {symbol}
+                <button
+                  type="button"
+                  onClick={() => setSymbol("")}
+                  className="rounded p-0.5 hover:bg-muted-foreground/20"
+                  aria-label="Clear symbol"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setDrawerOpen(true)}
+              >
+                Change
+              </Button>
+            </div>
           ) : (
-            <SymbolCombobox
+            <Button
+              type="button"
+              variant="outline"
               id="holding-symbol"
-              value={symbol}
-              onChange={setSymbol}
-              placeholder="Search by ticker or name"
-            />
+              className="w-full justify-start text-muted-foreground"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <Plus className="mr-2 size-4" />
+              Add symbol
+            </Button>
           )}
+          <SymbolPickerDrawer
+            open={drawerOpen}
+            onOpenChange={setDrawerOpen}
+            onSelect={(s) => {
+              setSymbol(s)
+              setDrawerOpen(false)
+            }}
+          />
         </div>
 
         <div className="space-y-1.5">

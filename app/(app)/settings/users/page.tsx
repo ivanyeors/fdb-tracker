@@ -3,9 +3,88 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { getSessionFromCookies } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-import { UserSettingsForm } from "./user-settings-form"
+import { FamilyMembersTable } from "./user-settings-form"
 import { Button } from "@/components/ui/button"
 import type { ProfileWithIncome } from "./types"
+import type { FinancialDataByFamily } from "./user-settings-form"
+
+function getCurrentMonth(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
+}
+
+async function fetchFinancialDataForFamily(
+  supabase: ReturnType<typeof createSupabaseAdmin>,
+  familyId: string,
+  profileIds: string[]
+) {
+  const [
+    bankAccountsRes,
+    savingsGoalsRes,
+    investmentsRes,
+    loansRes,
+    insuranceRes,
+    cpfRes,
+    cashflowRes,
+  ] = await Promise.all([
+    supabase
+      .from("bank_accounts")
+      .select("*")
+      .eq("family_id", familyId)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("savings_goals")
+      .select("*")
+      .eq("family_id", familyId)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("investments")
+      .select("*")
+      .eq("family_id", familyId)
+      .order("created_at", { ascending: true }),
+    profileIds.length > 0
+      ? supabase
+          .from("loans")
+          .select("*")
+          .in("profile_id", profileIds)
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    profileIds.length > 0
+      ? supabase
+          .from("insurance_policies")
+          .select("*")
+          .in("profile_id", profileIds)
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    profileIds.length > 0
+      ? (() => {
+          const currentMonth = getCurrentMonth()
+          return supabase
+            .from("cpf_balances")
+            .select("*")
+            .in("profile_id", profileIds)
+            .eq("month", currentMonth)
+        })()
+      : Promise.resolve({ data: [] }),
+    profileIds.length > 0
+      ? supabase
+          .from("monthly_cashflow")
+          .select("*")
+          .in("profile_id", profileIds)
+          .order("month", { ascending: false })
+      : Promise.resolve({ data: [] }),
+  ])
+
+  return {
+    bankAccounts: bankAccountsRes.data ?? [],
+    savingsGoals: savingsGoalsRes.data ?? [],
+    investments: investmentsRes.data ?? [],
+    loans: loansRes.data ?? [],
+    insurancePolicies: insuranceRes.data ?? [],
+    cpfBalances: cpfRes.data ?? [],
+    monthlyCashflow: cashflowRes.data ?? [],
+  } satisfies FinancialDataByFamily
+}
 
 function normalizeProfile(profile: Record<string, unknown>): ProfileWithIncome {
   const incomeConfig = profile.income_config
@@ -58,7 +137,7 @@ export default async function UserSettingsPage() {
 
   if (error) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="p-2 sm:p-4">
         <h1 className="text-2xl font-semibold text-destructive">Error Loading Profiles</h1>
         <p className="text-muted-foreground mt-1">
           {error.message || "Could not retrieve user profiles."}
@@ -73,8 +152,18 @@ export default async function UserSettingsPage() {
     profilesByFamily.set(fam.id, famProfiles)
   }
 
+  const financialDataByFamily = new Map<string, Awaited<ReturnType<typeof fetchFinancialDataForFamily>>>()
+  for (const fam of families ?? []) {
+    const famProfiles = profilesByFamily.get(fam.id) ?? []
+    const profileIds = famProfiles.map((p) => p.id as string)
+    financialDataByFamily.set(
+      fam.id,
+      await fetchFinancialDataForFamily(supabase, fam.id, profileIds)
+    )
+  }
+
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-8">
+    <div className="p-2 sm:p-4 max-w-7xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-semibold">User Settings</h1>
         <p className="text-muted-foreground mt-1">
@@ -90,25 +179,26 @@ export default async function UserSettingsPage() {
 
       <div className="space-y-8">
         {(families ?? []).map((family) => {
-          const profiles = profilesByFamily.get(family.id) ?? []
+          const rawProfiles = profilesByFamily.get(family.id) ?? []
+          const profiles = rawProfiles.map((p) =>
+            normalizeProfile(p as Record<string, unknown>)
+          )
+          const financialData = financialDataByFamily.get(family.id) ?? {
+            bankAccounts: [],
+            savingsGoals: [],
+            investments: [],
+            loans: [],
+            insurancePolicies: [],
+            cpfBalances: [],
+            monthlyCashflow: [],
+          }
           return (
-            <section key={family.id} className="space-y-4">
-              <h2 className="text-lg font-medium">{family.name}</h2>
-              <div className="grid gap-6">
-                {profiles.map((profile) => (
-                  <UserSettingsForm
-                    key={profile.id}
-                    profile={normalizeProfile(profile as Record<string, unknown>)}
-                    profileCount={profiles.length}
-                  />
-                ))}
-                {profiles.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No profiles in this family. Add one via the onboarding wizard.
-                  </p>
-                )}
-              </div>
-            </section>
+            <FamilyMembersTable
+              key={family.id}
+              family={{ id: family.id, name: family.name }}
+              profiles={profiles}
+              financialData={financialData}
+            />
           )
         })}
       </div>

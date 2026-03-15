@@ -142,6 +142,92 @@ export async function updateUserProfile(
   }
 }
 
+export type CreateProfileState = {
+  success?: boolean
+  error?: string
+}
+
+const createProfileSchema = z.object({
+  familyId: z.string().uuid(),
+  name: z.string().min(1, "Name is required").max(50),
+  birthYear: z.coerce.number().min(1900).max(new Date().getFullYear()),
+})
+
+export async function createProfile(
+  prevState: CreateProfileState,
+  formData: FormData
+): Promise<CreateProfileState> {
+  try {
+    const cookieStore = await cookies()
+    const householdId = await getSessionFromCookies(cookieStore)
+    if (!householdId) {
+      return { error: "Unauthorized" }
+    }
+
+    const data = {
+      familyId: formData.get("familyId"),
+      name: formData.get("name"),
+      birthYear: formData.get("birthYear"),
+    }
+
+    const parsed = createProfileSchema.safeParse(data)
+    if (!parsed.success) {
+      return { error: "Invalid form data. Please check your inputs." }
+    }
+
+    const { familyId, name, birthYear } = parsed.data
+    const supabase = createSupabaseAdmin()
+
+    const { data: family } = await supabase
+      .from("families")
+      .select("id")
+      .eq("id", familyId)
+      .eq("household_id", householdId)
+      .single()
+
+    if (!family) {
+      return { error: "Family not found or unauthorized." }
+    }
+
+    const { data: newProfile, error: profileError } = await supabase
+      .from("profiles")
+      .insert({
+        family_id: familyId,
+        name: name.trim(),
+        birth_year: birthYear,
+      })
+      .select("id")
+      .single()
+
+    if (profileError || !newProfile) {
+      console.error("Error creating profile:", profileError)
+      return { error: "Failed to create profile." }
+    }
+
+    const { error: incomeError } = await supabase.from("income_config").insert({
+      profile_id: newProfile.id,
+      annual_salary: 0,
+      bonus_estimate: 0,
+      pay_frequency: "monthly",
+      employee_cpf_rate: null,
+    })
+
+    if (incomeError) {
+      console.error("Error creating income config:", incomeError)
+      return { error: "Profile created but income config failed." }
+    }
+
+    revalidatePath("/settings")
+    revalidatePath("/settings/users")
+    revalidatePath("/dashboard")
+
+    return { success: true }
+  } catch (err) {
+    console.error("Error in createProfile:", err)
+    return { error: "An unexpected error occurred." }
+  }
+}
+
 export type DeleteUserState = {
   success?: boolean
   error?: string
