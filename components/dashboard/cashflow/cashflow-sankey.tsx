@@ -2,8 +2,9 @@
 
 import { useMemo } from "react"
 import { Sankey, Tooltip, ResponsiveContainer } from "recharts"
-import type { SankeyNodeProps, SankeyLinkProps } from "recharts"
+import type { SankeyNodeProps } from "recharts"
 import type { WaterfallData } from "./waterfall-chart"
+import { formatCurrency } from "@/lib/utils"
 
 const POSITIVE_FILL = "var(--color-chart-positive)"
 const NEGATIVE_FILL = "var(--color-chart-negative)"
@@ -18,18 +19,23 @@ const NODE_COLORS: Record<string, string> = {
   Tax: NEGATIVE_FILL,
 }
 
-function buildSankeyData(data: WaterfallData): { nodes: { name: string }[]; links: { source: number; target: number; value: number }[] } {
+type SankeyNodeData = { name: string; nodeValue?: number }
+
+function buildSankeyData(data: WaterfallData): {
+  nodes: SankeyNodeData[]
+  links: { source: number; target: number; value: number }[]
+} {
   const { inflowTotal, outflowBreakdown, netSavings } = data
   const { discretionary, insurance, ilp, loans, tax } = outflowBreakdown
 
-  const nodes = [
-    { name: "Inflow" },
-    { name: "Spending" },
-    { name: "Insurance" },
-    { name: "ILP" },
-    { name: "Loans" },
-    { name: "Tax" },
-    { name: "Savings" },
+  const nodes: SankeyNodeData[] = [
+    { name: "Inflow", nodeValue: inflowTotal },
+    { name: "Spending", nodeValue: discretionary },
+    { name: "Insurance", nodeValue: insurance },
+    { name: "ILP", nodeValue: ilp },
+    { name: "Loans", nodeValue: loans },
+    { name: "Tax", nodeValue: tax },
+    { name: "Savings", nodeValue: netSavings },
   ]
 
   const links: { source: number; target: number; value: number }[] = []
@@ -39,7 +45,7 @@ function buildSankeyData(data: WaterfallData): { nodes: { name: string }[]; link
   if (ilp > 0) links.push({ source: 0, target: 3, value: ilp })
   if (loans > 0) links.push({ source: 0, target: 4, value: loans })
   if (tax > 0) links.push({ source: 0, target: 5, value: tax })
-  if (netSavings > 0) links.push({ source: 0, target: 6, value: netSavings })
+  if (netSavings !== 0) links.push({ source: 0, target: 6, value: Math.abs(netSavings) })
 
   if (links.length === 0 && inflowTotal > 0) {
     links.push({ source: 0, target: 6, value: inflowTotal })
@@ -51,6 +57,13 @@ function buildSankeyData(data: WaterfallData): { nodes: { name: string }[]; link
 function SankeyNode(props: SankeyNodeProps) {
   const { payload, x, y, width, height } = props
   const fill = NODE_COLORS[payload.name] ?? "var(--color-muted-foreground)"
+  const displayValue = (payload as { nodeValue?: number }).nodeValue ?? Number(payload.value ?? 0)
+  const isSourceNode = payload.name === "Inflow"
+  const label = `${payload.name}: ${displayValue >= 0 ? "$" : "-$"}${formatCurrency(Math.abs(displayValue))}`
+  const textX = isSourceNode ? (x ?? 0) + (width ?? 0) + 8 : (x ?? 0) - 8
+  const textY = (y ?? 0) + (height ?? 0) / 2
+  const textAnchor = isSourceNode ? "start" : "end"
+
   return (
     <g>
       <rect
@@ -62,31 +75,20 @@ function SankeyNode(props: SankeyNodeProps) {
         stroke="var(--color-border)"
         strokeWidth={1}
       />
+      {displayValue !== 0 && (
+        <text
+          x={textX}
+          y={textY}
+          textAnchor={textAnchor}
+          dominantBaseline="middle"
+          fill="var(--color-foreground)"
+          fontSize={12}
+        >
+          {label}
+        </text>
+      )}
     </g>
   )
-}
-
-function SankeyLink(props: SankeyLinkProps) {
-  const {
-    sourceX,
-    targetX,
-    sourceY,
-    targetY,
-    sourceControlX,
-    targetControlX,
-    sourceRelativeY,
-    targetRelativeY,
-    linkWidth,
-    payload,
-  } = props
-  const targetName = payload.target?.name ?? ""
-  const fill = NODE_COLORS[targetName] ?? "var(--color-muted-foreground)"
-  const sy0 = sourceY + (sourceRelativeY ?? 0) * linkWidth
-  const ty0 = targetY + (targetRelativeY ?? 0) * linkWidth
-  const sy1 = sourceY + (sourceRelativeY ?? 0) * linkWidth + linkWidth
-  const ty1 = targetY + (targetRelativeY ?? 0) * linkWidth + linkWidth
-  const pathD = `M${sourceX},${sy0} C${sourceControlX},${sy0} ${targetControlX},${ty0} ${targetX},${ty0} L${targetX},${ty1} C${targetControlX},${ty1} ${sourceControlX},${sy1} ${sourceX},${sy1} Z`
-  return <path d={pathD} fill={fill} fillOpacity={0.6} />
 }
 
 export function CashflowSankey({ data }: { data: WaterfallData }) {
@@ -95,25 +97,33 @@ export function CashflowSankey({ data }: { data: WaterfallData }) {
   const hasData = sankeyData.links.some((l) => l.value > 0)
   if (!hasData) {
     return (
-      <div className="flex h-[280px] items-center justify-center text-muted-foreground text-sm">
+      <div className="flex min-h-[340px] items-center justify-center text-muted-foreground text-sm">
         No cashflow data to display
       </div>
     )
   }
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <Sankey
-        data={sankeyData}
-        node={SankeyNode}
-        link={SankeyLink}
-        nodeWidth={14}
-        nodePadding={20}
-        linkCurvature={0.5}
-        margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-      >
+    <div className="w-full overflow-visible">
+      <ResponsiveContainer width="100%" height={340}>
+        <Sankey
+          data={sankeyData}
+          node={SankeyNode}
+          link={{
+            fill: "var(--color-muted-foreground)",
+            fillOpacity: 0.4,
+          }}
+          nodeWidth={14}
+          nodePadding={24}
+          linkCurvature={0.5}
+          margin={{ top: 40, right: 100, bottom: 40, left: 100 }}
+          sort={false}
+        >
         <Tooltip
-          formatter={(value) => [`$${Number(value).toLocaleString()}`, ""]}
+          formatter={(value) => [`$${formatCurrency(Number(value ?? 0))}`, ""]}
+          labelFormatter={(label) =>
+            typeof label === "string" ? label.replace(" - ", " → ") : String(label ?? "")
+          }
           contentStyle={{
             backgroundColor: "var(--color-card)",
             border: "1px solid var(--color-border)",
@@ -128,9 +138,9 @@ export function CashflowSankey({ data }: { data: WaterfallData }) {
           itemStyle={{
             color: "var(--color-card-foreground)",
           }}
-          labelFormatter={(label) => String(label)}
         />
-      </Sankey>
-    </ResponsiveContainer>
+        </Sankey>
+      </ResponsiveContainer>
+    </div>
   )
 }

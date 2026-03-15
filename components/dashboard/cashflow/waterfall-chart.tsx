@@ -6,12 +6,9 @@ import {
   Bar,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
-
-const BAR_CATEGORY_GAP = 6
 
 export type WaterfallData = {
   month: string
@@ -38,23 +35,10 @@ function buildWaterfallBars(data: WaterfallData): WaterfallBarItem[] {
   const bars: WaterfallBarItem[] = []
   let cumulative = 0
 
-  // Inflow: Salary, Bonus, Income (manual), or single Inflow
-  const { inflowBreakdown, inflowTotal } = data
-  if (inflowBreakdown?.salary != null && inflowBreakdown.salary > 0) {
-    bars.push({ name: "Salary", pv: cumulative, uv: inflowBreakdown.salary })
-    cumulative += inflowBreakdown.salary
-  }
-  if (inflowBreakdown?.bonus != null && inflowBreakdown.bonus > 0) {
-    bars.push({ name: "Bonus", pv: cumulative, uv: inflowBreakdown.bonus })
-    cumulative += inflowBreakdown.bonus
-  }
-  if (inflowBreakdown?.income != null && inflowBreakdown.income > 0) {
-    bars.push({ name: "Income", pv: cumulative, uv: inflowBreakdown.income })
-    cumulative += inflowBreakdown.income
-  }
-  if (bars.length === 0 && inflowTotal > 0) {
-    bars.push({ name: "Inflow", pv: cumulative, uv: inflowTotal })
-    cumulative += inflowTotal
+  // Top bar: Total Inflow (single bar for full inflow amount)
+  if (data.inflowTotal > 0) {
+    bars.push({ name: "Total Inflow", pv: 0, uv: data.inflowTotal })
+    cumulative = data.inflowTotal
   }
 
   // Outflow categories (display as "Spending" not "Discretionary")
@@ -99,18 +83,15 @@ type WaterfallBarShapeProps = {
   width?: number
   height?: number
   payload?: WaterfallBarItem
-  index?: number
-  chartData?: WaterfallBarItem[]
 }
 
 function WaterfallBarShape(props: WaterfallBarShapeProps) {
-  const { x = 0, y = 0, width = 0, height = 0, payload, index = 0, chartData } = props
+  const { x = 0, y = 0, width = 0, height = 0, payload } = props
   if (!payload) return null
 
   const fill = payload.uv >= 0 ? POSITIVE_FILL : NEGATIVE_FILL
-  const connectorX = payload.uv >= 0 ? x + width : x
 
-  const bar = (
+  return (
     <rect
       x={x}
       y={y}
@@ -121,28 +102,6 @@ function WaterfallBarShape(props: WaterfallBarShapeProps) {
       ry={2}
     />
   )
-
-  if (chartData && index < chartData.length - 1) {
-    const nextY = y + height + BAR_CATEGORY_GAP
-    const connector = (
-      <line
-        x1={connectorX}
-        y1={y + height}
-        x2={connectorX}
-        y2={nextY}
-        stroke="var(--color-chart-neutral)"
-        strokeWidth={1}
-      />
-    )
-    return (
-      <g>
-        {bar}
-        {connector}
-      </g>
-    )
-  }
-
-  return bar
 }
 
 function renderBarLabel(props: {
@@ -178,6 +137,14 @@ function renderBarLabel(props: {
 export function WaterfallChart({ data }: { data: WaterfallData }) {
   const chartData = useMemo(() => buildWaterfallBars(data), [data])
 
+  const domain = useMemo(() => {
+    if (chartData.length === 0) return [0, 0] as [number, number]
+    const values = chartData.map((d) => d.pv + d.uv)
+    const minVal = Math.min(0, ...values)
+    const maxVal = Math.max(0, ...values)
+    return [minVal, maxVal] as [number, number]
+  }, [chartData])
+
   if (chartData.length === 0) {
     return (
       <div className="flex h-[300px] items-center justify-center text-muted-foreground text-sm">
@@ -192,13 +159,9 @@ export function WaterfallChart({ data }: { data: WaterfallData }) {
         data={chartData}
         margin={{ top: 8, right: 72, left: 8, bottom: 8 }}
         layout="vertical"
+        barCategoryGap={4}
       >
-        <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
-        <XAxis
-          type="number"
-          tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-          tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
-        />
+        <XAxis type="number" hide domain={domain} />
         <YAxis
           type="category"
           dataKey="name"
@@ -219,9 +182,7 @@ export function WaterfallChart({ data }: { data: WaterfallData }) {
           dataKey="uv"
           stackId="a"
           minPointSize={2}
-          shape={(props) => (
-            <WaterfallBarShape {...props} chartData={chartData} />
-          )}
+          shape={(props) => <WaterfallBarShape {...props} />}
           label={renderBarLabel}
         />
       </BarChart>

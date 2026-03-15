@@ -476,53 +476,74 @@ export default function OverviewPage() {
         </>
       )}
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>Cashflow Waterfall</CardTitle>
-          <Select
-            value={selectedMonth ?? ""}
-            onValueChange={(v) => setSelectedMonth(v || null)}
-          >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {cashflowMonths.map((m) => {
-                const [y, mo] = m.split("-")
-                return (
-                  <SelectItem key={m} value={m}>
-                    {formatTrendMonth(`${y}-${mo}`)}
-                  </SelectItem>
-                )
-              })}
-            </SelectContent>
-          </Select>
-        </CardHeader>
-        <CardContent>
-          {waterfallData ? (
-            <>
+      <div className="space-y-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle>Cashflow Waterfall</CardTitle>
+            <Select
+              value={selectedMonth ?? ""}
+              onValueChange={(v) => setSelectedMonth(v || null)}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Select month" />
+              </SelectTrigger>
+              <SelectContent>
+                {cashflowMonths.map((m) => {
+                  const [y, mo] = m.split("-")
+                  return (
+                    <SelectItem key={m} value={m}>
+                      {formatTrendMonth(`${y}-${mo}`)}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </CardHeader>
+          <CardContent>
+            {waterfallData ? (
               <WaterfallChart data={waterfallData} />
-              <div className="mt-6">
-                <h4 className="mb-3 text-sm font-medium text-muted-foreground">
-                  Cashflow Flow
-                </h4>
-                <CashflowSankey data={waterfallData} />
+            ) : (
+              <div className="flex h-[300px] items-center justify-center text-muted-foreground text-sm">
+                {selectedMonth ? "Loading..." : "Select a month"}
               </div>
-            </>
-          ) : (
-            <div className="flex h-[300px] items-center justify-center text-muted-foreground text-sm">
-              {selectedMonth ? "Loading..." : "Select a month"}
-            </div>
-          )}
-          <Link
-            href="/dashboard/cashflow"
-            className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-          >
-            View cashflow
-            <ArrowRight className="size-4" />
-          </Link>
-        </CardContent>
-      </Card>
+            )}
+            <Link
+              href="/dashboard/cashflow"
+              className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              View cashflow
+              <ArrowRight className="size-4" />
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-visible">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle>Cashflow Flow</CardTitle>
+            {selectedMonth && (
+              <p className="text-xs text-muted-foreground">
+                {formatTrendMonth(selectedMonth)}
+              </p>
+            )}
+          </CardHeader>
+          <CardContent className="overflow-visible">
+            {waterfallData ? (
+              <CashflowSankey data={waterfallData} />
+            ) : (
+              <div className="flex h-[340px] items-center justify-center text-muted-foreground text-sm">
+                {selectedMonth ? "Loading..." : "Select a month above"}
+              </div>
+            )}
+            <Link
+              href="/dashboard/cashflow"
+              className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              View cashflow
+              <ArrowRight className="size-4" />
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
