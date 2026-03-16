@@ -391,3 +391,135 @@ export async function addNewFamilyAction(): Promise<void> {
   revalidatePath("/settings/setup")
   redirect("/onboarding?mode=new-family")
 }
+
+const updateFamilyNameSchema = z.object({
+  familyId: z.string().uuid(),
+  name: z.string().transform((s) => s.trim()).pipe(z.string().min(1, "Name is required").max(50)),
+})
+
+export type UpdateFamilyNameState = {
+  success?: boolean
+  error?: string
+}
+
+export async function updateFamilyName(
+  prevState: UpdateFamilyNameState,
+  formData: FormData
+): Promise<UpdateFamilyNameState> {
+  try {
+    const cookieStore = await cookies()
+    const householdId = await getSessionFromCookies(cookieStore)
+    if (!householdId) {
+      return { error: "Unauthorized" }
+    }
+
+    const data = {
+      familyId: formData.get("familyId"),
+      name: formData.get("name"),
+    }
+
+    const parsed = updateFamilyNameSchema.safeParse(data)
+    if (!parsed.success) {
+      return { error: "Invalid form data. Please check your inputs." }
+    }
+
+    const { familyId, name } = parsed.data
+    const supabase = createSupabaseAdmin()
+
+    const { data: family } = await supabase
+      .from("families")
+      .select("id")
+      .eq("id", familyId)
+      .eq("household_id", householdId)
+      .single()
+
+    if (!family) {
+      return { error: "Family not found or unauthorized." }
+    }
+
+    const { error: updateError } = await supabase
+      .from("families")
+      .update({ name })
+      .eq("id", familyId)
+
+    if (updateError) {
+      console.error("Error updating family name:", updateError)
+      return { error: "Failed to update family name." }
+    }
+
+    revalidatePath("/settings")
+    revalidatePath("/settings/users")
+    revalidatePath("/settings/setup")
+    revalidatePath("/dashboard")
+
+    return { success: true }
+  } catch (err) {
+    console.error("Error in updateFamilyName:", err)
+    return { error: "An unexpected error occurred." }
+  }
+}
+
+export type DeleteFamilyState = {
+  success?: boolean
+  error?: string
+}
+
+export async function deleteFamily(
+  prevState: DeleteFamilyState,
+  formData: FormData
+): Promise<DeleteFamilyState> {
+  try {
+    const cookieStore = await cookies()
+    const householdId = await getSessionFromCookies(cookieStore)
+    if (!householdId) {
+      return { error: "Unauthorized" }
+    }
+
+    const familyId = formData.get("familyId")
+    if (typeof familyId !== "string" || !familyId) {
+      return { error: "Invalid family." }
+    }
+
+    const supabase = createSupabaseAdmin()
+
+    const { data: family } = await supabase
+      .from("families")
+      .select("id")
+      .eq("id", familyId)
+      .eq("household_id", householdId)
+      .single()
+
+    if (!family) {
+      return { error: "Family not found or unauthorized." }
+    }
+
+    const { count } = await supabase
+      .from("families")
+      .select("id", { count: "exact", head: true })
+      .eq("household_id", householdId)
+
+    if (count !== null && count <= 1) {
+      return { error: "Cannot delete the last family. Your account must have at least one family." }
+    }
+
+    const { error: deleteError } = await supabase
+      .from("families")
+      .delete()
+      .eq("id", familyId)
+
+    if (deleteError) {
+      console.error("Error deleting family:", deleteError)
+      return { error: "Failed to delete family." }
+    }
+
+    revalidatePath("/settings")
+    revalidatePath("/settings/users")
+    revalidatePath("/settings/setup")
+    revalidatePath("/dashboard")
+
+    return { success: true }
+  } catch (err) {
+    console.error("Error in deleteFamily:", err)
+    return { error: "An unexpected error occurred." }
+  }
+}

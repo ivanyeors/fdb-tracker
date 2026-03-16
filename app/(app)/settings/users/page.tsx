@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { getSessionFromCookies } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-import { FamilyMembersTable } from "./user-settings-form"
+import { FamilyMembersTable, UserSettingsActiveContext } from "./user-settings-form"
 import { Button } from "@/components/ui/button"
 import type { ProfileWithIncome } from "./types"
 import type { FinancialDataByFamily } from "./user-settings-form"
@@ -169,6 +169,7 @@ export default async function UserSettingsPage() {
         <p className="text-muted-foreground mt-1">
           Per-user financial configuration across all families.
         </p>
+        <UserSettingsActiveContext />
       </div>
 
       <div className="flex items-center gap-3">
@@ -198,6 +199,7 @@ export default async function UserSettingsPage() {
               family={{ id: family.id, name: family.name }}
               profiles={profiles}
               financialData={financialData}
+              familyCount={(families ?? []).length}
             />
           )
         })}

@@ -2,6 +2,7 @@
 
 /* eslint-disable react-hooks/set-state-in-effect -- sync UI state with server action results and prop changes */
 import { useActionState, useEffect, useState } from "react"
+import { useActiveProfile } from "@/hooks/use-active-profile"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -43,7 +44,13 @@ import {
   getFieldsForType,
   type InsuranceType,
 } from "@/lib/insurance/coverage-config"
-import { updateUserProfile, deleteUserProfile, createProfile } from "../actions"
+import {
+  updateUserProfile,
+  deleteUserProfile,
+  createProfile,
+  updateFamilyName,
+  deleteFamily,
+} from "../actions"
 import { toast } from "sonner"
 import { Loader2, Trash2, UserPlus, ExternalLink, Plus, FileText, X, Pencil } from "lucide-react"
 import type { ProfileWithIncome } from "./types"
@@ -2707,6 +2714,99 @@ function AddFamilyMemberDialog({
   )
 }
 
+function EditFamilyNameDialog({
+  familyId,
+  familyName,
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  familyId: string
+  familyName: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSuccess: () => void
+}) {
+  const [name, setName] = useState(familyName)
+  const [updateState, updateAction, isUpdatePending] = useActionState(updateFamilyName, {
+    success: false,
+    error: undefined,
+  })
+
+  useEffect(() => {
+    if (open) {
+      setName(familyName)
+    }
+  }, [open, familyName])
+
+  useEffect(() => {
+    if (updateState.success) {
+      toast.success("Family name updated")
+      onOpenChange(false)
+      onSuccess()
+    } else if (updateState.error) {
+      toast.error(updateState.error)
+    }
+  }, [updateState, onOpenChange, onSuccess])
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent showCloseButton={true}>
+        <DialogHeader>
+          <DialogTitle>Edit family name</DialogTitle>
+          <DialogDescription>
+            Change the display name for this family group.
+          </DialogDescription>
+        </DialogHeader>
+        <form action={updateAction} className="space-y-4">
+          <input type="hidden" name="familyId" value={familyId} />
+          <div className="space-y-2">
+            <Label htmlFor="edit-family-name">Name</Label>
+            <Input
+              id="edit-family-name"
+              name="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. My Family"
+              maxLength={50}
+              required
+            />
+          </div>
+          <DialogFooter showCloseButton={false}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isUpdatePending}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isUpdatePending}>
+              {isUpdatePending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function UserSettingsActiveContext() {
+  const { families, activeFamilyId, profiles, activeProfileId } = useActiveProfile()
+  const family = families.find((f) => f.id === activeFamilyId)
+  const profile = profiles.find((p) => p.id === activeProfileId)
+  const familyName = family?.name ?? "—"
+  const profileName = profile?.name ?? (profiles.length > 0 ? "Combined" : "—")
+  return (
+    <p className="mt-2 text-sm text-muted-foreground">
+      Viewing: <span className="font-medium text-foreground">{familyName}</span>
+      {" / "}
+      <span className="font-medium text-foreground">{profileName}</span>
+    </p>
+  )
+}
+
 function filterByProfile<T extends { profile_id: string | null }>(
   items: T[],
   profileId: string
@@ -2718,14 +2818,23 @@ export function FamilyMembersTable({
   family,
   profiles,
   financialData,
+  familyCount,
 }: {
   family: { id: string; name: string }
   profiles: ProfileWithIncome[]
   financialData: FinancialDataByFamily
+  familyCount: number
 }) {
   const router = useRouter()
   const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [activeTab, setActiveTab] = useState(profiles[0]?.id ?? "add")
+
+  const [deleteState, deleteAction, isDeletePending] = useActionState(deleteFamily, {
+    success: false,
+    error: undefined,
+  })
 
   useEffect(() => {
     if (profiles.length > 0 && !profiles.some((p) => p.id === activeTab)) {
@@ -2735,14 +2844,77 @@ export function FamilyMembersTable({
     }
   }, [profiles, activeTab])
 
+  useEffect(() => {
+    if (deleteState.success) {
+      setDeleteDialogOpen(false)
+      toast.success("Family removed")
+      router.refresh()
+    } else if (deleteState.error) {
+      toast.error(deleteState.error)
+    }
+  }, [deleteState, router])
+
   const handleMutate = () => router.refresh()
+  const canDeleteFamily = familyCount > 1
 
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>{family.name}</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle>{family.name}</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                onClick={() => setEditDialogOpen(true)}
+              >
+                <Pencil className="h-4 w-4" />
+                <span className="sr-only">Edit family name</span>
+              </Button>
+              {canDeleteFamily && (
+                <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => setDeleteDialogOpen(true)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Delete family</span>
+                  </Button>
+                  <DialogContent showCloseButton={true}>
+                    <DialogHeader>
+                      <DialogTitle>Delete family</DialogTitle>
+                      <DialogDescription>
+                        Are you sure you want to delete &quot;{family.name}&quot;? This will permanently remove
+                        all profiles in this family and their associated data (banks, investments, loans,
+                        insurance, CPF, cashflow, etc.). This action cannot be undone.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form action={deleteAction} className="contents">
+                      <input type="hidden" name="familyId" value={family.id} />
+                      <DialogFooter showCloseButton={false}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setDeleteDialogOpen(false)}
+                          disabled={isDeletePending}
+                        >
+                          Cancel
+                        </Button>
+                        <Button type="submit" variant="destructive" disabled={isDeletePending}>
+                          {isDeletePending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Delete
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
             <CardDescription>
               Edit profile and financial data. Each tab shows one family member&apos;s data.
             </CardDescription>
@@ -2829,7 +3001,14 @@ export function FamilyMembersTable({
           familyName={family.name}
           open={addDialogOpen}
           onOpenChange={setAddDialogOpen}
-          onSuccess={() => router.refresh()}
+          onSuccess={handleMutate}
+        />
+        <EditFamilyNameDialog
+          familyId={family.id}
+          familyName={family.name}
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          onSuccess={handleMutate}
         />
       </CardContent>
     </Card>
