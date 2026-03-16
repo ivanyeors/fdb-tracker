@@ -6,6 +6,7 @@ import { CashflowChart } from "@/components/dashboard/cashflow/cashflow-chart"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import { ChartSkeleton } from "@/components/loading"
 
 export default function CashflowPage() {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
@@ -98,11 +99,23 @@ export default function CashflowPage() {
       />
 
       {isLoading ? (
-        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-          Loading cashflow...
-        </div>
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>12-Month Cashflow</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartSkeleton height={300} />
+            </CardContent>
+          </Card>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <MetricCard label="" value={0} loading />
+            <MetricCard label="" value={0} loading />
+            <MetricCard label="" value={0} loading />
+          </div>
+        </>
       ) : cashflowData.length === 0 ? (
-         <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
           No cashflow data found for this profile.
         </div>
       ) : (

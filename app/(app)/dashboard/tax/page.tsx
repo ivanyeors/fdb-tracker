@@ -6,6 +6,7 @@ import { formatCurrency } from "@/lib/utils"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface TaxEntry {
   id: string
@@ -85,9 +86,25 @@ export default function TaxPage() {
       />
 
       {isLoading ? (
-        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-          Loading tax data...
-        </div>
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <MetricCard label="" value={0} loading />
+            <MetricCard label="" value={0} loading />
+            <MetricCard label="" value={0} loading />
+          </div>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-48" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </>
       ) : !hasData ? (
         <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
           No tax data found for this profile.

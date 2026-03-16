@@ -25,6 +25,7 @@ import { InvestmentAccountBalance } from "@/components/dashboard/investments/inv
 import { AddIlpForm } from "@/components/dashboard/investments/add-ilp-form"
 import { AddMetalForm } from "@/components/dashboard/investments/add-metal-form"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ChartSkeleton } from "@/components/loading"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 
 type IlpProductWithEntries = {
@@ -343,7 +344,7 @@ export default function InvestmentsDetailPage() {
             <AddHoldingForm onSuccess={fetchData} />
           </div>
           {isLoading ? (
-            <Skeleton className="h-64 w-full rounded-xl" />
+            <ChartSkeleton height={256} className="rounded-xl" />
           ) : holdings.length === 0 ? (
             <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
               No holdings found.
@@ -356,8 +357,12 @@ export default function InvestmentsDetailPage() {
         <TabsContent value="allocation" className="mt-4">
           {isLoading ? (
             <div className="grid gap-6 md:grid-cols-2">
-              <Skeleton className="h-80 rounded-xl" />
-              <Skeleton className="h-80 rounded-xl" />
+              <div className="rounded-xl border p-4">
+                <ChartSkeleton height={320} />
+              </div>
+              <div className="rounded-xl border p-4">
+                <ChartSkeleton height={320} />
+              </div>
             </div>
           ) : allocationByType.length === 0 && allocationByMarket.length === 0 ? (
             <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
@@ -382,8 +387,8 @@ export default function InvestmentsDetailPage() {
           </div>
           {isLoading ? (
             <div className="grid gap-4 md:grid-cols-2">
-              <Skeleton className="h-[200px] rounded-xl" />
-              <Skeleton className="h-[200px] rounded-xl" />
+              <ChartSkeleton height={200} className="rounded-xl" />
+              <ChartSkeleton height={200} className="rounded-xl" />
             </div>
           ) : ilpCardsData.length === 0 ? (
             <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
@@ -416,7 +421,7 @@ export default function InvestmentsDetailPage() {
             <AddMetalForm onSuccess={fetchData} />
           </div>
           {isLoading ? (
-            <Skeleton className="h-48 max-w-lg rounded-xl" />
+            <ChartSkeleton height={192} className="max-w-lg rounded-xl" />
           ) : metalsHoldings.length === 0 ? (
             <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
               No precious metals holdings. Add gold or silver above to get started.

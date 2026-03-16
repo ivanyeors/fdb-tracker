@@ -7,6 +7,7 @@ import { calculateMonthlyAuto } from "@/lib/calculations/savings-goals"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Progress } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
@@ -65,9 +66,28 @@ export default function GoalsPage() {
       />
 
       {isLoading ? (
-        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-          Loading goals...
-        </div>
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <MetricCard label="" value={0} loading />
+            <MetricCard label="" value={0} loading />
+            <MetricCard label="" value={0} loading />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i} className="flex flex-col">
+                <CardHeader className="pb-3">
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="mt-2 h-4 w-24" />
+                </CardHeader>
+                <CardContent className="flex-1">
+                  <Skeleton className="h-8 w-24 mb-2" />
+                  <Skeleton className="h-2 w-full mb-2" />
+                  <Skeleton className="h-4 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       ) : goals.length === 0 ? (
         <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
           No savings goals found.

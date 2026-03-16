@@ -11,6 +11,7 @@ import { SectionHeader } from "@/components/dashboard/section-header"
 import { formatCurrency } from "@/lib/utils"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import { ChartSkeleton } from "@/components/loading"
 
 const BRS = 110200
 const FRS = 220400
@@ -305,8 +306,20 @@ export default function CpfPage() {
       />
 
       {isLoading ? (
-        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-          Loading CPF data...
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <MetricCard label="" value={0} loading />
+            <MetricCard label="" value={0} loading />
+            <MetricCard label="" value={0} loading />
+          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Monthly Contribution Projections (6 Months)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartSkeleton height={250} />
+            </CardContent>
+          </Card>
         </div>
       ) : (
         <Tabs defaultValue="overview">

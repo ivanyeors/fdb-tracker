@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
 import { ProgressBar } from "@/components/onboarding/progress-bar"
 import type { OnboardingMode } from "@/components/onboarding/onboarding-provider"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const STEP_MAP: Record<string, number> = {
   "/onboarding": 1,
@@ -70,7 +71,23 @@ export default function OnboardingLayout({
   children: React.ReactNode
 }) {
   return (
-    <Suspense fallback={<div className="flex min-h-svh items-center justify-center">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-svh flex-col items-center px-4 py-8">
+          <div className="w-full max-w-2xl space-y-8">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-2 w-full" />
+            </div>
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-32 w-full rounded-lg" />
+              <Skeleton className="h-10 w-32" />
+            </div>
+          </div>
+        </div>
+      }
+    >
       <OnboardingLayoutInner>{children}</OnboardingLayoutInner>
     </Suspense>
   )

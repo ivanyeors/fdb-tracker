@@ -6,6 +6,7 @@ import { MetricCard } from "@/components/dashboard/metric-card"
 import { formatCurrency } from "@/lib/utils"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface Loan {
   id: string
@@ -81,9 +82,20 @@ export default function LoansPage() {
       />
 
       {isLoading ? (
-        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-          Loading loans...
-        </div>
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <MetricCard label="" value={0} loading />
+            <MetricCard label="" value={0} loading />
+            <MetricCard label="" value={0} loading />
+          </div>
+          <div className="rounded-xl border overflow-hidden">
+            <div className="space-y-3 p-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          </div>
+        </>
       ) : loans.length === 0 ? (
         <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
           No loans found for this profile.

@@ -12,6 +12,7 @@ import {
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const OCBC360_CATEGORIES = [
   { category: "Base", requirement: "No requirement", rate: 0.05, key: null },
@@ -118,42 +119,58 @@ export default function BanksPage() {
       />
 
       {isLoading ? (
-        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-          Loading accounts...
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <MetricCard label="" value={0} loading />
+            <MetricCard label="" value={0} loading />
+          </div>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="mt-2 h-4 w-64" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </>
       ) : accounts.length === 0 ? (
         <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
           No bank accounts found for this profile.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {accounts.map((acc, i) => (
-            <MetricCard
-              key={acc.id || i}
-              label={acc.bank_name || "Bank Account"}
-              value={acc.latest_balance ?? acc.opening_balance ?? 0}
-              prefix="$"
-              trend={0}
-              trendLabel="vs last month"
-              tooltipId="BANK_BALANCE"
-            />
-          ))}
-        </div>
-      )}
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {accounts.map((acc, i) => (
+              <MetricCard
+                key={acc.id || i}
+                label={acc.bank_name || "Bank Account"}
+                value={acc.latest_balance ?? acc.opening_balance ?? 0}
+                prefix="$"
+                trend={0}
+                trendLabel="vs last month"
+                tooltipId="BANK_BALANCE"
+              />
+            ))}
+          </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>OCBC 360 Interest Breakdown</CardTitle>
-          <CardDescription>
-            Effective rate: {qualifiedRate.toFixed(2)}% &middot; Projected:{" "}
-            <span className="font-semibold text-foreground">
-              ${projectedMonthlyInterest.toFixed(2)}/month
-            </span>
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <Card>
+            <CardHeader>
+              <CardTitle>OCBC 360 Interest Breakdown</CardTitle>
+              <CardDescription>
+                Effective rate: {qualifiedRate.toFixed(2)}% &middot; Projected:{" "}
+                <span className="font-semibold text-foreground">
+                  ${projectedMonthlyInterest.toFixed(2)}/month
+                </span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-muted-foreground">
                   <th className="pb-2 pr-4 font-medium">Category</th>
@@ -183,9 +200,11 @@ export default function BanksPage() {
                 ))}
               </tbody>
             </table>
-          </div>
-        </CardContent>
-      </Card>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   )
 }

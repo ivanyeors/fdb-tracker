@@ -6,6 +6,7 @@ import { CurrencyInput } from "@/components/ui/currency-input"
 import { Label } from "@/components/ui/label"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Loader2 } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 
 interface InvestmentAccountBalanceProps {
@@ -84,7 +85,13 @@ export function InvestmentAccountBalance({ onSuccess }: InvestmentAccountBalance
         Uninvested cash in your brokerage. Buy deducts from this; sell adds to it.
       </p>
       {isLoading ? (
-        <div className="h-10 animate-pulse rounded-lg bg-muted" />
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[140px] flex-1 space-y-1.5">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <Skeleton className="h-10 w-[100px]" />
+        </div>
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
           <div className="min-w-[140px] flex-1 space-y-1.5">

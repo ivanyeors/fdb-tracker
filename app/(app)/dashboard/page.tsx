@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/select"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { formatCurrency } from "@/lib/utils"
+import { ChartSkeleton } from "@/components/loading"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const monthLabels: Record<string, string> = {
   "01": "Jan",
@@ -336,63 +338,70 @@ export default function OverviewPage() {
         description="Net worth, savings rate, and key metrics at a glance."
       />
 
-      {isOverviewLoading ? (
-        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-          Loading metrics...
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <MetricCard
-              label="Total Net Worth"
-              value={data?.totalNetWorth ?? 0}
-              prefix="$"
-              trend={0}
-              trendLabel="vs last month"
-              tooltipId="NET_WORTH"
-            />
-            <MetricCard
-              label="Liquid Net Worth"
-              value={data?.liquidNetWorth ?? 0}
-              prefix="$"
-              trend={0}
-              trendLabel="vs last month"
-              tooltipId="LIQUID_NET_WORTH"
-            />
-            <MetricCard
-              label="Savings Rate"
-              value={data?.savingsRate || 0}
-              suffix="%"
-              trend={0}
-              trendLabel="vs last month"
-              tooltipId="SAVINGS_RATE"
-            />
-          </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <MetricCard
+          label="Total Net Worth"
+          value={data?.totalNetWorth ?? 0}
+          prefix="$"
+          trend={0}
+          trendLabel="vs last month"
+          tooltipId="NET_WORTH"
+          loading={isOverviewLoading}
+        />
+        <MetricCard
+          label="Liquid Net Worth"
+          value={data?.liquidNetWorth ?? 0}
+          prefix="$"
+          trend={0}
+          trendLabel="vs last month"
+          tooltipId="LIQUID_NET_WORTH"
+          loading={isOverviewLoading}
+        />
+        <MetricCard
+          label="Savings Rate"
+          value={data?.savingsRate || 0}
+          suffix="%"
+          trend={0}
+          trendLabel="vs last month"
+          tooltipId="SAVINGS_RATE"
+          loading={isOverviewLoading}
+        />
+      </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard
-              label="Bank Total"
-              value={data?.bankTotal ?? 0}
-              prefix="$"
-              trend={0}
-              trendLabel="vs last month"
-            />
-            <MetricCard
-              label="CPF Total"
-              value={data?.cpfTotal ?? 0}
-              prefix="$"
-              trend={0}
-              trendLabel="vs last month"
-            />
-            <MetricCard
-              label="Investments"
-              value={data?.investmentTotal ?? 0}
-              prefix="$"
-              trend={0}
-              trendLabel="vs last month"
-            />
-            <Card>
-              <CardContent className="pt-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="Bank Total"
+          value={data?.bankTotal ?? 0}
+          prefix="$"
+          trend={0}
+          trendLabel="vs last month"
+          loading={isOverviewLoading}
+        />
+        <MetricCard
+          label="CPF Total"
+          value={data?.cpfTotal ?? 0}
+          prefix="$"
+          trend={0}
+          trendLabel="vs last month"
+          loading={isOverviewLoading}
+        />
+        <MetricCard
+          label="Investments"
+          value={data?.investmentTotal ?? 0}
+          prefix="$"
+          trend={0}
+          trendLabel="vs last month"
+          loading={isOverviewLoading}
+        />
+        <Card>
+          <CardContent className="pt-6">
+            {isOverviewLoading ? (
+              <>
+                <Skeleton className="mb-3 h-4 w-24" />
+                <Skeleton className="h-8 w-32" />
+              </>
+            ) : (
+              <>
                 <p className="text-sm text-muted-foreground">
                   Loans Outstanding
                 </p>
@@ -406,21 +415,32 @@ export default function OverviewPage() {
                   View all
                   <ArrowRight className="size-4" />
                 </Link>
-              </CardContent>
-            </Card>
-          </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Inflow / Outflow</CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  {data?.latestMonth
-                    ? formatTrendMonth(data.latestMonth)
-                    : "Latest month"}
-                </p>
-              </CardHeader>
-              <CardContent>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Inflow / Outflow</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {isOverviewLoading
+                ? ""
+                : data?.latestMonth
+                  ? formatTrendMonth(data.latestMonth)
+                  : "Latest month"}
+            </p>
+          </CardHeader>
+          <CardContent>
+            {isOverviewLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-5 w-full" />
+              </div>
+            ) : (
+              <>
                 <div className="flex flex-col gap-2">
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">
@@ -446,8 +466,10 @@ export default function OverviewPage() {
                   View cashflow
                   <ArrowRight className="size-4" />
                 </Link>
-              </CardContent>
-            </Card>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
             <Card>
               <CardHeader className="pb-2">
@@ -455,7 +477,7 @@ export default function OverviewPage() {
               </CardHeader>
               <CardContent>
                 {isGoalsLoading ? (
-                  <div className="animate-pulse h-16 w-full rounded bg-muted"></div>
+                  <Skeleton className="h-16 w-full" />
                 ) : goals.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No savings goals. Create one in Savings Goals.
@@ -506,7 +528,7 @@ export default function OverviewPage() {
               </CardHeader>
               <CardContent>
                 {isInsuranceLoading ? (
-                  <div className="animate-pulse h-16 w-full rounded bg-muted"></div>
+                  <Skeleton className="h-16 w-full" />
                 ) : policies.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No insurance policies. Add in Insurance.
@@ -530,7 +552,7 @@ export default function OverviewPage() {
           </div>
 
           {isIlpLoading ? (
-            <div className="animate-pulse h-24 w-full rounded-xl bg-muted"></div>
+            <Skeleton className="h-24 w-full rounded-xl" />
           ) : ilpCardsData.length > 0 ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -570,8 +592,6 @@ export default function OverviewPage() {
               .
             </div>
           ) : null}
-        </>
-      )}
 
       <div className="space-y-6">
         <Card>
@@ -599,9 +619,11 @@ export default function OverviewPage() {
           <CardContent>
             {waterfallData ? (
               <WaterfallChart data={waterfallData} />
+            ) : selectedMonth ? (
+              <ChartSkeleton height={300} />
             ) : (
               <div className="flex h-[300px] items-center justify-center text-muted-foreground text-sm">
-                {selectedMonth ? "Loading..." : "Select a month"}
+                Select a month
               </div>
             )}
             <Link
@@ -626,9 +648,11 @@ export default function OverviewPage() {
           <CardContent className="overflow-visible">
             {waterfallData ? (
               <CashflowSankey data={waterfallData} />
+            ) : selectedMonth ? (
+              <ChartSkeleton height={340} />
             ) : (
               <div className="flex h-[340px] items-center justify-center text-muted-foreground text-sm">
-                {selectedMonth ? "Loading..." : "Select a month above"}
+                Select a month above
               </div>
             )}
             <Link
@@ -649,7 +673,7 @@ export default function OverviewPage() {
           </CardHeader>
           <CardContent className="space-y-6 pt-4">
             {isTxLoading ? (
-              <div className="animate-pulse h-32 w-full rounded-xl bg-muted"></div>
+              <Skeleton className="h-32 w-full rounded-xl" />
             ) : (
               <JournalList entries={transactions} />
             )}
