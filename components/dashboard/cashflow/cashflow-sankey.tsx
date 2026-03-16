@@ -77,10 +77,12 @@ function CashflowSankeyInner({
       }) as { nodes: SankeyNodeDatum[]; links: { source: number; target: number; value: number }[] },
     [sankeyData]
   )
+  const inflowTotal = data.inflowTotal
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, hideTooltip, showTooltip } = useTooltip<{
     type: "link" | "node"
     label: string
     value?: number
+    pctOfInflow?: number
   }>()
 
   const hasData = sankeyData.links.some((l) => l.value > 0)
@@ -124,11 +126,14 @@ function CashflowSankeyInner({
                     strokeOpacity={0.4}
                     onMouseMove={(e) => {
                       const rect = (e.target as SVGElement).getBoundingClientRect()
+                      const pctOfInflow =
+                        inflowTotal > 0 ? (link.value / inflowTotal) * 100 : undefined
                       showTooltip({
                         tooltipData: {
                           type: "link",
                           label: `${sourceNode.name} → ${targetNode.name}`,
                           value: link.value,
+                          pctOfInflow,
                         },
                         tooltipLeft: rect.left + rect.width / 2,
                         tooltipTop: rect.top,
@@ -162,11 +167,16 @@ function CashflowSankeyInner({
                       all
                       onMouseMove={(e) => {
                         const rect = (e.target as SVGElement).getBoundingClientRect()
+                        const pctOfInflow =
+                          inflowTotal > 0 && nodeValue > 0
+                            ? (nodeValue / inflowTotal) * 100
+                            : undefined
                         showTooltip({
                           tooltipData: {
                             type: "node",
                             label: node.name,
                             value: nodeValue,
+                            pctOfInflow,
                           },
                           tooltipLeft: rect.left + rect.width / 2,
                           tooltipTop: rect.top,
@@ -209,7 +219,15 @@ function CashflowSankeyInner({
         >
           <div className="font-medium">{tooltipData.label}</div>
           {tooltipData.value !== undefined && (
-            <div>${formatCurrency(tooltipData.value)}</div>
+            <div>
+              ${formatCurrency(tooltipData.value)}
+              {tooltipData.pctOfInflow != null && (
+                <span className="text-muted-foreground">
+                  {" "}
+                  ({tooltipData.pctOfInflow.toFixed(1)}% of inflow)
+                </span>
+              )}
+            </div>
           )}
         </TooltipWithBounds>
       )}

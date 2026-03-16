@@ -174,6 +174,9 @@ function CpfRetirementChartInner({
         >
           <div className="font-medium">{tooltipData.year}</div>
           <div>${Number(tooltipData.balance).toLocaleString()}</div>
+          <div className="text-muted-foreground">
+            {(tooltipData.balance / BRS * 100).toFixed(0)}% of BRS · {(tooltipData.balance / FRS * 100).toFixed(0)}% of FRS · {(tooltipData.balance / ERS * 100).toFixed(0)}% of ERS
+          </div>
         </TooltipWithBounds>
       )}
     </div>

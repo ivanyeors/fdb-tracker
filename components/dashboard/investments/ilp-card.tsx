@@ -6,6 +6,7 @@ import { curveMonotoneX } from "@visx/curve"
 import { scalePoint, scaleLinear } from "@visx/scale"
 import { Group } from "@visx/group"
 import { ParentSize } from "@visx/responsive"
+import { useTooltip, TooltipWithBounds } from "@visx/tooltip"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { AddIlpEntryDialog } from "@/components/dashboard/investments/add-ilp-entry-dialog"
@@ -36,6 +37,13 @@ function fmt(n: number): string {
   })
 }
 
+function formatMonth(monthStr: string): string {
+  const [year, month] = monthStr.split("-")
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  const m = parseInt(month ?? "1", 10) - 1
+  return `${monthNames[m] ?? month} ${year ?? ""}`
+}
+
 function IlpLineChart({
   data,
   stroke,
@@ -47,6 +55,9 @@ function IlpLineChart({
   width: number
   height: number
 }) {
+  const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
+    useTooltip<MonthlyData>()
+
   const xScale = useMemo(
     () =>
       scalePoint<string>({
@@ -71,20 +82,58 @@ function IlpLineChart({
   if (data.length === 0 || width < 10) return null
 
   return (
-    <svg width={width} height={height}>
-      <Group>
-        <LinePath<MonthlyData>
-          data={data}
-          x={(d) => (xScale(d.month) ?? 0) + (xScale.step() ?? 0) / 2}
-          y={(d) => yScale(d.value) ?? 0}
-          curve={curveMonotoneX}
-          stroke={stroke}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </Group>
-    </svg>
+    <div className="relative">
+      <svg width={width} height={height}>
+        <Group>
+          <LinePath<MonthlyData>
+            data={data}
+            x={(d) => (xScale(d.month) ?? 0) + (xScale.step() ?? 0) / 2}
+            y={(d) => yScale(d.value) ?? 0}
+            curve={curveMonotoneX}
+            stroke={stroke}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {data.map((d, i) => (
+            <circle
+              key={i}
+              cx={(xScale(d.month) ?? 0) + (xScale.step() ?? 0) / 2}
+              cy={yScale(d.value) ?? 0}
+              r={6}
+              fill="transparent"
+              onMouseMove={(e) => {
+                const rect = (e.target as SVGElement).getBoundingClientRect()
+                showTooltip({
+                  tooltipData: d,
+                  tooltipLeft: rect.left + rect.width / 2,
+                  tooltipTop: rect.top,
+                })
+              }}
+              onMouseLeave={hideTooltip}
+            />
+          ))}
+        </Group>
+      </svg>
+      {tooltipOpen && tooltipData && (
+        <TooltipWithBounds
+          key={`${tooltipData.month}-${tooltipLeft}-${tooltipTop}`}
+          top={tooltipTop}
+          left={tooltipLeft}
+          style={{
+            backgroundColor: "var(--color-card)",
+            border: "1px solid var(--color-border)",
+            borderRadius: "8px",
+            padding: "8px 12px",
+            fontSize: 12,
+            color: "var(--color-card-foreground)",
+          }}
+        >
+          <div className="font-medium">{formatMonth(tooltipData.month)}</div>
+          <div>${fmt(tooltipData.value)}</div>
+        </TooltipWithBounds>
+      )}
+    </div>
   )
 }
 

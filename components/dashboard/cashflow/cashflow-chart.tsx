@@ -54,7 +54,7 @@ function CashflowChartInner({
   height: number
 }) {
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
-    useTooltip<{ key: string; value: number; month: string }>()
+    useTooltip<{ key: string; value: number; month: string; inflow: number; outflowTotal: number }>()
 
   const xMax = width - margin.left - margin.right
   const yMax = height - margin.top - margin.bottom
@@ -128,11 +128,15 @@ function CashflowChartInner({
                     ry={barStack.index === OUTFLOW_KEYS.length - 1 ? 4 : 0}
                     onMouseMove={(e) => {
                       const rect = (e.target as SVGElement).getBoundingClientRect()
+                      const row = bar.bar.data
+                      const outflowTotal = OUTFLOW_KEYS.reduce((sum, k) => sum + row[k], 0)
                       showTooltip({
                         tooltipData: {
                           key: KEY_LABELS[bar.key] ?? bar.key,
                           value: bar.bar.data[bar.key],
-                          month: bar.bar.data.month,
+                          month: row.month,
+                          inflow: row.inflow,
+                          outflowTotal,
                         },
                         tooltipLeft: rect.left + rect.width / 2,
                         tooltipTop: rect.top,
@@ -220,6 +224,12 @@ function CashflowChartInner({
           <div className="font-medium">{tooltipData.month}</div>
           <div>
             {tooltipData.key}: ${Number(tooltipData.value).toLocaleString()}
+            {tooltipData.inflow > 0 &&
+              ` (${((tooltipData.value / tooltipData.inflow) * 100).toFixed(1)}% of inflow)`}
+          </div>
+          <div className="text-muted-foreground">
+            Inflow: ${tooltipData.inflow.toLocaleString()} · Outflow: $
+            {tooltipData.outflowTotal.toLocaleString()}
           </div>
         </TooltipWithBounds>
       )}

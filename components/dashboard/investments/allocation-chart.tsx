@@ -138,8 +138,8 @@ function AllocationChartInner({
               fontSize: 12,
             }}
           >
-            <div className="font-medium">{tooltipData.name}</div>
-            <div>${Number(tooltipData.value).toLocaleString()}</div>
+            <div className="font-medium">{tooltipData.name} — {tooltipData.percentage}%</div>
+            <div>${Number(tooltipData.value).toLocaleString()} of ${total.toLocaleString()} total</div>
           </TooltipWithBounds>
         )}
         <div className="absolute bottom-0 left-0 right-0 flex flex-wrap justify-center gap-x-4 gap-y-1 pt-2">

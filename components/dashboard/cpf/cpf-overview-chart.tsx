@@ -44,7 +44,7 @@ function CpfOverviewChartInner({
   height: number
 }) {
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
-    useTooltip<{ key: string; value: number; month: string }>()
+    useTooltip<{ key: string; value: number; month: string; monthTotal: number }>()
 
   const xMax = width - margin.left - margin.right
   const yMax = height - margin.top - margin.bottom
@@ -113,11 +113,14 @@ function CpfOverviewChartInner({
                     ry={barStack.index === CPF_KEYS.length - 1 ? 4 : 0}
                     onMouseMove={(e) => {
                       const rect = (e.target as SVGElement).getBoundingClientRect()
+                      const row = bar.bar.data
+                      const monthTotal = row.oa + row.sa + row.ma
                       showTooltip({
                         tooltipData: {
                           key: KEY_LABELS[bar.key] ?? bar.key,
                           value: bar.bar.data[bar.key],
-                          month: bar.bar.data.month,
+                          month: row.month,
+                          monthTotal,
                         },
                         tooltipLeft: rect.left + rect.width / 2,
                         tooltipTop: rect.top,
@@ -188,6 +191,11 @@ function CpfOverviewChartInner({
           <div className="font-medium">{tooltipData.month}</div>
           <div>
             {tooltipData.key}: ${Number(tooltipData.value).toLocaleString()}
+            {tooltipData.monthTotal > 0 &&
+              ` (${((tooltipData.value / tooltipData.monthTotal) * 100).toFixed(1)}% of month)`}
+          </div>
+          <div className="text-muted-foreground">
+            Month total: ${tooltipData.monthTotal.toLocaleString()}
           </div>
         </TooltipWithBounds>
       )}

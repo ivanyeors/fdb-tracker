@@ -80,6 +80,66 @@ function formatValue(value: number): string {
   return `${value >= 0 ? "+" : ""}$${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 }
 
+function WaterfallTooltipContent({
+  bar,
+  data,
+  formatValue,
+}: {
+  bar: WaterfallBarItem
+  data: WaterfallData
+  formatValue: (v: number) => string
+}) {
+  const inflow = data.inflowTotal
+  const pctOfInflow = inflow > 0 ? (Math.abs(bar.value) / inflow) * 100 : 0
+
+  if (bar.name === "Total Inflow") {
+    const breakdown = data.inflowBreakdown
+    const hasBreakdown = breakdown && Object.values(breakdown).some((v) => (v ?? 0) > 0)
+    return (
+      <>
+        <div className="font-medium">{bar.name}</div>
+        <div>{formatValue(bar.value)}</div>
+        {hasBreakdown && breakdown && (
+          <div className="mt-2 space-y-1 border-t border-border pt-2">
+            {breakdown.salary != null && breakdown.salary > 0 && (
+              <div>Salary: {formatValue(breakdown.salary)}</div>
+            )}
+            {breakdown.bonus != null && breakdown.bonus > 0 && (
+              <div>Bonus: {formatValue(breakdown.bonus)}</div>
+            )}
+            {breakdown.income != null && breakdown.income > 0 && (
+              <div>Other income: {formatValue(breakdown.income)}</div>
+            )}
+          </div>
+        )}
+      </>
+    )
+  }
+
+  if (bar.name === "Net Savings") {
+    const savingsRate = inflow > 0 ? (bar.value / inflow) * 100 : 0
+    return (
+      <>
+        <div className="font-medium">{bar.name}</div>
+        <div>{formatValue(bar.value)}</div>
+        {inflow > 0 && (
+          <div className="text-muted-foreground">Saved {savingsRate.toFixed(1)}% of inflow</div>
+        )}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="font-medium">{bar.name}</div>
+      <div>{formatValue(bar.value)}</div>
+      {inflow > 0 && bar.value < 0 && (
+        <div className="text-muted-foreground">{pctOfInflow.toFixed(1)}% of inflow</div>
+      )}
+    </>
+  )
+}
+
 function WaterfallChartInner({
   data,
   width,
@@ -90,7 +150,10 @@ function WaterfallChartInner({
   height: number
 }) {
   const chartData = useMemo(() => buildWaterfallBars(data), [data])
-  const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } = useTooltip<WaterfallBarItem>()
+  const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } = useTooltip<{
+    bar: WaterfallBarItem
+    data: WaterfallData
+  }>()
 
   const xMax = width - margin.left - margin.right
   const yMax = height - margin.top - margin.bottom
@@ -202,7 +265,7 @@ function WaterfallChartInner({
                   onMouseMove={(e) => {
                     const rect = (e.target as SVGElement).getBoundingClientRect()
                     showTooltip({
-                      tooltipData: bar,
+                      tooltipData: { bar, data },
                       tooltipLeft: rect.left + rect.width / 2,
                       tooltipTop: rect.top,
                     })
@@ -237,7 +300,7 @@ function WaterfallChartInner({
       </svg>
       {tooltipOpen && tooltipData && (
         <TooltipWithBounds
-          key={`${tooltipData.name}-${tooltipLeft}-${tooltipTop}`}
+          key={`${tooltipData.bar.name}-${tooltipLeft}-${tooltipTop}`}
           top={tooltipTop}
           left={tooltipLeft}
           style={{
@@ -249,8 +312,7 @@ function WaterfallChartInner({
             color: "var(--color-card-foreground)",
           }}
         >
-          <div className="font-medium">{tooltipData.name}</div>
-          <div>{formatValue(tooltipData.value)}</div>
+          <WaterfallTooltipContent bar={tooltipData.bar} data={tooltipData.data} formatValue={formatValue} />
         </TooltipWithBounds>
       )}
     </div>
