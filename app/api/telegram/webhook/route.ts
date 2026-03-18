@@ -16,6 +16,34 @@ import { stockImgScene } from "@/lib/telegram/scenes/stockimg-scene"
 import { authScene } from "@/lib/telegram/scenes/auth-scene"
 import { linkApiScene } from "@/lib/telegram/scenes/link-api-scene"
 
+async function getHouseholdFromLinkedProfile(
+  chatId: string,
+  fromUserId: string | null,
+): Promise<string | null> {
+  const supabase = createSupabaseAdmin()
+  const orConditions = fromUserId
+    ? `telegram_chat_id.eq.${chatId},telegram_user_id.eq.${fromUserId}`
+    : `telegram_chat_id.eq.${chatId}`
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("family_id")
+    .or(orConditions)
+    .limit(1)
+    .maybeSingle()
+
+  if (profileError || !profile) return null
+
+  const { data: family, error: familyError } = await supabase
+    .from("families")
+    .select("household_id")
+    .eq("id", profile.family_id)
+    .single()
+
+  if (familyError || !family) return null
+  return family.household_id
+}
+
 async function getHouseholdFromLinkedAccount(
   telegramUserId: string,
 ): Promise<string | null> {
@@ -29,6 +57,23 @@ async function getHouseholdFromLinkedAccount(
 
   if (error || !data?.[0]) return null
   return data[0].household_id
+}
+
+async function resolveHouseholdId(
+  chatId: string,
+  fromUserId: string | null,
+): Promise<string | null> {
+  const fromUserIdStr = fromUserId != null ? String(fromUserId) : null
+
+  const fromProfile = await getHouseholdFromLinkedProfile(chatId, fromUserIdStr)
+  if (fromProfile) return fromProfile
+
+  if (fromUserIdStr) {
+    const fromLinked = await getHouseholdFromLinkedAccount(fromUserIdStr)
+    if (fromLinked) return fromLinked
+  }
+
+  return getOrCreateAccount(chatId)
 }
 
 async function getOrCreateAccount(chatId: string): Promise<string | null> {
@@ -59,7 +104,21 @@ async function getOrCreateAccount(chatId: string): Promise<string | null> {
       return null
     }
 
-    return created?.id ?? null
+    const householdId = created?.id
+    if (!householdId) return null
+
+    const { error: familyError } = await supabase.from("families").insert({
+      household_id: householdId,
+      name: "Family 1",
+      user_count: 1,
+    })
+
+    if (familyError) {
+      console.error("[telegram] Family creation failed:", familyError.message)
+      return householdId
+    }
+
+    return householdId
   } catch (err) {
     console.error("[telegram] getOrCreateAccount error:", err)
     return null
@@ -104,14 +163,10 @@ async function handleOtpCommand(
     JSON.stringify({ chatId: chat.id, chatType: chat.type, fromUserId }),
   )
   try {
-    let accountId: string | null = null
-
-    if (fromUserId && chat.type === "private") {
-      accountId = await getHouseholdFromLinkedAccount(String(fromUserId))
-    }
-    if (!accountId) {
-      accountId = await getOrCreateAccount(String(chat.id))
-    }
+    const accountId = await resolveHouseholdId(
+      String(chat.id),
+      fromUserId != null ? String(fromUserId) : null,
+    )
     if (!accountId) {
       console.error("[telegram/otp] Account resolution failed for chatId:", chat.id)
       await reply("❌ Login is temporarily unavailable. Please try again shortly.")
@@ -213,9 +268,12 @@ function ensureHandlers() {
       return
     }
 
-    const accountId = await getOrCreateAccount(String(chatId))
+    const accountId = await resolveHouseholdId(
+      String(chatId),
+      msg.from?.id != null ? String(msg.from.id) : null,
+    )
     if (!accountId) {
-      await ctx.reply("❌ Could not resolve your account. Try /otp first to set up.")
+      await ctx.reply("❌ Could not resolve your account. Use /link or /auth to link first, or /otp to set up.")
       return
     }
 
