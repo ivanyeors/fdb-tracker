@@ -13,6 +13,23 @@ import { ilpScene } from "@/lib/telegram/scenes/ilp-scene"
 import { goalAddScene } from "@/lib/telegram/scenes/goaladd-scene"
 import { repayScene } from "@/lib/telegram/scenes/repay-scene"
 import { stockImgScene } from "@/lib/telegram/scenes/stockimg-scene"
+import { authScene } from "@/lib/telegram/scenes/auth-scene"
+import { linkApiScene } from "@/lib/telegram/scenes/link-api-scene"
+
+async function getHouseholdFromLinkedAccount(
+  telegramUserId: string,
+): Promise<string | null> {
+  const supabase = createSupabaseAdmin()
+  const { data, error } = await supabase
+    .from("linked_telegram_accounts")
+    .select("household_id")
+    .eq("telegram_user_id", telegramUserId)
+    .order("linked_at", { ascending: false })
+    .limit(1)
+
+  if (error || !data?.[0]) return null
+  return data[0].household_id
+}
 
 async function getOrCreateAccount(chatId: string): Promise<string | null> {
   try {
@@ -71,49 +88,10 @@ async function handleStartCommand(
   await reply(
     "👋 Welcome to fdb-tracker!\n\n" +
       "Use /otp to get a one-time password for logging in.\n" +
-      "Use /link <token> to link your profile.\n" +
+      "Use /link to link your profile — I'll guide you through it.\n" +
+      "Use /auth to link your account with an API key from the platform.\n" +
       "Type / to see all available commands.",
   )
-}
-
-async function handleLinkCommand(
-  chatId: string,
-  fromUserId: number | null,
-  token: string,
-  reply: (text: string) => Promise<unknown>,
-): Promise<void> {
-  if (!token) {
-    await reply("❌ Please provide the token: /link <your-token>")
-    return
-  }
-
-  const supabase = createSupabaseAdmin()
-  const { data: profile, error: lookupError } = await supabase
-    .from("profiles")
-    .select("id, name")
-    .eq("telegram_link_token", token)
-    .maybeSingle()
-
-  if (lookupError || !profile) {
-    await reply("❌ Invalid or expired link token.")
-    return
-  }
-
-  const { error: updateError } = await supabase
-    .from("profiles")
-    .update({ 
-      telegram_chat_id: String(chatId), 
-      telegram_user_id: String(fromUserId ?? chatId),
-      telegram_last_used: new Date().toISOString() 
-    })
-    .eq("id", profile.id)
-
-  if (updateError) {
-    await reply("❌ Failed to link account. Please try again.")
-    return
-  }
-
-  await reply(`✅ Successfully linked your Telegram to profile: ${profile.name}`)
 }
 
 async function handleOtpCommand(
@@ -126,7 +104,14 @@ async function handleOtpCommand(
     JSON.stringify({ chatId: chat.id, chatType: chat.type, fromUserId }),
   )
   try {
-    const accountId = await getOrCreateAccount(String(chat.id))
+    let accountId: string | null = null
+
+    if (fromUserId && chat.type === "private") {
+      accountId = await getHouseholdFromLinkedAccount(String(fromUserId))
+    }
+    if (!accountId) {
+      accountId = await getOrCreateAccount(String(chat.id))
+    }
     if (!accountId) {
       console.error("[telegram/otp] Account resolution failed for chatId:", chat.id)
       await reply("❌ Login is temporarily unavailable. Please try again shortly.")
@@ -164,7 +149,17 @@ function ensureHandlers() {
 
   const bot = getBot()
 
-  const stage = new Scenes.Stage<MyContext>([inflowScene, outflowScene, buySellScene, ilpScene, goalAddScene, repayScene, stockImgScene])
+  const stage = new Scenes.Stage<MyContext>([
+    inflowScene,
+    outflowScene,
+    buySellScene,
+    ilpScene,
+    goalAddScene,
+    repayScene,
+    stockImgScene,
+    authScene,
+    linkApiScene,
+  ])
 
   bot.use(session({ store: supabaseSessionStore }))
   bot.use(stage.middleware())
@@ -199,16 +194,21 @@ function ensureHandlers() {
       return
     }
 
-    if (parsed.command === "otp") {
-      await handleOtpCommand(msg.chat, msg.from?.id ?? null, (text) =>
-        bot.telegram.sendMessage(chatId, text),
-      )
+    if (parsed.command === "auth") {
+      ;(ctx.state as any).linkApiKeyOrToken = undefined
+      await ctx.scene.enter("auth_wizard")
       return
     }
 
     if (parsed.command === "link") {
-      await handleLinkCommand(String(chatId), msg.from?.id ?? null, parsed.rest.trim(), (text) => 
-        bot.telegram.sendMessage(chatId, text)
+      ;(ctx.state as any).linkApiKeyOrToken = undefined
+      await ctx.scene.enter("link_api_wizard")
+      return
+    }
+
+    if (parsed.command === "otp") {
+      await handleOtpCommand(msg.chat, msg.from?.id ?? null, (text) =>
+        bot.telegram.sendMessage(chatId, text),
       )
       return
     }
@@ -326,10 +326,15 @@ function ensureHandlers() {
       return
     }
 
+    if (parsed.command === "auth") {
+      ;(ctx.state as any).linkApiKeyOrToken = undefined
+      await ctx.scene.enter("auth_wizard")
+      return
+    }
+
     if (parsed.command === "link") {
-      await handleLinkCommand(String(ctx.chat.id), null, parsed.rest.trim(), (text) => 
-        bot.telegram.sendMessage(ctx.chat.id, text)
-      )
+      ;(ctx.state as any).linkApiKeyOrToken = undefined
+      await ctx.scene.enter("link_api_wizard")
       return
     }
   })

@@ -5,6 +5,7 @@
 
 export const BOT_COMMANDS = [
   { command: "otp", description: "Get OTP for login" },
+  { command: "auth", description: "Link Telegram to platform with API key" },
   { command: "in", description: "Set monthly inflow" },
   { command: "out", description: "Set monthly outflow" },
   { command: "buy", description: "Record stock buy" },

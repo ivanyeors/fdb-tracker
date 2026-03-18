@@ -144,6 +144,89 @@ export type Database = {
           },
         ]
       }
+      link_api_keys: {
+        Row: {
+          id: string
+          household_id: string
+          api_key_hash: string
+          key_prefix: string
+          name: string | null
+          max_members: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          household_id: string
+          api_key_hash: string
+          key_prefix: string
+          name?: string | null
+          max_members?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          household_id?: string
+          api_key_hash?: string
+          key_prefix?: string
+          name?: string | null
+          max_members?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_api_keys_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linked_telegram_accounts: {
+        Row: {
+          id: string
+          link_api_key_id: string
+          household_id: string
+          telegram_user_id: string
+          telegram_username: string | null
+          telegram_chat_id: string
+          linked_at: string
+        }
+        Insert: {
+          id?: string
+          link_api_key_id: string
+          household_id: string
+          telegram_user_id: string
+          telegram_username?: string | null
+          telegram_chat_id: string
+          linked_at?: string
+        }
+        Update: {
+          id?: string
+          link_api_key_id?: string
+          household_id?: string
+          telegram_user_id?: string
+          telegram_username?: string | null
+          telegram_chat_id?: string
+          linked_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linked_telegram_accounts_link_api_key_id_fkey"
+            columns: ["link_api_key_id"]
+            isOneToOne: false
+            referencedRelation: "link_api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linked_telegram_accounts_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_accounts: {
         Row: {
           id: string

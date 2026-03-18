@@ -7,6 +7,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ProfileSwitcher } from "./profile-switcher"
+import { TelegramApiKeysSection } from "./telegram-api-keys-section"
 
 export default async function SetupPage() {
   const cookieStore = await cookies()
@@ -96,6 +97,8 @@ export default async function SetupPage() {
           </form>
         </CardFooter>
       </Card>
+
+      <TelegramApiKeysSection />
     </div>
   )
 }

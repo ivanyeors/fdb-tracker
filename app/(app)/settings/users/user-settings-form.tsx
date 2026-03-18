@@ -421,7 +421,7 @@ function TelegramSection({ profile }: { profile: ProfileWithIncome }) {
           <div className="rounded-md bg-muted p-3 text-sm">
             <p className="font-mono text-xs break-all selectable">{token}</p>
             <p className="mt-2 text-xs text-muted-foreground">
-              Copy this token and send <code className="bg-background px-1 rounded border">/link {token}</code> to the Telegram bot to connect.
+              Send <code className="bg-background px-1 rounded border">/link</code> to the Telegram bot, then paste this token when asked.
             </p>
           </div>
         )}
