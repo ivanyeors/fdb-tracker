@@ -74,6 +74,7 @@ export type Database = {
           family_id: string
           name: string
           telegram_user_id: string | null
+          telegram_username: string | null
           birth_year: number
           optional_onboarding_completed_at: string | null
           created_at: string
@@ -83,6 +84,7 @@ export type Database = {
           family_id: string
           name: string
           telegram_user_id?: string | null
+          telegram_username?: string | null
           birth_year: number
           optional_onboarding_completed_at?: string | null
           created_at?: string
@@ -92,6 +94,7 @@ export type Database = {
           family_id?: string
           name?: string
           telegram_user_id?: string | null
+          telegram_username?: string | null
           birth_year?: number
           optional_onboarding_completed_at?: string | null
           created_at?: string

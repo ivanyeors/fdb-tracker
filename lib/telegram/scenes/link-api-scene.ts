@@ -151,6 +151,7 @@ async function handleProfileTokenLink(
     .update({
       telegram_chat_id: String(chatId),
       telegram_user_id: String(fromUserId ?? chatId),
+      telegram_username: ctx.from?.username ?? null,
       telegram_last_used: new Date().toISOString(),
     })
     .eq("id", profile.id)
@@ -260,6 +261,7 @@ async function linkToProfileAndFinish(
     .update({
       telegram_chat_id: String(chatId),
       telegram_user_id: String(from.id),
+      telegram_username: from.username ?? null,
       telegram_last_used: new Date().toISOString(),
     })
     .eq("id", profileId)
@@ -314,6 +316,7 @@ async function createProfileAndLink(ctx: MyContext, name: string): Promise<void>
       birth_year: 2000,
       telegram_chat_id: String(chatId),
       telegram_user_id: String(from.id),
+      telegram_username: from.username ?? null,
       telegram_last_used: new Date().toISOString(),
     })
     .select("id, name")
