@@ -24,6 +24,7 @@ import { AddHoldingForm } from "@/components/dashboard/investments/add-holding-f
 import { InvestmentAccountBalance } from "@/components/dashboard/investments/investment-account-balance"
 import { AddIlpForm } from "@/components/dashboard/investments/add-ilp-form"
 import { AddMetalForm } from "@/components/dashboard/investments/add-metal-form"
+import { InvestmentValueChart } from "@/components/dashboard/investments/investment-value-chart"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ChartSkeleton } from "@/components/loading"
 import { useActiveProfile } from "@/hooks/use-active-profile"
@@ -325,6 +326,11 @@ export default function InvestmentsDetailPage() {
       <SectionHeader
         title="Investments Detail"
         description="Full holdings, journals, and market breakdown."
+      />
+
+      <InvestmentValueChart
+        profileId={activeProfileId}
+        familyId={activeFamilyId}
       />
 
       <Tabs defaultValue="holdings">

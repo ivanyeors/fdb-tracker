@@ -74,7 +74,7 @@ function buildWaterfallBars(data: WaterfallData): WaterfallBarItem[] {
 const POSITIVE_FILL = "var(--color-chart-positive)"
 const NEGATIVE_FILL = "var(--color-chart-negative)"
 
-const margin = { top: 8, right: 72, left: 8, bottom: 8 }
+const margin = { top: 8, right: 72, left: 100, bottom: 8 }
 
 function formatValue(value: number): string {
   return `${value >= 0 ? "+" : ""}$${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`

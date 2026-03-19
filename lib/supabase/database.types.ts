@@ -598,6 +598,48 @@ export type Database = {
           },
         ]
       }
+      investment_snapshots: {
+        Row: {
+          id: string
+          family_id: string
+          profile_id: string | null
+          date: string
+          total_value: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          profile_id?: string | null
+          date: string
+          total_value: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          profile_id?: string | null
+          date?: string
+          total_value?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investment_snapshots_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investment_snapshots_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       investment_transactions: {
         Row: {
           id: string

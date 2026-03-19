@@ -3,21 +3,24 @@
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardCTA,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
+import { SavingsThisMonthCard } from "@/components/dashboard/savings-this-month-card"
+import { InvestmentCard } from "@/components/dashboard/investments/investment-card"
+import { CpfCard } from "@/components/dashboard/cpf/cpf-card"
 import { IlpCard } from "@/components/dashboard/investments/ilp-card"
 import { WaterfallChart, type WaterfallData } from "@/components/dashboard/cashflow/waterfall-chart"
 import { CashflowSankey } from "@/components/dashboard/cashflow/cashflow-sankey"
 import { JournalList, type JournalEntry } from "@/components/dashboard/investments/journal-list"
 import { JournalForm } from "@/components/dashboard/investments/journal-form"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { formatCurrency } from "@/lib/utils"
 import { ChartSkeleton } from "@/components/loading"
@@ -43,16 +46,6 @@ function formatTrendMonth(monthStr: string): string {
   return `${monthLabels[month ?? ""] ?? month} ${year}`
 }
 
-type IlpProductWithEntries = {
-  id: string
-  name: string
-  monthly_premium: number
-  end_date: string
-  created_at: string
-  latestEntry: { fund_value: number; month: string } | null
-  entries: { month: string; fund_value: number }[]
-}
-
 type Goal = {
   id: string
   name: string
@@ -69,27 +62,50 @@ type Policy = {
   is_active: boolean
 }
 
+type IlpProductWithEntries = {
+  id: string
+  name: string
+  monthly_premium: number
+  end_date: string
+  created_at: string
+  latestEntry: { fund_value: number; month: string } | null
+  entries: { month: string; fund_value: number }[]
+}
+
 export default function OverviewPage() {
-  const { activeProfileId, activeFamilyId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId, families } = useActiveProfile()
   const [data, setData] = useState<{
     totalNetWorth?: number
     liquidNetWorth?: number
     savingsRate?: number
     bankTotal?: number
     cpfTotal?: number
+    cpfBreakdown?: { oa: number; sa: number; ma: number }
+    cpfDelta?: number
     investmentTotal?: number
     loanTotal?: number
+    loanMonthlyTotal?: number
+    loanRemainingMonths?: number
     latestInflow?: number
     latestOutflow?: number
     latestMonth?: string | null
+    previousMonthInflow?: number
+    previousMonthOutflow?: number
+    previousMonthSavings?: number
   } | null>(null)
   const [waterfallData, setWaterfallData] = useState<WaterfallData | null>(null)
   const [cashflowMonths, setCashflowMonths] = useState<string[]>([])
+  const [cashflowRangeData, setCashflowRangeData] = useState<
+    Array<{ month: string; inflow: number; totalOutflow: number }>
+  >([])
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null)
   const [ilpProducts, setIlpProducts] = useState<IlpProductWithEntries[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
   const [policies, setPolicies] = useState<Policy[]>([])
   const [transactions, setTransactions] = useState<JournalEntry[]>([])
+  const [investmentHistory, setInvestmentHistory] = useState<
+    { date: string; value: number }[]
+  >([])
   const [isOverviewLoading, setIsOverviewLoading] = useState(true)
   const [isCashflowLoading, setIsCashflowLoading] = useState(true)
   const [isIlpLoading, setIsIlpLoading] = useState(true)
@@ -116,8 +132,20 @@ export default function OverviewPage() {
       const qs = params ? `?${params}` : ""
       const now = new Date()
       const endMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-      now.setMonth(now.getMonth() - 11)
-      const startMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
+      const twelveMonthsAgo = new Date(now)
+      twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11)
+      const twelveMonthsAgoStr = `${twelveMonthsAgo.getFullYear()}-${String(twelveMonthsAgo.getMonth() + 1).padStart(2, "0")}-01`
+      const familyStartMonth =
+        activeFamilyId && families?.length
+          ? (() => {
+              const family = families.find((f) => f.id === activeFamilyId)
+              if (!family?.created_at) return twelveMonthsAgoStr
+              const d = new Date(family.created_at)
+              return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`
+            })()
+          : twelveMonthsAgoStr
+      const startMonth =
+        familyStartMonth > twelveMonthsAgoStr ? familyStartMonth : twelveMonthsAgoStr
 
       let latestMonthFromOverview: string | null = null
 
@@ -135,10 +163,9 @@ export default function OverviewPage() {
       fetch(`/api/cashflow?startMonth=${startMonth}&endMonth=${endMonth}${params ? `&${params}` : ""}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((cashflow) => {
-          if (cashflow) {
-            const months = Array.isArray(cashflow)
-              ? cashflow.map((r: { month: string }) => r.month).reverse()
-              : []
+          if (cashflow && Array.isArray(cashflow)) {
+            setCashflowRangeData(cashflow)
+            const months = cashflow.map((r: { month: string }) => r.month).reverse()
             setCashflowMonths(months)
             const preferred =
               latestMonthFromOverview && months.includes(latestMonthFromOverview)
@@ -209,9 +236,33 @@ export default function OverviewPage() {
           setIsTxLoading(false)
         })
         .catch(() => setIsTxLoading(false))
+
+      if (qs) {
+        fetch(`/api/investments/history?days=30${qs.replace("?", "&")}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((json) => {
+            if (json?.data) setInvestmentHistory(json.data)
+          })
+          .catch(() => setInvestmentHistory([]))
+      } else {
+        setInvestmentHistory([])
+      }
     }
     fetchAll()
-  }, [params])
+  }, [params, activeFamilyId, families])
+
+  useEffect(() => {
+    if (!selectedMonth || (!activeProfileId && !activeFamilyId)) return
+    const qs = params ? `?${params}&month=${selectedMonth}` : `?month=${selectedMonth}`
+    setIsOverviewLoading(true)
+    fetch(`/api/overview${qs}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setData(d)
+        setIsOverviewLoading(false)
+      })
+      .catch(() => setIsOverviewLoading(false))
+  }, [selectedMonth, params, activeProfileId, activeFamilyId])
 
   useEffect(() => {
     if (!selectedMonth || (!activeProfileId && !activeFamilyId)) return
@@ -222,6 +273,62 @@ export default function OverviewPage() {
       })
       .catch(() => setWaterfallData(null))
   }, [selectedMonth, params, activeProfileId, activeFamilyId])
+
+  const savingsHistory = useMemo(() => {
+    return cashflowRangeData.map((r) => ({
+      month: r.month,
+      value: r.inflow - r.totalOutflow,
+    }))
+  }, [cashflowRangeData])
+
+  const savingsTrend = useMemo(() => {
+    const savingsThisMonth = (data?.latestInflow ?? 0) - (data?.latestOutflow ?? 0)
+    const prevSavings = data?.previousMonthSavings
+    if (prevSavings !== undefined && prevSavings !== null) {
+      if (Math.abs(prevSavings) === 0) return 0
+      return ((savingsThisMonth - prevSavings) / Math.abs(prevSavings)) * 100
+    }
+    if (savingsHistory.length < 2) return 0
+    const current = savingsHistory[savingsHistory.length - 1]?.value ?? 0
+    const previous = savingsHistory[savingsHistory.length - 2]?.value ?? 0
+    if (previous === 0) return 0
+    return ((current - previous) / Math.abs(previous)) * 100
+  }, [data?.latestInflow, data?.latestOutflow, data?.previousMonthSavings, savingsHistory])
+
+  const investmentMonthlyData = useMemo((): { month: string; value: number }[] => {
+    const investmentTotal = data?.investmentTotal ?? 0
+    const ilpTotalByMonth = new Map<string, number>()
+    for (const p of ilpProducts) {
+      for (const e of p.entries ?? []) {
+        const monthStr = e.month.slice(0, 7)
+        const existing = ilpTotalByMonth.get(monthStr) ?? 0
+        ilpTotalByMonth.set(monthStr, existing + (e.fund_value ?? 0))
+      }
+    }
+    const currentIlpTotal = ilpProducts.reduce(
+      (sum, p) => sum + (p.latestEntry?.fund_value ?? 0),
+      0,
+    )
+    const nonIlp = Math.max(0, investmentTotal - currentIlpTotal)
+    const allMonths = Array.from(ilpTotalByMonth.keys()).sort()
+    if (allMonths.length === 0 && investmentTotal > 0) {
+      const now = new Date()
+      const m = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+      return [
+        {
+          month: new Date(m + "-01").toLocaleString("en-US", { month: "short" }),
+          value: investmentTotal,
+        },
+      ]
+    }
+    return allMonths.map((monthKey) => {
+      const ilpVal = ilpTotalByMonth.get(monthKey) ?? 0
+      return {
+        month: new Date(monthKey + "-01").toLocaleString("en-US", { month: "short" }),
+        value: ilpVal + nonIlp,
+      }
+    })
+  }, [ilpProducts, data?.investmentTotal])
 
   const ilpCardsData = useMemo(() => {
     return ilpProducts.map((p) => {
@@ -269,6 +376,20 @@ export default function OverviewPage() {
       }
     })
   }, [ilpProducts])
+
+  const investmentTrend = useMemo(() => {
+    if (investmentHistory.length >= 2) {
+      const first = investmentHistory[0]?.value ?? 0
+      const last = investmentHistory[investmentHistory.length - 1]?.value ?? 0
+      if (first === 0) return 0
+      return ((last - first) / first) * 100
+    }
+    if (investmentMonthlyData.length < 2) return 0
+    const current = investmentMonthlyData[investmentMonthlyData.length - 1]?.value ?? 0
+    const previous = investmentMonthlyData[investmentMonthlyData.length - 2]?.value ?? 0
+    if (previous === 0) return 0
+    return ((current - previous) / previous) * 100
+  }, [investmentHistory, investmentMonthlyData])
 
   const goalsSummary = useMemo(() => {
     const totalSaved = goals.reduce((sum, g) => sum + g.current_amount, 0)
@@ -336,7 +457,159 @@ export default function OverviewPage() {
       <SectionHeader
         title="Overview"
         description="Net worth, savings rate, and key metrics at a glance."
-      />
+      >
+        <MonthYearPicker
+          value={selectedMonth}
+          onChange={setSelectedMonth}
+          availableMonths={cashflowMonths}
+          placeholder="Select month"
+        />
+      </SectionHeader>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Inflow / Outflow</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {isOverviewLoading
+                ? ""
+                : (selectedMonth ?? data?.latestMonth)
+                  ? formatTrendMonth(selectedMonth ?? data?.latestMonth ?? "")
+                  : "Latest month"}
+            </p>
+          </CardHeader>
+          <CardContent>
+            {isOverviewLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-5 w-full" />
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-1 flex-col gap-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      Inflow
+                    </span>
+                    <span className="font-medium">
+                      ${formatCurrency(data?.latestInflow ?? 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      Outflow
+                    </span>
+                    <span className="font-medium">
+                      ${formatCurrency(data?.latestOutflow ?? 0)}
+                    </span>
+                  </div>
+                </div>
+                <CardCTA href="/dashboard/cashflow">View cashflow</CardCTA>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Savings Goals</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isGoalsLoading ? (
+              <Skeleton className="h-16 w-full" />
+            ) : goals.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No savings goals. Create one in Savings Goals.
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-1 flex-col gap-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      Saved
+                    </span>
+                    <span className="font-medium">
+                      ${formatCurrency(goalsSummary.totalSaved)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      Target
+                    </span>
+                    <span className="font-medium">
+                      ${formatCurrency(goalsSummary.totalTarget)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      Progress
+                    </span>
+                    <span className="font-medium">
+                      {goalsSummary.progress.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                <CardCTA href="/dashboard/goals">View goals</CardCTA>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <SavingsThisMonthCard
+          savingsThisMonth={(data?.latestInflow ?? 0) - (data?.latestOutflow ?? 0)}
+          trend={savingsTrend}
+          savingsHistory={savingsHistory}
+          latestMonth={selectedMonth ?? data?.latestMonth ?? null}
+          loading={isOverviewLoading || isCashflowLoading}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="Bank Total"
+          value={data?.bankTotal ?? 0}
+          prefix="$"
+          trend={0}
+          trendLabel="vs last month"
+          loading={isOverviewLoading}
+        />
+        <CpfCard
+          total={data?.cpfTotal ?? 0}
+          breakdown={data?.cpfBreakdown ?? { oa: 0, sa: 0, ma: 0 }}
+          delta={data?.cpfDelta ?? 0}
+          loading={isOverviewLoading}
+        />
+        <InvestmentCard
+          totalValue={data?.investmentTotal ?? 0}
+          trend={investmentTrend}
+          monthlyData={investmentMonthlyData}
+          dailyData={investmentHistory}
+          loading={isOverviewLoading}
+        />
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Insurance Coverage</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isInsuranceLoading ? (
+              <Skeleton className="h-16 w-full" />
+            ) : policies.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No insurance policies. Add in Insurance.
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-1 flex-col">
+                  <p className="text-2xl font-bold tracking-tight">
+                    ${formatCurrency(totalInsuranceCoverage)}
+                  </p>
+                </div>
+                <CardCTA href="/dashboard/insurance">View policies</CardCTA>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <MetricCard
@@ -357,44 +630,8 @@ export default function OverviewPage() {
           tooltipId="LIQUID_NET_WORTH"
           loading={isOverviewLoading}
         />
-        <MetricCard
-          label="Savings Rate"
-          value={data?.savingsRate || 0}
-          suffix="%"
-          trend={0}
-          trendLabel="vs last month"
-          tooltipId="SAVINGS_RATE"
-          loading={isOverviewLoading}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          label="Bank Total"
-          value={data?.bankTotal ?? 0}
-          prefix="$"
-          trend={0}
-          trendLabel="vs last month"
-          loading={isOverviewLoading}
-        />
-        <MetricCard
-          label="CPF Total"
-          value={data?.cpfTotal ?? 0}
-          prefix="$"
-          trend={0}
-          trendLabel="vs last month"
-          loading={isOverviewLoading}
-        />
-        <MetricCard
-          label="Investments"
-          value={data?.investmentTotal ?? 0}
-          prefix="$"
-          trend={0}
-          trendLabel="vs last month"
-          loading={isOverviewLoading}
-        />
         <Card>
-          <CardContent className="pt-6">
+          <CardContent>
             {isOverviewLoading ? (
               <>
                 <Skeleton className="mb-3 h-4 w-24" />
@@ -402,237 +639,104 @@ export default function OverviewPage() {
               </>
             ) : (
               <>
-                <p className="text-sm text-muted-foreground">
-                  Loans Outstanding
-                </p>
-                <p className="mt-1 text-2xl font-bold tracking-tight">
-                  ${formatCurrency(data?.loanTotal ?? 0)}
-                </p>
-                <Link
-                  href="/dashboard/loans"
-                  className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                >
-                  View all
-                  <ArrowRight className="size-4" />
-                </Link>
+                <div className="flex flex-1 flex-col gap-1">
+                  <p className="text-sm text-muted-foreground">
+                    Loans Outstanding
+                  </p>
+                  <p className="text-2xl font-bold tracking-tight">
+                    ${formatCurrency(data?.loanTotal ?? 0)}
+                  </p>
+                  {(data?.loanMonthlyTotal ?? 0) > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      ${formatCurrency(data?.loanMonthlyTotal ?? 0)}/mo
+                    </p>
+                  )}
+                  {(data?.loanTotal ?? 0) > 0 &&
+                  (data?.loanRemainingMonths ?? 0) > 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      {(() => {
+                        const months = data?.loanRemainingMonths ?? 0
+                        const years = Math.floor(months / 12)
+                        const m = months % 12
+                        return years > 0 ? `${years}y ${m}m left` : `${m}m left`
+                      })()}
+                    </p>
+                  ) : (data?.loanTotal ?? 0) === 0 ? null : (
+                    <p className="text-sm text-muted-foreground">Paid off</p>
+                  )}
+                </div>
+                <CardCTA href="/dashboard/loans">View all</CardCTA>
               </>
             )}
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Inflow / Outflow</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              {isOverviewLoading
-                ? ""
-                : data?.latestMonth
-                  ? formatTrendMonth(data.latestMonth)
-                  : "Latest month"}
-            </p>
-          </CardHeader>
-          <CardContent>
-            {isOverviewLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-5 w-full" />
-                <Skeleton className="h-5 w-full" />
-              </div>
-            ) : (
-              <>
-                <div className="flex flex-col gap-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Inflow
-                    </span>
-                    <span className="font-medium">
-                      ${formatCurrency(data?.latestInflow ?? 0)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Outflow
-                    </span>
-                    <span className="font-medium">
-                      ${formatCurrency(data?.latestOutflow ?? 0)}
-                    </span>
-                  </div>
-                </div>
-                <Link
-                  href="/dashboard/cashflow"
-                  className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                >
-                  View cashflow
-                  <ArrowRight className="size-4" />
-                </Link>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Savings Goals</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isGoalsLoading ? (
-                  <Skeleton className="h-16 w-full" />
-                ) : goals.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No savings goals. Create one in Savings Goals.
-                  </p>
-                ) : (
-                  <>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">
-                          Saved
-                        </span>
-                        <span className="font-medium">
-                          ${formatCurrency(goalsSummary.totalSaved)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">
-                          Target
-                        </span>
-                        <span className="font-medium">
-                          ${formatCurrency(goalsSummary.totalTarget)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">
-                          Progress
-                        </span>
-                        <span className="font-medium">
-                          {goalsSummary.progress.toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-                    <Link
-                      href="/dashboard/goals"
-                      className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                    >
-                      View goals
-                      <ArrowRight className="size-4" />
-                    </Link>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Insurance Coverage</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isInsuranceLoading ? (
-                  <Skeleton className="h-16 w-full" />
-                ) : policies.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No insurance policies. Add in Insurance.
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-2xl font-bold tracking-tight">
-                      ${formatCurrency(totalInsuranceCoverage)}
-                    </p>
-                    <Link
-                      href="/dashboard/insurance"
-                      className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                    >
-                      View policies
-                      <ArrowRight className="size-4" />
-                    </Link>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+      {isIlpLoading ? (
+        <Skeleton className="h-24 w-full rounded-xl" />
+      ) : ilpCardsData.length > 0 ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">ILP Performance</h3>
+            <Link
+              href="/dashboard/investments/detail"
+              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+            >
+              View in Investments
+              <ArrowRight className="size-4" />
+            </Link>
           </div>
-
-          {isIlpLoading ? (
-            <Skeleton className="h-24 w-full rounded-xl" />
-          ) : ilpCardsData.length > 0 ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">ILP Performance</h3>
-                <Link
-                  href="/dashboard/investments/detail"
-                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                >
-                  View in Investments
-                  <ArrowRight className="size-4" />
-                </Link>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                {ilpCardsData.map((card) => (
-                  <IlpCard
-                    key={card.productId}
-                    productId={card.productId}
-                    name={card.name}
-                    fundValue={card.fundValue}
-                    totalPremiumsPaid={card.totalPremiumsPaid}
-                    returnPct={card.returnPct}
-                    monthlyPremium={card.monthlyPremium}
-                    endDate={card.endDate}
-                    monthlyData={card.monthlyData}
-                    onAddEntry={refreshIlp}
-                    onEditSuccess={refreshIlp}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : (activeProfileId || activeFamilyId) ? (
-            <div className="rounded-lg border bg-card p-4 text-center text-sm text-muted-foreground">
-              No ILP plans. Add one in{" "}
-              <Link href="/dashboard/investments/detail" className="text-primary hover:underline">
-                Investments
-              </Link>
-              .
-            </div>
-          ) : null}
+          <div className="grid gap-4 md:grid-cols-2">
+            {ilpCardsData.map((card) => (
+              <IlpCard
+                key={card.productId}
+                productId={card.productId}
+                name={card.name}
+                fundValue={card.fundValue}
+                totalPremiumsPaid={card.totalPremiumsPaid}
+                returnPct={card.returnPct}
+                monthlyPremium={card.monthlyPremium}
+                endDate={card.endDate}
+                monthlyData={card.monthlyData}
+                onAddEntry={refreshIlp}
+                onEditSuccess={refreshIlp}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (activeProfileId || activeFamilyId) ? (
+        <div className="rounded-lg border bg-card p-4 text-center text-sm text-muted-foreground">
+          No ILP plans. Add one in{" "}
+          <Link href="/dashboard/investments/detail" className="text-primary hover:underline">
+            Investments
+          </Link>
+          .
+        </div>
+      ) : null}
 
       <div className="space-y-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle>Cashflow Waterfall</CardTitle>
-            <Select
-              value={selectedMonth ?? ""}
-              onValueChange={(v) => setSelectedMonth(v || null)}
-            >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Select month" />
-              </SelectTrigger>
-              <SelectContent>
-                {cashflowMonths.map((m) => {
-                  const [y, mo] = m.split("-")
-                  return (
-                    <SelectItem key={m} value={m}>
-                      {formatTrendMonth(`${y}-${mo}`)}
-                    </SelectItem>
-                  )
-                })}
-              </SelectContent>
-            </Select>
+            {selectedMonth && (
+              <p className="text-xs text-muted-foreground">
+                {formatTrendMonth(selectedMonth)}
+              </p>
+            )}
           </CardHeader>
           <CardContent>
-            {waterfallData ? (
-              <WaterfallChart data={waterfallData} />
-            ) : selectedMonth ? (
-              <ChartSkeleton height={300} />
-            ) : (
-              <div className="flex h-[300px] items-center justify-center text-muted-foreground text-sm">
-                Select a month
-              </div>
-            )}
-            <Link
-              href="/dashboard/cashflow"
-              className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-            >
-              View cashflow
-              <ArrowRight className="size-4" />
-            </Link>
+            <div className="flex flex-1 flex-col">
+              {waterfallData ? (
+                <WaterfallChart data={waterfallData} />
+              ) : selectedMonth ? (
+                <ChartSkeleton height={300} />
+              ) : (
+                <div className="flex h-[300px] items-center justify-center text-muted-foreground text-sm">
+                  Select a month
+                </div>
+              )}
+            </div>
+            <CardCTA href="/dashboard/cashflow">View cashflow</CardCTA>
           </CardContent>
         </Card>
 
@@ -646,22 +750,18 @@ export default function OverviewPage() {
             )}
           </CardHeader>
           <CardContent className="overflow-visible">
-            {waterfallData ? (
-              <CashflowSankey data={waterfallData} />
-            ) : selectedMonth ? (
-              <ChartSkeleton height={340} />
-            ) : (
-              <div className="flex h-[340px] items-center justify-center text-muted-foreground text-sm">
-                Select a month above
-              </div>
-            )}
-            <Link
-              href="/dashboard/cashflow"
-              className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-            >
-              View cashflow
-              <ArrowRight className="size-4" />
-            </Link>
+            <div className="flex flex-1 flex-col">
+              {waterfallData ? (
+                <CashflowSankey data={waterfallData} />
+              ) : selectedMonth ? (
+                <ChartSkeleton height={340} />
+              ) : (
+                <div className="flex h-[340px] items-center justify-center text-muted-foreground text-sm">
+                  Select a month above
+                </div>
+              )}
+            </div>
+            <CardCTA href="/dashboard/cashflow">View cashflow</CardCTA>
           </CardContent>
         </Card>
       </div>
