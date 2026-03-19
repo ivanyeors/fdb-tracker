@@ -12,7 +12,7 @@ export const TOOLTIPS = {
       "Banks + Investments + ILP \u2212 Loans. CPF shown separately (locked/retirement).",
     explanation: "Total assets minus liabilities.",
     details:
-      "Investments use live prices (Eulerpool); ILP uses last entered fund value.",
+      "Investments use live prices (FMP); ILP uses last entered fund value.",
   },
   LIQUID_NET_WORTH: {
     label: "Liquid Net Worth",
@@ -144,7 +144,7 @@ export const TOOLTIPS = {
     logic: "(current_price \u00d7 units) \u2212 cost_basis",
     explanation: "Unrealized gain or loss on holdings.",
     details:
-      "Prices from Eulerpool API; cost_basis from buy transactions.",
+      "Prices from FMP API; cost_basis from buy transactions.",
   },
   GOLD_SILVER_VALUE: {
     label: "Gold/Silver Value",

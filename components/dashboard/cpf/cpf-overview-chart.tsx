@@ -1,13 +1,12 @@
 "use client"
 
 import { useMemo } from "react"
-import { BarStack } from "@visx/shape"
+import { Pie } from "@visx/shape"
 import { Group } from "@visx/group"
-import { Grid } from "@visx/grid"
-import { AxisBottom, AxisLeft } from "@visx/axis"
-import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale"
+import { scaleOrdinal } from "@visx/scale"
 import { useTooltip, TooltipWithBounds } from "@visx/tooltip"
 import { ParentSize } from "@visx/responsive"
+import { formatCurrency } from "@/lib/utils"
 
 type CpfRow = {
   month: string
@@ -16,23 +15,18 @@ type CpfRow = {
   ma: number
 }
 
-const CPF_KEYS = ["oa", "sa", "ma"] as ["oa", "sa", "ma"]
-const KEY_LABELS: Record<string, string> = {
-  oa: "OA",
-  sa: "SA",
-  ma: "MA",
+// CPF account colors: OA (blue), SA (green), MA (orange)
+const CPF_COLORS: Record<string, string> = {
+  OA: "oklch(0.55 0.15 250)",
+  SA: "oklch(0.55 0.15 145)",
+  MA: "oklch(0.65 0.15 45)",
 }
 
-const colorScale = scaleOrdinal<string, string>({
-  domain: CPF_KEYS,
-  range: [
-    "var(--color-chart-neutral)",
-    "var(--color-chart-neutral)",
-    "var(--color-chart-neutral)",
-  ],
-})
-
-const margin = { top: 40, right: 20, bottom: 60, left: 50 }
+type DonutData = {
+  name: string
+  value: number
+  percentage: number
+}
 
 function CpfOverviewChartInner({
   data,
@@ -44,84 +38,69 @@ function CpfOverviewChartInner({
   height: number
 }) {
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
-    useTooltip<{ key: string; value: number; month: string; monthTotal: number }>()
+    useTooltip<DonutData>()
 
-  const xMax = width - margin.left - margin.right
-  const yMax = height - margin.top - margin.bottom
+  const donutData = useMemo<DonutData[]>(() => {
+    const totalOA = data.reduce((s, d) => s + d.oa, 0)
+    const totalSA = data.reduce((s, d) => s + d.sa, 0)
+    const totalMA = data.reduce((s, d) => s + d.ma, 0)
+    const total = totalOA + totalSA + totalMA
+    if (total <= 0) return []
+    return [
+      { name: "OA", value: totalOA, percentage: (totalOA / total) * 100 },
+      { name: "SA", value: totalSA, percentage: (totalSA / total) * 100 },
+      { name: "MA", value: totalMA, percentage: (totalMA / total) * 100 },
+    ].filter((d) => d.value > 0)
+  }, [data])
 
-  const totals = useMemo(
-    () => data.map((d) => d.oa + d.sa + d.ma),
-    [data]
-  )
-  const yMaxVal = Math.max(...totals, 0) * 1.1
-
-  const xScale = useMemo(
+  const total = donutData.reduce((s, d) => s + d.value, 0)
+  const colorScale = useMemo(
     () =>
-      scaleBand<string>({
-        domain: data.map((d) => d.month),
-        range: [0, xMax],
-        padding: 0.2,
+      scaleOrdinal<string, string>({
+        domain: donutData.map((d) => d.name),
+        range: donutData.map((d) => CPF_COLORS[d.name] ?? "var(--color-chart-neutral)"),
       }),
-    [data, xMax]
+    [donutData],
   )
 
-  const yScale = useMemo(
-    () =>
-      scaleLinear<number>({
-        domain: [0, yMaxVal],
-        range: [yMax, 0],
-        nice: true,
-      }),
-    [yMax, yMaxVal]
-  )
+  const innerWidth = Math.min(width, 240)
+  const innerHeight = Math.min(height, 240)
+  const centerX = innerWidth / 2
+  const centerY = innerHeight / 2
+  const radius = Math.min(innerWidth, innerHeight) / 2 - 16
+  const innerRadius = radius * 0.55
 
-  if (width < 10 || data.length === 0) return null
+  if (width < 10 || donutData.length === 0) {
+    return (
+      <div className="flex h-[300px] items-center justify-center text-muted-foreground text-sm">
+        No contribution data for the last 6 months.
+      </div>
+    )
+  }
 
   return (
-    <div className="relative">
-      <svg width={width} height={height}>
-        <Group left={margin.left} top={margin.top}>
-          <Grid
-            xScale={xScale}
-            yScale={yScale}
-            width={xMax}
-            height={yMax}
-            stroke="var(--color-border)"
-            strokeOpacity={0.3}
-            strokeDasharray="3 3"
-            xOffset={xScale.bandwidth() / 2}
-          />
-          <BarStack<CpfRow, "oa" | "sa" | "ma">
-            data={data}
-            keys={CPF_KEYS}
-            x={(d) => d.month}
-            xScale={xScale}
-            yScale={yScale}
-            color={colorScale}
-          >
-            {(barStacks) =>
-              barStacks.map((barStack) =>
-                barStack.bars.map((bar) => (
-                  <rect
-                    key={`bar-${barStack.index}-${bar.index}`}
-                    x={bar.x}
-                    y={bar.y}
-                    height={bar.height}
-                    width={bar.width}
-                    fill={bar.color}
-                    rx={barStack.index === CPF_KEYS.length - 1 ? 4 : 0}
-                    ry={barStack.index === CPF_KEYS.length - 1 ? 4 : 0}
+    <div className="flex flex-col items-center">
+      <div className="relative" style={{ width: innerWidth, height: innerHeight }}>
+        <svg width={innerWidth} height={innerHeight}>
+          <Group top={centerY} left={centerX}>
+            <Pie
+              data={donutData}
+              pieValue={(d) => d.value}
+              outerRadius={radius}
+              innerRadius={innerRadius}
+              padAngle={0.005}
+              cornerRadius={4}
+            >
+              {(pie) =>
+                pie.arcs.map((arc) => (
+                  <path
+                    key={arc.data.name}
+                    d={pie.path(arc) ?? ""}
+                    fill={colorScale(arc.data.name)}
                     onMouseMove={(e) => {
                       const rect = (e.target as SVGElement).getBoundingClientRect()
-                      const row = bar.bar.data
-                      const monthTotal = row.oa + row.sa + row.ma
                       showTooltip({
-                        tooltipData: {
-                          key: KEY_LABELS[bar.key] ?? bar.key,
-                          value: bar.bar.data[bar.key],
-                          month: row.month,
-                          monthTotal,
-                        },
+                        tooltipData: arc.data,
                         tooltipLeft: rect.left + rect.width / 2,
                         tooltipTop: rect.top,
                       })
@@ -129,76 +108,54 @@ function CpfOverviewChartInner({
                     onMouseLeave={hideTooltip}
                   />
                 ))
-              )
-            }
-          </BarStack>
-        </Group>
-        <AxisBottom
-          top={height - margin.bottom}
-          left={margin.left}
-          scale={xScale}
-          stroke="var(--color-border)"
-          tickStroke="var(--color-border)"
-          tickLabelProps={() => ({
-            fill: "var(--color-muted-foreground)",
-            fontSize: 12,
-            textAnchor: "middle" as const,
-          })}
-        />
-        <AxisLeft
-          top={margin.top}
-          left={margin.left}
-          scale={yScale}
-          stroke="var(--color-border)"
-          tickStroke="var(--color-border)"
-          tickFormat={(v) => `$${(Number(v) / 1000).toFixed(1)}k`}
-          tickLabelProps={() => ({
-            fill: "var(--color-muted-foreground)",
-            fontSize: 12,
-            textAnchor: "end" as const,
-            dx: -4,
-          })}
-        />
-      </svg>
-      <div
-        className="absolute flex flex-wrap gap-x-4 gap-y-1"
-        style={{ top: margin.top / 2 - 10, left: margin.left }}
-      >
-        {CPF_KEYS.map((k) => (
-          <span key={k} className="text-xs text-muted-foreground">
+              }
+            </Pie>
+            <text
+              x={0}
+              y={0}
+              textAnchor="middle"
+              dominantBaseline="central"
+              className="fill-foreground text-sm font-semibold"
+            >
+              ${formatCurrency(total)}
+            </text>
+          </Group>
+        </svg>
+        {tooltipOpen && tooltipData && (
+          <TooltipWithBounds
+            key={`${tooltipData.name}-${tooltipLeft}-${tooltipTop}`}
+            top={tooltipTop}
+            left={tooltipLeft}
+            style={{
+              borderRadius: "8px",
+              border: "1px solid var(--color-border)",
+              background: "var(--color-card)",
+              color: "var(--color-card-foreground)",
+              padding: "8px 12px",
+              fontSize: 12,
+            }}
+          >
+            <div className="font-medium">
+              {tooltipData.name} — {tooltipData.percentage.toFixed(1)}%
+            </div>
+            <div>${formatCurrency(tooltipData.value)}</div>
+            <div className="text-muted-foreground">
+              of ${formatCurrency(total)} total
+            </div>
+          </TooltipWithBounds>
+        )}
+        <div className="absolute bottom-0 left-0 right-0 flex flex-wrap justify-center gap-x-3 gap-y-1 pt-2">
+          {donutData.map((d) => (
             <span
-              className="mr-1.5 inline-block size-3 rounded-sm"
-              style={{ backgroundColor: colorScale(k) }}
-            />
-            {KEY_LABELS[k]}
-          </span>
-        ))}
+              key={d.name}
+              className="text-xs"
+              style={{ color: colorScale(d.name) }}
+            >
+              {d.name} ({d.percentage.toFixed(1)}%)
+            </span>
+          ))}
+        </div>
       </div>
-      {tooltipOpen && tooltipData && (
-        <TooltipWithBounds
-          key={`${tooltipData.month}-${tooltipData.key}-${tooltipLeft}`}
-          top={tooltipTop}
-          left={tooltipLeft}
-          style={{
-            backgroundColor: "var(--color-card)",
-            border: "1px solid var(--color-border)",
-            borderRadius: "8px",
-            padding: "8px 12px",
-            fontSize: 12,
-            color: "var(--color-card-foreground)",
-          }}
-        >
-          <div className="font-medium">{tooltipData.month}</div>
-          <div>
-            {tooltipData.key}: ${Number(tooltipData.value).toLocaleString()}
-            {tooltipData.monthTotal > 0 &&
-              ` (${((tooltipData.value / tooltipData.monthTotal) * 100).toFixed(1)}% of month)`}
-          </div>
-          <div className="text-muted-foreground">
-            Month total: ${tooltipData.monthTotal.toLocaleString()}
-          </div>
-        </TooltipWithBounds>
-      )}
     </div>
   )
 }

@@ -41,10 +41,10 @@ import { CompleteSetupNav } from "@/components/layout/complete-setup-nav"
 const dashboardItems = [
   { title: "Overview", href: "/dashboard", icon: BarChart3 },
   { title: "Banks", href: "/dashboard/banks", icon: Building2 },
+  { title: "Savings Goals", href: "/dashboard/goals", icon: Target },
   { title: "CPF", href: "/dashboard/cpf", icon: Landmark },
   { title: "Cashflow", href: "/dashboard/cashflow", icon: ArrowLeftRight },
-  { title: "Investments", href: "/dashboard/investments", icon: TrendingUp },
-  { title: "Savings Goals", href: "/dashboard/goals", icon: Target },
+  { title: "Investments", href: "/dashboard/investments", icon: TrendingUp, badge: "BETA" },
   { title: "Loans", href: "/dashboard/loans", icon: CreditCard },
   { title: "Insurance", href: "/dashboard/insurance", icon: Shield },
   { title: "Tax", href: "/dashboard/tax", icon: Receipt },
@@ -94,6 +94,11 @@ export function SidebarNav() {
                     <Link href={item.href}>
                       <item.icon />
                       <span>{item.title}</span>
+                      {"badge" in item && item.badge && (
+                        <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {item.badge}
+                        </span>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

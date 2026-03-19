@@ -134,7 +134,8 @@ export async function updateUserProfile(
     revalidatePath("/settings")
     revalidatePath("/settings/users")
     revalidatePath("/dashboard")
-    
+    revalidatePath("/dashboard/tax")
+
     return { success: true }
   } catch (err) {
     console.error("Error in updateUserProfile:", err)

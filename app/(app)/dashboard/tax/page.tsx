@@ -1,12 +1,24 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { formatCurrency } from "@/lib/utils"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { ReliefBreakdown } from "@/components/dashboard/tax/relief-breakdown"
+import { TaxComparison } from "@/components/dashboard/tax/tax-comparison"
+import { TaxReliefDonut } from "@/components/dashboard/tax/tax-relief-donut"
+import { ManualReliefForm } from "@/components/dashboard/tax/manual-relief-form"
+import { ActualTaxDialog } from "@/components/dashboard/tax/actual-tax-dialog"
 
 interface TaxEntry {
   id: string
@@ -23,58 +35,134 @@ interface TaxRelief {
   year: number
   relief_type: string
   amount: number
+  source?: "auto" | "manual"
   created_at: string
+}
+
+interface TaxProfile {
+  id: string
+  name: string
 }
 
 interface TaxData {
   entries: TaxEntry[]
   reliefs: TaxRelief[]
+  profiles: TaxProfile[]
+  profileDetails?: Record<string, { employmentIncome: number }>
 }
+
+const currentYear = new Date().getFullYear()
+const YEAR_OPTIONS = [currentYear, currentYear - 1, currentYear - 2, currentYear - 3]
 
 export default function TaxPage() {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
-  const [data, setData] = useState<TaxData>({ entries: [], reliefs: [] })
+  const [selectedYear, setSelectedYear] = useState(currentYear)
+  const [data, setData] = useState<TaxData>({ entries: [], reliefs: [], profiles: [] })
   const [isLoading, setIsLoading] = useState(true)
+  const [actualDialogOpen, setActualDialogOpen] = useState(false)
+  const [actualDialogProfileId, setActualDialogProfileId] = useState<string | null>(null)
+  const [actualDialogAmount, setActualDialogAmount] = useState<number | null>(null)
+
+  const fetchTax = useCallback(async () => {
+    if (!activeProfileId && !activeFamilyId) {
+      setIsLoading(false)
+      return
+    }
+    setIsLoading(true)
+    try {
+      const url = new URL("/api/tax", window.location.origin)
+      if (activeProfileId) url.searchParams.set("profileId", activeProfileId)
+      else if (activeFamilyId) url.searchParams.set("familyId", activeFamilyId)
+      url.searchParams.set("year", String(selectedYear))
+
+      const res = await fetch(url)
+      if (res.ok) {
+        const json = await res.json()
+        setData(json)
+      }
+    } catch (error) {
+      console.error("Failed to fetch tax:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [activeProfileId, activeFamilyId, selectedYear])
 
   useEffect(() => {
-    async function fetchTax() {
-      if (!activeProfileId && !activeFamilyId) {
-        setIsLoading(false)
-        return
-      }
+    fetchTax()
+  }, [fetchTax])
 
-      setIsLoading(true)
-      try {
-        const url = new URL("/api/tax", window.location.origin)
-        if (activeProfileId) url.searchParams.set("profileId", activeProfileId)
-        else if (activeFamilyId) url.searchParams.set("familyId", activeFamilyId)
+  const entriesForYear = useMemo(
+    () => data.entries.filter((e) => e.year === selectedYear),
+    [data.entries, selectedYear]
+  )
+  const reliefsForYear = useMemo(
+    () => data.reliefs.filter((r) => r.year === selectedYear),
+    [data.reliefs, selectedYear]
+  )
 
-        const res = await fetch(url)
-        if (res.ok) {
-          const json = await res.json()
-          setData(json)
-        }
-      } catch (error) {
-        console.error("Failed to fetch tax:", error)
-      } finally {
-        setIsLoading(false)
+  const totalCalculated = useMemo(
+    () => entriesForYear.reduce((s, e) => s + e.calculated_amount, 0),
+    [entriesForYear]
+  )
+  const totalActual = useMemo(() => {
+    const sum = entriesForYear.reduce(
+      (s, e) => s + (e.actual_amount ?? 0),
+      0
+    )
+    return entriesForYear.some((e) => e.actual_amount != null) ? sum : null
+  }, [entriesForYear])
+  const totalReliefs = useMemo(
+    () => reliefsForYear.reduce((s, r) => s + r.amount, 0),
+    [reliefsForYear]
+  )
+  const monthlyPayment = useMemo(() => {
+    const yearly = totalActual != null ? totalActual : totalCalculated
+    return Math.round((yearly / 12) * 100) / 100
+  }, [totalActual, totalCalculated])
+
+  const reliefsByProfile = useMemo(() => {
+    const map = new Map<string, TaxRelief[]>()
+    for (const r of reliefsForYear) {
+      const list = map.get(r.profile_id) ?? []
+      list.push(r)
+      map.set(r.profile_id, list)
+    }
+    return map
+  }, [reliefsForYear])
+
+  const profileMap = useMemo(
+    () => new Map(data.profiles.map((p) => [p.id, p.name])),
+    [data.profiles]
+  )
+
+  const primaryEntry = entriesForYear[0] ?? null
+
+  async function handleSaveManualReliefs(reliefs: Array<{ profile_id: string; year: number; relief_type: string; amount: number }>) {
+    const merged = new Map<string, { profile_id: string; year: number; relief_type: string; amount: number }>()
+    for (const r of reliefs) {
+      const key = `${r.profile_id}:${r.relief_type}`
+      const existing = merged.get(key)
+      if (existing) {
+        existing.amount += r.amount
+      } else {
+        merged.set(key, { ...r })
       }
     }
+    const res = await fetch("/api/tax/reliefs", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reliefs: Array.from(merged.values()) }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(json.error ?? "Failed to save")
     fetchTax()
-  }, [activeProfileId, activeFamilyId])
+  }
 
-  const latestEntry = data.entries[0] ?? null
-  const totalReliefs = useMemo(() => {
-    if (!latestEntry) return 0
-    return data.reliefs
-      .filter(r => r.year === latestEntry.year)
-      .reduce((sum, r) => sum + r.amount, 0)
-  }, [data.reliefs, latestEntry])
-
-  const latestYearReliefs = useMemo(() => {
-    if (!latestEntry) return []
-    return data.reliefs.filter(r => r.year === latestEntry.year)
-  }, [data.reliefs, latestEntry])
+  function openActualDialog(profileId: string, amount: number | null) {
+    setActualDialogProfileId(profileId)
+    setActualDialogAmount(amount)
+    setActualDialogOpen(true)
+  }
 
   const hasData = data.entries.length > 0
 
@@ -83,7 +171,23 @@ export default function TaxPage() {
       <SectionHeader
         title="Tax"
         description="Auto-calculated tax, reliefs, and yearly breakdown."
-      />
+      >
+        <Select
+          value={String(selectedYear)}
+          onValueChange={(v) => setSelectedYear(Number(v))}
+        >
+          <SelectTrigger className="w-[120px]">
+            <SelectValue placeholder="Year" />
+          </SelectTrigger>
+          <SelectContent>
+            {YEAR_OPTIONS.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                YA {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </SectionHeader>
 
       {isLoading ? (
         <>
@@ -113,55 +217,139 @@ export default function TaxPage() {
         <>
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard
-              label={`YA ${latestEntry!.year} Calculated Tax`}
-              value={latestEntry!.calculated_amount}
+              label={`YA ${selectedYear} Calculated Tax`}
+              value={totalCalculated}
               prefix="$"
+              tooltipId="TAX_CALCULATED"
             />
             <MetricCard
-              label="Actual Paid"
-              value={
-                latestEntry!.actual_amount != null
-                  ? latestEntry!.actual_amount
-                  : "—"
-              }
-              prefix={latestEntry!.actual_amount != null ? "$" : ""}
+              label="Monthly Payment"
+              value={monthlyPayment}
+              prefix="$"
             />
             <MetricCard
               label="Total Reliefs"
               value={totalReliefs}
               prefix="$"
+              tooltipId="TAX_RELIEF_INPUTS"
             />
           </div>
 
-          {/* Reliefs breakdown for latest year */}
-          {latestYearReliefs.length > 0 && (
+          {entriesForYear.length > 0 && (
+            <div className="space-y-4">
+              {entriesForYear.map((entry) => (
+                <TaxComparison
+                  key={entry.id}
+                  year={selectedYear}
+                  calculatedAmount={entry.calculated_amount}
+                  actualAmount={entry.actual_amount}
+                  onEnterActual={() =>
+                    openActualDialog(entry.profile_id, entry.actual_amount)
+                  }
+                  profileName={
+                    data.profiles.length > 1
+                      ? profileMap.get(entry.profile_id)
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+          )}
+
+          {actualDialogProfileId && (
+            <ActualTaxDialog
+              open={actualDialogOpen}
+              onOpenChange={setActualDialogOpen}
+              profileId={actualDialogProfileId}
+              year={selectedYear}
+              initialAmount={actualDialogAmount}
+              onSuccess={fetchTax}
+            />
+          )}
+
+          {reliefsForYear.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">
-                  Tax Reliefs — YA {latestEntry!.year}
+                  Tax Reliefs — YA {selectedYear}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {latestYearReliefs.map((relief) => (
-                    <div
-                      key={relief.id}
-                      className="flex items-center justify-between rounded-lg border px-4 py-2"
-                    >
-                      <span className="text-sm capitalize">
-                        {relief.relief_type.replace(/_/g, " ")}
-                      </span>
-                      <span className="text-sm font-medium tabular-nums">
-                        ${formatCurrency(relief.amount)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+              <CardContent className="space-y-6">
+                {data.profiles.length > 1 ? (
+                  Array.from(reliefsByProfile.entries()).map(([profileId, reliefs]) => (
+                    <ReliefBreakdown
+                      key={profileId}
+                      reliefs={reliefs}
+                      profileName={profileMap.get(profileId)}
+                      taxPayable={
+                        entriesForYear.find((e) => e.profile_id === profileId)
+                          ?.calculated_amount ?? 0
+                      }
+                      employmentIncome={
+                        data.profileDetails?.[profileId]?.employmentIncome ?? 0
+                      }
+                    />
+                  ))
+                ) : (
+                  <ReliefBreakdown
+                    reliefs={reliefsForYear}
+                    taxPayable={primaryEntry?.calculated_amount ?? 0}
+                    employmentIncome={
+                      primaryEntry
+                        ? (data.profileDetails?.[primaryEntry.profile_id]?.employmentIncome ?? 0)
+                        : 0
+                    }
+                  />
+                )}
               </CardContent>
             </Card>
           )}
 
-          {/* Historical tax entries */}
+          {reliefsForYear.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Relief Breakdown by Category
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TaxReliefDonut
+                  reliefs={reliefsForYear.map((r) => ({
+                    relief_type: r.relief_type,
+                    amount: r.amount,
+                  }))}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {data.profiles.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Manual Reliefs</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Add or edit SRS, donations, CPF top-up, course fees, etc.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <ManualReliefForm
+                year={selectedYear}
+                profiles={data.profiles}
+                reliefs={reliefsForYear
+                  .filter((r) => (r as TaxRelief).source === "manual")
+                  .map((r) => ({
+                    id: r.id,
+                    profile_id: r.profile_id,
+                    year: r.year,
+                    relief_type: r.relief_type,
+                    amount: r.amount,
+                  }))}
+                onSave={handleSaveManualReliefs}
+              />
+            </CardContent>
+          </Card>
+          )}
+
           {data.entries.length > 1 && (
             <div className="rounded-xl border overflow-hidden">
               <div className="overflow-x-auto">
@@ -169,15 +357,12 @@ export default function TaxPage() {
                   <thead>
                     <tr className="border-b bg-muted/50">
                       <th className="px-4 py-3 text-left font-medium">Year</th>
-                      <th className="px-4 py-3 text-right font-medium">
-                        Calculated
-                      </th>
-                      <th className="px-4 py-3 text-right font-medium">
-                        Actual Paid
-                      </th>
-                      <th className="px-4 py-3 text-right font-medium">
-                        Difference
-                      </th>
+                      {data.profiles.length > 1 && (
+                        <th className="px-4 py-3 text-left font-medium">Profile</th>
+                      )}
+                      <th className="px-4 py-3 text-right font-medium">Calculated</th>
+                      <th className="px-4 py-3 text-right font-medium">Actual Paid</th>
+                      <th className="px-4 py-3 text-right font-medium">Difference</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -191,9 +376,12 @@ export default function TaxPage() {
                           key={entry.id}
                           className="border-b last:border-0"
                         >
-                          <td className="px-4 py-3 font-medium">
-                            YA {entry.year}
-                          </td>
+                          <td className="px-4 py-3 font-medium">YA {entry.year}</td>
+                          {data.profiles.length > 1 && (
+                            <td className="px-4 py-3 text-muted-foreground">
+                              {profileMap.get(entry.profile_id) ?? "—"}
+                            </td>
+                          )}
                           <td className="px-4 py-3 text-right tabular-nums">
                             ${formatCurrency(entry.calculated_amount)}
                           </td>

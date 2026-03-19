@@ -595,13 +595,13 @@ CREATE TABLE loans (
 
 ## Phase 4 — Investments & Precious Metals
 
-**Goal:** Stock portfolio (Eulerpool API), gold/silver (OCBC pricing), ILP tracking, Investments Overview + Detail page.
+**Goal:** Stock portfolio (FMP API), gold/silver (OCBC pricing), ILP tracking, Investments Overview + Detail page.
 
 ### 4.1 External API Integrations
 
 | # | Task | Detail |
 |---|------|--------|
-| 4.1.1 | Create `lib/external/eulerpool.ts` | `getStockPrice(ticker)` → { price, change, volume, timestamp }. `GET /v1/equities/{ticker}/price` with `EULERPOOL_API_KEY`. Cache to `investments` or memory (15–30 min). Handle rate limiting (250 req/mo free tier). |
+| 4.1.1 | Create `lib/external/fmp.ts` | `getStockPrice(ticker)`, `getMultipleStockPrices(tickers)` → { price, change, volume, timestamp }. FMP batch-quote API with `FMP_API_KEY`. Cache 15 min. 250 req/day free tier. |
 | 4.1.2 | Create `lib/external/precious-metals.ts` | `getOcbcPreciousMetalPrices()` → { gold: { buy, sell }, silver: { buy, sell } } in SGD/oz. Primary: scrape OCBC precious metals page. Fallback: MetalpriceAPI. Cache to `precious_metals_prices` table (1–4 hour refresh). |
 | 4.1.3 | Create `app/api/cron/prices/route.ts` | GET (Vercel Cron): refresh stock prices for all active holdings + precious metals prices. Write to cache tables. Schedule: every 30 min during market hours. |
 | 4.1.4 | Configure prices cron in `vercel.json` | `{ "path": "/api/cron/prices", "schedule": "*/30 8-18 * * 1-5" }` (weekdays, market hours SGT) |
@@ -638,7 +638,7 @@ CREATE TABLE loans (
 
 ### 4.5 Phase 4 Gate — Acceptance Criteria
 
-- [ ] Eulerpool API returns stock prices for SGX and US tickers
+- [ ] FMP API returns stock prices for SGX and US tickers
 - [ ] OCBC precious metals prices fetched and cached (with fallback)
 - [ ] Investment holdings show live P&L
 - [ ] Allocation chart correctly breaks down portfolio
@@ -653,7 +653,7 @@ CREATE TABLE loans (
 | Step | Action |
 |------|--------|
 | **Record demo** | Walkthrough: investments overview → allocation chart → detail page → holdings table → ILP section → gold/silver with OCBC pricing → journals with screenshots. Show `/buy` via Telegram → holding appears with live price. |
-| **API verification** | Show Eulerpool returning real prices for DBS.SI, AAPL. Show OCBC gold/silver prices fetched and cached. Show fallback triggered when primary fails. |
+| **API verification** | Show FMP returning real prices for DBS.SI, AAPL. Show OCBC gold/silver prices fetched and cached. Show fallback triggered when primary fails. |
 | **Write changelog** | List all API integrations, components, cron jobs |
 | **Submit for review** | Share demo + changelog |
 | **Triage feedback** | Focus on: P&L calculations correct? Charts readable? OCBC pricing accurate? |
@@ -1065,7 +1065,7 @@ Run this complete checklist after Phase 6 before considering the project complet
 │   │   ├── insurance-premium.ts
 │   │   └── loans.ts
 │   ├── external/
-│   │   ├── eulerpool.ts
+│   │   ├── fmp.ts
 │   │   └── precious-metals.ts
 │   ├── reminders/
 │   │   └── templates.ts
@@ -1133,7 +1133,7 @@ typescript eslint prettier postcss @types/node @types/react
 | **Phase 1** | ~50 | Auth, onboarding, dashboard shell, DB schema, tooltips |
 | **Phase 2** | ~30 | Calculation engines, Overview/Banks/CPF/Cashflow UI |
 | **Phase 3** | ~25 | All Telegram commands, OCR pipeline, cron reminders |
-| **Phase 4** | ~20 | Investments, precious metals, Eulerpool, ILP |
+| **Phase 4** | ~20 | Investments, precious metals, FMP, ILP |
 | **Phase 5** | ~30 | Tax engine, insurance gaps, loans, settings forms |
 | **Phase 6** | ~20 | Goals, export, audit, snapshots, polish |
 | **Total** | **~175** | Full application |

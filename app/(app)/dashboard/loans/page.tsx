@@ -21,6 +21,13 @@ interface Loan {
   created_at: string
 }
 
+type HousingData = {
+  oaUsed: number
+  accruedInterest: number
+  refundDue: number
+  vlRemaining: number
+}
+
 function calculateMonthlyPayment(principal: number, annualRate: number, tenureMonths: number) {
   if (annualRate === 0) return principal / tenureMonths
   const r = annualRate / 100 / 12
@@ -39,10 +46,11 @@ function getRemainingMonths(startDate: string, tenureMonths: number): number {
 export default function LoansPage() {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [loans, setLoans] = useState<Loan[]>([])
+  const [housingData, setHousingData] = useState<HousingData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchLoans() {
+    async function fetchData() {
       if (!activeProfileId && !activeFamilyId) {
         setIsLoading(false)
         return
@@ -50,14 +58,23 @@ export default function LoansPage() {
 
       setIsLoading(true)
       try {
-        const url = new URL("/api/loans", window.location.origin)
-        if (activeProfileId) url.searchParams.set("profileId", activeProfileId)
-        else if (activeFamilyId) url.searchParams.set("familyId", activeFamilyId)
+        const params = new URLSearchParams()
+        if (activeProfileId) params.set("profileId", activeProfileId)
+        else if (activeFamilyId) params.set("familyId", activeFamilyId)
+        const qs = params.toString()
 
-        const res = await fetch(url)
-        if (res.ok) {
-          const json = await res.json()
-          setLoans(json)
+        const [loansRes, housingRes] = await Promise.all([
+          fetch(`/api/loans?${qs}`),
+          fetch(`/api/cpf/housing?${qs}`),
+        ])
+
+        if (loansRes.ok) {
+          const json = await loansRes.json()
+          setLoans(json ?? [])
+        }
+        if (housingRes.ok) {
+          const json = await housingRes.json()
+          setHousingData(json)
         }
       } catch (error) {
         console.error("Failed to fetch loans:", error)
@@ -65,7 +82,7 @@ export default function LoansPage() {
         setIsLoading(false)
       }
     }
-    fetchLoans()
+    fetchData()
   }, [activeProfileId, activeFamilyId])
 
   const totalPrincipal = useMemo(() => loans.reduce((sum, l) => sum + l.principal, 0), [loans])
@@ -73,6 +90,8 @@ export default function LoansPage() {
     () => loans.reduce((sum, l) => sum + calculateMonthlyPayment(l.principal, l.rate_pct, l.tenure_months), 0),
     [loans],
   )
+
+  const hasCpfLoans = useMemo(() => loans.some((l) => l.use_cpf_oa), [loans])
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -118,6 +137,41 @@ export default function LoansPage() {
               value={`${loans.length}`}
             />
           </div>
+
+          {hasCpfLoans && (
+            <div className="space-y-4">
+              <SectionHeader
+                title="CPF Housing"
+                description="CPF OA used for housing and refund due on sale."
+              />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <MetricCard
+                  label="CPF OA Used"
+                  value={housingData?.oaUsed ?? 0}
+                  prefix="$"
+                  tooltipId="CPF_HOUSING_REFUND"
+                />
+                <MetricCard
+                  label="Accrued Interest"
+                  value={housingData?.accruedInterest ?? 0}
+                  prefix="$"
+                  tooltipId="CPF_HOUSING_REFUND"
+                />
+                <MetricCard
+                  label="Total Refund Due"
+                  value={housingData?.refundDue ?? 0}
+                  prefix="$"
+                  tooltipId="CPF_HOUSING_REFUND"
+                />
+                <MetricCard
+                  label="120% VL Remaining"
+                  value={housingData?.vlRemaining ?? 0}
+                  prefix="$"
+                  tooltipId="CPF_HOUSING_REFUND"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="rounded-xl border overflow-hidden">
             <div className="overflow-x-auto">

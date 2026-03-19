@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { searchStocks } from "@/lib/external/eulerpool"
+import { searchStocks } from "@/lib/external/fmp"
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([])
     }
 
-    const apiKey = process.env.EULERPOOL_API_KEY ?? ""
+    const apiKey = process.env.FMP_API_KEY ?? ""
     if (!apiKey) {
       return NextResponse.json(
         { error: "Stock search is not configured" },

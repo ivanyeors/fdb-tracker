@@ -38,7 +38,7 @@ See `package.json` for the full list. Key commands:
 
 The `/otp` command and other Telegram commands require the webhook URL to be registered with Telegram after deploying to production. Telegram only sends updates to the URL you set via `setWebhook`.
 
-**Required env vars (Vercel):** `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL` (e.g. `https://fd-tracker-mu.vercel.app`), `CRON_SECRET`.
+**Required env vars (Vercel):** `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL` (e.g. `https://fd-tracker-mu.vercel.app`), `CRON_SECRET`. For stock prices and search: `FMP_API_KEY` (Financial Modeling Prep). Optional for gold/silver fallback when OCBC API fails: `METALPRICEAPI_API_KEY` (metalpriceapi.com, free tier 100 req/month).
 
 **Register webhook after deploy:**
 
@@ -116,3 +116,15 @@ If the settings users page shows "Error Loading Profiles" and logs show `Could n
 3. **Supabase CLI**: If linked, run `npx supabase db push` to apply all migrations.
 
 **Note:** The `income_config` table depends on `profiles`. Ensure `004_ensure_profiles.sql` (or `npm run db:fix-profiles`) has been applied first.
+
+### "Failed to fetch account" / investment_accounts table not found
+
+If `GET /api/investments/account` returns 500 and logs show `Could not find the table 'public.investment_accounts' in the schema cache`, the `investment_accounts` table was never created in your Supabase project.
+
+**Fix:**
+
+1. **Supabase SQL Editor** (recommended): Open Supabase Dashboard → SQL Editor → New query. Paste and run the contents of `supabase/migrations/012_investment_accounts.sql`.
+
+2. **Supabase CLI**: If linked, run `npx supabase db push` to apply all migrations.
+
+**Note:** The `investment_accounts` table depends on `families` and `profiles`. Ensure `008_add_families.sql` (and its dependencies) has been applied first.

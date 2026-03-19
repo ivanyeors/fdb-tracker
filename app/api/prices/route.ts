@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { getMultipleStockPrices, type StockPrice } from "@/lib/external/eulerpool"
+import { getMultipleStockPrices, type StockPrice } from "@/lib/external/fmp"
 import {
   getOcbcPreciousMetalPrices,
   type PreciousMetalPrice,

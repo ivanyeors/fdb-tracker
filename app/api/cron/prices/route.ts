@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-import { getMultipleStockPrices } from "@/lib/external/eulerpool"
+import { getMultipleStockPrices } from "@/lib/external/fmp"
 import { getOcbcPreciousMetalPrices } from "@/lib/external/precious-metals"
 
 export async function GET(request: NextRequest) {

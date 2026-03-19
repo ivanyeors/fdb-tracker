@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle()
 
     if (error) {
+      console.error("[api/investments/account] Supabase error:", error.message, error.code)
       return NextResponse.json({ error: "Failed to fetch account" }, { status: 500 })
     }
 
@@ -74,7 +75,8 @@ export async function GET(request: NextRequest) {
       cashBalance: account?.cash_balance ?? 0,
       id: account?.id ?? null,
     })
-  } catch {
+  } catch (err) {
+    console.error("[api/investments/account] GET Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -151,7 +153,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create account" }, { status: 500 })
     }
     return NextResponse.json(created)
-  } catch {
+  } catch (err) {
+    console.error("[api/investments/account] PATCH Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

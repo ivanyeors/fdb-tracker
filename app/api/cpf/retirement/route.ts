@@ -47,17 +47,14 @@ export async function GET(request: NextRequest) {
     if (!resolved) {
       return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
-    if (resolved.profileIds.length !== 1) {
-      return NextResponse.json(
-        { error: "Retirement projection requires a single profile (profileId or familyId with one member)" },
-        { status: 400 }
-      )
+    if (resolved.profileIds.length === 0) {
+      return NextResponse.json({ error: "No profiles in family" }, { status: 404 })
     }
     const singleProfileId = resolved.profileIds[0]!
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id, birth_year")
+      .select("id, birth_year, name")
       .eq("id", singleProfileId)
       .single()
 
@@ -126,6 +123,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       profileId: singleProfileId,
+      profileName: profile.name ?? null,
       birthYear: profile.birth_year,
       currentAge,
       cohortYear,

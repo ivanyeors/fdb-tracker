@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { getMultipleStockPrices } from "@/lib/external/eulerpool"
+import { getMultipleStockPrices } from "@/lib/external/fmp"
 import { getOcbcPreciousMetalPrices } from "@/lib/external/precious-metals"
 
 export async function computeInvestmentTotal(

@@ -9,6 +9,7 @@ import { calculateTax } from "@/lib/calculations/tax"
 const taxQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
   familyId: z.string().uuid().optional(),
+  year: z.coerce.number().int().min(2020).max(2040).optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
     const parsed = taxQuerySchema.safeParse({
       profileId: searchParams.get("profileId") ?? undefined,
       familyId: searchParams.get("familyId") ?? undefined,
+      year: searchParams.get("year") ?? undefined,
     })
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 })
@@ -42,8 +44,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
     const { profileIds } = resolved
+    const currentYear = parsed.data.year ?? new Date().getFullYear()
 
-    const currentYear = new Date().getFullYear()
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, name")
+      .in("id", profileIds)
 
     // Fetch tax entries
     const { data: taxEntries, error: taxError } = await supabase
@@ -57,18 +63,16 @@ export async function GET(request: NextRequest) {
     }
 
     const entries = taxEntries ?? []
-    const entriesByProfileYear = new Map<string, Set<number>>()
+    const entryByProfileYear = new Map<string, Map<number, (typeof entries)[0]>>()
     for (const e of entries) {
-      const key = e.profile_id
-      if (!entriesByProfileYear.has(key)) entriesByProfileYear.set(key, new Set())
-      entriesByProfileYear.get(key)!.add(e.year)
+      if (!entryByProfileYear.has(e.profile_id)) {
+        entryByProfileYear.set(e.profile_id, new Map())
+      }
+      entryByProfileYear.get(e.profile_id)!.set(e.year, e)
     }
 
-    // Auto-calculate and upsert for profiles with income_config but no entry for current year
+    // Always recalculate for profiles with income_config so reliefs stay in sync with profile/income changes
     for (const profileId of profileIds) {
-      const hasEntryForYear = entriesByProfileYear.get(profileId)?.has(currentYear)
-      if (hasEntryForYear) continue
-
       const { data: profile } = await supabase
         .from("profiles")
         .select("id, birth_year")
@@ -114,6 +118,7 @@ export async function GET(request: NextRequest) {
         year: currentYear,
       })
 
+      const existingEntry = entryByProfileYear.get(profileId)?.get(currentYear)
       const { data: newEntry } = await supabase
         .from("tax_entries")
         .upsert(
@@ -121,14 +126,18 @@ export async function GET(request: NextRequest) {
             profile_id: profileId,
             year: currentYear,
             calculated_amount: result.taxPayable,
-            actual_amount: null,
+            actual_amount: existingEntry?.actual_amount ?? null,
           },
           { onConflict: "profile_id,year" }
         )
         .select()
         .single()
 
-      if (newEntry) entries.push(newEntry)
+      if (newEntry) {
+        const idx = entries.findIndex((e) => e.profile_id === profileId && e.year === currentYear)
+        if (idx >= 0) entries[idx] = newEntry
+        else entries.push(newEntry)
+      }
 
       for (const item of result.reliefBreakdown.filter((r) => r.source === "auto")) {
         await supabase.from("tax_relief_auto").upsert(
@@ -142,6 +151,17 @@ export async function GET(request: NextRequest) {
           { onConflict: "profile_id,year,relief_type" }
         )
       }
+    }
+
+    const profileDetails = new Map<string, { employmentIncome: number }>()
+    for (const profileId of profileIds) {
+      const { data: income } = await supabase
+        .from("income_config")
+        .select("annual_salary, bonus_estimate")
+        .eq("profile_id", profileId)
+        .single()
+      const employmentIncome = (income?.annual_salary ?? 0) + (income?.bonus_estimate ?? 0)
+      profileDetails.set(profileId, { employmentIncome })
     }
 
     // Fetch tax relief inputs (manual) and auto-derived
@@ -169,6 +189,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       entries: entries.sort((a, b) => b.year - a.year),
       reliefs,
+      profiles: profiles ?? [],
+      profileDetails: Object.fromEntries(profileDetails),
     })
   } catch (err) {
     console.error("[api/tax] Error:", err)

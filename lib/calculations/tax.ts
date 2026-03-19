@@ -8,6 +8,9 @@ import {
   earnedIncomeRelief,
   cpfRelief,
   lifeInsuranceRelief,
+  donationRelief,
+  courseFeeRelief,
+  srsRelief,
 } from "./tax-reliefs";
 
 /** Progressive tax brackets (YA 2024 onwards) — chargeable income thresholds and rates */
@@ -71,6 +74,23 @@ export type ManualReliefInput = {
 
 function roundToCent(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+/** Apply relief formula per type — donations 250%, course_fees capped, etc. */
+function applyManualReliefFormula(reliefType: string, amount: number): number {
+  switch (reliefType) {
+    case "donations":
+      return donationRelief(amount);
+    case "course_fees":
+      return courseFeeRelief(amount);
+    case "srs":
+      return srsRelief(amount);
+    case "cpf_topup_self":
+    case "cpf_topup_family":
+      return Math.max(0, amount); // $8k each, capped by user/validation
+    default:
+      return Math.max(0, amount);
+  }
 }
 
 /** Apply Singapore progressive tax brackets to chargeable income */
@@ -184,9 +204,16 @@ export function calculateTax(params: {
     year
   );
 
-  const manualTotal = params.manualReliefs.reduce((s, r) => s + r.amount, 0);
+  const manualTotal = params.manualReliefs.reduce(
+    (s, r) => s + applyManualReliefFormula(r.relief_type, r.amount),
+    0
+  );
   const manualBreakdown: ReliefBreakdownItem[] = params.manualReliefs.map(
-    (r) => ({ type: r.relief_type, amount: r.amount, source: "manual" })
+    (r) => ({
+      type: r.relief_type,
+      amount: applyManualReliefFormula(r.relief_type, r.amount),
+      source: "manual",
+    })
   );
 
   const totalReliefs = capReliefs(autoTotal + manualTotal);

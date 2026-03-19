@@ -256,8 +256,17 @@ export async function GET(request: NextRequest) {
         dashboardUrl,
       }
 
+      const effectivePromptType =
+        schedule.prompt_type === "income"
+          ? `income_${schedule.frequency}`
+          : schedule.prompt_type === "insurance"
+            ? `insurance_${schedule.frequency}`
+            : schedule.prompt_type === "tax"
+              ? "tax_yearly"
+              : schedule.prompt_type
+
       const message = await generateMessage(
-        schedule.prompt_type,
+        effectivePromptType,
         family.household_id,
         now,
         ctx,

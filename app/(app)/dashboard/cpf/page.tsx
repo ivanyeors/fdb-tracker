@@ -19,36 +19,11 @@ const ERS = 440800
 
 type CpfBalanceRow = { month: string; oa: number; sa: number; ma: number }
 
-type HousingData = {
-  oaUsed: number
-  accruedInterest: number
-  refundDue: number
-  vlRemaining: number
-}
-
-type LoanRow = {
-  id: string
-  name: string
-  type: string
-  principal: number
-  rate_pct: number
-  tenure_months: number
-  start_date: string
-  lender: string | null
-  use_cpf_oa: boolean
-}
-
 type RetirementData = {
   currentCpf: { oa: number; sa: number; ma: number; total: number }
   retirementSums: { brs: number; frs: number; ers: number }
   extendedProjection: { year: number; oa: number; sa: number; ma: number; total: number }[]
-}
-
-function computeMonthlyPayment(principal: number, ratePct: number, tenureMonths: number): number {
-  if (tenureMonths <= 0) return 0
-  const r = ratePct / 100 / 12
-  if (r <= 0) return principal / tenureMonths
-  return (principal * r * Math.pow(1 + r, tenureMonths)) / (Math.pow(1 + r, tenureMonths) - 1)
+  profileName?: string | null
 }
 
 function OverviewTab({ data }: { data: CpfBalanceRow[] }) {
@@ -103,92 +78,13 @@ function OverviewTab({ data }: { data: CpfBalanceRow[] }) {
   )
 }
 
-function HousingTab({ data }: { data: HousingData | null }) {
-  const oaUsed = data?.oaUsed ?? 0
-  const accruedInterest = data?.accruedInterest ?? 0
-  const refundDue = data?.refundDue ?? 0
-  const vlRemaining = data?.vlRemaining ?? 0
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <MetricCard
-          label="CPF OA Used"
-          value={oaUsed}
-          prefix="$"
-          tooltipId="CPF_HOUSING_REFUND"
-        />
-        <MetricCard
-          label="Accrued Interest"
-          value={accruedInterest}
-          prefix="$"
-          tooltipId="CPF_HOUSING_REFUND"
-        />
-        <MetricCard
-          label="Total Refund Due"
-          value={refundDue}
-          prefix="$"
-          tooltipId="CPF_HOUSING_REFUND"
-        />
-        <MetricCard
-          label="120% VL Remaining"
-          value={vlRemaining}
-          prefix="$"
-          tooltipId="CPF_HOUSING_REFUND"
-        />
-      </div>
-    </div>
-  )
-}
-
-function LoansTab({ loans }: { loans: LoanRow[] }) {
-  const cpfLoans = loans.filter((l) => l.use_cpf_oa)
-
-  if (cpfLoans.length === 0) {
-    return (
-      <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-        No loans using CPF OA.
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-4">
-      {cpfLoans.map((loan) => {
-        const monthlyPayment = computeMonthlyPayment(loan.principal, loan.rate_pct, loan.tenure_months)
-        return (
-          <Card key={loan.id}>
-            <CardHeader>
-              <CardTitle>{loan.name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <p className="text-sm text-muted-foreground">Principal</p>
-                  <p className="text-xl font-bold">${formatCurrency(loan.principal)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Monthly Payment</p>
-                  <p className="text-xl font-bold">${formatCurrency(monthlyPayment)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Rate</p>
-                  <p className="text-xl font-bold">{loan.rate_pct}%</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Tenure</p>
-                  <p className="text-xl font-bold">{loan.tenure_months} months</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )
-      })}
-    </div>
-  )
-}
-
-function RetirementTab({ data }: { data: RetirementData | null }) {
+function RetirementTab({
+  data,
+  isFamilyView,
+}: {
+  data: RetirementData | null
+  isFamilyView: boolean
+}) {
   const cpfTotal = data?.currentCpf.total ?? 0
   const retirementSums = data?.retirementSums ?? { brs: BRS, frs: FRS, ers: ERS }
   const retirementBenchmarks = [
@@ -204,6 +100,11 @@ function RetirementTab({ data }: { data: RetirementData | null }) {
 
   return (
     <div className="space-y-6">
+      {isFamilyView && data?.profileName && (
+        <p className="text-sm text-muted-foreground">
+          Showing retirement for {data.profileName}
+        </p>
+      )}
       <div className="space-y-4">
         {retirementBenchmarks.map((b) => (
           <Card key={b.label}>
@@ -249,8 +150,6 @@ function RetirementTab({ data }: { data: RetirementData | null }) {
 export default function CpfPage() {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [cpfData, setCpfData] = useState<CpfBalanceRow[]>([])
-  const [housingData, setHousingData] = useState<HousingData | null>(null)
-  const [loansData, setLoansData] = useState<LoanRow[]>([])
   const [retirementData, setRetirementData] = useState<RetirementData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   useEffect(() => {
@@ -266,24 +165,14 @@ export default function CpfPage() {
         if (activeProfileId) params.set("profileId", activeProfileId)
         else if (activeFamilyId) params.set("familyId", activeFamilyId)
         const qs = params.toString()
-        const [balancesRes, housingRes, loansRes, retirementRes] = await Promise.all([
+        const [balancesRes, retirementRes] = await Promise.all([
           fetch(`/api/cpf/balances?${qs}`),
-          fetch(`/api/cpf/housing?${qs}`),
-          fetch(`/api/loans?${qs}`),
           fetch(`/api/cpf/retirement?${qs}`),
         ])
 
         if (balancesRes.ok) {
           const json = await balancesRes.json()
           setCpfData(json || [])
-        }
-        if (housingRes.ok) {
-          const json = await housingRes.json()
-          setHousingData(json)
-        }
-        if (loansRes.ok) {
-          const json = await loansRes.json()
-          setLoansData(json || [])
         }
         if (retirementRes.ok) {
           const json = await retirementRes.json()
@@ -302,7 +191,7 @@ export default function CpfPage() {
     <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
         title="CPF"
-        description="OA/SA/MA balances, housing, and retirement benchmarking."
+        description="OA/SA/MA balances and retirement benchmarking."
       />
 
       {isLoading ? (
@@ -326,7 +215,6 @@ export default function CpfPage() {
           <div className="-mx-1 min-w-0 overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
             <TabsList className="inline-flex w-fit flex-nowrap">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="housing">Housing Loan</TabsTrigger>
               <TabsTrigger value="retirement">Retirement</TabsTrigger>
             </TabsList>
           </div>
@@ -334,13 +222,11 @@ export default function CpfPage() {
           <TabsContent value="overview" className="mt-4">
             <OverviewTab data={cpfData} />
           </TabsContent>
-          <TabsContent value="housing" className="mt-4 space-y-6">
-            <HousingTab data={housingData} />
-            <SectionHeader title="Active CPF Loans" />
-            <LoansTab loans={loansData} />
-          </TabsContent>
           <TabsContent value="retirement" className="mt-4">
-            <RetirementTab data={retirementData} />
+            <RetirementTab
+              data={retirementData}
+              isFamilyView={!activeProfileId}
+            />
           </TabsContent>
         </Tabs>
       )}

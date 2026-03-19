@@ -4,7 +4,7 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
-import { getStockPrice } from "@/lib/external/eulerpool"
+import { getMultipleStockPrices } from "@/lib/external/fmp"
 import { getOcbcPreciousMetalPrices } from "@/lib/external/precious-metals"
 import { calculatePnL } from "@/lib/calculations/investments"
 
@@ -77,43 +77,54 @@ export async function GET(request: NextRequest) {
     const metalsPrices =
       metalTypes.length > 0 ? await getOcbcPreciousMetalPrices() : []
 
-    const enriched = await Promise.all(
-      investments.map(async (inv) => {
-        if (inv.type === "gold" || inv.type === "silver") {
-          const metalPrice = metalsPrices.find(
-            (m) => m.metalType.toLowerCase() === inv.type.toLowerCase(),
-          )
-          const sellPrice = metalPrice?.sellPriceSgd ?? 0
-          const pnl = calculatePnL(inv.units, inv.cost_basis, sellPrice)
-          return {
-            ...inv,
-            currentPrice: sellPrice,
-            currency: "SGD",
-            ...pnl,
-          }
-        }
-
-        try {
-          const priceData = await getStockPrice(inv.symbol)
-          const pnl = calculatePnL(inv.units, inv.cost_basis, priceData.price)
-          return {
-            ...inv,
-            currentPrice: priceData.price,
-            currency: priceData.currency,
-            ...pnl,
-          }
-        } catch {
-          return {
-            ...inv,
-            currentPrice: null,
-            currency: null,
-            marketValue: null,
-            unrealisedPnL: null,
-            unrealisedPnLPct: null,
-          }
-        }
-      }),
+    const stockSymbols = [
+      ...new Set(
+        investments
+          .filter((inv) => inv.type === "stock" || inv.type === "etf")
+          .map((inv) => inv.symbol),
+      ),
+    ]
+    const stockPrices =
+      stockSymbols.length > 0 ? await getMultipleStockPrices(stockSymbols) : []
+    const stockPricesMap = new Map(
+      stockPrices.map((p) => [p.ticker.toUpperCase(), p]),
     )
+
+    const enriched = investments.map((inv) => {
+      if (inv.type === "gold" || inv.type === "silver") {
+        const metalPrice = metalsPrices.find(
+          (m) => m.metalType.toLowerCase() === inv.type.toLowerCase(),
+        )
+        const sellPrice = metalPrice?.sellPriceSgd ?? 0
+        const pnl = calculatePnL(inv.units, inv.cost_basis, sellPrice)
+        return {
+          ...inv,
+          currentPrice: sellPrice,
+          currency: "SGD",
+          ...pnl,
+        }
+      }
+
+      const priceData = stockPricesMap.get(inv.symbol.toUpperCase())
+      if (!priceData) {
+        return {
+          ...inv,
+          currentPrice: null,
+          currency: null,
+          marketValue: null,
+          unrealisedPnL: null,
+          unrealisedPnLPct: null,
+        }
+      }
+
+      const pnl = calculatePnL(inv.units, inv.cost_basis, priceData.price)
+      return {
+        ...inv,
+        currentPrice: priceData.price,
+        currency: priceData.currency,
+        ...pnl,
+      }
+    })
 
     return NextResponse.json(enriched)
   } catch (err) {
