@@ -249,11 +249,13 @@ export function IlpCard({
   onEditSuccess,
 }: IlpCardProps) {
   return (
-    <Card className="h-[200px]">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0">
-        <CardTitle className="text-base font-bold">{name}</CardTitle>
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-0">
+        <CardTitle className="min-w-0 flex-1 pr-2 text-base font-bold leading-tight">
+          {name}
+        </CardTitle>
         {productId && (
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <EditIlpDialog
               productId={productId}
               productName={name}
@@ -277,8 +279,8 @@ export function IlpCard({
           </div>
         )}
       </CardHeader>
-      <CardContent className="flex gap-4">
-        <div className="flex flex-1 flex-col gap-1 text-sm">
+      <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-stretch">
+        <div className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Fund Value</span>
             <span className="font-medium">${fmt(fundValue)}</span>
@@ -309,7 +311,7 @@ export function IlpCard({
             <span className="font-medium">${fmt(monthlyPremium)}</span>
           </div>
         </div>
-        <div className="h-[5.5rem] min-w-[7.5rem] max-w-[10rem] shrink-0 self-center">
+        <div className="h-[5.5rem] w-full min-w-0 sm:max-w-[10rem] sm:min-w-[7.5rem] sm:w-auto sm:shrink-0 sm:self-center">
           <ParentSize debounceTime={10}>
             {({ width, height }) => (
               <IlpLineChart
