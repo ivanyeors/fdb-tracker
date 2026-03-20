@@ -18,7 +18,9 @@ export async function computeInvestmentTotal(
     .eq("family_id", familyId)
 
   if (profileId) {
-    investmentQuery = investmentQuery.eq("profile_id", profileId)
+    investmentQuery = investmentQuery.or(
+      `profile_id.eq.${profileId},profile_id.is.null`,
+    )
   }
 
   const { data: investments } = await investmentQuery

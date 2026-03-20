@@ -11,6 +11,7 @@ import {
   type SetStateAction,
 } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 export interface Profile {
   name: string
@@ -251,9 +252,10 @@ export function OnboardingProvider({
     try {
       const res = await fetch("/api/onboarding/skip", { method: "POST" })
       if (!res.ok) throw new Error("Failed to skip")
+      toast.success("Setup skipped — welcome to your dashboard")
       router.push("/dashboard")
     } catch {
-      // Error could be shown via toast
+      toast.error("Could not skip setup. Try again.")
     }
   }, [router])
 

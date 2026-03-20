@@ -1,5 +1,5 @@
 import { Scenes } from "telegraf"
-import { MyContext } from "@/lib/telegram/bot"
+import { botState, MyContext } from "@/lib/telegram/bot"
 import { generateAndStoreOtp } from "@/lib/auth/otp"
 import {
   getHouseholdFromTelegramUsername,
@@ -18,7 +18,7 @@ export const otpScene = new Scenes.WizardScene<MyContext>(
     if (!ctx.message || !("text" in ctx.message)) return undefined
 
     const username = ctx.message.text.trim()
-    const chatId = (ctx.state as any).otpChatId as string
+    const chatId = botState(ctx).otpChatId as string
 
     if (!chatId) {
       await ctx.reply("❌ Session error. Please send /otp again.")

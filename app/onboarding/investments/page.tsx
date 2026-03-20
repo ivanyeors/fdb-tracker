@@ -27,6 +27,7 @@ import {
 } from "@/components/onboarding/onboarding-provider"
 import { SymbolPickerDrawer } from "@/components/dashboard/investments/symbol-picker-drawer"
 import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2, X } from "lucide-react"
+import { toast } from "sonner"
 
 const INVESTMENT_TYPES = [
   { value: "stock", label: "Stock" },
@@ -111,9 +112,12 @@ export default function InvestmentsPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      toast.success("Investments saved")
       router.push(pathWithMode("/onboarding/loans", mode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }
@@ -131,9 +135,12 @@ export default function InvestmentsPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      toast.success("Investments skipped")
       router.push(pathWithMode("/onboarding/loans", mode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }
@@ -244,7 +251,7 @@ export default function InvestmentsPage() {
                 />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Cost Basis ($)</Label>
+                <Label>Cost per unit ($)</Label>
                 <CurrencyInput
                   placeholder="0.00"
                   value={item.cost_basis}

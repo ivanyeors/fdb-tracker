@@ -32,6 +32,7 @@ import {
   type PromptScheduleConfig,
 } from "@/components/onboarding/onboarding-provider"
 import { ArrowLeft, ArrowRight, Clock2Icon, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 const PROMPT_LABELS: Record<PromptScheduleConfig["prompt_type"], string> = {
   end_of_month: "End of Month",
@@ -199,9 +200,12 @@ export default function RemindersPage() {
                 })
                 const data = await res.json().catch(() => ({}))
                 if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+                toast.success("Reminder schedule saved")
                 router.push(pathWithMode("/onboarding/investments", mode))
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Something went wrong")
+                const msg = err instanceof Error ? err.message : "Something went wrong"
+                setError(msg)
+                toast.error(msg)
               } finally {
                 setIsLoading(false)
               }

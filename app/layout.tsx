@@ -1,4 +1,4 @@
-import { Geist, Geist_Mono, DM_Sans } from "next/font/google"
+import { Geist_Mono, DM_Sans } from "next/font/google"
 
 import "./globals.css"
 
@@ -7,8 +7,9 @@ export const viewport = {
   initialScale: 1,
 }
 import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils"
 
 const dmSans = DM_Sans({subsets:['latin'],variable:'--font-sans'})
 
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <TooltipProvider>{children}</TooltipProvider>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

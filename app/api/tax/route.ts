@@ -4,8 +4,27 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
-import { calculateTax } from "@/lib/calculations/tax"
+import { calculateTax, type TaxResult } from "@/lib/calculations/tax"
 import type { TaxSnapshot } from "@/lib/tax/tax-snapshot"
+
+function resultToTaxSnapshot(ya: number, result: TaxResult): TaxSnapshot {
+  return {
+    year: ya,
+    employmentIncome: result.employmentIncome,
+    totalReliefs: result.totalReliefs,
+    reliefsRawTotal: result.reliefsRawTotal,
+    reliefCapHeadroom: result.reliefCapHeadroom,
+    chargeableIncome: result.chargeableIncome,
+    taxBeforeRebate: result.taxBeforeRebate,
+    rebateAmount: result.rebateAmount,
+    taxPayable: result.taxPayable,
+    effectiveRate: result.effectiveRate,
+    marginalRate: result.marginalRate,
+    marginalBandFrom: result.marginalBandFrom,
+    marginalBandTo: result.marginalBandTo,
+    bracketAllocation: result.bracketAllocation,
+  }
+}
 
 const taxQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -54,6 +73,8 @@ export async function GET(request: NextRequest) {
 
     // Fetch tax entries
     const taxSnapshots: Record<string, TaxSnapshot> = {}
+    const taxSnapshotsNextYa: Record<string, TaxSnapshot> = {}
+    const MAX_YA = 2040
 
     const { data: taxEntries, error: taxError } = await supabase
       .from("tax_entries")
@@ -121,21 +142,30 @@ export async function GET(request: NextRequest) {
         year: currentYear,
       })
 
-      taxSnapshots[profileId] = {
-        year: currentYear,
-        employmentIncome: result.employmentIncome,
-        totalReliefs: result.totalReliefs,
-        reliefsRawTotal: result.reliefsRawTotal,
-        reliefCapHeadroom: result.reliefCapHeadroom,
-        chargeableIncome: result.chargeableIncome,
-        taxBeforeRebate: result.taxBeforeRebate,
-        rebateAmount: result.rebateAmount,
-        taxPayable: result.taxPayable,
-        effectiveRate: result.effectiveRate,
-        marginalRate: result.marginalRate,
-        marginalBandFrom: result.marginalBandFrom,
-        marginalBandTo: result.marginalBandTo,
-        bracketAllocation: result.bracketAllocation,
+      taxSnapshots[profileId] = resultToTaxSnapshot(currentYear, result)
+
+      const nextYa = currentYear + 1
+      if (nextYa <= MAX_YA) {
+        const resultNext = calculateTax({
+          profile: { birth_year: profile.birth_year },
+          incomeConfig: {
+            annual_salary: incomeConfig.annual_salary,
+            bonus_estimate: incomeConfig.bonus_estimate ?? 0,
+          },
+          insurancePolicies: (insurancePolicies ?? []).map((p) => ({
+            type: p.type,
+            premium_amount: p.premium_amount,
+            frequency: p.frequency,
+            coverage_amount: p.coverage_amount ?? 0,
+            is_active: p.is_active,
+          })),
+          manualReliefs: (manualReliefs ?? []).map((r) => ({
+            relief_type: r.relief_type,
+            amount: r.amount,
+          })),
+          year: nextYa,
+        })
+        taxSnapshotsNextYa[profileId] = resultToTaxSnapshot(nextYa, resultNext)
       }
 
       const existingEntry = entryByProfileYear.get(profileId)?.get(currentYear)
@@ -212,6 +242,7 @@ export async function GET(request: NextRequest) {
       profiles: profiles ?? [],
       profileDetails: Object.fromEntries(profileDetails),
       taxSnapshots,
+      taxSnapshotsNextYa,
     })
   } catch (err) {
     console.error("[api/tax] Error:", err)

@@ -19,6 +19,8 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
   const [monthlyPremium, setMonthlyPremium] = useState<number | null>(null)
   const [endDate, setEndDate] = useState("")
   const [initialFundValue, setInitialFundValue] = useState<number | null>(null)
+  /** Cumulative premiums through the current month (optional; stored on the first entry). */
+  const [initialPremiumsPaid, setInitialPremiumsPaid] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -60,8 +62,12 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
 
       const product = await res.json()
       const fundVal = initialFundValue ?? 0
+      const premVal = initialPremiumsPaid
       const familyId = product?.family_id ?? activeFamilyId
-      if (fundVal > 0 && product?.id && familyId) {
+      const createInitialEntry =
+        Boolean(product?.id && familyId) &&
+        (fundVal > 0 || (premVal != null && premVal > 0))
+      if (createInitialEntry) {
         const now = new Date()
         const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
         const entryRes = await fetch("/api/investments/ilp/entries", {
@@ -72,11 +78,12 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
             familyId,
             month,
             fundValue: fundVal,
+            premiumsPaid: premVal,
           }),
         })
         if (!entryRes.ok) {
           const err = await entryRes.json().catch(() => ({}))
-          throw new Error(err.error ?? "Failed to add initial fund value")
+          throw new Error(err.error ?? "Failed to add initial monthly entry")
         }
       }
 
@@ -85,6 +92,7 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
       setMonthlyPremium(null)
       setEndDate("")
       setInitialFundValue(null)
+      setInitialPremiumsPaid(null)
       onSuccess?.()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong")
@@ -135,7 +143,22 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
             onChange={(v) => setInitialFundValue(v)}
           />
           <p className="text-xs text-muted-foreground">
-            If provided, creates the first monthly value entry for the current month.
+            If provided (or if premiums paid below is set), creates the first monthly
+            snapshot for the current month.
+          </p>
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="ilp-initial-premiums">Premiums paid to date ($, optional)</Label>
+          <CurrencyInput
+            id="ilp-initial-premiums"
+            placeholder="0.00"
+            value={initialPremiumsPaid}
+            onChange={(v) => setInitialPremiumsPaid(v)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Cumulative premiums through this month from your statement. Improves return
+            % on the card; leave blank to estimate from monthly premium until you add a
+            monthly value.
           </p>
         </div>
       </div>

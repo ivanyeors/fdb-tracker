@@ -4,9 +4,7 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
-import { getMultipleStockPrices } from "@/lib/external/fmp"
-import { getOcbcPreciousMetalPrices } from "@/lib/external/precious-metals"
-import { calculatePnL } from "@/lib/calculations/investments"
+import { enrichInvestmentsWithLivePrices } from "@/lib/investments/enrich-with-live-prices"
 
 const investmentsQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -50,7 +48,7 @@ export async function GET(request: NextRequest) {
     if (!resolved) {
       return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
-    const { familyId, profileIds } = resolved
+    const { familyId } = resolved
     const profileId = parsed.data.profileId ?? null
 
     let query = supabase
@@ -60,7 +58,9 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: true })
 
     if (profileId) {
-      query = query.eq("profile_id", profileId)
+      query = query.or(
+        `profile_id.eq.${profileId},profile_id.is.null`,
+      )
     }
 
     const { data: investments, error } = await query
@@ -71,60 +71,7 @@ export async function GET(request: NextRequest) {
 
     if (!investments) return NextResponse.json([])
 
-    const metalTypes = investments
-      .filter((inv) => inv.type === "gold" || inv.type === "silver")
-      .map((inv) => inv.type)
-    const metalsPrices =
-      metalTypes.length > 0 ? await getOcbcPreciousMetalPrices() : []
-
-    const stockSymbols = [
-      ...new Set(
-        investments
-          .filter((inv) => inv.type === "stock" || inv.type === "etf")
-          .map((inv) => inv.symbol),
-      ),
-    ]
-    const stockPrices =
-      stockSymbols.length > 0 ? await getMultipleStockPrices(stockSymbols) : []
-    const stockPricesMap = new Map(
-      stockPrices.map((p) => [p.ticker.toUpperCase(), p]),
-    )
-
-    const enriched = investments.map((inv) => {
-      if (inv.type === "gold" || inv.type === "silver") {
-        const metalPrice = metalsPrices.find(
-          (m) => m.metalType.toLowerCase() === inv.type.toLowerCase(),
-        )
-        const sellPrice = metalPrice?.sellPriceSgd ?? 0
-        const pnl = calculatePnL(inv.units, inv.cost_basis, sellPrice)
-        return {
-          ...inv,
-          currentPrice: sellPrice,
-          currency: "SGD",
-          ...pnl,
-        }
-      }
-
-      const priceData = stockPricesMap.get(inv.symbol.toUpperCase())
-      if (!priceData) {
-        return {
-          ...inv,
-          currentPrice: null,
-          currency: null,
-          marketValue: null,
-          unrealisedPnL: null,
-          unrealisedPnLPct: null,
-        }
-      }
-
-      const pnl = calculatePnL(inv.units, inv.cost_basis, priceData.price)
-      return {
-        ...inv,
-        currentPrice: priceData.price,
-        currency: priceData.currency,
-        ...pnl,
-      }
-    })
+    const enriched = await enrichInvestmentsWithLivePrices(investments)
 
     return NextResponse.json(enriched)
   } catch (err) {

@@ -27,6 +27,7 @@ import {
 } from "@/components/onboarding/onboarding-provider"
 import { profilesSchema } from "@/lib/validations/onboarding"
 import { ArrowLeft, ArrowRight, HelpCircle } from "lucide-react"
+import { toast } from "sonner"
 
 export default function ProfilesPage() {
   const router = useRouter()
@@ -76,9 +77,12 @@ export default function ProfilesPage() {
       const resData = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(resData.message ?? resData.error ?? "Failed to save")
       if (resData.familyId) setFamilyId(resData.familyId)
+      toast.success("Profiles saved")
       router.push(pathWithMode("/onboarding/income", mode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }

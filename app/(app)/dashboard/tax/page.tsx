@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { SectionHeader } from "@/components/dashboard/section-header"
-import { formatCurrency } from "@/lib/utils"
-import { MetricCard } from "@/components/dashboard/metric-card"
+import { cn, formatCurrency } from "@/lib/utils"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import {
   Card,
@@ -29,6 +28,7 @@ import { ActualTaxDialog } from "@/components/dashboard/tax/actual-tax-dialog"
 import { MonthlyTaxDialog } from "@/components/dashboard/tax/monthly-tax-dialog"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import type { TaxSnapshot } from "@/lib/tax/tax-snapshot"
+import { ReliefsBracketSummaryCard } from "@/components/dashboard/tax/reliefs-bracket-summary-card"
 
 interface TaxEntry {
   id: string
@@ -60,6 +60,7 @@ interface TaxData {
   profiles: TaxProfile[]
   profileDetails?: Record<string, { employmentIncome: number }>
   taxSnapshots?: Record<string, TaxSnapshot>
+  taxSnapshotsNextYa?: Record<string, TaxSnapshot>
 }
 
 const currentYear = new Date().getFullYear()
@@ -119,6 +120,20 @@ export default function TaxPage() {
   )
   const totalReliefs = useMemo(
     () => reliefsForYear.reduce((s, r) => s + r.amount, 0),
+    [reliefsForYear]
+  )
+  const manualReliefTotal = useMemo(
+    () =>
+      reliefsForYear
+        .filter((r) => r.source === "manual")
+        .reduce((s, r) => s + r.amount, 0),
+    [reliefsForYear]
+  )
+  const autoReliefTotal = useMemo(
+    () =>
+      reliefsForYear
+        .filter((r) => r.source === "auto")
+        .reduce((s, r) => s + r.amount, 0),
     [reliefsForYear]
   )
   const monthlyPayment = useMemo(() => {
@@ -198,7 +213,7 @@ export default function TaxPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
-        title="Tax"
+        title="Tax Planner"
         description="Estimated resident tax from your income and reliefs, bracket view, and IRAS comparison."
       >
         <Select
@@ -219,54 +234,129 @@ export default function TaxPage() {
       </SectionHeader>
 
       {isLoading ? (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <MetricCard label="" value={0} loading />
-            <MetricCard label="" value={0} loading />
-            <MetricCard label="" value={0} loading />
+        <div className="overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:thin] lg:overflow-x-visible">
+          <div className="grid min-w-[42rem] grid-cols-3 gap-4 lg:min-w-0 lg:w-full">
+            <Card className="min-w-0">
+              <CardContent className="space-y-4 pt-6">
+                <div>
+                  <Skeleton className="mb-3 h-4 w-40" />
+                  <Skeleton className="h-8 w-36" />
+                </div>
+                <div className="border-t border-border/60 pt-4">
+                  <Skeleton className="mb-3 h-4 w-28" />
+                  <Skeleton className="h-8 w-28" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="min-w-0">
+              <CardContent className="space-y-4 pt-6">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-9 w-36" />
+                <div className="space-y-2 border-t border-border/60 pt-4">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 max-w-[12rem] w-[80%]" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="min-w-0">
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-32" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="mx-auto size-32 rounded-full" />
+                <Skeleton className="mt-3 h-16 w-full" />
+              </CardContent>
+            </Card>
           </div>
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-6 w-48" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </>
+        </div>
       ) : !hasData ? (
         <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
           No tax data found for this profile.
         </div>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <MetricCard
-              label={`YA ${selectedYear} estimated tax`}
-              value={totalCalculated}
-              prefix="$"
-              tooltipId="TAX_CALCULATED"
-            />
-            <MetricCard
-              label="Monthly Payment"
-              value={monthlyPayment}
-              prefix="$"
-            />
-            <MetricCard
-              label="Total Reliefs"
-              value={totalReliefs}
-              prefix="$"
-              tooltipId="TAX_RELIEF_INPUTS"
-            />
+          <div className="overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:thin] lg:overflow-x-visible">
+            <div
+              className={cn(
+                "grid gap-4 lg:min-w-0 lg:w-full",
+                reliefsForYear.length > 0
+                  ? "min-w-[42rem] grid-cols-3"
+                  : "min-w-0 grid-cols-2",
+              )}
+            >
+              <Card className="min-w-0">
+                <CardContent className="space-y-4 pt-6">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm text-muted-foreground">
+                        YA {selectedYear} estimated tax
+                      </p>
+                      <InfoTooltip id="TAX_CALCULATED" />
+                    </div>
+                    <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums">
+                      ${formatCurrency(totalCalculated)}
+                    </p>
+                  </div>
+                  <div className="border-t border-border/60 pt-4">
+                    <p className="text-sm text-muted-foreground">
+                      Monthly payment
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums">
+                      ${formatCurrency(monthlyPayment)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Yearly tax ÷ 12 (actual IRAS total when entered, else
+                      estimate).
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+              <ReliefsBracketSummaryCard
+                className="min-w-0"
+                selectedYear={selectedYear}
+                totalReliefs={totalReliefs}
+                manualReliefTotal={manualReliefTotal}
+                autoReliefTotal={autoReliefTotal}
+                profiles={data.profiles}
+                taxSnapshots={data.taxSnapshots}
+                taxSnapshotsNextYa={data.taxSnapshotsNextYa}
+                activeProfileId={activeProfileId}
+              />
+              {reliefsForYear.length > 0 ? (
+                <Card className="flex min-h-0 min-w-0 flex-col overflow-hidden">
+                  <CardHeader className="space-y-1.5 p-4 pb-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="text-sm leading-snug text-muted-foreground">
+                        Relief breakdown
+                      </p>
+                      <InfoTooltip id="TAX_RELIEF_BY_CATEGORY" />
+                    </div>
+                    <CardDescription className="text-xs leading-snug">
+                      Share of relief dollars for YA {selectedYear}
+                      {data.profiles.length > 1
+                        ? " (combined in this view)."
+                        : "."}{" "}
+                      Centre total is reliefs in the model, not tax.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="min-h-0 flex-1 overflow-y-auto p-3 pt-0 sm:p-4 sm:pt-0">
+                    <TaxReliefDonut
+                      compact
+                      reliefs={reliefsForYear.map((r) => ({
+                        relief_type: r.relief_type,
+                        amount: r.amount,
+                      }))}
+                    />
+                  </CardContent>
+                </Card>
+              ) : null}
+            </div>
           </div>
 
           {entriesForYear.length > 0 && (
             <div className="space-y-4">
-              {entriesForYear.map((entry) => (
+              {entriesForYear.map((entry, entryIndex) => (
                 <TaxComparison
                   key={entry.id}
                   year={selectedYear}
@@ -292,9 +382,66 @@ export default function TaxPage() {
                     profileMap.get(entry.profile_id) ?? "This profile"
                   }
                   householdChargeableMarkers={householdChargeableMarkers}
+                  cardFooter={
+                    data.profiles.length > 0 &&
+                    entryIndex === entriesForYear.length - 1 ? (
+                      <div className="space-y-3 rounded-xl border bg-muted/10 px-4 py-4">
+                        <div>
+                          <h3 className="text-base font-medium leading-none">
+                            Manual Reliefs
+                          </h3>
+                          <p className="mt-1.5 text-sm text-muted-foreground">
+                            Add or edit SRS, donations, CPF top-up, course
+                            fees, etc.
+                          </p>
+                        </div>
+                        <ManualReliefForm
+                          year={selectedYear}
+                          profiles={data.profiles}
+                          reliefs={reliefsForYear
+                            .filter((r) => (r as TaxRelief).source === "manual")
+                            .map((r) => ({
+                              id: r.id,
+                              profile_id: r.profile_id,
+                              year: r.year,
+                              relief_type: r.relief_type,
+                              amount: r.amount,
+                            }))}
+                          onSave={handleSaveManualReliefs}
+                        />
+                      </div>
+                    ) : undefined
+                  }
                 />
               ))}
             </div>
+          )}
+
+          {data.profiles.length > 0 && entriesForYear.length === 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Manual Reliefs</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Add or edit SRS, donations, CPF top-up, course fees, etc.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <ManualReliefForm
+                  year={selectedYear}
+                  profiles={data.profiles}
+                  reliefs={reliefsForYear
+                    .filter((r) => (r as TaxRelief).source === "manual")
+                    .map((r) => ({
+                      id: r.id,
+                      profile_id: r.profile_id,
+                      year: r.year,
+                      relief_type: r.relief_type,
+                      amount: r.amount,
+                    }))}
+                  onSave={handleSaveManualReliefs}
+                />
+              </CardContent>
+            </Card>
           )}
 
           {actualDialogProfileId && (
@@ -354,62 +501,6 @@ export default function TaxPage() {
                 )}
               </CardContent>
             </Card>
-          )}
-
-          {reliefsForYear.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <CardTitle className="text-base">
-                    Relief breakdown by category
-                  </CardTitle>
-                  <InfoTooltip id="TAX_RELIEF_BY_CATEGORY" />
-                </div>
-                <CardDescription>
-                  Share of total relief dollars for YA {selectedYear}
-                  {data.profiles.length > 1
-                    ? " (combined across profiles in this view)."
-                    : "."}{" "}
-                  The centre total is not tax — it is how much relief entered the
-                  model (subject to the $80k cap when computing tax).
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <TaxReliefDonut
-                  reliefs={reliefsForYear.map((r) => ({
-                    relief_type: r.relief_type,
-                    amount: r.amount,
-                  }))}
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {data.profiles.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Manual Reliefs</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Add or edit SRS, donations, CPF top-up, course fees, etc.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <ManualReliefForm
-                year={selectedYear}
-                profiles={data.profiles}
-                reliefs={reliefsForYear
-                  .filter((r) => (r as TaxRelief).source === "manual")
-                  .map((r) => ({
-                    id: r.id,
-                    profile_id: r.profile_id,
-                    year: r.year,
-                    relief_type: r.relief_type,
-                    amount: r.amount,
-                  }))}
-                onSave={handleSaveManualReliefs}
-              />
-            </CardContent>
-          </Card>
           )}
 
           {data.entries.length > 1 && (

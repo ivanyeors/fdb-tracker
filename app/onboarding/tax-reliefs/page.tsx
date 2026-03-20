@@ -25,6 +25,7 @@ import {
   type OnboardingTaxRelief,
 } from "@/components/onboarding/onboarding-provider"
 import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 const RELIEF_TYPES = [
   { value: "srs", label: "SRS Contribution" },
@@ -93,9 +94,14 @@ export default function TaxReliefsPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      toast.success(
+        reliefList.length > 0 ? "Tax reliefs saved" : "Tax reliefs skipped",
+      )
       router.push(pathWithMode("/onboarding/complete", mode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }

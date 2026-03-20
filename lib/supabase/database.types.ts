@@ -758,6 +758,7 @@ export type Database = {
           product_id: string
           month: string
           fund_value: number
+          premiums_paid: number | null
           created_at: string
         }
         Insert: {
@@ -765,6 +766,7 @@ export type Database = {
           product_id: string
           month: string
           fund_value: number
+          premiums_paid?: number | null
           created_at?: string
         }
         Update: {
@@ -772,6 +774,7 @@ export type Database = {
           product_id?: string
           month?: string
           fund_value?: number
+          premiums_paid?: number | null
           created_at?: string
         }
         Relationships: [

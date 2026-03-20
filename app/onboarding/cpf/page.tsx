@@ -24,6 +24,7 @@ import {
   type CpfBalance,
 } from "@/components/onboarding/onboarding-provider"
 import { ArrowLeft, ArrowRight, HelpCircle, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 export default function CpfPage() {
   const router = useRouter()
@@ -97,9 +98,12 @@ export default function CpfPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      toast.success("CPF balances saved")
       router.push(pathWithMode("/onboarding/banks", mode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }

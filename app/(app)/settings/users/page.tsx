@@ -7,6 +7,7 @@ import { FamilyMembersTable, UserSettingsActiveContext } from "./user-settings-f
 import { Button } from "@/components/ui/button"
 import type { ProfileWithIncome } from "./types"
 import type { FinancialDataByFamily } from "./user-settings-form"
+import { enrichInvestmentsWithLivePrices } from "@/lib/investments/enrich-with-live-prices"
 
 function getCurrentMonth(): string {
   const now = new Date()
@@ -75,10 +76,30 @@ async function fetchFinancialDataForFamily(
       : Promise.resolve({ data: [] }),
   ])
 
+  const rawInvestments = investmentsRes.data ?? []
+  const investmentsEnriched =
+    rawInvestments.length === 0
+      ? []
+      : await enrichInvestmentsWithLivePrices(rawInvestments)
+
+  const investments: FinancialDataByFamily["investments"] =
+    investmentsEnriched.map((r) => ({
+      id: r.id,
+      symbol: r.symbol,
+      type: r.type,
+      units: r.units,
+      cost_basis: r.cost_basis,
+      profile_id: r.profile_id,
+      current_price: r.currentPrice,
+      market_value: r.marketValue,
+      unrealised_pnl: r.unrealisedPnL,
+      unrealised_pnl_pct: r.unrealisedPnLPct,
+    }))
+
   return {
     bankAccounts: bankAccountsRes.data ?? [],
     savingsGoals: savingsGoalsRes.data ?? [],
-    investments: investmentsRes.data ?? [],
+    investments,
     loans: loansRes.data ?? [],
     insurancePolicies: insuranceRes.data ?? [],
     cpfBalances: cpfRes.data ?? [],

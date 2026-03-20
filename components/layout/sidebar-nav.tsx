@@ -47,7 +47,7 @@ const dashboardItems = [
   { title: "Investments", href: "/dashboard/investments", icon: TrendingUp, badge: "BETA" },
   { title: "Loans", href: "/dashboard/loans", icon: CreditCard },
   { title: "Insurance", href: "/dashboard/insurance", icon: Shield },
-  { title: "Tax", href: "/dashboard/tax", icon: Receipt },
+  { title: "Tax Planner", href: "/dashboard/tax", icon: Receipt },
 ]
 
 const settingsItems = [

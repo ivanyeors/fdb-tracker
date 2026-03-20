@@ -4,9 +4,13 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
-import { computeInvestmentTotal } from "@/lib/api/investment-total"
-import { getHistoricalPricesBatch } from "@/lib/external/fmp"
+import { computeTotalInvestmentsValue } from "@/lib/api/net-liquid"
+import {
+  getHistoricalPricesBatch,
+  getMultipleStockPrices,
+} from "@/lib/external/fmp"
 import { getHistoricalMetalPrices, getOcbcPreciousMetalPrices } from "@/lib/external/precious-metals"
+import { getSgdPerUsd } from "@/lib/external/usd-sgd"
 
 const historyQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -31,6 +35,24 @@ function dateRange(startStr: string, endStr: string): string[] {
 
 type InvestmentRow = { symbol: string; type: string; units: number; cost_basis: number }
 
+type IlpEntryRow = { product_id: string; month: string; fund_value: number }
+
+function ilpTotalForYearMonth(
+  byProduct: Map<string, IlpEntryRow[]>,
+  ym: string,
+): number {
+  let sum = 0
+  for (const list of byProduct.values()) {
+    let v = 0
+    for (const e of list) {
+      if (e.month.slice(0, 7) <= ym) v = e.fund_value
+      else break
+    }
+    sum += v
+  }
+  return sum
+}
+
 async function backfillHistory(
   supabase: ReturnType<typeof import("@/lib/supabase/server").createSupabaseAdmin>,
   familyId: string,
@@ -42,7 +64,11 @@ async function backfillHistory(
     .from("investments")
     .select("symbol, type, units, cost_basis")
     .eq("family_id", familyId)
-  if (profileId) invQuery = invQuery.eq("profile_id", profileId)
+  if (profileId) {
+    invQuery = invQuery.or(
+      `profile_id.eq.${profileId},profile_id.is.null`,
+    )
+  }
   const { data: investments } = await invQuery
   if (!investments || investments.length === 0) return []
 
@@ -57,11 +83,23 @@ async function backfillHistory(
     (i) => i.type === "gold" || i.type === "silver",
   )
 
-  const [stockPricesByTicker, metalPricesByType, currentMetals] = await Promise.all([
-    stockSymbols.length > 0 ? getHistoricalPricesBatch(stockSymbols, startStr, endStr) : Promise.resolve(new Map<string, Map<string, number>>()),
-    hasMetals ? getHistoricalMetalPrices(startStr, endStr) : Promise.resolve(new Map()),
-    hasMetals ? getOcbcPreciousMetalPrices() : Promise.resolve([]),
-  ])
+  const [stockPricesByTicker, metalPricesByType, currentMetals, liveQuotes, sgdPerUsd] =
+    await Promise.all([
+      stockSymbols.length > 0
+        ? getHistoricalPricesBatch(stockSymbols, startStr, endStr)
+        : Promise.resolve(new Map<string, Map<string, number>>()),
+      hasMetals ? getHistoricalMetalPrices(startStr, endStr) : Promise.resolve(new Map()),
+      hasMetals ? getOcbcPreciousMetalPrices() : Promise.resolve([]),
+      stockSymbols.length > 0 ? getMultipleStockPrices(stockSymbols) : Promise.resolve([]),
+      getSgdPerUsd(),
+    ])
+
+  const currencyBySymbol = new Map(
+    liveQuotes.map((q) => [
+      q.ticker.toUpperCase(),
+      (q.currency ?? "USD").toUpperCase(),
+    ]),
+  )
 
   const currentMetalMap = new Map(
     currentMetals.map((m) => [m.metalType.toLowerCase(), m.sellPriceSgd]),
@@ -92,21 +130,30 @@ async function backfillHistory(
     ilpQuery = ilpQuery.or(`profile_id.eq.${profileId},profile_id.is.null`)
   }
   const { data: ilpProducts } = await ilpQuery
-  let ilpTotal = 0
+
+  const byProduct = new Map<string, IlpEntryRow[]>()
   if (ilpProducts && ilpProducts.length > 0) {
     const productIds = ilpProducts.map((p) => p.id)
-    const { data: ilpEntries } = await supabase
+    const { data: allEntries } = await supabase
       .from("ilp_entries")
       .select("product_id, month, fund_value")
       .in("product_id", productIds)
-      .order("month", { ascending: false })
-    const latestByProduct = new Map<string, number>()
-    if (ilpEntries) {
-      for (const e of ilpEntries) {
-        if (!latestByProduct.has(e.product_id)) latestByProduct.set(e.product_id, e.fund_value)
+      .order("month", { ascending: true })
+
+    if (allEntries) {
+      for (const e of allEntries) {
+        const list = byProduct.get(e.product_id) ?? []
+        list.push({
+          product_id: e.product_id,
+          month: e.month,
+          fund_value: e.fund_value,
+        })
+        byProduct.set(e.product_id, list)
+      }
+      for (const list of byProduct.values()) {
+        list.sort((a, b) => a.month.localeCompare(b.month))
       }
     }
-    ilpTotal = Array.from(latestByProduct.values()).reduce((s, v) => s + v, 0)
   }
 
   const dates = dateRange(startStr, endStr)
@@ -115,25 +162,33 @@ async function backfillHistory(
   const lastMetalPrice = new Map<string, number>()
 
   for (const dateStr of dates) {
-    let total = cashTotal + ilpTotal
+    const ym = dateStr.slice(0, 7)
+    let marketSgd = 0
 
     for (const inv of investments as InvestmentRow[]) {
       if (inv.type === "stock" || inv.type === "etf") {
-        const byDate = stockPricesByTicker.get(inv.symbol.toUpperCase())
-        const price = byDate?.get(dateStr) ?? lastStockPrice.get(inv.symbol.toUpperCase()) ?? 0
-        if (price > 0) lastStockPrice.set(inv.symbol.toUpperCase(), price)
-        total += price > 0 ? inv.units * price : inv.units * inv.cost_basis
+        const sym = inv.symbol.toUpperCase()
+        const byDate = stockPricesByTicker.get(sym)
+        const raw = byDate?.get(dateStr) ?? lastStockPrice.get(sym) ?? 0
+        if (raw > 0) lastStockPrice.set(sym, raw)
+        const curr = currencyBySymbol.get(sym) ?? "USD"
+        let priceSgd = raw
+        if (raw > 0) {
+          if (curr === "USD") priceSgd = raw * sgdPerUsd
+          else if (curr !== "SGD") priceSgd = 0
+          if (priceSgd > 0) marketSgd += inv.units * priceSgd
+        }
       } else if (inv.type === "gold" || inv.type === "silver") {
         const byDate = metalPricesByType.get(inv.type as "gold" | "silver")
         const current = currentMetalMap.get(inv.type.toLowerCase()) ?? 0
         const price = byDate?.get(dateStr) ?? lastMetalPrice.get(inv.type) ?? current
         if (price > 0) lastMetalPrice.set(inv.type, price)
-        total += price > 0 ? inv.units * price : inv.units * inv.cost_basis
-      } else {
-        total += inv.units * inv.cost_basis
+        if (price > 0) marketSgd += inv.units * price
       }
     }
 
+    const ilpTotal = ilpTotalForYearMonth(byProduct, ym)
+    const total = cashTotal + marketSgd + ilpTotal
     result.push({ date: dateStr, value: Math.round(total * 100) / 100 })
   }
 
@@ -209,9 +264,12 @@ export async function GET(request: NextRequest) {
       })) ?? []
 
     if (!hasTodaySnapshot) {
-      const liveTotal = await computeInvestmentTotal(supabase, fid, pid, {
-        ilpMonthFilter: null,
-      })
+      const { investmentTotal: liveTotal } = await computeTotalInvestmentsValue(
+        supabase,
+        fid,
+        pid,
+        null,
+      )
       data.push({
         date: todayStr,
         value: Math.round(liveTotal * 100) / 100,
@@ -219,7 +277,6 @@ export async function GET(request: NextRequest) {
       data.sort((a, b) => a.date.localeCompare(b.date))
     }
 
-    // Backfill when snapshots are sparse (e.g. new user)
     if (data.length < BACKFILL_THRESHOLD) {
       const backfilled = await backfillHistory(supabase, fid, pid, startStr, endStr)
       const snapshotMap = new Map(data.map((d) => [d.date, d.value]))

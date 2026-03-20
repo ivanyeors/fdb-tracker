@@ -1,7 +1,11 @@
 "use client"
 
 /* eslint-disable react-hooks/set-state-in-effect -- sync UI state with server action results and prop changes */
-import { useActionState, useCallback, useEffect, useMemo, useState } from "react"
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useOptionalUserSettingsSave,
+  useUserSettingsSaveRegistration,
+} from "@/components/layout/user-settings-save-context"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -18,6 +22,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   Sheet,
   SheetContent,
@@ -131,6 +145,10 @@ export type FinancialDataByFamily = {
     units: number
     cost_basis: number
     profile_id: string | null
+    current_price: number | null
+    market_value: number | null
+    unrealised_pnl: number | null
+    unrealised_pnl_pct: number | null
   }>
   loans: Array<{
     id: string
@@ -180,18 +198,97 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
+function profileEmployeeCpfInputString(profile: ProfileWithIncome): string {
+  const r = profile.income_config?.employee_cpf_rate
+  return r != null ? String(r) : ""
+}
+
+function bankRowDirty(
+  e: FinancialDataByFamily["bankAccounts"][0],
+  b: FinancialDataByFamily["bankAccounts"][0]
+): boolean {
+  return (
+    e.bank_name !== b.bank_name ||
+    e.account_type !== b.account_type ||
+    e.opening_balance !== b.opening_balance ||
+    (e.interest_rate_pct ?? null) !== (b.interest_rate_pct ?? null) ||
+    (e.locked_amount ?? 0) !== (b.locked_amount ?? 0) ||
+    e.profile_id !== b.profile_id
+  )
+}
+
+function goalRowDirty(
+  e: FinancialDataByFamily["savingsGoals"][0],
+  g: FinancialDataByFamily["savingsGoals"][0]
+): boolean {
+  return (
+    e.name !== g.name ||
+    e.target_amount !== g.target_amount ||
+    e.current_amount !== g.current_amount ||
+    (e.deadline ?? null) !== (g.deadline ?? null) ||
+    e.category !== g.category ||
+    e.profile_id !== g.profile_id
+  )
+}
+
+function invRowDirty(
+  e: FinancialDataByFamily["investments"][0],
+  i: FinancialDataByFamily["investments"][0]
+): boolean {
+  return (
+    e.symbol !== i.symbol ||
+    e.type !== i.type ||
+    e.units !== i.units ||
+    e.cost_basis !== i.cost_basis ||
+    e.profile_id !== i.profile_id
+  )
+}
+
+function loanRowDirty(
+  e: FinancialDataByFamily["loans"][0],
+  l: FinancialDataByFamily["loans"][0]
+): boolean {
+  return (
+    e.name !== l.name ||
+    e.type !== l.type ||
+    e.principal !== l.principal ||
+    e.rate_pct !== l.rate_pct ||
+    e.tenure_months !== l.tenure_months ||
+    e.start_date !== l.start_date ||
+    (e.lender ?? null) !== (l.lender ?? null) ||
+    e.use_cpf_oa !== l.use_cpf_oa ||
+    (e.valuation_limit ?? null) !== (l.valuation_limit ?? null)
+  )
+}
+
+function insuranceRowDirty(
+  e: FinancialDataByFamily["insurancePolicies"][0] & { current_amount?: number | null; end_date?: string | null },
+  p: FinancialDataByFamily["insurancePolicies"][0]
+): boolean {
+  const pCa = (p as { current_amount?: number | null }).current_amount ?? null
+  const pEd = (p as { end_date?: string | null }).end_date ?? null
+  return (
+    e.name !== p.name ||
+    e.type !== p.type ||
+    e.premium_amount !== p.premium_amount ||
+    e.frequency !== p.frequency ||
+    (e.coverage_amount ?? null) !== (p.coverage_amount ?? null) ||
+    (e.yearly_outflow_date ?? null) !== (p.yearly_outflow_date ?? null) ||
+    (e.current_amount ?? null) !== pCa ||
+    (e.end_date ?? null) !== pEd
+  )
+}
+
 function ProfileSection({
   profile,
   profileCount,
+  onDirtyChange,
 }: {
   profile: ProfileWithIncome
   profileCount: number
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [state, action, isPending] = useActionState(updateUserProfile, {
-    success: false,
-    error: undefined,
-  })
   const [deleteState, deleteAction, isDeletePending] = useActionState(deleteUserProfile, {
     success: false,
     error: undefined,
@@ -209,13 +306,57 @@ function ProfileSection({
   )
   const [dpsInclude, setDpsInclude] = useState(profile.dps_include_in_projection !== false)
 
+  const isDirty = useMemo(() => {
+    const baselineCpf = profileEmployeeCpfInputString(profile)
+    const dpsBaseline = profile.dps_include_in_projection !== false
+    return (
+      name !== profile.name ||
+      birthYear !== profile.birth_year ||
+      annualSalary !== (profile.income_config?.annual_salary ?? 0) ||
+      bonusEstimate !== (profile.income_config?.bonus_estimate ?? 0) ||
+      payFrequency !== (profile.income_config?.pay_frequency ?? "monthly") ||
+      employeeCpfRate !== baselineCpf ||
+      dpsInclude !== dpsBaseline
+    )
+  }, [
+    name,
+    birthYear,
+    annualSalary,
+    bonusEstimate,
+    payFrequency,
+    employeeCpfRate,
+    dpsInclude,
+    profile,
+  ])
+
+  const saveProfile = useCallback(async () => {
+    const fd = new FormData()
+    fd.set("profileId", profile.id)
+    fd.set("name", name)
+    fd.set("birthYear", String(birthYear))
+    fd.set("annualSalary", String(annualSalary))
+    fd.set("bonusEstimate", String(bonusEstimate))
+    fd.set("payFrequency", payFrequency)
+    fd.set("employeeCpfRate", employeeCpfRate || "")
+    fd.set("dpsIncludeInProjection", dpsInclude ? "true" : "false")
+    const result = await updateUserProfile({ success: false }, fd)
+    if (result.error) throw new Error(result.error)
+  }, [
+    profile.id,
+    name,
+    birthYear,
+    annualSalary,
+    bonusEstimate,
+    payFrequency,
+    employeeCpfRate,
+    dpsInclude,
+  ])
+
+  useUserSettingsSaveRegistration(`user-settings-profile-${profile.id}`, isDirty, saveProfile)
+
   useEffect(() => {
-    if (state.success) {
-      toast.success(`${profile.name}'s profile updated successfully`)
-    } else if (state.error) {
-      toast.error(state.error)
-    }
-  }, [state, profile.name])
+    onDirtyChange?.(isDirty)
+  }, [isDirty, onDirtyChange])
 
   useEffect(() => {
     if (deleteState.success) {
@@ -244,20 +385,59 @@ function ProfileSection({
 
   return (
     <>
-      <SectionTitle>Profile</SectionTitle>
-      <form action={action} data-profile-id={profile.id}>
-        <input type="hidden" name="profileId" value={profile.id} />
-        <input type="hidden" name="name" value={name} />
-        <input type="hidden" name="birthYear" value={birthYear} />
-        <input type="hidden" name="annualSalary" value={annualSalary} />
-        <input type="hidden" name="bonusEstimate" value={bonusEstimate} />
-        <input type="hidden" name="payFrequency" value={payFrequency} />
-        <input type="hidden" name="employeeCpfRate" value={employeeCpfRate || ""} />
-        <input
-          type="hidden"
-          name="dpsIncludeInProjection"
-          value={dpsInclude ? "true" : "false"}
-        />
+      <div className="mb-2 mt-6 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">Profile</h3>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href={`/dashboard?profileId=${profile.id}`}>
+              <ExternalLink className="h-4 w-4" />
+              <span className="sr-only">Manage financial data</span>
+            </Link>
+          </Button>
+          {canDelete && (
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+                <span className="sr-only">Delete profile</span>
+              </Button>
+              <DialogContent showCloseButton={true}>
+                <DialogHeader>
+                  <DialogTitle>Delete profile</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to delete {profile.name}? This will remove their profile and
+                    associated data (income config, cashflow, CPF, loans, insurance, etc.). Bank accounts
+                    and investments linked to this profile will be unlinked but not deleted.
+                  </DialogDescription>
+                </DialogHeader>
+                <form action={deleteAction} className="contents">
+                  <input type="hidden" name="profileId" value={profile.id} />
+                  <DialogFooter showCloseButton={false}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setDeleteDialogOpen(false)}
+                      disabled={isDeletePending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" variant="destructive" disabled={isDeletePending}>
+                      {isDeletePending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Delete
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      </div>
+      <div data-profile-id={profile.id}>
         <Table>
           <TableHeader>
             <TableRow>
@@ -267,7 +447,6 @@ function ProfileSection({
               <TableHead>Bonus</TableHead>
               <TableHead>Pay Freq</TableHead>
               <TableHead>CPF %</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -330,60 +509,6 @@ function ProfileSection({
                   className="h-8 w-16"
                 />
               </TableCell>
-              <TableCell className="text-right">
-                <div className="flex items-center justify-end gap-1">
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/dashboard?profileId=${profile.id}`}>
-                      <ExternalLink className="h-4 w-4" />
-                      <span className="sr-only">Manage financial data</span>
-                    </Link>
-                  </Button>
-                  {canDelete && (
-                    <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground hover:text-destructive h-8 w-8"
-                        onClick={() => setDeleteDialogOpen(true)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete profile</span>
-                      </Button>
-                      <DialogContent showCloseButton={true}>
-                        <DialogHeader>
-                          <DialogTitle>Delete profile</DialogTitle>
-                          <DialogDescription>
-                            Are you sure you want to delete {profile.name}? This will remove their profile and
-                            associated data (income config, cashflow, CPF, loans, insurance, etc.). Bank accounts
-                            and investments linked to this profile will be unlinked but not deleted.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <form action={deleteAction} className="contents">
-                          <input type="hidden" name="profileId" value={profile.id} />
-                          <DialogFooter showCloseButton={false}>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => setDeleteDialogOpen(false)}
-                              disabled={isDeletePending}
-                            >
-                              Cancel
-                            </Button>
-                            <Button type="submit" variant="destructive" disabled={isDeletePending}>
-                              {isDeletePending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                              Delete
-                            </Button>
-                          </DialogFooter>
-                        </form>
-                      </DialogContent>
-                    </Dialog>
-                  )}
-                  <Button type="submit" size="sm" disabled={isPending}>
-                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                  </Button>
-                </div>
-              </TableCell>
             </TableRow>
           </TableBody>
         </Table>
@@ -398,7 +523,7 @@ function ProfileSection({
           </Label>
           <InfoTooltip id="CPF_DPS" />
         </div>
-      </form>
+      </div>
     </>
   )
 }
@@ -476,7 +601,6 @@ function BanksSection({
   onMutate: () => void
 }) {
   const router = useRouter()
-  const [savingId, setSavingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [newBank, setNewBank] = useState({
     bank_name: "",
@@ -485,35 +609,6 @@ function BanksSection({
     interest_rate_pct: 0,
     locked_amount: 0,
   })
-
-  async function handleSave(account: (typeof banks)[0]) {
-    setSavingId(account.id)
-    try {
-      const res = await fetch(`/api/bank-accounts/${account.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bankName: account.bank_name,
-          accountType: account.account_type,
-          profileId: account.profile_id,
-          openingBalance: account.opening_balance,
-          interestRatePct: account.interest_rate_pct ?? 0,
-          lockedAmount: account.locked_amount ?? 0,
-        }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Failed to save")
-      }
-      toast.success("Bank account updated")
-      onMutate()
-      router.refresh()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save")
-    } finally {
-      setSavingId(null)
-    }
-  }
 
   async function handleDelete(id: string) {
     try {
@@ -570,6 +665,36 @@ function BanksSection({
     }
     setEditing(map)
   }, [banks])
+
+  const banksDirty = useMemo(
+    () => banks.some((b) => bankRowDirty(editing[b.id] ?? b, b)),
+    [banks, editing]
+  )
+
+  const persistBanks = useCallback(async () => {
+    for (const b of banks) {
+      const e = editing[b.id] ?? b
+      if (!bankRowDirty(e, b)) continue
+      const res = await fetch(`/api/bank-accounts/${e.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bankName: e.bank_name,
+          accountType: e.account_type,
+          profileId: e.profile_id,
+          openingBalance: e.opening_balance,
+          interestRatePct: e.interest_rate_pct ?? 0,
+          lockedAmount: e.locked_amount ?? 0,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error((data as { error?: string }).error ?? "Failed to save bank")
+      }
+    }
+  }, [banks, editing])
+
+  useUserSettingsSaveRegistration(`user-settings-banks-${profileId}`, banksDirty, persistBanks)
 
   if (banks.length === 0 && !adding) {
     return (
@@ -707,22 +832,9 @@ function BanksSection({
                   />
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDelete(b.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      disabled={savingId === b.id}
-                      onClick={() => handleSave(e)}
-                    >
-                      {savingId === b.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                    </Button>
-                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => handleDelete(b.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
             )
@@ -786,7 +898,6 @@ function SavingsGoalsSection({
   onMutate: () => void
 }) {
   const router = useRouter()
-  const [savingId, setSavingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [newGoal, setNewGoal] = useState({
     name: "",
@@ -795,35 +906,6 @@ function SavingsGoalsSection({
     deadline: "" as string | null,
     category: "custom" as const,
   })
-
-  async function handleSave(goal: (typeof goals)[0]) {
-    setSavingId(goal.id)
-    try {
-      const res = await fetch(`/api/goals/${goal.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: goal.name,
-          targetAmount: goal.target_amount,
-          currentAmount: goal.current_amount,
-          deadline: goal.deadline,
-          category: goal.category,
-          profileId,
-        }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Failed to save")
-      }
-      toast.success("Savings goal updated")
-      onMutate()
-      router.refresh()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save")
-    } finally {
-      setSavingId(null)
-    }
-  }
 
   async function handleDelete(id: string) {
     try {
@@ -890,6 +972,36 @@ function SavingsGoalsSection({
     }
     setEditing(map)
   }, [goals])
+
+  const goalsDirty = useMemo(
+    () => goals.some((g) => goalRowDirty(editing[g.id] ?? g, g)),
+    [goals, editing]
+  )
+
+  const persistGoals = useCallback(async () => {
+    for (const g of goals) {
+      const e = editing[g.id] ?? g
+      if (!goalRowDirty(e, g)) continue
+      const res = await fetch(`/api/goals/${e.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: e.name,
+          targetAmount: e.target_amount,
+          currentAmount: e.current_amount,
+          deadline: e.deadline,
+          category: e.category,
+          profileId,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error((data as { error?: string }).error ?? "Failed to save goal")
+      }
+    }
+  }, [goals, editing, profileId])
+
+  useUserSettingsSaveRegistration(`user-settings-goals-${profileId}`, goalsDirty, persistGoals)
 
   if (goals.length === 0 && !adding) {
     return (
@@ -977,14 +1089,9 @@ function SavingsGoalsSection({
                   />
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(g.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" disabled={savingId === g.id} onClick={() => handleSave(e)}>
-                      {savingId === g.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                    </Button>
-                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => handleDelete(g.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
             )
@@ -1021,15 +1128,11 @@ function CPFSection({
   profileId,
   cpfData,
   familyId,
-  onMutate,
 }: {
   profileId: string
   cpfData: FinancialDataByFamily["cpfBalances"][0] | undefined
   familyId: string
-  onMutate: () => void
 }) {
-  const router = useRouter()
-  const [saving, setSaving] = useState(false)
   const [isEditingCpf, setIsEditingCpf] = useState(false)
   const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`
   const [oa, setOa] = useState(cpfData?.oa ?? 0)
@@ -1042,35 +1145,31 @@ function CPFSection({
     setMa(cpfData?.ma ?? 0)
   }, [cpfData])
 
-  async function handleSave() {
-    setSaving(true)
-    try {
-      const res = await fetch("/api/cpf/balances", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          profileId,
-          familyId,
-          month: currentMonth,
-          oa,
-          sa,
-          ma,
-        }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Failed to save")
-      }
-      toast.success("CPF balances updated")
-      setIsEditingCpf(false)
-      onMutate()
-      router.refresh()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save")
-    } finally {
-      setSaving(false)
+  const cpfDirty =
+    isEditingCpf &&
+    (oa !== (cpfData?.oa ?? 0) || sa !== (cpfData?.sa ?? 0) || ma !== (cpfData?.ma ?? 0))
+
+  const persistCpf = useCallback(async () => {
+    const res = await fetch("/api/cpf/balances", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profileId,
+        familyId,
+        month: currentMonth,
+        oa,
+        sa,
+        ma,
+      }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error((data as { error?: string }).error ?? "Failed to save CPF")
     }
-  }
+    setIsEditingCpf(false)
+  }, [profileId, familyId, currentMonth, oa, sa, ma])
+
+  useUserSettingsSaveRegistration(`user-settings-cpf-${profileId}`, cpfDirty, persistCpf)
 
   function handleCancel() {
     setOa(cpfData?.oa ?? 0)
@@ -1105,14 +1204,9 @@ function CPFSection({
                   <CurrencyInput value={ma} onChange={(v) => setMa(v ?? 0)} className="h-8 w-28" />
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="ghost" onClick={handleCancel}>
-                      Cancel
-                    </Button>
-                    <Button size="sm" disabled={saving} onClick={handleSave}>
-                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                    </Button>
-                  </div>
+                  <Button size="sm" variant="ghost" onClick={handleCancel}>
+                    Cancel
+                  </Button>
                 </TableCell>
               </>
             ) : (
@@ -1154,47 +1248,49 @@ function MonthlyLogSection({
   familyId: string
   onMutate: () => void
 }) {
-  const router = useRouter()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
   const now = new Date()
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
   const [month, setMonth] = useState(defaultMonth)
   const [inflow, setInflow] = useState(0)
   const [outflow, setOutflow] = useState(0)
+  const [logBaseline, setLogBaseline] = useState<{
+    month: string
+    inflow: number
+    outflow: number
+  } | null>(null)
 
   const profileLogs = logs.filter((l) => l.profile_id === profileId)
 
-  async function handleSave() {
-    setSaving(true)
-    try {
-      const res = await fetch("/api/cashflow", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          profileId,
-          familyId,
-          month,
-          inflow,
-          outflow,
-        }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Failed to save")
-      }
-      toast.success("Inflow/outflow logged")
-      setInflow(0)
-      setOutflow(0)
-      setMonth(defaultMonth)
-      onMutate()
-      router.refresh()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save")
-    } finally {
-      setSaving(false)
+  const logFormDirty =
+    drawerOpen &&
+    logBaseline != null &&
+    (month !== logBaseline.month || inflow !== logBaseline.inflow || outflow !== logBaseline.outflow)
+
+  const persistMonthlyLog = useCallback(async () => {
+    const res = await fetch("/api/cashflow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profileId,
+        familyId,
+        month,
+        inflow,
+        outflow,
+      }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error((data as { error?: string }).error ?? "Failed to save cashflow")
     }
-  }
+    setInflow(0)
+    setOutflow(0)
+    setMonth(defaultMonth)
+    setLogBaseline({ month: defaultMonth, inflow: 0, outflow: 0 })
+    onMutate()
+  }, [profileId, familyId, month, inflow, outflow, defaultMonth, onMutate])
+
+  useUserSettingsSaveRegistration(`user-settings-cashflow-${profileId}`, logFormDirty, persistMonthlyLog)
 
   function formatMonth(m: string) {
     const [y, mo] = m.slice(0, 10).split("-")
@@ -1217,7 +1313,20 @@ function MonthlyLogSection({
         )}
       </div>
 
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+      <Sheet
+        open={drawerOpen}
+        onOpenChange={(open) => {
+          setDrawerOpen(open)
+          if (open) {
+            setMonth(defaultMonth)
+            setInflow(0)
+            setOutflow(0)
+            setLogBaseline({ month: defaultMonth, inflow: 0, outflow: 0 })
+          } else {
+            setLogBaseline(null)
+          }
+        }}
+      >
         <SheetContent
           side="right"
           className="flex w-[50vw] max-w-[50vw] flex-col gap-0 p-0 data-[side=right]:w-[50vw] data-[side=right]:max-w-[50vw] sm:max-w-[50vw]"
@@ -1262,10 +1371,9 @@ function MonthlyLogSection({
                 />
               </div>
             </div>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Save
-            </Button>
+            <p className="text-xs text-muted-foreground">
+              Use <span className="font-medium text-foreground">Save</span> in the header to record this entry.
+            </p>
 
             <Separator />
 
@@ -1310,7 +1418,6 @@ function InvestmentsSection({
   onMutate: () => void
 }) {
   const router = useRouter()
-  const [savingId, setSavingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [newInv, setNewInv] = useState<{
     symbol: string
@@ -1325,34 +1432,6 @@ function InvestmentsSection({
 
   const isGoldOrSilver = (t: string) => t === "gold" || t === "silver"
   const needsSymbolPicker = (t: string) => !isGoldOrSilver(t) && t !== "ilp"
-
-  async function handleSave(inv: (typeof investments)[0]) {
-    setSavingId(inv.id)
-    try {
-      const res = await fetch(`/api/investments/${inv.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          symbol: inv.symbol,
-          type: inv.type,
-          units: inv.units,
-          costBasis: inv.cost_basis,
-          profileId: inv.profile_id,
-        }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Failed to save")
-      }
-      toast.success("Investment updated")
-      onMutate()
-      router.refresh()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save")
-    } finally {
-      setSavingId(null)
-    }
-  }
 
   async function handleDelete(id: string) {
     try {
@@ -1422,6 +1501,39 @@ function InvestmentsSection({
     }
     setEditing(map)
   }, [investments])
+
+  const investmentsDirty = useMemo(
+    () => investments.some((inv) => invRowDirty(editing[inv.id] ?? inv, inv)),
+    [investments, editing]
+  )
+
+  const persistInvestments = useCallback(async () => {
+    for (const inv of investments) {
+      const e = editing[inv.id] ?? inv
+      if (!invRowDirty(e, inv)) continue
+      const res = await fetch(`/api/investments/${e.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: e.symbol,
+          type: e.type,
+          units: e.units,
+          costBasis: e.cost_basis,
+          profileId: e.profile_id,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error((data as { error?: string }).error ?? "Failed to save investment")
+      }
+    }
+  }, [investments, editing])
+
+  useUserSettingsSaveRegistration(
+    `user-settings-investments-${profileId}`,
+    investmentsDirty,
+    persistInvestments
+  )
 
   const effectiveNewSymbol = isGoldOrSilver(newInv.type)
     ? newInv.type === "gold"
@@ -1516,9 +1628,9 @@ function InvestmentsSection({
             />
           </div>
           <div className="space-y-1">
-            <Label>Cost basis</Label>
+            <Label>Cost per unit</Label>
             <CurrencyInput
-              placeholder="Cost basis"
+              placeholder="Avg. price per unit"
               value={newInv.cost_basis}
               onChange={(v) => setNewInv((p) => ({ ...p, cost_basis: v ?? 0 }))}
               className="h-8 w-24"
@@ -1552,7 +1664,14 @@ function InvestmentsSection({
             <TableHead>Symbol / Name</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Units</TableHead>
-            <TableHead>Cost Basis</TableHead>
+            <TableHead>
+              <span className="inline-flex items-center gap-1">
+                Cost per unit
+                <InfoTooltip id="INVESTMENT_COST_PER_UNIT" />
+              </span>
+            </TableHead>
+            <TableHead className="tabular-nums">Current price</TableHead>
+            <TableHead className="tabular-nums">Current value</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -1656,21 +1775,30 @@ function InvestmentsSection({
                     className="h-8 w-24"
                   />
                 </TableCell>
+                <TableCell className="text-muted-foreground tabular-nums">
+                  {inv.current_price != null &&
+                  Number.isFinite(inv.current_price) &&
+                  inv.current_price > 0
+                    ? `$${formatCurrency(inv.current_price)}`
+                    : "—"}
+                </TableCell>
+                <TableCell className="text-muted-foreground tabular-nums">
+                  {inv.current_price != null &&
+                  Number.isFinite(inv.current_price) &&
+                  inv.current_price > 0
+                    ? `$${formatCurrency(e.units * inv.current_price)}`
+                    : "—"}
+                </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(inv.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" disabled={savingId === inv.id} onClick={() => handleSave(e)}>
-                      {savingId === inv.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                    </Button>
-                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => handleDelete(inv.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
             )
           })}
           <TableRow>
-            <TableCell colSpan={5} className="border-t">
+            <TableCell colSpan={7} className="border-t">
               <div className="flex flex-wrap gap-4 pt-2">
                 <div className="space-y-1">
                   <Label>{newInv.type === "ilp" ? "Policy name" : "Symbol"}</Label>
@@ -1736,9 +1864,9 @@ function InvestmentsSection({
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Cost basis</Label>
+                  <Label>Cost per unit</Label>
                   <CurrencyInput
-                    placeholder="Cost basis"
+                    placeholder="Avg. price per unit"
                     value={newInv.cost_basis}
                     onChange={(v) => setNewInv((p) => ({ ...p, cost_basis: v ?? 0 }))}
                     className="h-8 w-24"
@@ -1791,7 +1919,6 @@ function LoansSection({
   onMutate: () => void
 }) {
   const router = useRouter()
-  const [savingId, setSavingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [newLoan, setNewLoan] = useState({
     name: "",
@@ -1804,38 +1931,6 @@ function LoansSection({
     use_cpf_oa: false,
     valuation_limit: null as number | null,
   })
-
-  async function handleSave(loan: (typeof loans)[0]) {
-    setSavingId(loan.id)
-    try {
-      const res = await fetch(`/api/loans/${loan.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: loan.name,
-          type: loan.type,
-          principal: loan.principal,
-          ratePct: loan.rate_pct,
-          tenureMonths: loan.tenure_months,
-          startDate: loan.start_date,
-          lender: loan.lender,
-          useCpfOa: loan.use_cpf_oa,
-          valuationLimit: loan.valuation_limit,
-        }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Failed to save")
-      }
-      toast.success("Loan updated")
-      onMutate()
-      router.refresh()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save")
-    } finally {
-      setSavingId(null)
-    }
-  }
 
   async function handleDelete(id: string) {
     try {
@@ -1917,6 +2012,39 @@ function LoansSection({
     }
     setEditing(map)
   }, [loans])
+
+  const loansDirty = useMemo(
+    () => loans.some((l) => loanRowDirty(editing[l.id] ?? l, l)),
+    [loans, editing]
+  )
+
+  const persistLoans = useCallback(async () => {
+    for (const l of loans) {
+      const e = editing[l.id] ?? l
+      if (!loanRowDirty(e, l)) continue
+      const res = await fetch(`/api/loans/${e.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: e.name,
+          type: e.type,
+          principal: e.principal,
+          ratePct: e.rate_pct,
+          tenureMonths: e.tenure_months,
+          startDate: e.start_date,
+          lender: e.lender,
+          useCpfOa: e.use_cpf_oa,
+          valuationLimit: e.valuation_limit,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error((data as { error?: string }).error ?? "Failed to save loan")
+      }
+    }
+  }, [loans, editing])
+
+  useUserSettingsSaveRegistration(`user-settings-loans-${profileId}`, loansDirty, persistLoans)
 
   if (loans.length === 0 && !adding) {
     return (
@@ -2150,14 +2278,9 @@ function LoansSection({
                   />
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(l.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" disabled={savingId === l.id} onClick={() => handleSave(e)}>
-                      {savingId === l.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                    </Button>
-                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => handleDelete(l.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
             )
@@ -2509,7 +2632,6 @@ function InsuranceSection({
   onMutate: () => void
 }) {
   const router = useRouter()
-  const [savingId, setSavingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [newPolicy, setNewPolicy] = useState<{
     name: string
@@ -2547,37 +2669,6 @@ function InsuranceSection({
 
   function setNewPolicyFrequency(frequency: "monthly" | "yearly") {
     setNewPolicy((prev) => ({ ...prev, frequency }))
-  }
-
-  async function handleSave(policy: (typeof policies)[0] & { current_amount?: number | null; end_date?: string | null }) {
-    setSavingId(policy.id)
-    try {
-      const res = await fetch(`/api/insurance/${policy.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: policy.name,
-          type: policy.type,
-          premiumAmount: policy.premium_amount,
-          frequency: policy.frequency,
-          coverageAmount: policy.coverage_amount ?? undefined,
-          yearlyOutflowDate: policy.yearly_outflow_date ?? undefined,
-          currentAmount: policy.current_amount ?? undefined,
-          endDate: policy.end_date ?? undefined,
-        }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Failed to save")
-      }
-      toast.success("Insurance policy updated")
-      onMutate()
-      router.refresh()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save")
-    } finally {
-      setSavingId(null)
-    }
   }
 
   async function handleDelete(id: string) {
@@ -2656,6 +2747,54 @@ function InsuranceSection({
     }
     setEditing(map)
   }, [policies])
+
+  const insuranceDirty = useMemo(
+    () =>
+      policies.some((p) =>
+        insuranceRowDirty(
+          editing[p.id] ?? {
+            ...p,
+            current_amount: (p as { current_amount?: number | null }).current_amount ?? null,
+            end_date: (p as { end_date?: string | null }).end_date ?? null,
+          },
+          p
+        )
+      ),
+    [policies, editing]
+  )
+
+  const persistInsurance = useCallback(async () => {
+    for (const p of policies) {
+      const e =
+        editing[p.id] ??
+        ({
+          ...p,
+          current_amount: (p as { current_amount?: number | null }).current_amount ?? null,
+          end_date: (p as { end_date?: string | null }).end_date ?? null,
+        } as (typeof policies)[0] & { current_amount?: number | null; end_date?: string | null })
+      if (!insuranceRowDirty(e, p)) continue
+      const res = await fetch(`/api/insurance/${e.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: e.name,
+          type: e.type,
+          premiumAmount: e.premium_amount,
+          frequency: e.frequency,
+          coverageAmount: e.coverage_amount ?? undefined,
+          yearlyOutflowDate: e.yearly_outflow_date ?? undefined,
+          currentAmount: e.current_amount ?? undefined,
+          endDate: e.end_date ?? undefined,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error((data as { error?: string }).error ?? "Failed to save insurance")
+      }
+    }
+  }, [policies, editing])
+
+  useUserSettingsSaveRegistration(`user-settings-insurance-${profileId}`, insuranceDirty, persistInsurance)
 
   if (policies.length === 0 && !adding) {
     return (
@@ -2942,14 +3081,9 @@ function InsuranceSection({
                   )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(p.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" disabled={savingId === p.id} onClick={() => handleSave(e)}>
-                      {savingId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                    </Button>
-                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => handleDelete(p.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
             )
@@ -3271,11 +3405,91 @@ export function FamilyMembersTable({
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [activeTab, setActiveTab] = useState(profiles[0]?.id ?? "add")
+  const [tabsResetKey, setTabsResetKey] = useState(0)
+  const saveCtx = useOptionalUserSettingsSave()
+  const hasUnsavedChanges = saveCtx?.aggregateDirty ?? false
+  const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false)
+  const pendingNavigationRef = useRef<
+    { type: "tab"; tab: string } | { type: "route"; href: string } | null
+  >(null)
+  const discardUnsavedInProgressRef = useRef(false)
 
   const [deleteState, deleteAction, isDeletePending] = useActionState(deleteFamily, {
     success: false,
     error: undefined,
   })
+
+  const confirmDiscardUnsaved = useCallback(() => {
+    discardUnsavedInProgressRef.current = true
+    const pending = pendingNavigationRef.current
+    pendingNavigationRef.current = null
+    setUnsavedDialogOpen(false)
+    if (pending?.type === "tab") {
+      setTabsResetKey((k) => k + 1)
+      setActiveTab(pending.tab)
+    } else if (pending?.type === "route") {
+      router.push(pending.href)
+    }
+    queueMicrotask(() => {
+      discardUnsavedInProgressRef.current = false
+    })
+  }, [router])
+
+  const handleTabChange = useCallback(
+    (next: string) => {
+      if (next === activeTab) return
+      if (!hasUnsavedChanges) {
+        setActiveTab(next)
+        return
+      }
+      pendingNavigationRef.current = { type: "tab", tab: next }
+      setUnsavedDialogOpen(true)
+    },
+    [activeTab, hasUnsavedChanges]
+  )
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", onBeforeUnload)
+    return () => window.removeEventListener("beforeunload", onBeforeUnload)
+  }, [hasUnsavedChanges])
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return
+    const handler = (e: MouseEvent) => {
+      if (e.button !== 0) return
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      const el = e.target
+      if (!(el instanceof Element)) return
+      const a = el.closest("a[href]")
+      if (!a) return
+      if (a.hasAttribute("download")) return
+      const href = a.getAttribute("href")
+      if (!href || href.startsWith("#")) return
+      if (href.startsWith("mailto:") || href.startsWith("tel:")) return
+      let url: URL
+      try {
+        url = new URL(href, window.location.origin)
+      } catch {
+        return
+      }
+      if (url.origin !== window.location.origin) return
+      const nextPath = `${url.pathname}${url.search}${url.hash}`
+      const here = `${window.location.pathname}${window.location.search}${window.location.hash}`
+      if (nextPath === here) return
+
+      e.preventDefault()
+      e.stopPropagation()
+      pendingNavigationRef.current = { type: "route", href: nextPath }
+      setUnsavedDialogOpen(true)
+    }
+    document.addEventListener("click", handler, true)
+    return () => document.removeEventListener("click", handler, true)
+  }, [hasUnsavedChanges])
 
   useEffect(() => {
     if (profiles.length > 0 && !profiles.some((p) => p.id === activeTab)) {
@@ -3295,7 +3509,7 @@ export function FamilyMembersTable({
     }
   }, [deleteState, router])
 
-  const handleMutate = () => router.refresh()
+  const handleMutate = useCallback(() => router.refresh(), [router])
   const canDeleteFamily = familyCount > 1
 
   return (
@@ -3367,7 +3581,7 @@ export function FamilyMembersTable({
         </div>
       </CardHeader>
       <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <div className="min-w-0 max-w-full overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
             <TabsList className="inline-flex h-9 w-fit flex-nowrap">
               {profiles.map((p) => (
@@ -3386,7 +3600,12 @@ export function FamilyMembersTable({
             const cpfData = financialData.cpfBalances.find((c) => c.profile_id === p.id)
 
             return (
-              <TabsContent key={p.id} value={p.id} className="mt-4 space-y-2">
+              <TabsContent
+                key={`${p.id}-${tabsResetKey}`}
+                value={p.id}
+                forceMount
+                className="mt-4 space-y-2"
+              >
                 <MonthlyLogSection
                   profileId={p.id}
                   profileName={p.name}
@@ -3408,12 +3627,7 @@ export function FamilyMembersTable({
                   familyId={family.id}
                   onMutate={handleMutate}
                 />
-                <CPFSection
-                  profileId={p.id}
-                  cpfData={cpfData}
-                  familyId={family.id}
-                  onMutate={handleMutate}
-                />
+                <CPFSection profileId={p.id} cpfData={cpfData} familyId={family.id} />
                 <InvestmentsSection
                   investments={profileInvestments}
                   profileId={p.id}
@@ -3427,6 +3641,29 @@ export function FamilyMembersTable({
             )
           })}
         </Tabs>
+
+        <AlertDialog
+          open={unsavedDialogOpen}
+          onOpenChange={(open) => {
+            setUnsavedDialogOpen(open)
+            if (!open && !discardUnsavedInProgressRef.current) {
+              pendingNavigationRef.current = null
+            }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Unsaved changes</AlertDialogTitle>
+              <AlertDialogDescription>
+                You have unsaved changes on this page. If you leave now, those edits will be lost.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Stay</AlertDialogCancel>
+              <AlertDialogAction onClick={() => confirmDiscardUnsaved()}>Discard changes</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {profiles.length === 0 && (
           <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">

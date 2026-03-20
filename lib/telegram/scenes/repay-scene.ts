@@ -2,14 +2,14 @@ import { Scenes } from "telegraf"
 import { format } from "date-fns"
 
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-import { MyContext } from "@/lib/telegram/bot"
+import { botState, MyContext } from "@/lib/telegram/bot"
 
 export const repayScene = new Scenes.WizardScene<MyContext>(
   "repay_wizard",
   async (ctx) => {
     // Step 1: Initialize and ask for loan
-    const accountId = (ctx.state as any).accountId as string
-    const isEarlyRepayment = (ctx.state as any).isEarlyRepayment as boolean
+    const accountId = botState(ctx).accountId as string
+    const isEarlyRepayment = botState(ctx).isEarlyRepayment as boolean
     
     if (!accountId) {
       await ctx.reply("❌ Session error: Missing account ID.")

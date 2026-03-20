@@ -74,7 +74,6 @@ interface TaxBracketLadderProps {
 
 export function TaxBracketLadder({
   chargeableIncome,
-  bracketAllocation: _bracketAllocation,
   marginalRate,
   marginalBandFrom,
   marginalBandTo,
@@ -213,29 +212,6 @@ export function TaxBracketLadder({
         </p>
         <InfoTooltip id="TAX_PROGRESSIVE_BRACKETS" />
       </div>
-      <p className="text-xs text-muted-foreground">
-        The bar is Singapore resident progressive tax bands from $0 to{" "}
-        <span className="font-medium tabular-nums text-foreground">
-          ${formatCurrency(axisMax)}
-        </span>{" "}
-        chargeable income (each slice width matches IRAS bracket range on that
-        scale). Band colours run on a linear scale from cool (low %) to warm
-        (high %). Solid fill is{" "}
-        <span className="font-medium text-foreground">{barOwner}</span>
-        &apos;s income in that band; lighter fill is the rest of that bracket
-        width on the scale.
-        {showReliefPreview ? (
-          <>
-            {" "}
-            <span className="font-medium text-foreground">3px preview bars</span>
-            , and a <span className="font-medium text-foreground">dotted link</span>{" "}
-            from your <span className="font-medium text-foreground">current</span>{" "}
-            marker (marginal dot, or your chargeable dot in a multi-member view) to
-            preview chargeable. The solid white marginal dot does not move with
-            preview (not saved).
-          </>
-        ) : null}
-      </p>
       <div className="relative h-10 w-full rounded-lg ring-1 ring-border">
         <div className="flex h-full w-full overflow-hidden rounded-[inherit]">
           {layers.map((layer, i) => {
@@ -421,29 +397,6 @@ export function TaxBracketLadder({
           </Tooltip>
         ))}
       </div>
-      {showMarginalPositionMarker && ci > 0 && (
-        <p className="text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Solid white dot: </span>
-          current top marginal band start (does not move with relief preview;
-          hover for details).
-        </p>
-      )}
-      {showHouseholdDots && (
-        <p className="text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">White dots: </span>
-          each member&apos;s chargeable income on the same $0–
-          {formatCurrency(axisMax)} scale (hover).
-        </p>
-      )}
-      {showReliefPreview ? (
-        <p className="text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Dotted horizontal line: </span>
-          from current marginal or your chargeable dot to preview chargeable.{" "}
-          <span className="font-medium text-foreground">Preview bars: </span>
-          3px lines at preview chargeable and (if different) preview marginal
-          band start — hover for amounts.
-        </p>
-      ) : null}
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
         {bracketRatesSorted.map((r) => (
           <span key={r} className="inline-flex items-center gap-1.5">
@@ -458,28 +411,6 @@ export function TaxBracketLadder({
             %
           </span>
         ))}
-      </div>
-      <div className="rounded-lg bg-muted/40 px-3 py-2 text-sm">
-        <span className="text-muted-foreground">Top marginal rate: </span>
-        <span className="font-semibold tabular-nums text-foreground">
-          {(marginalRate * 100).toLocaleString(undefined, {
-            maximumFractionDigits: 2,
-          })}
-          %
-        </span>
-        <span className="text-muted-foreground"> on income above </span>
-        <span className="font-medium tabular-nums text-foreground">
-          ${formatCurrency(marginalBandFrom)}
-        </span>
-        {marginalBandTo != null && (
-          <>
-            <span className="text-muted-foreground"> up to </span>
-            <span className="font-medium tabular-nums text-foreground">
-              ${formatCurrency(marginalBandTo)}
-            </span>
-          </>
-        )}
-        .
       </div>
     </div>
   )

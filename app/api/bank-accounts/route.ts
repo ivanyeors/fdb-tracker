@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     if (!resolved) {
       return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
-    const { familyId, profileIds } = resolved
+    const { familyId } = resolved
     const profileId = parsed.data.profileId ?? null
 
     let query = supabase

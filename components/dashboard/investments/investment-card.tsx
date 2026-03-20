@@ -26,6 +26,10 @@ interface InvestmentCardProps {
   trend: number
   monthlyData: MonthlyData[]
   dailyData?: DailyData[]
+  /** Brokerage cash + live-priced holdings (SGD); excludes ILP fund values. */
+  netLiquidValue?: number
+  /** Sum of latest ILP fund values (as stored). */
+  ilpFundTotal?: number
   loading?: boolean
 }
 
@@ -94,6 +98,8 @@ export function InvestmentCard({
   trend,
   monthlyData,
   dailyData,
+  netLiquidValue,
+  ilpFundTotal,
   loading = false,
 }: InvestmentCardProps) {
   const chartData = useMemo(() => {
@@ -124,10 +130,17 @@ export function InvestmentCard({
     <Card>
       <CardContent>
         <div className="flex flex-1 flex-col">
-          <p className="text-sm text-muted-foreground">Investments</p>
+          <p className="text-sm text-muted-foreground">Total investments</p>
           <p className="mt-1 text-2xl font-bold tracking-tight">
             ${formatCurrency(totalValue)}
           </p>
+          {netLiquidValue != null && ilpFundTotal != null && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              NLV ${formatCurrency(netLiquidValue)}
+              <span className="mx-1">·</span>
+              ILP ${formatCurrency(ilpFundTotal)}
+            </p>
+          )}
           {trend !== 0 && (
             <div className="mt-1 flex items-center gap-1 text-sm">
               {trend >= 0 ? (
@@ -144,7 +157,7 @@ export function InvestmentCard({
                 {trend >= 0 ? "+" : ""}
                 {trend.toFixed(1)}%
               </span>
-              <span className="text-muted-foreground">vs last month</span>
+              <span className="text-muted-foreground">vs prior month</span>
             </div>
           )}
           {chartData.length > 0 && (

@@ -13,6 +13,7 @@ import {
 import { useOnboarding, pathWithMode } from "@/components/onboarding/onboarding-provider"
 import { cn } from "@/lib/utils"
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 const COUNTS = [1, 2, 3, 4, 5, 6] as const
 
@@ -34,9 +35,12 @@ export default function UsersPage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
       if (data.familyId) setFamilyId(data.familyId)
+      toast.success("Saved")
       router.push(pathWithMode("/onboarding/profiles", mode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { addDays } from "date-fns"
 import { ChevronDown, ChevronUp } from "lucide-react"
 import { type DateRange } from "react-day-picker"
+import Image from "next/image"
 
 export interface JournalEntry {
   id: string
@@ -153,10 +154,13 @@ export function JournalList({ entries }: JournalListProps) {
                     </p>
                   )}
                   {entry.screenshotUrl && (
-                    <img
+                    <Image
                       src={entry.screenshotUrl}
                       alt={`${entry.symbol} screenshot`}
-                      className="h-48 rounded-md border object-cover"
+                      width={800}
+                      height={600}
+                      unoptimized
+                      className="h-48 w-auto max-w-full rounded-md border object-cover"
                     />
                   )}
                 </div>

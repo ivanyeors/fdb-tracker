@@ -87,3 +87,42 @@ export async function PATCH(
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get(COOKIE_NAME)?.value
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const session = await validateSession(token)
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const { accountId } = session
+
+    const body = await request.json().catch(() => ({}))
+    const familyId =
+      typeof body === "object" &&
+      body !== null &&
+      "familyId" in body &&
+      typeof (body as { familyId?: unknown }).familyId === "string"
+        ? (body as { familyId: string }).familyId
+        : undefined
+
+    const { id } = await params
+    const supabase = createSupabaseAdmin()
+
+    const product = await verifyIlpOwnership(supabase, accountId, id, familyId)
+    if (!product) {
+      return NextResponse.json({ error: "ILP product not found" }, { status: 404 })
+    }
+
+    const { error } = await supabase.from("ilp_products").delete().eq("id", id)
+    if (error) {
+      return NextResponse.json({ error: "Failed to delete ILP product" }, { status: 500 })
+    }
+    return new NextResponse(null, { status: 204 })
+  } catch {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}

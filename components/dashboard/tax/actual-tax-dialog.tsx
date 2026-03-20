@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { CurrencyInput } from "@/components/ui/currency-input"
 import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 interface ActualTaxDialogProps {
   open: boolean
@@ -55,10 +56,13 @@ export function ActualTaxDialog({
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error ?? "Failed to save")
+      toast.success("Actual tax amount saved")
       onSuccess()
       onOpenChange(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }

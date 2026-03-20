@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { Scenes, session } from "telegraf"
 
-import { getBot, MyContext } from "@/lib/telegram/bot"
+import { botState, getBot, MyContext } from "@/lib/telegram/bot"
 import { generateAndStoreOtp } from "@/lib/auth/otp"
 import {
   resolveHouseholdId,
@@ -85,7 +85,7 @@ async function handleOtpCommand(ctx: MyContext): Promise<void> {
       return
     }
 
-    ;(ctx.state as any).otpChatId = String(chat.id)
+    botState(ctx).otpChatId = String(chat.id)
     await ctx.scene.enter("otp_wizard")
   } catch (err) {
     console.error("[telegram/otp] OTP error:", err)
@@ -152,13 +152,13 @@ function ensureHandlers() {
     }
 
     if (parsed.command === "auth") {
-      ;(ctx.state as any).linkApiKeyOrToken = undefined
+      botState(ctx).linkApiKeyOrToken = undefined
       await ctx.scene.enter("auth_wizard")
       return
     }
 
     if (parsed.command === "link") {
-      ;(ctx.state as any).linkApiKeyOrToken = undefined
+      botState(ctx).linkApiKeyOrToken = undefined
       await ctx.scene.enter("link_api_wizard")
       return
     }
@@ -178,53 +178,53 @@ function ensureHandlers() {
     }
 
     if (parsed.command === "in") {
-      ;(ctx.state as any).accountId = accountId
+      botState(ctx).accountId = accountId
       await ctx.scene.enter("inflow_wizard")
       return
     }
 
     if (parsed.command === "out") {
-      ;(ctx.state as any).accountId = accountId
+      botState(ctx).accountId = accountId
       await ctx.scene.enter("outflow_wizard")
       return
     }
 
     if (parsed.command === "buy") {
-      ;(ctx.state as any).accountId = accountId
-      ;(ctx.state as any).type = "buy"
+      botState(ctx).accountId = accountId
+      botState(ctx).type = "buy"
       await ctx.scene.enter("buy_sell_wizard")
       return
     }
     
     if (parsed.command === "sell") {
-      ;(ctx.state as any).accountId = accountId
-      ;(ctx.state as any).type = "sell"
+      botState(ctx).accountId = accountId
+      botState(ctx).type = "sell"
       await ctx.scene.enter("buy_sell_wizard")
       return
     }
 
     if (parsed.command === "ilp") {
-      ;(ctx.state as any).accountId = accountId
+      botState(ctx).accountId = accountId
       await ctx.scene.enter("ilp_wizard")
       return
     }
 
     if (parsed.command === "goaladd") {
-      ;(ctx.state as any).accountId = accountId
+      botState(ctx).accountId = accountId
       await ctx.scene.enter("goaladd_wizard")
       return
     }
 
     if (parsed.command === "repay") {
-      ;(ctx.state as any).accountId = accountId
-      ;(ctx.state as any).isEarlyRepayment = false
+      botState(ctx).accountId = accountId
+      botState(ctx).isEarlyRepayment = false
       await ctx.scene.enter("repay_wizard")
       return
     }
 
     if (parsed.command === "earlyrepay") {
-      ;(ctx.state as any).accountId = accountId
-      ;(ctx.state as any).isEarlyRepayment = true
+      botState(ctx).accountId = accountId
+      botState(ctx).isEarlyRepayment = true
       await ctx.scene.enter("repay_wizard")
       return
     }
@@ -244,9 +244,10 @@ function ensureHandlers() {
         fileId = photos[photos.length - 1].file_id
       }
       
-      ;(ctx.state as any).accountId = accountId
-      if (fileId) { (ctx.state as any).fileId = fileId }
-      if (parsed.rest.trim()) { (ctx.state as any).symbol = parsed.rest.trim().toUpperCase() }
+      const st = botState(ctx)
+      st.accountId = accountId
+      if (fileId) st.fileId = fileId
+      if (parsed.rest.trim()) st.symbol = parsed.rest.trim().toUpperCase()
       
       await ctx.scene.enter("stockimg_wizard")
       return
@@ -283,13 +284,13 @@ function ensureHandlers() {
     }
 
     if (parsed.command === "auth") {
-      ;(ctx.state as any).linkApiKeyOrToken = undefined
+      botState(ctx).linkApiKeyOrToken = undefined
       await ctx.scene.enter("auth_wizard")
       return
     }
 
     if (parsed.command === "link") {
-      ;(ctx.state as any).linkApiKeyOrToken = undefined
+      botState(ctx).linkApiKeyOrToken = undefined
       await ctx.scene.enter("link_api_wizard")
       return
     }

@@ -34,6 +34,7 @@ Example: Adding a new component → invoke shadcn MCP `add_component` or equival
 - **Components:** `components/ui/` for shadcn; `components/` for app-specific
 - **Layout:** Side nav + main content; tabs for Combined | Person A | Person B
 - **Theme:** next-themes (light/dark); Geist Mono + DM Sans fonts
+- **Action feedback:** After user-triggered saves, deletes, and API submits, use Sonner (`toast.success` / `toast.error` from `sonner`). The root layout (`app/layout.tsx`) must render `<Toaster />` from `@/components/ui/sonner` inside `ThemeProvider` so toasts respect light/dark mode.
 
 ## Page Pattern
 

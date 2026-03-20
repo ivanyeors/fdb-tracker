@@ -22,6 +22,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { formatCurrency } from "@/lib/utils"
 import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 interface MonthlyTaxDialogProps {
   open: boolean
@@ -72,10 +73,13 @@ export function MonthlyTaxDialog({
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error ?? "Failed to save")
+      toast.success("Monthly tax instalment applied")
       onSuccess()
       onOpenChange(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }

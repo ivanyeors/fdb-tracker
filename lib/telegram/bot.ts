@@ -13,7 +13,25 @@ export interface MySessionData extends Scenes.WizardSessionData {
   loanId?: string
   isEarlyRepayment?: boolean
   fileId?: string
+  apiKeyId?: string
+  householdId?: string
+  expecting?: string
   // Add other generic wizard session fields here
+}
+
+/** Ephemeral keys on ctx.state (set before entering a scene). Telegraf types state as Record<string | symbol, any>. */
+export interface BotWebhookState {
+  otpChatId?: string
+  linkApiKeyOrToken?: string | undefined
+  accountId?: string
+  type?: "buy" | "sell"
+  isEarlyRepayment?: boolean
+  fileId?: string
+  symbol?: string
+}
+
+export function botState(ctx: MyContext): BotWebhookState {
+  return ctx.state as BotWebhookState
 }
 
 export interface MyContext extends Context {

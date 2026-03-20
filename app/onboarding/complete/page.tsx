@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card"
 import { useOnboarding } from "@/components/onboarding/onboarding-provider"
 import { CheckCircle2, ArrowRight, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 export default function CompletePage() {
   const router = useRouter()
@@ -64,9 +65,12 @@ export default function CompletePage() {
           data.message ?? data.error ?? "Failed to complete onboarding"
         throw new Error(msg)
       }
+      toast.success("Onboarding complete")
       router.push("/dashboard")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const message = err instanceof Error ? err.message : "Something went wrong"
+      setError(message)
+      toast.error(message)
       setIsLoading(false)
     }
   }

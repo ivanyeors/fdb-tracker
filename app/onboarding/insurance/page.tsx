@@ -27,6 +27,7 @@ import {
 } from "@/components/onboarding/onboarding-provider"
 import { getFieldsForInsurancePolicyRow } from "@/lib/insurance/coverage-config"
 import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 const INSURANCE_TYPES = [
   { value: "term_life", label: "Term Life" },
@@ -135,9 +136,14 @@ export default function InsurancePage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      toast.success(
+        policyList.length > 0 ? "Insurance saved" : "Insurance skipped",
+      )
       router.push(pathWithMode("/onboarding/tax-reliefs", mode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }

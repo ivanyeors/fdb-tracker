@@ -96,7 +96,9 @@ export async function GET(request: NextRequest) {
       .select("units, cost_basis")
       .eq("family_id", fid)
     if (pid) {
-      investmentQuery = investmentQuery.eq("profile_id", pid)
+      investmentQuery = investmentQuery.or(
+        `profile_id.eq.${pid},profile_id.is.null`,
+      )
     }
     const { data: investments } = await investmentQuery
     const holdingsTotal =

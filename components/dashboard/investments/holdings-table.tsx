@@ -18,10 +18,10 @@ export interface Holding {
   type: string
   units: number
   costBasis: number
-  currentPrice: number
-  currentValue: number
-  pnl: number
-  pnlPct: number
+  currentPrice: number | null
+  currentValue: number | null
+  pnl: number | null
+  pnlPct: number | null
   portfolioPct: number
   createdAt?: string
 }
@@ -54,16 +54,21 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
   }
 
   const sorted = [...holdings].sort((a, b) => {
-    const av = a[sortKey]
-    const bv = b[sortKey]
-    if (typeof av === "string" && typeof bv === "string") {
+    if (sortKey === "symbol" || sortKey === "type") {
+      const av = a[sortKey]
+      const bv = b[sortKey]
       return sortDir === "asc"
         ? av.localeCompare(bv)
         : bv.localeCompare(av)
     }
-    return sortDir === "asc"
-      ? (av as number) - (bv as number)
-      : (bv as number) - (av as number)
+    const av = a[sortKey] as number | null
+    const bv = b[sortKey] as number | null
+    const nullLast = (n: number | null) =>
+      n ??
+      (sortDir === "asc" ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY)
+    const aOrd = nullLast(av)
+    const bOrd = nullLast(bv)
+    return sortDir === "asc" ? aOrd - bOrd : bOrd - aOrd
   })
 
   const columns: { key: SortKey; label: string }[] = [
@@ -105,40 +110,52 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
       </TableHeader>
       <TableBody>
         {sorted.map((h) => (
-          <TableRow key={h.symbol}>
+          <TableRow key={h.createdAt ? `${h.symbol}-${h.createdAt}` : h.symbol}>
             <TableCell className="font-semibold">{h.symbol}</TableCell>
             <TableCell>
               <Badge variant="secondary">{h.type.toUpperCase()}</Badge>
             </TableCell>
             <TableCell>{fmt(h.units)}</TableCell>
             <TableCell>${fmt(h.costBasis)}</TableCell>
-            <TableCell>${fmt(h.currentValue)}</TableCell>
             <TableCell>
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1",
-                  h.pnl >= 0 ? "text-emerald-500" : "text-red-500",
-                )}
-              >
-                {h.pnl >= 0 ? (
-                  <ArrowUp className="size-3" />
-                ) : (
-                  <ArrowDown className="size-3" />
-                )}
-                ${fmt(Math.abs(h.pnl))}
-              </span>
+              {h.currentValue == null ? "—" : `$${fmt(h.currentValue)}`}
             </TableCell>
             <TableCell>
-              <span
-                className={cn(
-                  h.pnlPct >= 0 ? "text-emerald-500" : "text-red-500",
-                )}
-              >
-                {h.pnlPct >= 0 ? "+" : ""}
-                {fmt(h.pnlPct)}%
-              </span>
+              {h.pnl == null ? (
+                "—"
+              ) : (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1",
+                    h.pnl >= 0 ? "text-emerald-500" : "text-red-500",
+                  )}
+                >
+                  {h.pnl >= 0 ? (
+                    <ArrowUp className="size-3" />
+                  ) : (
+                    <ArrowDown className="size-3" />
+                  )}
+                  ${fmt(Math.abs(h.pnl))}
+                </span>
+              )}
             </TableCell>
-            <TableCell>{fmt(h.portfolioPct)}%</TableCell>
+            <TableCell>
+              {h.pnlPct == null ? (
+                "—"
+              ) : (
+                <span
+                  className={cn(
+                    h.pnlPct >= 0 ? "text-emerald-500" : "text-red-500",
+                  )}
+                >
+                  {h.pnlPct >= 0 ? "+" : ""}
+                  {fmt(h.pnlPct)}%
+                </span>
+              )}
+            </TableCell>
+            <TableCell>
+              {h.currentValue == null ? "—" : `${fmt(h.portfolioPct)}%`}
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>

@@ -10,6 +10,7 @@ const createEntrySchema = z.object({
   familyId: z.string().uuid().optional(),
   month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   fundValue: z.number().min(0),
+  premiumsPaid: z.number().min(0).nullable().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -21,14 +22,18 @@ export async function POST(request: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { accountId } = session
 
-    const body = await request.json()
-    const parsed = createEntrySchema.safeParse(body)
+    const bodyRaw = await request.json()
+    if (!bodyRaw || typeof bodyRaw !== "object") {
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 })
+    }
+    const premiumsPaidProvided = "premiumsPaid" in bodyRaw
+    const parsed = createEntrySchema.safeParse(bodyRaw)
 
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { productId, familyId, month, fundValue } = parsed.data
+    const { productId, familyId, month, fundValue, premiumsPaid } = parsed.data
     const supabase = createSupabaseAdmin()
     const resolved = await resolveFamilyAndProfiles(
       supabase,
@@ -51,16 +56,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "ILP product not found" }, { status: 404 })
     }
 
+    const upsertRow: {
+      product_id: string
+      month: string
+      fund_value: number
+      premiums_paid?: number | null
+    } = {
+      product_id: productId,
+      month,
+      fund_value: fundValue,
+    }
+    if (premiumsPaidProvided) {
+      upsertRow.premiums_paid = premiumsPaid ?? null
+    }
+
     const { data, error } = await supabase
       .from("ilp_entries")
-      .upsert(
-        {
-          product_id: productId,
-          month,
-          fund_value: fundValue,
-        },
-        { onConflict: "product_id,month" },
-      )
+      .upsert(upsertRow, { onConflict: "product_id,month" })
       .select()
       .single()
 

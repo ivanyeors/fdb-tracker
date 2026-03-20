@@ -1,15 +1,15 @@
 import { Scenes } from "telegraf"
 
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-import { MyContext } from "@/lib/telegram/bot"
+import { botState, MyContext } from "@/lib/telegram/bot"
 import { calculateWeightedAverageCost } from "@/lib/calculations/investments"
 
 export const buySellScene = new Scenes.WizardScene<MyContext>(
   "buy_sell_wizard",
   async (ctx) => {
     // Step 1: Initialize and ask for profile
-    const accountId = (ctx.state as any).accountId as string
-    const type = (ctx.state as any).type as "buy" | "sell"
+    const accountId = botState(ctx).accountId as string
+    const type = botState(ctx).type as "buy" | "sell"
     
     if (!accountId || !type) {
       await ctx.reply("❌ Session error: Missing account ID or type.")

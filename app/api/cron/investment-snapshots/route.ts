@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { getMultipleStockPrices } from "@/lib/external/fmp"
 import { getOcbcPreciousMetalPrices } from "@/lib/external/precious-metals"
-import { computeInvestmentTotal } from "@/lib/api/investment-total"
+import { computeTotalInvestmentsValue } from "@/lib/api/net-liquid"
 
 export async function GET(request: NextRequest) {
   try {
@@ -50,18 +50,9 @@ export async function GET(request: NextRequest) {
     const metalsPrices =
       metalTypes.length > 0 ? await getOcbcPreciousMetalPrices() : []
 
-    const stockPricesMap = stockPrices.map((p) => ({
-      ticker: p.ticker,
-      price: p.price,
-    }))
-    const metalsPricesMap = metalsPrices.map((p) => ({
-      metalType: p.metalType,
-      sellPriceSgd: p.sellPriceSgd,
-    }))
-
     const sharedPrices = {
-      stockPrices: stockPricesMap,
-      metalsPrices: metalsPricesMap,
+      stockPrices,
+      metalsPrices,
     }
 
     let snapshotsCreated = 0
@@ -78,15 +69,14 @@ export async function GET(request: NextRequest) {
       ]
 
       for (const { profileId } of targets) {
-        const totalValue = await computeInvestmentTotal(
-          supabase,
-          family.id,
-          profileId,
-          {
-            ...sharedPrices,
-            ilpMonthFilter: null,
-          },
-        )
+        const { investmentTotal: totalValue } =
+          await computeTotalInvestmentsValue(
+            supabase,
+            family.id,
+            profileId,
+            null,
+            sharedPrices,
+          )
 
         const { error } = await supabase
           .from("investment_snapshots")

@@ -28,6 +28,7 @@ import {
   type OnboardingLoan,
 } from "@/components/onboarding/onboarding-provider"
 import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 const LOAN_TYPES = [
   { value: "housing", label: "Housing" },
@@ -116,9 +117,14 @@ export default function LoansPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      toast.success(
+        loanList.length > 0 ? "Loans saved" : "Loans skipped",
+      )
       router.push(pathWithMode("/onboarding/insurance", mode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }

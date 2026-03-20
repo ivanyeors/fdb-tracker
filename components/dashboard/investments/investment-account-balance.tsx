@@ -16,6 +16,8 @@ interface InvestmentAccountBalanceProps {
 export function InvestmentAccountBalance({ onSuccess }: InvestmentAccountBalanceProps) {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [inputValue, setInputValue] = useState<number | null>(null)
+  /** Row exists in DB; first submit creates the row, later submits update cash_balance. */
+  const [hasAccountRow, setHasAccountRow] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -35,6 +37,7 @@ export function InvestmentAccountBalance({ onSuccess }: InvestmentAccountBalance
         if (res.ok) {
           const json = await res.json()
           setInputValue(json.cashBalance ?? 0)
+          setHasAccountRow(json.id != null)
         }
       } catch {
         toast.error("Failed to load cash balance")
@@ -67,7 +70,9 @@ export function InvestmentAccountBalance({ onSuccess }: InvestmentAccountBalance
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error ?? "Failed to update balance")
       }
-      toast.success("Cash balance updated")
+      const saved = await res.json()
+      if (saved?.id) setHasAccountRow(true)
+      toast.success(hasAccountRow ? "Cash balance updated" : "Cash balance saved")
       onSuccess?.()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong")
@@ -80,9 +85,11 @@ export function InvestmentAccountBalance({ onSuccess }: InvestmentAccountBalance
 
   return (
     <div className="rounded-xl border p-4">
-      <h3 className="mb-4 text-sm font-medium">Investment Account Cash</h3>
+      <h3 className="mb-4 text-sm font-medium">Investment account cash (SGD)</h3>
       <p className="mb-3 text-xs text-muted-foreground">
-        Uninvested cash in your brokerage. Buy deducts from this; sell adds to it.
+        Uninvested cash in your brokerage in Singapore dollars (negative balances
+        allowed, e.g. GIRO). Buy deducts from this; sell adds to it. US-listed
+        holdings are converted to SGD using a live FX rate elsewhere.
       </p>
       {isLoading ? (
         <div className="flex flex-wrap items-end gap-3">
@@ -95,7 +102,7 @@ export function InvestmentAccountBalance({ onSuccess }: InvestmentAccountBalance
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
           <div className="min-w-[140px] flex-1 space-y-1.5">
-            <Label htmlFor="cash-balance">Cash balance ($)</Label>
+            <Label htmlFor="cash-balance">Cash balance (SGD)</Label>
             <CurrencyInput
               id="cash-balance"
               placeholder="0.00"
@@ -110,8 +117,10 @@ export function InvestmentAccountBalance({ onSuccess }: InvestmentAccountBalance
                 <Loader2 className="mr-2 size-4 animate-spin" />
                 Saving...
               </>
+            ) : hasAccountRow ? (
+              "Edit balance"
             ) : (
-              "Set Balance"
+              "Set balance"
             )}
           </Button>
         </form>

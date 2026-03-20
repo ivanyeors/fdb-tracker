@@ -22,6 +22,10 @@ import { AddMetalForm } from "@/components/dashboard/investments/add-metal-form"
 import { InvestmentValueChart } from "@/components/dashboard/investments/investment-value-chart"
 import { ChartSkeleton } from "@/components/loading"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import {
+  currentMonthYm,
+  ilpEntryMonthKey,
+} from "@/lib/investments/ilp-chart"
 
 type IlpProductWithEntries = {
   id: string
@@ -29,8 +33,12 @@ type IlpProductWithEntries = {
   monthly_premium: number
   end_date: string
   created_at: string
-  latestEntry: { fund_value: number; month: string } | null
-  entries: { month: string; fund_value: number }[]
+  latestEntry: {
+    fund_value: number
+    month: string
+    premiums_paid?: number | null
+  } | null
+  entries: { month: string; fund_value: number; premiums_paid?: number | null }[]
 }
 
 function mapToCategoryLabel(type: string): string {
@@ -57,6 +65,14 @@ function mapToMarketLabel(symbol: string, type: string): string {
   if (sgxTickers.some((t) => upper.startsWith(t) || upper.includes(t)))
     return "SGX"
   return "US"
+}
+
+/** One donut slice per ticker / metal type (merged if duplicate symbols). */
+function holdingDonutLabel(symbol: string, type: string): string {
+  if (type === "gold" || type === "silver") return mapToCategoryLabel(type)
+  const s = symbol.trim()
+  if (s.length > 0) return s.toUpperCase()
+  return mapToCategoryLabel(type)
 }
 
 export default function InvestmentsDetailPage() {
@@ -95,23 +111,41 @@ export default function InvestmentsDetailPage() {
             type: string
             units: number
             cost_basis: number
-            marketValue?: number
-            currentPrice?: number
-            unrealisedPnL?: number
-            unrealisedPnLPct?: number
+            marketValue?: number | null
+            currentPrice?: number | null
+            unrealisedPnL?: number | null
+            unrealisedPnLPct?: number | null
+            pricingSource?: "live" | "none"
             created_at: string
           }) => {
-            const val = inv.marketValue ?? inv.units * inv.cost_basis
-            totalPortfolioValue += val
+            const mv = inv.marketValue
+            const hasLive =
+              inv.pricingSource === "live" &&
+              mv != null &&
+              Number.isFinite(mv) &&
+              mv > 0
+            const cp =
+              inv.currentPrice != null &&
+              Number.isFinite(inv.currentPrice) &&
+              inv.currentPrice > 0
+                ? inv.currentPrice
+                : null
+            if (hasLive) totalPortfolioValue += mv
             return {
               symbol: inv.symbol,
               type: inv.type,
               units: inv.units,
               costBasis: inv.cost_basis * inv.units,
-              currentPrice: inv.currentPrice ?? inv.cost_basis,
-              currentValue: val,
-              pnl: inv.unrealisedPnL ?? 0,
-              pnlPct: inv.unrealisedPnLPct ?? 0,
+              currentPrice: cp,
+              currentValue: hasLive ? mv : null,
+              pnl:
+                hasLive && inv.unrealisedPnL != null
+                  ? inv.unrealisedPnL
+                  : null,
+              pnlPct:
+                hasLive && inv.unrealisedPnLPct != null
+                  ? inv.unrealisedPnLPct
+                  : null,
               portfolioPct: 0,
               createdAt: inv.created_at,
             }
@@ -120,7 +154,7 @@ export default function InvestmentsDetailPage() {
         const finalHoldings = mapped.map((h) => ({
           ...h,
           portfolioPct:
-            totalPortfolioValue > 0
+            totalPortfolioValue > 0 && h.currentValue != null
               ? (h.currentValue / totalPortfolioValue) * 100
               : 0,
         }))
@@ -135,8 +169,12 @@ export default function InvestmentsDetailPage() {
             name: string
             monthly_premium: number
             end_date: string
-            latestEntry: { fund_value: number; month: string } | null
-            entries?: { month: string; fund_value: number }[]
+            latestEntry: {
+              fund_value: number
+              month: string
+              premiums_paid?: number | null
+            } | null
+            entries?: { month: string; fund_value: number; premiums_paid?: number | null }[]
           }) => ({
             ...p,
             entries: p.entries ?? [],
@@ -173,7 +211,8 @@ export default function InvestmentsDetailPage() {
   }, [fetchData])
 
   const totalValue = useMemo(
-    () => holdings.reduce((sum, h) => sum + h.currentValue, 0),
+    () =>
+      holdings.reduce((sum, h) => sum + (h.currentValue ?? 0), 0),
     [holdings],
   )
 
@@ -181,7 +220,10 @@ export default function InvestmentsDetailPage() {
     const grouped = new Map<string, number>()
     holdings.forEach((h) => {
       const label = mapToCategoryLabel(h.type)
-      grouped.set(label, (grouped.get(label) || 0) + h.currentValue)
+      grouped.set(
+        label,
+        (grouped.get(label) || 0) + (h.currentValue ?? 0),
+      )
     })
     return Array.from(grouped.entries())
       .map(([name, value]) => ({
@@ -192,12 +234,15 @@ export default function InvestmentsDetailPage() {
       .sort((a, b) => b.value - a.value)
   }, [holdings, totalValue])
 
-  /** Market breakdown from brokerage holdings only (no ilp_products fund value). */
-  const allocationByMarketHoldingsOnly = useMemo(() => {
+  /** Hero donut: one slice per symbol (or Gold/Silver by metal type). */
+  const allocationByHolding = useMemo(() => {
     const grouped = new Map<string, number>()
     holdings.forEach((h) => {
-      const label = mapToMarketLabel(h.symbol, h.type)
-      grouped.set(label, (grouped.get(label) || 0) + h.currentValue)
+      const label = holdingDonutLabel(h.symbol, h.type)
+      grouped.set(
+        label,
+        (grouped.get(label) || 0) + (h.currentValue ?? 0),
+      )
     })
     return Array.from(grouped.entries())
       .filter(([, value]) => value > 0)
@@ -213,7 +258,10 @@ export default function InvestmentsDetailPage() {
     const grouped = new Map<string, number>()
     holdings.forEach((h) => {
       const label = mapToMarketLabel(h.symbol, h.type)
-      grouped.set(label, (grouped.get(label) || 0) + h.currentValue)
+      grouped.set(
+        label,
+        (grouped.get(label) || 0) + (h.currentValue ?? 0),
+      )
     })
     ilpProducts.forEach((p) => {
       const fundVal = p.latestEntry?.fund_value ?? 0
@@ -259,7 +307,8 @@ export default function InvestmentsDetailPage() {
       const priceData = metalsPrices.find(
         (m) => m.metalType.toLowerCase() === h.type.toLowerCase(),
       )
-      const sellPrice = priceData?.sellPriceSgd ?? h.currentPrice
+      const sellPrice =
+        priceData?.sellPriceSgd ?? h.currentPrice ?? 0
       const buyPrice = priceData?.buyPriceSgd ?? sellPrice
       const currentValue = h.units * sellPrice
       const costBasis = h.costBasis
@@ -301,7 +350,16 @@ export default function InvestmentsDetailPage() {
             (now.getMonth() - startDate.getMonth()),
         ),
       )
-      const totalPremiumsPaid = p.monthly_premium * Math.max(1, monthsPaid)
+      const estimatedPremiums = p.monthly_premium * Math.max(1, monthsPaid)
+      const entryPremiums = p.latestEntry?.premiums_paid
+      const useEntryPremiums =
+        entryPremiums != null && Number(entryPremiums) > 0
+      const totalPremiumsPaid = useEntryPremiums
+        ? Number(entryPremiums)
+        : estimatedPremiums
+      const premiumsSource = useEntryPremiums
+        ? ("entry" as const)
+        : ("estimated" as const)
       const returnPct =
         totalPremiumsPaid > 0
           ? ((fundValue - totalPremiumsPaid) / totalPremiumsPaid) * 100
@@ -310,27 +368,24 @@ export default function InvestmentsDetailPage() {
         (a, b) => a.month.localeCompare(b.month),
       )
       let monthlyData = sortedEntries.map((e) => ({
-        month: new Date(e.month + "-01").toLocaleString("en-US", {
-          month: "short",
-        }),
-        value: e.fund_value,
+        month: ilpEntryMonthKey(e.month),
+        value: Number(e.fund_value),
       }))
       if (monthlyData.length === 0 && fundValue > 0) {
-        monthlyData = [
-          {
-            month: new Date().toLocaleString("en-US", { month: "short" }),
-            value: fundValue,
-          },
-        ]
+        monthlyData = [{ month: currentMonthYm(), value: fundValue }]
       }
       return {
         productId: p.id,
         name: p.name,
         fundValue,
         totalPremiumsPaid,
+        premiumsSource,
         returnPct,
         monthlyPremium: p.monthly_premium,
         endDate: p.end_date,
+        latestEntryMonth: p.latestEntry?.month ?? null,
+        latestEntryFundValue: p.latestEntry?.fund_value ?? 0,
+        latestEntryPremiumsPaid: p.latestEntry?.premiums_paid ?? null,
         monthlyData,
       }
     })
@@ -366,14 +421,17 @@ export default function InvestmentsDetailPage() {
         <div className="rounded-xl border bg-card p-4">
           {isLoading ? (
             <ChartSkeleton height={280} className="rounded-lg" />
-          ) : allocationByMarketHoldingsOnly.length === 0 ? (
+          ) : allocationByHolding.length === 0 ? (
             <div className="flex h-[280px] flex-col justify-center gap-1 px-2 text-center text-sm text-muted-foreground">
               <span className="font-medium text-foreground">Investments</span>
-              <span>No holdings to chart. Add holdings below.</span>
+              <span>
+                No live-priced holdings to chart (API quotes only). Check tickers
+                or add holdings below. ILP is shown in the next card.
+              </span>
             </div>
           ) : (
             <AllocationChart
-              data={allocationByMarketHoldingsOnly}
+              data={allocationByHolding}
               title="Investments"
             />
           )}
@@ -471,9 +529,13 @@ export default function InvestmentsDetailPage() {
                   name={card.name}
                   fundValue={card.fundValue}
                   totalPremiumsPaid={card.totalPremiumsPaid}
+                  premiumsSource={card.premiumsSource}
                   returnPct={card.returnPct}
                   monthlyPremium={card.monthlyPremium}
                   endDate={card.endDate}
+                  latestEntryMonth={card.latestEntryMonth}
+                  latestEntryFundValue={card.latestEntryFundValue}
+                  latestEntryPremiumsPaid={card.latestEntryPremiumsPaid}
                   monthlyData={card.monthlyData}
                   onAddEntry={fetchData}
                   onEditSuccess={fetchData}

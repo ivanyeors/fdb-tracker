@@ -99,7 +99,11 @@ export async function GET(request: NextRequest) {
       return {
         ...product,
         latestEntry: latestEntryByProduct.get(product.id) ?? null,
-        entries: entries.map((e) => ({ month: e.month, fund_value: e.fund_value })),
+        entries: entries.map((e) => ({
+          month: e.month,
+          fund_value: e.fund_value,
+          premiums_paid: e.premiums_paid ?? null,
+        })),
       }
     })
 

@@ -1,11 +1,13 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { LinePath } from "@visx/shape"
+import { useState, useEffect, useMemo, useId, useCallback } from "react"
+import { LinePath, AreaClosed } from "@visx/shape"
 import { curveMonotoneX } from "@visx/curve"
 import { scalePoint, scaleLinear } from "@visx/scale"
+import { GridRows } from "@visx/grid"
 import { Group } from "@visx/group"
 import { ParentSize } from "@visx/responsive"
+import { useTooltip, TooltipWithBounds } from "@visx/tooltip"
 import { formatCurrency } from "@/lib/utils"
 
 interface DailyData {
@@ -19,30 +21,72 @@ interface InvestmentValueChartProps {
   className?: string
 }
 
+interface SeriesPoint {
+  date: string
+  label: string
+  value: number
+}
+
 function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr + "T12:00:00")
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
+function formatTooltipDate(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00")
+  return d.toLocaleDateString("en-SG", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
 const DAYS_OPTIONS = [30, 60, 90] as const
+
+const MARGIN = { top: 6, bottom: 22, left: 0, right: 0 }
+const X_PAD = 10
+const MAX_X_TICKS = 5
+
+function tickIndices(length: number, maxTicks: number): number[] {
+  if (length === 0) return []
+  if (length === 1) return [0]
+  const cap = Math.min(maxTicks, length)
+  const raw = Array.from({ length: cap }, (_, i) =>
+    Math.round((i / (cap - 1)) * (length - 1)),
+  )
+  return [...new Set(raw)].sort((a, b) => a - b)
+}
 
 function ChartInner({
   data,
   width,
   height,
 }: {
-  data: { label: string; value: number }[]
+  data: SeriesPoint[]
   width: number
   height: number
 }) {
+  const gradId = useId().replace(/:/g, "_")
+  const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
+    useTooltip<{ index: number; point: SeriesPoint }>()
+
+  const innerWidth = width - MARGIN.left - MARGIN.right
+  const innerHeight = height - MARGIN.top - MARGIN.bottom
+
+  const indexDomain = useMemo(
+    () => data.map((_, i) => String(i)),
+    [data],
+  )
+
   const xScale = useMemo(
     () =>
       scalePoint<string>({
-        domain: data.map((d) => d.label),
-        range: [0, width],
+        domain: indexDomain,
+        range: [X_PAD, innerWidth - X_PAD],
         padding: 0.5,
       }),
-    [data, width],
+    [indexDomain, innerWidth],
   )
 
   const yScale = useMemo(() => {
@@ -52,32 +96,135 @@ function ChartInner({
     const padding = (max - min) * 0.1 || 1
     return scaleLinear<number>({
       domain: [min - padding, max + padding],
-      range: [height, 0],
+      range: [innerHeight, 0],
     })
-  }, [data, height])
+  }, [data, innerHeight])
 
-  if (data.length === 0 || width < 10) return null
+  const xGetter = useCallback(
+    (_d: SeriesPoint, i: number) =>
+      (xScale(String(i)) ?? 0) + (xScale.step() ?? 0) / 2,
+    [xScale],
+  )
 
   const stroke =
     data[data.length - 1]?.value >= (data[0]?.value ?? 0)
       ? "var(--color-chart-positive)"
       : "var(--color-chart-negative)"
 
+  const handleOverlayMove = useCallback(
+    (e: React.MouseEvent<SVGRectElement>) => {
+      const x = e.nativeEvent.offsetX - MARGIN.left
+      if (data.length === 0) return
+      let nearest = 0
+      let best = Infinity
+      for (let i = 0; i < data.length; i++) {
+        const px = xGetter(data[i], i)
+        const dist = Math.abs(x - px)
+        if (dist < best) {
+          best = dist
+          nearest = i
+        }
+      }
+      showTooltip({
+        tooltipData: { index: nearest, point: data[nearest] },
+        tooltipLeft: e.clientX,
+        tooltipTop: e.clientY,
+      })
+    },
+    [data, showTooltip, xGetter],
+  )
+
+  if (data.length === 0 || width < 10) return null
+
+  const xTicks = tickIndices(data.length, MAX_X_TICKS)
+  const last = data.length - 1
+  const lastX = xGetter(data[last], last)
+  const lastY = yScale(data[last].value) ?? 0
+
   return (
-    <svg width={width} height={height}>
-      <Group>
-        <LinePath<{ label: string; value: number }>
-          data={data}
-          x={(d) => (xScale(d.label) ?? 0) + (xScale.step() ?? 0) / 2}
-          y={(d) => yScale(d.value) ?? 0}
-          curve={curveMonotoneX}
-          stroke={stroke}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
+    <div className="relative">
+      <svg width={width} height={height}>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={stroke} stopOpacity={0.28} />
+            <stop offset="100%" stopColor={stroke} stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <Group left={MARGIN.left} top={MARGIN.top}>
+          <GridRows
+            scale={yScale}
+            width={innerWidth}
+            stroke="var(--border)"
+            strokeOpacity={0.35}
+            strokeDasharray="3,6"
+            numTicks={3}
+            pointerEvents="none"
+          />
+          <AreaClosed<SeriesPoint>
+            data={data}
+            x={(d, i) => xGetter(d, i)}
+            y={(d) => yScale(d.value) ?? 0}
+            yScale={yScale}
+            y0={() => innerHeight}
+            curve={curveMonotoneX}
+            fill={`url(#${gradId})`}
+          />
+          <LinePath<SeriesPoint>
+            data={data}
+            x={(d, i) => xGetter(d, i)}
+            y={(d) => yScale(d.value) ?? 0}
+            curve={curveMonotoneX}
+            stroke={stroke}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <circle cx={lastX} cy={lastY} r={4} fill={stroke} stroke="var(--card)" strokeWidth={2} />
+        </Group>
+        <rect
+          x={0}
+          y={0}
+          width={width}
+          height={height - MARGIN.bottom + 4}
+          fill="transparent"
+          className="cursor-crosshair"
+          onMouseMove={handleOverlayMove}
+          onMouseLeave={hideTooltip}
         />
-      </Group>
-    </svg>
+        <Group left={MARGIN.left} top={height - MARGIN.bottom + 2}>
+          {xTicks.map((i) => {
+            const x = xGetter(data[i], i)
+            return (
+              <text
+                key={i}
+                x={x}
+                y={14}
+                textAnchor="middle"
+                className="fill-muted-foreground text-[10px]"
+              >
+                {data[i].label}
+              </text>
+            )
+          })}
+        </Group>
+      </svg>
+      {tooltipOpen && tooltipData && (
+        <TooltipWithBounds
+          key={`${tooltipData.point.date}-${tooltipLeft}-${tooltipTop}`}
+          top={tooltipTop}
+          left={tooltipLeft}
+          className="pointer-events-none rounded-lg border border-border bg-card px-3 py-2 text-xs text-card-foreground shadow-md"
+          style={{ transform: "translate(12px, 12px)" }}
+        >
+          <div className="font-medium text-foreground">
+            {formatTooltipDate(tooltipData.point.date)}
+          </div>
+          <div className="mt-0.5 tabular-nums text-muted-foreground">
+            ${formatCurrency(tooltipData.point.value)}
+          </div>
+        </TooltipWithBounds>
+      )}
+    </div>
   )
 }
 
@@ -91,30 +238,40 @@ export function InvestmentValueChart({
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (!profileId && !familyId) {
-      setHistory([])
-      setIsLoading(false)
-      return
-    }
+    if (!profileId && !familyId) return
 
-    setIsLoading(true)
+    let cancelled = false
     const params = new URLSearchParams()
     if (profileId) params.set("profileId", profileId)
     else if (familyId) params.set("familyId", familyId)
 
+    void Promise.resolve().then(() => {
+      if (!cancelled) setIsLoading(true)
+    })
+
     fetch(`/api/investments/history?days=${days}&${params}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
+        if (cancelled) return
         if (json?.data) setHistory(json.data)
         else setHistory([])
       })
-      .catch(() => setHistory([]))
-      .finally(() => setIsLoading(false))
+      .catch(() => {
+        if (!cancelled) setHistory([])
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [profileId, familyId, days])
 
-  const chartData = useMemo(
+  const series = useMemo(
     () =>
       history.map((d) => ({
+        date: d.date,
         label: formatDateLabel(d.date),
         value: d.value,
       })),
@@ -168,12 +325,12 @@ export function InvestmentValueChart({
       </div>
       {isLoading ? (
         <div className="h-48 animate-pulse rounded-lg bg-muted" />
-      ) : chartData.length > 0 ? (
+      ) : series.length > 0 ? (
         <div className="h-48 w-full">
           <ParentSize>
             {({ width, height }) => (
               <ChartInner
-                data={chartData}
+                data={series}
                 width={width}
                 height={height ?? 192}
               />

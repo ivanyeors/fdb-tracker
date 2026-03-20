@@ -31,6 +31,8 @@ export function AddIlpEntryDialog({
   const [open, setOpen] = useState(false)
   const [month, setMonth] = useState("")
   const [fundValue, setFundValue] = useState<number | null>(null)
+  /** Cumulative premiums through the selected month (optional; improves return %). */
+  const [premiumsPaid, setPremiumsPaid] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -63,6 +65,7 @@ export function AddIlpEntryDialog({
           familyId: activeFamilyId,
           month: monthDate,
           fundValue: value,
+          premiumsPaid,
         }),
       })
 
@@ -74,6 +77,7 @@ export function AddIlpEntryDialog({
       toast.success("Monthly value added successfully")
       setMonth("")
       setFundValue(null)
+      setPremiumsPaid(null)
       setOpen(false)
       onSuccess?.()
     } catch (err) {
@@ -115,6 +119,19 @@ export function AddIlpEntryDialog({
               onChange={(v) => setFundValue(v)}
               required
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ilp-entry-premiums">Premiums paid to date ($)</Label>
+            <CurrencyInput
+              id="ilp-entry-premiums"
+              placeholder="0.00"
+              value={premiumsPaid}
+              onChange={(v) => setPremiumsPaid(v)}
+            />
+            <p className="text-muted-foreground text-xs leading-snug">
+              Total premiums through this month from your statement. Leave blank to
+              estimate from monthly premium.
+            </p>
           </div>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? (

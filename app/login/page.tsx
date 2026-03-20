@@ -12,18 +12,16 @@ import {
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { toast } from "sonner"
 
 export default function LoginPage() {
   const router = useRouter()
 
   const [otp, setOtp] = useState("")
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   async function handleVerifyOtp() {
     setLoading(true)
-    setError(null)
 
     try {
       const res = await fetch("/api/auth/verify-otp", {
@@ -35,13 +33,14 @@ export default function LoginPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error ?? "Invalid OTP")
+        toast.error(data.error ?? "Invalid OTP")
         return
       }
 
+      toast.success("Signed in")
       router.push("/dashboard")
     } catch {
-      setError("Network error. Please try again.")
+      toast.error("Network error. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -62,12 +61,6 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
           <div className="grid gap-2">
             <Label htmlFor="otp">One-Time Password</Label>
             <Input

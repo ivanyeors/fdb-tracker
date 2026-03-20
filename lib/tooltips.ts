@@ -116,6 +116,15 @@ export const TOOLTIPS = {
     details:
       "Always compare final tax to your IRAS Notice of Assessment — rebates and rules can change.",
   },
+  TAX_NEXT_YA_ILLUSTRATIVE: {
+    label: "Next YA (illustrative)",
+    logic:
+      "Same salary, bonus, and manual relief entries as for the selected YA are run through the model for YA = selected + 1 (age/CPF/rebate rules may differ).",
+    explanation:
+      "Not a forecast of your next calendar year\u2019s pay. IRAS taxes prior-year income per YA; real figures depend on actual income and reliefs for that basis period.",
+    details:
+      "Use per-person tax cards below for the full ladder. Compare estimates to your IRAS notices when filed.",
+  },
   TAX_RELIEF_INPUTS: {
     label: "Tax Relief Inputs",
     logic: "Per relief: limit and where money flows.",
@@ -187,6 +196,15 @@ export const TOOLTIPS = {
     explanation: "Percentage of savings goal reached.",
     details:
       "Contributions from dashboard or Telegram /goaladd command.",
+  },
+  INVESTMENT_COST_PER_UNIT: {
+    label: "Cost per unit",
+    logic:
+      "Average price you paid for one unit (share, gram, etc.). After more buys, this becomes your weighted average.",
+    explanation:
+      "Profit or loss compares current price to this value, times the number of units.",
+    details:
+      "Same meaning as “Cost per unit” when adding a holding; buy commands update it automatically.",
   },
   INVESTMENT_PNL: {
     label: "Investment P&L",

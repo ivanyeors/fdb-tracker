@@ -34,11 +34,11 @@ export const linkApiScene = new Scenes.WizardScene<MyContext>(
 
     const text = ctx.message.text.trim()
 
-    if ((ctx.scene.session as any).apiKeyId) {
+    if (ctx.scene.session.apiKeyId) {
       const lower = text.toLowerCase()
       if (lower === "existing" || lower === "existing profile") {
         const profiles = await fetchUnlinkedProfiles(
-          (ctx.scene.session as any).householdId,
+          ctx.scene.session.householdId as string,
         )
         if (profiles.length === 0) {
           await ctx.reply(
@@ -55,12 +55,12 @@ export const linkApiScene = new Scenes.WizardScene<MyContext>(
         await ctx.reply("Which profile would you like to link to?", {
           reply_markup: { inline_keyboard: buttons },
         })
-        ;(ctx.scene.session as any).expecting = "profile_select"
+        ctx.scene.session.expecting = "profile_select"
         return ctx.wizard.next()
       }
       if (lower === "new" || lower === "create new") {
         await ctx.reply("What name would you like for the new profile?")
-        ;(ctx.scene.session as any).expecting = "profile_name"
+        ctx.scene.session.expecting = "profile_name"
         return ctx.wizard.next()
       }
       await ctx.reply('Reply "existing" to link to an existing profile, or "new" to create one.')
@@ -86,7 +86,7 @@ export const linkApiScene = new Scenes.WizardScene<MyContext>(
     return undefined
   },
   async (ctx) => {
-    const expecting = (ctx.scene.session as any).expecting as string
+    const expecting = ctx.scene.session.expecting as string
 
     if (expecting === "profile_select" && ctx.callbackQuery && "data" in ctx.callbackQuery) {
       const data = ctx.callbackQuery.data
@@ -196,8 +196,8 @@ async function validateAndStoreApiKey(
     return false
   }
 
-  ;(ctx.scene.session as any).apiKeyId = result.apiKeyId
-  ;(ctx.scene.session as any).householdId = result.householdId
+  ctx.scene.session.apiKeyId = result.apiKeyId
+  ctx.scene.session.householdId = result.householdId
   return true
 }
 
@@ -243,7 +243,7 @@ async function linkToProfileAndFinish(
     return
   }
 
-  const householdId = (ctx.scene.session as any).householdId as string
+  const householdId = ctx.scene.session.householdId as string
   const { data: family } = await supabase
     .from("families")
     .select("id")
@@ -271,7 +271,7 @@ async function linkToProfileAndFinish(
     return
   }
 
-  const apiKeyId = (ctx.scene.session as any).apiKeyId as string
+  const apiKeyId = ctx.scene.session.apiKeyId as string
   await addToLinkedAccountsIfNeeded(
     supabase,
     apiKeyId,
@@ -287,8 +287,8 @@ async function createProfileAndLink(ctx: MyContext, name: string): Promise<void>
   const supabase = createSupabaseAdmin()
   const chatId = ctx.chat?.id
   const from = ctx.from
-  const householdId = (ctx.scene.session as any).householdId as string
-  const apiKeyId = (ctx.scene.session as any).apiKeyId as string
+  const householdId = ctx.scene.session.householdId as string
+  const apiKeyId = ctx.scene.session.apiKeyId as string
 
   if (!chatId || !from) {
     await ctx.reply("❌ Could not resolve your account.")

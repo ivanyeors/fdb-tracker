@@ -1,13 +1,13 @@
 import { Scenes } from "telegraf"
 
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-import { MyContext } from "@/lib/telegram/bot"
+import { botState, MyContext } from "@/lib/telegram/bot"
 
 export const goalAddScene = new Scenes.WizardScene<MyContext>(
   "goaladd_wizard",
   async (ctx) => {
     // Step 1: Request account and check existing Savings Goals
-    const accountId = (ctx.state as any).accountId as string
+    const accountId = botState(ctx).accountId as string
     
     if (!accountId) {
       await ctx.reply("❌ Session error: No account ID found.")

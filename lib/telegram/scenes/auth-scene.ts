@@ -40,8 +40,8 @@ export const authScene = new Scenes.WizardScene<MyContext>(
       return ctx.scene.leave()
     }
 
-    ;(ctx.scene.session as any).apiKeyId = result.apiKeyId
-    ;(ctx.scene.session as any).householdId = result.householdId
+    ctx.scene.session.apiKeyId = result.apiKeyId
+    ctx.scene.session.householdId = result.householdId
 
     const from = ctx.from
     const userId = from?.id ?? 0
@@ -69,8 +69,8 @@ export const authScene = new Scenes.WizardScene<MyContext>(
       return ctx.scene.leave()
     }
 
-    const apiKeyId = (ctx.scene.session as any).apiKeyId as string
-    const householdId = (ctx.scene.session as any).householdId as string
+    const apiKeyId = ctx.scene.session.apiKeyId as string
+    const householdId = ctx.scene.session.householdId as string
     const from = ctx.from
     const chat = ctx.chat
 

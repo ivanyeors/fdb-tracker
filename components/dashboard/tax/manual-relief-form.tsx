@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Plus, Loader2, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 const RELIEF_TYPES = [
   { value: "srs", label: "SRS Contribution" },
@@ -97,8 +98,11 @@ export function ManualReliefForm({
     try {
       const valid = items.filter((i) => i.amount > 0)
       await onSave(valid)
+      toast.success("Manual reliefs saved")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save")
+      const msg = err instanceof Error ? err.message : "Failed to save"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }

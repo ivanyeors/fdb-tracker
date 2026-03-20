@@ -22,6 +22,7 @@ import {
   XCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 interface MethodSectionProps {
   title: string
@@ -81,13 +82,17 @@ export default function TelegramPage() {
       if (data.success) {
         setTestStatus("success")
         setTestMessage("Connection successful!")
+        toast.success("Connection successful")
       } else {
+        const errMsg = data.error ?? "Connection failed"
         setTestStatus("error")
-        setTestMessage(data.error ?? "Connection failed")
+        setTestMessage(errMsg)
+        toast.error(errMsg)
       }
     } catch {
       setTestStatus("error")
       setTestMessage("Network error — could not reach server")
+      toast.error("Network error — could not reach server")
     }
   }
 
@@ -187,9 +192,12 @@ export default function TelegramPage() {
                 })
                 const data = await res.json().catch(() => ({}))
                 if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+                toast.success("Telegram settings saved")
                 router.push(pathWithMode("/onboarding/reminders", mode))
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Something went wrong")
+                const msg = err instanceof Error ? err.message : "Something went wrong"
+                setError(msg)
+                toast.error(msg)
               } finally {
                 setIsLoading(false)
               }
@@ -207,14 +215,21 @@ export default function TelegramPage() {
               setError(null)
               setIsLoading(true)
               try {
-                await fetch("/api/onboarding/telegram", {
+                const skipRes = await fetch("/api/onboarding/telegram", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ telegramChatId: "" }),
                 })
+                if (!skipRes.ok) {
+                  const d = await skipRes.json().catch(() => ({}))
+                  throw new Error(d.message ?? d.error ?? "Failed to save")
+                }
+                toast.success("Telegram skipped for now")
                 router.push(pathWithMode("/onboarding/reminders", mode))
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Something went wrong")
+                const msg = err instanceof Error ? err.message : "Something went wrong"
+                setError(msg)
+                toast.error(msg)
               } finally {
                 setIsLoading(false)
               }

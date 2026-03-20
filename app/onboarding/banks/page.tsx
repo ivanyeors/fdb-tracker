@@ -42,6 +42,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react"
+import { toast } from "sonner"
 
 const ACCOUNT_TYPES = [
   { value: "ocbc_360", label: "OCBC 360" },
@@ -209,9 +210,12 @@ export default function BanksPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      toast.success("Bank accounts saved")
       router.push(pathWithMode("/onboarding/telegram", mode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }

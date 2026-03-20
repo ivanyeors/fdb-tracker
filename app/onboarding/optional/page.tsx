@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { CheckCircle2, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 export default function OptionalPage() {
   const router = useRouter()
@@ -43,10 +44,13 @@ export default function OptionalPage() {
         throw new Error(data.error ?? "Failed to complete")
       }
       setStatus("complete")
+      toast.success("Setup complete")
       router.push("/dashboard")
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
       setStatus("ready")
     }
   }

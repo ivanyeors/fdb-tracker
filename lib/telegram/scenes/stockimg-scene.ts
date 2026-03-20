@@ -1,15 +1,16 @@
 import { Scenes } from "telegraf"
 
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-import { MyContext, getBot } from "@/lib/telegram/bot"
+import { botState, MyContext, getBot } from "@/lib/telegram/bot"
 
 export const stockImgScene = new Scenes.WizardScene<MyContext>(
   "stockimg_wizard",
   async (ctx) => {
     // Step 1: Initialize, check for pre-filled args, prompt for symbol
-    const accountId = (ctx.state as any).accountId as string
-    const prefilledSymbol = (ctx.state as any).symbol as string | undefined
-    const prefilledFileId = (ctx.state as any).fileId as string | undefined
+    const st = botState(ctx)
+    const accountId = st.accountId as string
+    const prefilledSymbol = st.symbol as string | undefined
+    const prefilledFileId = st.fileId as string | undefined
     
     if (!accountId) {
       await ctx.reply("❌ Session error: Missing account ID.")
@@ -127,7 +128,7 @@ export const stockImgScene = new Scenes.WizardScene<MyContext>(
 )
 
 async function handleImageUpload(ctx: MyContext, fileId: string) {
-  const accountId = (ctx.state as any).accountId as string
+  const accountId = botState(ctx).accountId as string
   const symbol = ctx.scene.session.symbol!
   
   const bot = getBot()

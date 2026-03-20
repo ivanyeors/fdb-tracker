@@ -11,7 +11,7 @@ import {
 } from "@/lib/api/effective-outflow"
 import { getEffectiveInflowForProfile } from "@/lib/api/effective-inflow"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
-import { computeInvestmentTotal } from "@/lib/api/investment-total"
+import { computeTotalInvestmentsValue } from "@/lib/api/net-liquid"
 
 const overviewQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -211,13 +211,14 @@ export async function GET(request: NextRequest) {
       cpfDelta = cpfTotal - cpfPrevious.total
     }
 
-    // --- Investment Total (holdings + cash balance + ILP) ---
-    const investmentTotal = await computeInvestmentTotal(
-      supabase,
-      familyId,
-      profileId,
-      { ilpMonthFilter: monthFilter },
-    )
+    // --- Investments: NLV (SGD cash + live quotes) + ILP fund values ---
+    const { netLiquidValue, ilpFundTotal, investmentTotal } =
+      await computeTotalInvestmentsValue(
+        supabase,
+        familyId,
+        profileId,
+        monthFilter,
+      )
 
     // --- Loan Total --- (profileIds already resolved above)
 
@@ -416,6 +417,8 @@ export async function GET(request: NextRequest) {
         sa: Math.round(cpfSa * 100) / 100,
         ma: Math.round(cpfMa * 100) / 100,
       },
+      netLiquidValue: Math.round(netLiquidValue * 100) / 100,
+      ilpFundTotal: Math.round(ilpFundTotal * 100) / 100,
       investmentTotal: Math.round(investmentTotal * 100) / 100,
       loanTotal: Math.round(loanTotal * 100) / 100,
       loanMonthlyTotal: Math.round(loanMonthlyTotal * 100) / 100,

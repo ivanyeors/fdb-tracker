@@ -22,6 +22,10 @@ import { JournalList, type JournalEntry } from "@/components/dashboard/investmen
 import { JournalForm } from "@/components/dashboard/investments/journal-form"
 import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import {
+  currentMonthYm,
+  ilpEntryMonthKey,
+} from "@/lib/investments/ilp-chart"
 import { formatCurrency } from "@/lib/utils"
 import { ChartSkeleton } from "@/components/loading"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -46,6 +50,28 @@ function formatTrendMonth(monthStr: string): string {
   return `${monthLabels[month ?? ""] ?? month} ${year}`
 }
 
+/** Last series value per calendar month from daily investment totals (NLV + ILP). */
+function aggregateDailyInvestmentToMonthly(
+  daily: { date: string; value: number }[],
+): { month: string; value: number }[] {
+  const byYm = new Map<string, { date: string; value: number }>()
+  for (const d of daily) {
+    const ym = d.date.slice(0, 7)
+    const prev = byYm.get(ym)
+    if (!prev || d.date > prev.date) {
+      byYm.set(ym, { date: d.date, value: d.value })
+    }
+  }
+  return [...byYm.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([ym, v]) => ({
+      month: new Date(ym + "-01T12:00:00").toLocaleString("en-US", {
+        month: "short",
+      }),
+      value: v.value,
+    }))
+}
+
 type Goal = {
   id: string
   name: string
@@ -68,8 +94,12 @@ type IlpProductWithEntries = {
   monthly_premium: number
   end_date: string
   created_at: string
-  latestEntry: { fund_value: number; month: string } | null
-  entries: { month: string; fund_value: number }[]
+  latestEntry: {
+    fund_value: number
+    month: string
+    premiums_paid?: number | null
+  } | null
+  entries: { month: string; fund_value: number; premiums_paid?: number | null }[]
 }
 
 export default function OverviewPage() {
@@ -83,6 +113,8 @@ export default function OverviewPage() {
     cpfBreakdown?: { oa: number; sa: number; ma: number }
     cpfDelta?: number
     investmentTotal?: number
+    netLiquidValue?: number
+    ilpFundTotal?: number
     loanTotal?: number
     loanMonthlyTotal?: number
     loanRemainingMonths?: number
@@ -254,7 +286,7 @@ export default function OverviewPage() {
   useEffect(() => {
     if (!selectedMonth || (!activeProfileId && !activeFamilyId)) return
     const qs = params ? `?${params}&month=${selectedMonth}` : `?month=${selectedMonth}`
-    setIsOverviewLoading(true)
+    queueMicrotask(() => setIsOverviewLoading(true))
     fetch(`/api/overview${qs}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -296,7 +328,13 @@ export default function OverviewPage() {
   }, [data?.latestInflow, data?.latestOutflow, data?.previousMonthSavings, savingsHistory])
 
   const investmentMonthlyData = useMemo((): { month: string; value: number }[] => {
+    if (investmentHistory.length >= 2) {
+      return aggregateDailyInvestmentToMonthly(investmentHistory)
+    }
+
     const investmentTotal = data?.investmentTotal ?? 0
+    const netLv = data?.netLiquidValue
+    const apiIlp = data?.ilpFundTotal
     const ilpTotalByMonth = new Map<string, number>()
     for (const p of ilpProducts) {
       for (const e of p.entries ?? []) {
@@ -309,7 +347,12 @@ export default function OverviewPage() {
       (sum, p) => sum + (p.latestEntry?.fund_value ?? 0),
       0,
     )
-    const nonIlp = Math.max(0, investmentTotal - currentIlpTotal)
+    const ilpForSplit =
+      apiIlp != null && Number.isFinite(apiIlp) ? apiIlp : currentIlpTotal
+    const nonIlp =
+      netLv != null && Number.isFinite(netLv)
+        ? netLv
+        : Math.max(0, investmentTotal - ilpForSplit)
     const allMonths = Array.from(ilpTotalByMonth.keys()).sort()
     if (allMonths.length === 0 && investmentTotal > 0) {
       const now = new Date()
@@ -328,7 +371,7 @@ export default function OverviewPage() {
         value: ilpVal + nonIlp,
       }
     })
-  }, [ilpProducts, data?.investmentTotal])
+  }, [ilpProducts, data?.investmentTotal, data?.netLiquidValue, data?.ilpFundTotal, investmentHistory])
 
   const ilpCardsData = useMemo(() => {
     return ilpProducts.map((p) => {
@@ -342,7 +385,16 @@ export default function OverviewPage() {
             (now.getMonth() - startDate.getMonth()),
         ),
       )
-      const totalPremiumsPaid = p.monthly_premium * Math.max(1, monthsPaid)
+      const estimatedPremiums = p.monthly_premium * Math.max(1, monthsPaid)
+      const entryPremiums = p.latestEntry?.premiums_paid
+      const useEntryPremiums =
+        entryPremiums != null && Number(entryPremiums) > 0
+      const totalPremiumsPaid = useEntryPremiums
+        ? Number(entryPremiums)
+        : estimatedPremiums
+      const premiumsSource = useEntryPremiums
+        ? ("entry" as const)
+        : ("estimated" as const)
       const returnPct =
         totalPremiumsPaid > 0
           ? ((fundValue - totalPremiumsPaid) / totalPremiumsPaid) * 100
@@ -351,44 +403,45 @@ export default function OverviewPage() {
         a.month.localeCompare(b.month),
       )
       let monthlyData = sortedEntries.map((e) => ({
-        month: new Date(e.month + "-01").toLocaleString("en-US", {
-          month: "short",
-        }),
-        value: e.fund_value,
+        month: ilpEntryMonthKey(e.month),
+        value: Number(e.fund_value),
       }))
       if (monthlyData.length === 0 && fundValue > 0) {
-        monthlyData = [
-          {
-            month: new Date().toLocaleString("en-US", { month: "short" }),
-            value: fundValue,
-          },
-        ]
+        monthlyData = [{ month: currentMonthYm(), value: fundValue }]
       }
       return {
         productId: p.id,
         name: p.name,
         fundValue,
         totalPremiumsPaid,
+        premiumsSource,
         returnPct,
         monthlyPremium: p.monthly_premium,
         endDate: p.end_date,
+        latestEntryMonth: p.latestEntry?.month ?? null,
+        latestEntryFundValue: p.latestEntry?.fund_value ?? 0,
+        latestEntryPremiumsPaid: p.latestEntry?.premiums_paid ?? null,
         monthlyData,
       }
     })
   }, [ilpProducts])
 
   const investmentTrend = useMemo(() => {
-    if (investmentHistory.length >= 2) {
-      const first = investmentHistory[0]?.value ?? 0
-      const last = investmentHistory[investmentHistory.length - 1]?.value ?? 0
-      if (first === 0) return 0
-      return ((last - first) / first) * 100
-    }
-    if (investmentMonthlyData.length < 2) return 0
-    const current = investmentMonthlyData[investmentMonthlyData.length - 1]?.value ?? 0
-    const previous = investmentMonthlyData[investmentMonthlyData.length - 2]?.value ?? 0
-    if (previous === 0) return 0
-    return ((current - previous) / previous) * 100
+    const fromDaily =
+      investmentHistory.length >= 2
+        ? aggregateDailyInvestmentToMonthly(investmentHistory)
+        : []
+    const series =
+      fromDaily.length >= 2
+        ? fromDaily
+        : investmentMonthlyData.length >= 2
+          ? investmentMonthlyData
+          : []
+    if (series.length < 2) return 0
+    const current = series[series.length - 1]?.value ?? 0
+    const previous = series[series.length - 2]?.value ?? 0
+    if (Math.abs(previous) < 1e-9) return 0
+    return ((current - previous) / Math.abs(previous)) * 100
   }, [investmentHistory, investmentMonthlyData])
 
   const goalsSummary = useMemo(() => {
@@ -584,6 +637,8 @@ export default function OverviewPage() {
           trend={investmentTrend}
           monthlyData={investmentMonthlyData}
           dailyData={investmentHistory}
+          netLiquidValue={data?.netLiquidValue}
+          ilpFundTotal={data?.ilpFundTotal}
           loading={isOverviewLoading}
         />
         <Card>
@@ -694,9 +749,13 @@ export default function OverviewPage() {
                 name={card.name}
                 fundValue={card.fundValue}
                 totalPremiumsPaid={card.totalPremiumsPaid}
+                premiumsSource={card.premiumsSource}
                 returnPct={card.returnPct}
                 monthlyPremium={card.monthlyPremium}
                 endDate={card.endDate}
+                latestEntryMonth={card.latestEntryMonth}
+                latestEntryFundValue={card.latestEntryFundValue}
+                latestEntryPremiumsPaid={card.latestEntryPremiumsPaid}
                 monthlyData={card.monthlyData}
                 onAddEntry={refreshIlp}
                 onEditSuccess={refreshIlp}

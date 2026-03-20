@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { SidebarNav } from "@/components/layout/sidebar-nav"
-import { Header } from "@/components/layout/header"
+import { AppMainChrome } from "@/components/layout/app-main-chrome"
 import { ActiveProfileProvider } from "@/hooks/use-active-profile"
 import { cookies } from "next/headers"
 import { getSessionFromCookies } from "@/lib/auth/session"
@@ -46,9 +46,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     >
       <SidebarProvider>
         <SidebarNav />
-        <SidebarInset>
-          <Header />
-          <div className="min-w-0 flex-1 overflow-x-hidden">{children}</div>
+        <SidebarInset className="min-h-0">
+          <AppMainChrome>{children}</AppMainChrome>
         </SidebarInset>
       </SidebarProvider>
     </ActiveProfileProvider>

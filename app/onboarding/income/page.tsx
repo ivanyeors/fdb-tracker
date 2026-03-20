@@ -33,6 +33,7 @@ import {
 } from "@/components/onboarding/onboarding-provider"
 import { incomeSchema } from "@/lib/validations/onboarding"
 import { ArrowLeft, ArrowRight, HelpCircle } from "lucide-react"
+import { toast } from "sonner"
 
 const PAY_FREQUENCIES = [
   { value: "monthly", label: "Monthly" },
@@ -114,9 +115,12 @@ export default function IncomePage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      toast.success("Income saved")
       router.push(pathWithMode("/onboarding/cpf", mode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }
@@ -141,9 +145,12 @@ export default function IncomePage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      toast.success("Income skipped — defaults saved")
       router.push(pathWithMode("/onboarding/cpf", mode))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }

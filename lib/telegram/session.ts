@@ -1,7 +1,8 @@
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import type { Json } from "@/lib/supabase/database.types"
 
 export const supabaseSessionStore = {
-  async get(key: string): Promise<Record<string, any> | undefined> {
+  async get(key: string): Promise<Record<string, unknown> | undefined> {
     const supabase = createSupabaseAdmin()
     const { data, error } = await supabase
       .from("telegram_sessions")
@@ -17,14 +18,18 @@ export const supabaseSessionStore = {
     if (!data) return undefined
     
     // session_data is JSONB, so it's already parsed
-    return data.session_data as Record<string, any>
+    return data.session_data as Record<string, unknown>
   },
 
-  async set(key: string, session: Record<string, any>): Promise<void> {
+  async set(key: string, session: Record<string, unknown>): Promise<void> {
     const supabase = createSupabaseAdmin()
     const { error } = await supabase
       .from("telegram_sessions")
-      .upsert({ id: key, session_data: session, updated_at: new Date().toISOString() })
+      .upsert({
+        id: key,
+        session_data: session as Json,
+        updated_at: new Date().toISOString(),
+      })
 
     if (error) {
       console.error("[telegram_sessions] error setting session:", error.message)

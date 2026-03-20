@@ -17,7 +17,7 @@ const dashboardPages = [
   { title: "Savings Goals", href: "/dashboard/goals" },
   { title: "Loans", href: "/dashboard/loans" },
   { title: "Insurance", href: "/dashboard/insurance" },
-  { title: "Tax", href: "/dashboard/tax" },
+  { title: "Tax Planner", href: "/dashboard/tax" },
 ]
 
 const settingsPages = [

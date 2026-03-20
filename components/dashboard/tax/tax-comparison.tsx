@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { formatCurrency } from "@/lib/utils"
 import type { TaxSnapshot } from "@/lib/tax/tax-snapshot"
 import {
@@ -21,11 +21,17 @@ import { InfoTooltip } from "@/components/ui/info-tooltip"
 import type { TOOLTIPS } from "@/lib/tooltips"
 import { Separator } from "@/components/ui/separator"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   TaxBracketLadder,
   type HouseholdChargeableMarker,
   type ReliefPreviewModel,
 } from "@/components/dashboard/tax/tax-bracket-ladder"
-import { Calculator, Pencil } from "lucide-react"
+import { Calculator, CircleHelp, Pencil } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { CurrencyInput } from "@/components/ui/currency-input"
@@ -64,6 +70,8 @@ interface TaxComparisonProps {
   showMarginalPositionMarker?: boolean
   marginalMarkerSubjectLabel?: string
   householdChargeableMarkers?: HouseholdChargeableMarker[]
+  /** Rendered at the bottom of the card (e.g. manual reliefs). */
+  cardFooter?: ReactNode
 }
 
 function BreakdownRow({
@@ -111,8 +119,10 @@ export function TaxComparison({
   showMarginalPositionMarker = true,
   marginalMarkerSubjectLabel = "This profile",
   householdChargeableMarkers,
+  cardFooter,
 }: TaxComparisonProps) {
   const [reliefPreviewRows, setReliefPreviewRows] = useState(emptyReliefPreviewRows)
+  const [estimateBreakdownOpen, setEstimateBreakdownOpen] = useState(false)
 
   const diff =
     actualAmount != null ? actualAmount - calculatedAmount : null
@@ -188,34 +198,44 @@ export function TaxComparison({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-2">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-1.5">
+      <CardHeader className="flex flex-col gap-3 space-y-0 pb-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <CardTitle className="text-base leading-snug">
               {profileName ? `${profileName} · ` : ""}YA {year} · Estimated vs IRAS
             </CardTitle>
             <InfoTooltip id="TAX_ESTIMATED_PAYABLE" />
           </div>
-          <CardDescription className="text-xs leading-relaxed sm:text-sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onEnterActual}
+            className="shrink-0"
+          >
+            <Pencil className="mr-1 size-4" />
+            {actualAmount != null ? "Edit actual" : "Enter IRAS actual"}
+          </Button>
+        </div>
+        <div className="flex flex-col gap-3">
+          <CardDescription className="min-w-0 text-xs leading-relaxed sm:text-sm">
             <strong>Estimated tax payable</strong> is resident tax on{" "}
             <strong>salary + bonus</strong>, after <strong>reliefs</strong> (capped
             at $80k), using <strong>progressive rates</strong>, then any{" "}
             <strong>YA rebate</strong> we model. It is not a bill from IRAS — compare
             with your actual assessment when you enter it.
           </CardDescription>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1">
-            <Button variant="outline" size="sm" onClick={onFromMonthly} className="shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onFromMonthly}
+              className="shrink-0"
+            >
               <Calculator className="mr-1 size-4" />
               From monthly
             </Button>
             <InfoTooltip id="TAX_FROM_MONTHLY" />
-          </span>
-          <Button variant="outline" size="sm" onClick={onEnterActual} className="shrink-0">
-            <Pencil className="mr-1 size-4" />
-            {actualAmount != null ? "Edit actual" : "Enter IRAS actual"}
-          </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -274,19 +294,24 @@ export function TaxComparison({
               barScaleProfileLabel={marginalMarkerSubjectLabel}
             />
 
-            <div className="rounded-xl border bg-muted/20 px-4 py-4 space-y-4">
+            <div className="space-y-3 rounded-xl border bg-muted/20 px-3 py-3 sm:px-4 sm:py-3">
               <div>
-                <p className="text-sm font-medium text-foreground">
-                  Ways to lower tax — relief preview
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Toggle categories and enter amounts to see how extra reliefs could
-                  move chargeable income on the chart. This is a what-if only — it is{" "}
-                  <span className="font-medium text-foreground">not saved</span>. Use{" "}
-                  <span className="font-medium text-foreground">Manual reliefs</span>{" "}
-                  below to persist amounts (subject to IRAS rules).
-                </p>
-                <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-muted-foreground sm:text-sm">
+                <div className="flex items-center gap-1">
+                  <p className="text-sm font-medium text-foreground">
+                    Ways to lower tax — relief preview
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+                    aria-label="How this estimate is built"
+                    onClick={() => setEstimateBreakdownOpen(true)}
+                  >
+                    <CircleHelp className="size-4" />
+                  </Button>
+                </div>
+                <ul className="mt-1.5 list-inside list-disc space-y-0.5 pl-0.5 text-[11px] leading-snug text-muted-foreground sm:text-xs">
                   {snapshot.reliefCapHeadroom > 0 && (
                     <li>
                       About{" "}
@@ -322,29 +347,32 @@ export function TaxComparison({
                 </ul>
               </div>
 
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {RELIEF_PREVIEW_TYPES.map((t) => {
                   const row = reliefPreviewRows[t.id] ?? { on: false, amount: 0 }
                   return (
                     <div
                       key={t.id}
-                      className="flex flex-wrap items-center gap-3 border-b border-border/60 pb-3 last:border-0 last:pb-0"
+                      className="flex flex-col gap-1.5 rounded-lg border border-border/70 bg-card px-2.5 py-2 shadow-sm ring-1 ring-foreground/[0.06]"
                     >
-                      <Switch
-                        id={`relief-preview-${t.id}`}
-                        checked={row.on}
-                        onCheckedChange={(c) =>
-                          setReliefRow(t.id, { on: Boolean(c) })
-                        }
-                      />
-                      <Label
-                        htmlFor={`relief-preview-${t.id}`}
-                        className="min-w-[10rem] flex-1 text-sm font-normal leading-snug"
-                      >
-                        {t.label}
-                      </Label>
+                      <div className="flex items-center justify-between gap-2">
+                        <Label
+                          htmlFor={`relief-preview-${t.id}`}
+                          className="cursor-pointer text-xs font-medium leading-tight text-foreground sm:text-[13px]"
+                        >
+                          {t.label}
+                        </Label>
+                        <Switch
+                          id={`relief-preview-${t.id}`}
+                          checked={row.on}
+                          onCheckedChange={(c) =>
+                            setReliefRow(t.id, { on: Boolean(c) })
+                          }
+                          className="shrink-0 scale-90"
+                        />
+                      </div>
                       <CurrencyInput
-                        className="h-9 w-[9rem] shrink-0 md:max-w-[11rem]"
+                        className="h-8"
                         value={row.amount}
                         onChange={(v) =>
                           setReliefRow(t.id, { amount: v ?? 0 })
@@ -383,59 +411,66 @@ export function TaxComparison({
               ) : null}
             </div>
 
-            <div>
-              <h3 className="mb-3 text-sm font-medium">How this estimate is built</h3>
-              <div className="space-y-2 rounded-xl border bg-card px-4 py-3">
-                <BreakdownRow
-                  label="Employment income (salary + bonus)"
-                  value={`$${formatCurrency(snapshot.employmentIncome)}`}
-                />
-                <BreakdownRow
-                  sign="−"
-                  label={`Reliefs counted (cap $80k; raw total $${formatCurrency(snapshot.reliefsRawTotal)})`}
-                  value={`$${formatCurrency(snapshot.totalReliefs)}`}
-                  muted
-                />
-                <Separator className="my-2" />
-                <BreakdownRow
-                  sign="="
-                  label="Chargeable income"
-                  value={`$${formatCurrency(snapshot.chargeableIncome)}`}
-                />
-                <BreakdownRow
-                  label="Tax before rebate (progressive)"
-                  value={`$${formatCurrency(snapshot.taxBeforeRebate)}`}
-                  muted
-                />
-                <BreakdownRow
-                  sign="−"
-                  label="Tax rebate (modelled for this YA)"
-                  value={`$${formatCurrency(snapshot.rebateAmount)}`}
-                  muted
-                  infoTooltipId="TAX_REBATE_YA"
-                />
-                <Separator className="my-2" />
-                <BreakdownRow
-                  sign="="
-                  label="Estimated tax payable"
-                  value={`$${formatCurrency(snapshot.taxPayable)}`}
-                />
-                <p className="pt-2 text-xs text-muted-foreground">
-                  Effective rate vs employment income:{" "}
-                  <span className="font-medium tabular-nums text-foreground">
-                    {snapshot.employmentIncome > 0
-                      ? `${snapshot.effectiveRate.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
-                      : "—"}
-                  </span>
-                  .
-                </p>
-                {rebateNote && (
-                  <p className="text-xs text-amber-700 dark:text-amber-400">
-                    {rebateNote}
+            <Dialog
+              open={estimateBreakdownOpen}
+              onOpenChange={setEstimateBreakdownOpen}
+            >
+              <DialogContent className="max-h-[min(85vh,640px)] gap-4 overflow-y-auto sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>How this estimate is built</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-2 rounded-xl border bg-muted/20 px-4 py-3">
+                  <BreakdownRow
+                    label="Employment income (salary + bonus)"
+                    value={`$${formatCurrency(snapshot.employmentIncome)}`}
+                  />
+                  <BreakdownRow
+                    sign="−"
+                    label={`Reliefs counted (cap $80k; raw total $${formatCurrency(snapshot.reliefsRawTotal)})`}
+                    value={`$${formatCurrency(snapshot.totalReliefs)}`}
+                    muted
+                  />
+                  <Separator className="my-2" />
+                  <BreakdownRow
+                    sign="="
+                    label="Chargeable income"
+                    value={`$${formatCurrency(snapshot.chargeableIncome)}`}
+                  />
+                  <BreakdownRow
+                    label="Tax before rebate (progressive)"
+                    value={`$${formatCurrency(snapshot.taxBeforeRebate)}`}
+                    muted
+                  />
+                  <BreakdownRow
+                    sign="−"
+                    label="Tax rebate (modelled for this YA)"
+                    value={`$${formatCurrency(snapshot.rebateAmount)}`}
+                    muted
+                    infoTooltipId="TAX_REBATE_YA"
+                  />
+                  <Separator className="my-2" />
+                  <BreakdownRow
+                    sign="="
+                    label="Estimated tax payable"
+                    value={`$${formatCurrency(snapshot.taxPayable)}`}
+                  />
+                  <p className="pt-2 text-xs text-muted-foreground">
+                    Effective rate vs employment income:{" "}
+                    <span className="font-medium tabular-nums text-foreground">
+                      {snapshot.employmentIncome > 0
+                        ? `${snapshot.effectiveRate.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
+                        : "—"}
+                    </span>
+                    .
                   </p>
-                )}
-              </div>
-            </div>
+                  {rebateNote && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      {rebateNote}
+                    </p>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
           </>
         )}
 
@@ -445,6 +480,8 @@ export function TaxComparison({
             this profile to show the bracket ladder and step-by-step breakdown.
           </p>
         )}
+
+        {cardFooter}
       </CardContent>
     </Card>
   )

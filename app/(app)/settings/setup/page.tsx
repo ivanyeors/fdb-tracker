@@ -1,7 +1,7 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { format } from "date-fns"
-import { resetOnboardingAction, addNewFamilyAction } from "../actions"
+import { addNewFamilyAction } from "../actions"
 import { getSessionFromCookies } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
