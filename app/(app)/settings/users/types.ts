@@ -2,6 +2,7 @@ export type ProfileWithIncome = {
   id: string
   name: string
   birth_year: number
+  dps_include_in_projection?: boolean
   family_id?: string
   telegram_user_id?: string | null
   telegram_chat_id?: string | null

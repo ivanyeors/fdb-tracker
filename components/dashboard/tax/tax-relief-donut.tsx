@@ -6,6 +6,16 @@ import { Group } from "@visx/group"
 import { scaleOrdinal } from "@visx/scale"
 import { useTooltip, TooltipWithBounds } from "@visx/tooltip"
 import { ParentSize } from "@visx/responsive"
+import { formatCurrency } from "@/lib/utils"
+import {
+  formatReliefType,
+  getReliefCategoryHelp,
+} from "@/lib/tax/relief-labels"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 const CHART_COLORS = [
   "var(--color-chart-1)",
@@ -18,11 +28,8 @@ const CHART_COLORS = [
   "oklch(0.60 0.10 200)",
 ]
 
-function formatReliefType(type: string): string {
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
 export interface ReliefChartItem {
+  relief_type: string
   name: string
   value: number
   percentage: number
@@ -46,9 +53,10 @@ function TaxReliefDonutInner({
     const total = [...byType.values()].reduce((s, v) => s + v, 0)
     if (total === 0) return []
     return [...byType.entries()].map(([relief_type, amount]) => ({
+      relief_type,
       name: formatReliefType(relief_type),
       value: amount,
-      percentage: Math.round((amount / total) * 100),
+      percentage: Math.round((amount / total) * 1000) / 10,
     }))
   }, [reliefs])
 
@@ -65,19 +73,19 @@ function TaxReliefDonutInner({
     [data]
   )
 
-  const innerWidth = Math.min(width, 240)
-  const innerHeight = Math.min(height, 240)
+  const innerWidth = Math.min(width, 260)
+  const donutHeight = Math.min(height - 120, 260)
   const centerX = innerWidth / 2
-  const centerY = innerHeight / 2
-  const radius = Math.min(innerWidth, innerHeight) / 2 - 16
+  const centerY = donutHeight / 2
+  const radius = Math.min(innerWidth, donutHeight) / 2 - 12
   const innerRadius = radius * 0.55
 
   if (width < 10 || data.length === 0) return null
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="relative" style={{ width: innerWidth, height: innerHeight }}>
-        <svg width={innerWidth} height={innerHeight}>
+    <div className="flex w-full flex-col gap-4">
+      <div className="relative mx-auto" style={{ width: innerWidth, height: donutHeight }}>
+        <svg width={innerWidth} height={donutHeight}>
           <Group top={centerY} left={centerX}>
             <Pie
               data={data}
@@ -94,14 +102,18 @@ function TaxReliefDonutInner({
                   const labelRadius = innerRadius + (radius - innerRadius) * 0.5
                   const labelX = labelRadius * Math.cos(-midAngle * RADIAN)
                   const labelY = labelRadius * Math.sin(-midAngle * RADIAN)
-                  const percentage = arc.data.percentage
+                  const pct = arc.data.percentage
                   const fill = colorScale(arc.data.name)
 
                   return (
                     <g key={index}>
+                      <title>
+                        {arc.data.name}: {pct}% (${formatCurrency(arc.data.value)})
+                      </title>
                       <path
                         d={pie.path(arc) ?? ""}
                         fill={fill}
+                        className="cursor-pointer"
                         onMouseMove={(e) => {
                           const rect = (e.target as SVGElement).getBoundingClientRect()
                           showTooltip({
@@ -112,7 +124,7 @@ function TaxReliefDonutInner({
                         }}
                         onMouseLeave={hideTooltip}
                       />
-                      {percentage >= 8 && (
+                      {pct >= 8 && (
                         <text
                           x={labelX}
                           y={labelY}
@@ -121,7 +133,7 @@ function TaxReliefDonutInner({
                           dominantBaseline="central"
                           className="text-xs font-medium"
                         >
-                          {percentage}%
+                          {pct.toFixed(pct >= 10 ? 0 : 1)}%
                         </text>
                       )}
                     </g>
@@ -131,12 +143,20 @@ function TaxReliefDonutInner({
             </Pie>
             <text
               x={0}
-              y={0}
+              y={-6}
+              textAnchor="middle"
+              className="fill-muted-foreground text-[10px] font-medium uppercase tracking-wide"
+            >
+              Total reliefs
+            </text>
+            <text
+              x={0}
+              y={12}
               textAnchor="middle"
               dominantBaseline="central"
               className="fill-foreground text-sm font-semibold"
             >
-              ${total.toLocaleString()}
+              ${formatCurrency(total)}
             </text>
           </Group>
         </svg>
@@ -145,41 +165,71 @@ function TaxReliefDonutInner({
             key={`${tooltipData.name}-${tooltipLeft}-${tooltipTop}`}
             top={tooltipTop}
             left={tooltipLeft}
+            className="z-[100]"
             style={{
+              zIndex: 100,
               borderRadius: "8px",
               border: "1px solid var(--color-border)",
               background: "var(--color-card)",
               color: "var(--color-card-foreground)",
               padding: "8px 12px",
               fontSize: 12,
+              maxWidth: 280,
             }}
           >
-            <div className="font-medium">{tooltipData.name} — {tooltipData.percentage}%</div>
-            <div>${Number(tooltipData.value).toLocaleString()} of ${total.toLocaleString()} total</div>
+            <div className="font-medium">
+              {tooltipData.name} · {tooltipData.percentage.toFixed(1)}%
+            </div>
+            <div className="mt-0.5 text-muted-foreground">
+              ${formatCurrency(tooltipData.value)} of ${formatCurrency(total)}
+            </div>
+            <div className="mt-1.5 text-xs leading-snug text-muted-foreground">
+              {getReliefCategoryHelp(tooltipData.relief_type)}
+            </div>
           </TooltipWithBounds>
         )}
-        <div className="absolute bottom-0 left-0 right-0 flex flex-wrap justify-center gap-x-3 gap-y-1 pt-2">
-          {data.map((d, index) => (
-            <span
-              key={index}
-              className="text-xs"
-              style={{ color: colorScale(d.name) }}
-            >
-              {d.name} ({d.percentage}%)
-            </span>
-          ))}
-        </div>
       </div>
+
+      <ul className="mx-auto w-full max-w-md space-y-2">
+        {data.map((d) => (
+          <li key={d.relief_type}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex cursor-default items-center gap-3 rounded-lg border bg-muted/10 px-3 py-2 text-sm transition-colors hover:bg-muted/25">
+                  <span
+                    className="size-3 shrink-0 rounded-sm"
+                    style={{ backgroundColor: colorScale(d.name) }}
+                    aria-hidden
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{d.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {d.percentage.toFixed(1)}% · ${formatCurrency(d.value)}
+                    </div>
+                  </div>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-xs text-xs">
+                {getReliefCategoryHelp(d.relief_type)}
+              </TooltipContent>
+            </Tooltip>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
 
 export function TaxReliefDonut({ reliefs }: TaxReliefDonutProps) {
   return (
-    <div className="w-full" style={{ height: 260 }}>
+    <div className="w-full min-h-[320px]">
       <ParentSize>
         {({ width, height }) => (
-          <TaxReliefDonutInner reliefs={reliefs} width={width} height={height ?? 260} />
+          <TaxReliefDonutInner
+            reliefs={reliefs}
+            width={width}
+            height={Math.max(height ?? 380, 380)}
+          />
         )}
       </ParentSize>
     </div>

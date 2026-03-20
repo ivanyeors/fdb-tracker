@@ -69,7 +69,6 @@ const createPolicySchema = z.object({
     "integrated_shield",
     "critical_illness",
     "endowment",
-    "ilp",
     "personal_accident",
   ]),
   premiumAmount: z.number().min(0),

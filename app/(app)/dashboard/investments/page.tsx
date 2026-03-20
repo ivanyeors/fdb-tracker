@@ -15,17 +15,11 @@ import {
 import { AllocationChart } from "@/components/dashboard/investments/allocation-chart"
 import { IlpCard } from "@/components/dashboard/investments/ilp-card"
 import { PreciousMetals } from "@/components/dashboard/investments/precious-metals"
-import {
-  JournalList,
-  type JournalEntry,
-} from "@/components/dashboard/investments/journal-list"
-import { JournalForm } from "@/components/dashboard/investments/journal-form"
 import { AddHoldingForm } from "@/components/dashboard/investments/add-holding-form"
 import { InvestmentAccountBalance } from "@/components/dashboard/investments/investment-account-balance"
 import { AddIlpForm } from "@/components/dashboard/investments/add-ilp-form"
 import { AddMetalForm } from "@/components/dashboard/investments/add-metal-form"
 import { InvestmentValueChart } from "@/components/dashboard/investments/investment-value-chart"
-import { Skeleton } from "@/components/ui/skeleton"
 import { ChartSkeleton } from "@/components/loading"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 
@@ -198,6 +192,23 @@ export default function InvestmentsDetailPage() {
       .sort((a, b) => b.value - a.value)
   }, [holdings, totalValue])
 
+  /** Market breakdown from brokerage holdings only (no ilp_products fund value). */
+  const allocationByMarketHoldingsOnly = useMemo(() => {
+    const grouped = new Map<string, number>()
+    holdings.forEach((h) => {
+      const label = mapToMarketLabel(h.symbol, h.type)
+      grouped.set(label, (grouped.get(label) || 0) + h.currentValue)
+    })
+    return Array.from(grouped.entries())
+      .filter(([, value]) => value > 0)
+      .map(([name, value]) => ({
+        name,
+        value,
+        percentage: totalValue > 0 ? (value / totalValue) * 100 : 0,
+      }))
+      .sort((a, b) => b.value - a.value)
+  }, [holdings, totalValue])
+
   const allocationByMarket = useMemo(() => {
     const grouped = new Map<string, number>()
     holdings.forEach((h) => {
@@ -221,6 +232,24 @@ export default function InvestmentsDetailPage() {
       }))
       .sort((a, b) => b.value - a.value)
   }, [holdings, ilpProducts, totalValue])
+
+  /** One donut slice per ILP product (latest fund value). */
+  const allocationByIlpProduct = useMemo(() => {
+    const rows = ilpProducts
+      .map((p) => ({
+        name: p.name,
+        value: p.latestEntry?.fund_value ?? 0,
+      }))
+      .filter((r) => r.value > 0)
+    const ilpSum = rows.reduce((s, r) => s + r.value, 0)
+    return rows
+      .map((r) => ({
+        name: r.name,
+        value: r.value,
+        percentage: ilpSum > 0 ? (r.value / ilpSum) * 100 : 0,
+      }))
+      .sort((a, b) => b.value - a.value)
+  }, [ilpProducts])
 
   const metalsHoldings = useMemo(() => {
     const goldSilver = holdings.filter(
@@ -328,10 +357,43 @@ export default function InvestmentsDetailPage() {
         description="Full holdings, journals, and market breakdown."
       />
 
-      <InvestmentValueChart
-        profileId={activeProfileId}
-        familyId={activeFamilyId}
-      />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <InvestmentValueChart
+          profileId={activeProfileId}
+          familyId={activeFamilyId}
+          className="min-h-0"
+        />
+        <div className="rounded-xl border bg-card p-4">
+          {isLoading ? (
+            <ChartSkeleton height={280} className="rounded-lg" />
+          ) : allocationByMarketHoldingsOnly.length === 0 ? (
+            <div className="flex h-[280px] flex-col justify-center gap-1 px-2 text-center text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Investments</span>
+              <span>No holdings to chart. Add holdings below.</span>
+            </div>
+          ) : (
+            <AllocationChart
+              data={allocationByMarketHoldingsOnly}
+              title="Investments"
+            />
+          )}
+        </div>
+        <div className="rounded-xl border bg-card p-4">
+          {isLoading ? (
+            <ChartSkeleton height={280} className="rounded-lg" />
+          ) : allocationByIlpProduct.length === 0 ? (
+            <div className="flex h-[280px] flex-col justify-center gap-1 px-2 text-center text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">ILP</span>
+              <span>
+                No ILP fund value yet. Add a product and monthly entries in
+                the ILP tab.
+              </span>
+            </div>
+          ) : (
+            <AllocationChart data={allocationByIlpProduct} title="ILP" />
+          )}
+        </div>
+      </div>
 
       <Tabs defaultValue="holdings">
         <div className="-mx-1 min-w-0 overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">

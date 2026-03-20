@@ -77,6 +77,7 @@ export type Database = {
           telegram_username: string | null
           birth_year: number
           optional_onboarding_completed_at: string | null
+          dps_include_in_projection: boolean
           created_at: string
         }
         Insert: {
@@ -87,6 +88,7 @@ export type Database = {
           telegram_username?: string | null
           birth_year: number
           optional_onboarding_completed_at?: string | null
+          dps_include_in_projection?: boolean
           created_at?: string
         }
         Update: {
@@ -97,6 +99,7 @@ export type Database = {
           telegram_username?: string | null
           birth_year?: number
           optional_onboarding_completed_at?: string | null
+          dps_include_in_projection?: boolean
           created_at?: string
         }
         Relationships: [
@@ -829,6 +832,8 @@ export type Database = {
           principal_withdrawn: number
           accrued_interest: number
           withdrawal_date: string
+          usage_type: string | null
+          loan_repayment_id: string | null
           created_at: string
         }
         Insert: {
@@ -837,6 +842,8 @@ export type Database = {
           principal_withdrawn: number
           accrued_interest?: number
           withdrawal_date: string
+          usage_type?: string | null
+          loan_repayment_id?: string | null
           created_at?: string
         }
         Update: {
@@ -845,6 +852,8 @@ export type Database = {
           principal_withdrawn?: number
           accrued_interest?: number
           withdrawal_date?: string
+          usage_type?: string | null
+          loan_repayment_id?: string | null
           created_at?: string
         }
         Relationships: [
@@ -1015,6 +1024,7 @@ export type Database = {
           start_date: string
           lender: string | null
           use_cpf_oa: boolean
+          valuation_limit: number | null
           created_at: string
         }
         Insert: {
@@ -1028,6 +1038,7 @@ export type Database = {
           start_date: string
           lender?: string | null
           use_cpf_oa?: boolean
+          valuation_limit?: number | null
           created_at?: string
         }
         Update: {
@@ -1041,6 +1052,7 @@ export type Database = {
           start_date?: string
           lender?: string | null
           use_cpf_oa?: boolean
+          valuation_limit?: number | null
           created_at?: string
         }
         Relationships: [
@@ -1060,6 +1072,7 @@ export type Database = {
           amount: number
           principal_portion: number | null
           interest_portion: number | null
+          cpf_oa_amount: number | null
           date: string
           created_at: string
         }
@@ -1069,6 +1082,7 @@ export type Database = {
           amount: number
           principal_portion?: number | null
           interest_portion?: number | null
+          cpf_oa_amount?: number | null
           date: string
           created_at?: string
         }
@@ -1078,6 +1092,7 @@ export type Database = {
           amount?: number
           principal_portion?: number | null
           interest_portion?: number | null
+          cpf_oa_amount?: number | null
           date?: string
           created_at?: string
         }

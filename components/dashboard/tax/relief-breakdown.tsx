@@ -1,6 +1,7 @@
 "use client"
 
 import { formatCurrency } from "@/lib/utils"
+import { formatReliefType } from "@/lib/tax/relief-labels"
 import { applyProgressiveBrackets } from "@/lib/calculations/tax"
 import {
   Table,
@@ -25,10 +26,6 @@ const MONEY_FLOW: Record<string, string> = {
   spouse: "N/A",
   wmcr: "N/A",
   other: "—",
-}
-
-function formatReliefType(type: string): string {
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 export interface ReliefRow {

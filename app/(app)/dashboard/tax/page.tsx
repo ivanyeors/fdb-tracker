@@ -5,7 +5,13 @@ import { SectionHeader } from "@/components/dashboard/section-header"
 import { formatCurrency } from "@/lib/utils"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { useActiveProfile } from "@/hooks/use-active-profile"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
@@ -16,9 +22,13 @@ import {
 } from "@/components/ui/select"
 import { ReliefBreakdown } from "@/components/dashboard/tax/relief-breakdown"
 import { TaxComparison } from "@/components/dashboard/tax/tax-comparison"
+import type { HouseholdChargeableMarker } from "@/components/dashboard/tax/tax-bracket-ladder"
 import { TaxReliefDonut } from "@/components/dashboard/tax/tax-relief-donut"
 import { ManualReliefForm } from "@/components/dashboard/tax/manual-relief-form"
 import { ActualTaxDialog } from "@/components/dashboard/tax/actual-tax-dialog"
+import { MonthlyTaxDialog } from "@/components/dashboard/tax/monthly-tax-dialog"
+import { InfoTooltip } from "@/components/ui/info-tooltip"
+import type { TaxSnapshot } from "@/lib/tax/tax-snapshot"
 
 interface TaxEntry {
   id: string
@@ -49,6 +59,7 @@ interface TaxData {
   reliefs: TaxRelief[]
   profiles: TaxProfile[]
   profileDetails?: Record<string, { employmentIncome: number }>
+  taxSnapshots?: Record<string, TaxSnapshot>
 }
 
 const currentYear = new Date().getFullYear()
@@ -62,6 +73,8 @@ export default function TaxPage() {
   const [actualDialogOpen, setActualDialogOpen] = useState(false)
   const [actualDialogProfileId, setActualDialogProfileId] = useState<string | null>(null)
   const [actualDialogAmount, setActualDialogAmount] = useState<number | null>(null)
+  const [monthlyDialogOpen, setMonthlyDialogOpen] = useState(false)
+  const [monthlyDialogProfileId, setMonthlyDialogProfileId] = useState<string | null>(null)
 
   const fetchTax = useCallback(async () => {
     if (!activeProfileId && !activeFamilyId) {
@@ -104,21 +117,18 @@ export default function TaxPage() {
     () => entriesForYear.reduce((s, e) => s + e.calculated_amount, 0),
     [entriesForYear]
   )
-  const totalActual = useMemo(() => {
-    const sum = entriesForYear.reduce(
-      (s, e) => s + (e.actual_amount ?? 0),
-      0
-    )
-    return entriesForYear.some((e) => e.actual_amount != null) ? sum : null
-  }, [entriesForYear])
   const totalReliefs = useMemo(
     () => reliefsForYear.reduce((s, r) => s + r.amount, 0),
     [reliefsForYear]
   )
   const monthlyPayment = useMemo(() => {
-    const yearly = totalActual != null ? totalActual : totalCalculated
+    const yearly = entriesForYear.reduce((s, e) => {
+      const part =
+        e.actual_amount != null ? e.actual_amount : e.calculated_amount
+      return s + part
+    }, 0)
     return Math.round((yearly / 12) * 100) / 100
-  }, [totalActual, totalCalculated])
+  }, [entriesForYear])
 
   const reliefsByProfile = useMemo(() => {
     const map = new Map<string, TaxRelief[]>()
@@ -134,6 +144,20 @@ export default function TaxPage() {
     () => new Map(data.profiles.map((p) => [p.id, p.name])),
     [data.profiles]
   )
+
+  const householdChargeableMarkers = useMemo(():
+    | HouseholdChargeableMarker[]
+    | undefined => {
+    if (data.profiles.length <= 1) return undefined
+    return data.profiles.map((p) => ({
+      id: p.id,
+      label: p.name,
+      chargeableIncome:
+        data.taxSnapshots?.[p.id]?.year === selectedYear
+          ? (data.taxSnapshots[p.id]?.chargeableIncome ?? 0)
+          : 0,
+    }))
+  }, [data.profiles, data.taxSnapshots, selectedYear])
 
   const primaryEntry = entriesForYear[0] ?? null
 
@@ -164,13 +188,18 @@ export default function TaxPage() {
     setActualDialogOpen(true)
   }
 
+  function openMonthlyDialog(profileId: string) {
+    setMonthlyDialogProfileId(profileId)
+    setMonthlyDialogOpen(true)
+  }
+
   const hasData = data.entries.length > 0
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
         title="Tax"
-        description="Auto-calculated tax, reliefs, and yearly breakdown."
+        description="Estimated resident tax from your income and reliefs, bracket view, and IRAS comparison."
       >
         <Select
           value={String(selectedYear)}
@@ -217,7 +246,7 @@ export default function TaxPage() {
         <>
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard
-              label={`YA ${selectedYear} Calculated Tax`}
+              label={`YA ${selectedYear} estimated tax`}
               value={totalCalculated}
               prefix="$"
               tooltipId="TAX_CALCULATED"
@@ -241,16 +270,28 @@ export default function TaxPage() {
                 <TaxComparison
                   key={entry.id}
                   year={selectedYear}
+                  profileId={entry.profile_id}
                   calculatedAmount={entry.calculated_amount}
                   actualAmount={entry.actual_amount}
+                  snapshot={
+                    data.taxSnapshots?.[entry.profile_id]?.year === selectedYear
+                      ? (data.taxSnapshots[entry.profile_id] ?? null)
+                      : null
+                  }
                   onEnterActual={() =>
                     openActualDialog(entry.profile_id, entry.actual_amount)
                   }
+                  onFromMonthly={() => openMonthlyDialog(entry.profile_id)}
                   profileName={
                     data.profiles.length > 1
                       ? profileMap.get(entry.profile_id)
                       : undefined
                   }
+                  showMarginalPositionMarker={data.profiles.length <= 1}
+                  marginalMarkerSubjectLabel={
+                    profileMap.get(entry.profile_id) ?? "This profile"
+                  }
+                  householdChargeableMarkers={householdChargeableMarkers}
                 />
               ))}
             </div>
@@ -263,6 +304,16 @@ export default function TaxPage() {
               profileId={actualDialogProfileId}
               year={selectedYear}
               initialAmount={actualDialogAmount}
+              onSuccess={fetchTax}
+            />
+          )}
+
+          {monthlyDialogProfileId && (
+            <MonthlyTaxDialog
+              open={monthlyDialogOpen}
+              onOpenChange={setMonthlyDialogOpen}
+              profileId={monthlyDialogProfileId}
+              year={selectedYear}
               onSuccess={fetchTax}
             />
           )}
@@ -308,9 +359,20 @@ export default function TaxPage() {
           {reliefsForYear.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">
-                  Relief Breakdown by Category
-                </CardTitle>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <CardTitle className="text-base">
+                    Relief breakdown by category
+                  </CardTitle>
+                  <InfoTooltip id="TAX_RELIEF_BY_CATEGORY" />
+                </div>
+                <CardDescription>
+                  Share of total relief dollars for YA {selectedYear}
+                  {data.profiles.length > 1
+                    ? " (combined across profiles in this view)."
+                    : "."}{" "}
+                  The centre total is not tax — it is how much relief entered the
+                  model (subject to the $80k cap when computing tax).
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <TaxReliefDonut
@@ -360,7 +422,7 @@ export default function TaxPage() {
                       {data.profiles.length > 1 && (
                         <th className="px-4 py-3 text-left font-medium">Profile</th>
                       )}
-                      <th className="px-4 py-3 text-right font-medium">Calculated</th>
+                      <th className="px-4 py-3 text-right font-medium">Estimated</th>
                       <th className="px-4 py-3 text-right font-medium">Actual Paid</th>
                       <th className="px-4 py-3 text-right font-medium">Difference</th>
                     </tr>

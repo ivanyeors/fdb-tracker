@@ -69,6 +69,7 @@ const createLoanSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   lender: z.string().optional(),
   useCpfOa: z.boolean().optional(),
+  valuationLimit: z.number().positive().optional().nullable(),
 })
 
 export async function POST(request: NextRequest) {
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
         start_date: parsed.data.startDate,
         lender: parsed.data.lender ?? null,
         use_cpf_oa: parsed.data.useCpfOa ?? false,
+        valuation_limit: parsed.data.valuationLimit ?? null,
       })
       .select()
       .single()

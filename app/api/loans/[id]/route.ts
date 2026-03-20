@@ -13,6 +13,7 @@ const updateLoanSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   lender: z.string().nullable().optional(),
   useCpfOa: z.boolean().optional(),
+  valuationLimit: z.number().positive().nullable().optional(),
 })
 
 async function verifyLoanOwnership(
@@ -75,6 +76,7 @@ export async function PATCH(
     if (parsed.data.startDate !== undefined) updates.start_date = parsed.data.startDate
     if (parsed.data.lender !== undefined) updates.lender = parsed.data.lender
     if (parsed.data.useCpfOa !== undefined) updates.use_cpf_oa = parsed.data.useCpfOa
+    if (parsed.data.valuationLimit !== undefined) updates.valuation_limit = parsed.data.valuationLimit
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })

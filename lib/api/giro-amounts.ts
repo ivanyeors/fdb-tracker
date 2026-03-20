@@ -4,7 +4,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-const GIRO_OUTFLOW_DESTINATIONS = [
+export const GIRO_OUTFLOW_DESTINATIONS = [
   "outflow",
   "investments",
   "cpf_investments",

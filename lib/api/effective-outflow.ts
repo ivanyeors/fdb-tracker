@@ -56,20 +56,27 @@ export async function getEffectiveOutflowForProfile(
   const discretionary = userOutflow + giroOutflow
 
   let insurance = 0
+  let ilp = 0
   const { data: policies } = await supabase
     .from("insurance_policies")
-    .select("premium_amount, frequency, is_active, deduct_from_outflow")
+    .select("premium_amount, frequency, is_active, deduct_from_outflow, type")
     .eq("profile_id", profileId)
     .eq("is_active", true)
     .eq("deduct_from_outflow", true)
 
   if (policies) {
     for (const p of policies) {
-      insurance += p.frequency === "monthly" ? p.premium_amount : p.premium_amount / 12
+      const monthlyEq = p.frequency === "monthly" ? p.premium_amount : p.premium_amount / 12
+      if (p.type === "ilp") {
+        ilp += monthlyEq
+      } else {
+        insurance += monthlyEq
+      }
     }
   }
 
-  let ilp = 0
+  // Legacy insurance_policies.type = ilp premiums count toward `ilp` (same bucket as ilp_products).
+
   const { data: ilps } = await supabase
     .from("ilp_products")
     .select("monthly_premium")

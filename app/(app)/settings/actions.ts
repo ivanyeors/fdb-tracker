@@ -33,6 +33,8 @@ export async function updateUserProfile(
       return { error: "Unauthorized" }
     }
 
+    const dpsIncludeInProjection = formData.get("dpsIncludeInProjection") !== "false"
+
     const data = {
       profileId: formData.get("profileId"),
       name: formData.get("name"),
@@ -84,7 +86,7 @@ export async function updateUserProfile(
     // Update profile
     const { error: profileError } = await supabase
       .from("profiles")
-      .update({ name, birth_year: birthYear })
+      .update({ name, birth_year: birthYear, dps_include_in_projection: dpsIncludeInProjection })
       .eq("id", profileId)
 
     if (profileError) {

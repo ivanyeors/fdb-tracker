@@ -8,10 +8,8 @@ import {
   getEffectiveOutflowForProfile,
   getSharedIlpTotalForFamily,
 } from "@/lib/api/effective-outflow"
-import {
-  getEffectiveInflowForProfile,
-  getEffectiveInflowWithBreakdown,
-} from "@/lib/api/effective-inflow"
+import { getEffectiveInflowWithBreakdown } from "@/lib/api/effective-inflow"
+import { fetchCashflowRangeSeries } from "@/lib/api/cashflow-range"
 
 const cashflowQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -29,23 +27,6 @@ const cashflowBodySchema = z.object({
   outflow: z.number().min(0).optional(),
   source: z.string().optional(),
 })
-
-function getMonthsInRange(startMonth: string, endMonth: string): string[] {
-  const months: string[] = []
-  const [startY, startM] = startMonth.split("-").map(Number)
-  const [endY, endM] = endMonth.split("-").map(Number)
-  let y = startY
-  let m = startM
-  while (y < endY || (y === endY && m <= endM)) {
-    months.push(`${y}-${String(m).padStart(2, "0")}-01`)
-    m++
-    if (m > 12) {
-      m = 1
-      y++
-    }
-  }
-  return months
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -165,76 +146,18 @@ export async function GET(request: NextRequest) {
     }
     const { profileIds, familyId: resolvedFamilyId } = resolved
 
-    const { data: cashflowRows, error } = await supabase
-      .from("monthly_cashflow")
-      .select("profile_id, month, inflow, outflow")
-      .in("profile_id", profileIds)
-      .gte("month", startMonth)
-      .lte("month", endMonth)
-      .order("month", { ascending: true })
-
-    if (error) {
+    try {
+      const result = await fetchCashflowRangeSeries(supabase, {
+        profileIds,
+        familyId: resolvedFamilyId,
+        startMonth,
+        endMonth,
+      })
+      return NextResponse.json(result)
+    } catch (e) {
+      console.error("[api/cashflow] GET range:", e)
       return NextResponse.json({ error: "Failed to fetch cashflow" }, { status: 500 })
     }
-
-    const months = getMonthsInRange(startMonth, endMonth)
-    const cashflowByProfileMonth = new Map<string, { inflow: number; outflow: number }>()
-    for (const row of cashflowRows ?? []) {
-      const key = `${row.profile_id}:${row.month}`
-      cashflowByProfileMonth.set(key, {
-        inflow: row.inflow ?? 0,
-        outflow: row.outflow ?? 0,
-      })
-    }
-
-    const result: Array<{
-      month: string
-      inflow: number
-      discretionary: number
-      insurance: number
-      ilp: number
-      loans: number
-      tax: number
-      totalOutflow: number
-    }> = []
-
-    for (const month of months) {
-      let inflow = 0
-      let discretionary = 0
-      let insurance = 0
-      let ilp = 0
-      let loans = 0
-      let tax = 0
-
-      for (const pid of profileIds) {
-        inflow += await getEffectiveInflowForProfile(supabase, pid, month)
-
-        const eff = await getEffectiveOutflowForProfile(supabase, pid, month)
-        discretionary += eff.discretionary
-        insurance += eff.insurance
-        ilp += eff.ilp
-        loans += eff.loans
-        tax += eff.tax
-      }
-
-      // Add shared ILP products (profile_id null) once per month
-      const sharedIlp = await getSharedIlpTotalForFamily(supabase, resolvedFamilyId)
-      ilp += sharedIlp
-
-      const totalOutflow = discretionary + insurance + ilp + loans + tax
-      result.push({
-        month,
-        inflow,
-        discretionary,
-        insurance,
-        ilp,
-        loans,
-        tax,
-        totalOutflow,
-      })
-    }
-
-    return NextResponse.json(result)
   } catch (err) {
     console.error("[api/cashflow] GET Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

@@ -25,7 +25,7 @@ import {
   pathWithMode,
   type OnboardingInsurance,
 } from "@/components/onboarding/onboarding-provider"
-import { getFieldsForType, type InsuranceType } from "@/lib/insurance/coverage-config"
+import { getFieldsForInsurancePolicyRow } from "@/lib/insurance/coverage-config"
 import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react"
 
 const INSURANCE_TYPES = [
@@ -34,7 +34,6 @@ const INSURANCE_TYPES = [
   { value: "integrated_shield", label: "Integrated Shield" },
   { value: "critical_illness", label: "Critical Illness" },
   { value: "endowment", label: "Endowment" },
-  { value: "ilp", label: "ILP" },
   { value: "personal_accident", label: "Personal Accident" },
 ] as const
 
@@ -62,7 +61,7 @@ export default function InsurancePage() {
   }
 
   function updateItemWithTypeReset(index: number, type: string) {
-    const fields = getFieldsForType(type as InsuranceType, items[index].frequency)
+    const fields = getFieldsForInsurancePolicyRow(type, items[index].frequency)
     const updated = [...items]
     updated[index] = {
       ...updated[index],
@@ -243,7 +242,7 @@ export default function InsurancePage() {
                 </Select>
               </div>
               {(() => {
-                const fields = getFieldsForType(item.type as InsuranceType, item.frequency)
+                const fields = getFieldsForInsurancePolicyRow(item.type, item.frequency)
                 return (
                   <>
                     {fields.showCoverageAmount && (

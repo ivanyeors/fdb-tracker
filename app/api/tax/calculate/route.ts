@@ -99,6 +99,14 @@ export async function GET(request: NextRequest) {
       effectiveRate: result.effectiveRate,
       employmentIncome: result.employmentIncome,
       totalReliefs: result.totalReliefs,
+      reliefsRawTotal: result.reliefsRawTotal,
+      reliefCapHeadroom: result.reliefCapHeadroom,
+      taxBeforeRebate: result.taxBeforeRebate,
+      rebateAmount: result.rebateAmount,
+      marginalRate: result.marginalRate,
+      marginalBandFrom: result.marginalBandFrom,
+      marginalBandTo: result.marginalBandTo,
+      bracketAllocation: result.bracketAllocation,
     })
   } catch (err) {
     console.error("[api/tax/calculate] Error:", err)

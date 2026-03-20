@@ -1,6 +1,10 @@
 /**
  * Insurance policy type and coverage configuration.
  * Used for dynamic form fields, labels, and gap analysis.
+ *
+ * Note: `ilp` is no longer a creatable insurance type (use Investments / ilp_products).
+ * Legacy rows may still have type "ilp" in the database — use getFieldsForInsurancePolicyRow
+ * and getCoverageType (string) for those rows.
  */
 
 export const INSURANCE_TYPES = [
@@ -9,7 +13,6 @@ export const INSURANCE_TYPES = [
   "integrated_shield",
   "critical_illness",
   "endowment",
-  "ilp",
   "personal_accident",
 ] as const
 
@@ -31,12 +34,16 @@ export const COVERAGE_TYPE_BY_POLICY: Record<InsuranceType, CoverageType | null>
   integrated_shield: "hospitalization",
   critical_illness: "critical_illness",
   endowment: "death",
-  ilp: "death",
   personal_accident: "personal_accident",
 }
 
-export function getCoverageType(type: InsuranceType): CoverageType | null {
-  return COVERAGE_TYPE_BY_POLICY[type] ?? null
+/** Resolves coverage_type for inserts/updates, including legacy `insurance_policies.type = ilp`. */
+export function getCoverageType(type: string): CoverageType | null {
+  if (type === "ilp") return "death"
+  if (type in COVERAGE_TYPE_BY_POLICY) {
+    return COVERAGE_TYPE_BY_POLICY[type as InsuranceType]
+  }
+  return null
 }
 
 export function getCoverageLabel(type: InsuranceType): string {
@@ -46,21 +53,18 @@ export function getCoverageLabel(type: InsuranceType): string {
     integrated_shield: "Annual limit (optional)",
     critical_illness: "Lump sum payout",
     endowment: "Sum assured / maturity amount",
-    ilp: "Death benefit (optional)",
     personal_accident: "Sum assured",
   }
   return labels[type] ?? "Coverage amount"
 }
 
 export function getCurrentAmountLabel(type: InsuranceType): string {
-  if (type === "ilp") return "Fund value"
   if (type === "whole_life" || type === "endowment") return "Cash value"
   return "Current amount"
 }
 
 export function getEndDateLabel(type: InsuranceType): string {
   if (type === "endowment") return "Maturity date"
-  if (type === "ilp") return "Premium end date"
   return "End date"
 }
 
@@ -78,10 +82,9 @@ export function getFieldsForType(
   type: InsuranceType,
   frequency: "monthly" | "yearly" = "yearly",
 ): FieldsForType {
-  const showCurrentAmount =
-    type === "whole_life" || type === "endowment" || type === "ilp"
-  const showEndDate = type === "endowment" || type === "ilp"
-  const showYearlyOutflowDate = type !== "ilp" && frequency === "yearly"
+  const showCurrentAmount = type === "whole_life" || type === "endowment"
+  const showEndDate = type === "endowment"
+  const showYearlyOutflowDate = frequency === "yearly"
 
   return {
     showCoverageAmount: true,
@@ -92,4 +95,23 @@ export function getFieldsForType(
     currentAmountLabel: getCurrentAmountLabel(type),
     endDateLabel: getEndDateLabel(type),
   }
+}
+
+/** Includes legacy `type === "ilp"` rows still stored on insurance_policies. */
+export function getFieldsForInsurancePolicyRow(
+  type: string,
+  frequency: "monthly" | "yearly" = "yearly",
+): FieldsForType {
+  if (type === "ilp") {
+    return {
+      showCoverageAmount: true,
+      showCurrentAmount: true,
+      showEndDate: true,
+      showYearlyOutflowDate: false,
+      coverageAmountLabel: "Death benefit (optional)",
+      currentAmountLabel: "Fund value",
+      endDateLabel: "Premium end date",
+    }
+  }
+  return getFieldsForType(type as InsuranceType, frequency)
 }

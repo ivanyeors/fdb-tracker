@@ -11,6 +11,7 @@ import {
   calculateRetirementGap,
   findBenchmarkAge,
 } from "@/lib/calculations/cpf-retirement"
+import { getDpsAnnualPremium, getDpsMonthlyOaDeduction } from "@/lib/calculations/cpf-dps"
 
 const retirementQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id, birth_year, name")
+      .select("id, birth_year, name, dps_include_in_projection")
       .eq("id", singleProfileId)
       .single()
 
@@ -88,6 +89,11 @@ export async function GET(request: NextRequest) {
     const monthlyGross = annualSalary / 12
     const monthlyContribution = calculateCpfContribution(monthlyGross, currentAge, currentYear)
 
+    const includeDps = profile.dps_include_in_projection !== false
+    const birthYear = profile.birth_year
+    const getMonthlyOaDeduction = (_age: number, calendarYear: number) =>
+      getDpsMonthlyOaDeduction(birthYear, calendarYear, includeDps)
+
     const cohortYear = profile.birth_year + 55
     const retirementSums = getRetirementSums(cohortYear)
 
@@ -98,6 +104,7 @@ export async function GET(request: NextRequest) {
       monthlyContribution,
       currentAge,
       targetAge: 55,
+      getMonthlyOaDeduction,
     })
 
     const projectedAt55 = projection.length > 0
@@ -115,11 +122,14 @@ export async function GET(request: NextRequest) {
       monthlyContribution,
       currentAge,
       targetAge: 70,
+      getMonthlyOaDeduction,
     })
 
     const brsAge = findBenchmarkAge(extendedProjection, retirementSums.brs)
     const frsAge = findBenchmarkAge(extendedProjection, retirementSums.frs)
     const ersAge = findBenchmarkAge(extendedProjection, retirementSums.ers)
+
+    const dpsAnnual = getDpsAnnualPremium(currentAge, currentYear)
 
     return NextResponse.json({
       profileId: singleProfileId,
@@ -128,6 +138,12 @@ export async function GET(request: NextRequest) {
       currentAge,
       cohortYear,
       retirementSums,
+      dps: {
+        included: includeDps,
+        estimatedAnnualPremium: dpsAnnual,
+        note:
+          "DPS premiums are deducted from CPF OA (estimate from age band). Turn off in User Settings if you opted out.",
+      },
       currentCpf: { oa: currentOa, sa: currentSa, ma: currentMa, total: cpfTotal },
       projectionToAge55: projection,
       extendedProjection,

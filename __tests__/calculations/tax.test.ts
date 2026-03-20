@@ -4,6 +4,9 @@ import {
   applyRebate,
   calculateTax,
   getAutoReliefs,
+  getProgressiveBracketAllocation,
+  getRebateAmount,
+  solveBonusForTargetTaxPayable,
 } from "@/lib/calculations/tax";
 
 describe("applyProgressiveBrackets", () => {
@@ -34,6 +37,15 @@ describe("applyProgressiveBrackets", () => {
     expect(tax).toBeGreaterThan(10000);
     expect(tax).toBeLessThan(25000);
   });
+
+  it("bracket allocation tax sums to applyProgressiveBrackets", () => {
+    const ci = 85000;
+    const bands = getProgressiveBracketAllocation(ci);
+    const sumTax = bands.reduce((s, b) => s + b.taxInBand, 0);
+    expect(sumTax).toBe(applyProgressiveBrackets(ci));
+    const sumIncome = bands.reduce((s, b) => s + b.incomeInBand, 0);
+    expect(sumIncome).toBe(ci);
+  });
 });
 
 describe("capReliefs", () => {
@@ -54,8 +66,11 @@ describe("capReliefs", () => {
 
 describe("applyRebate", () => {
   it("applies YA2025 rebate (60% capped $200)", () => {
+    expect(getRebateAmount(500, 2025)).toBe(200);
     expect(applyRebate(500, 2025)).toBe(300); // 500 - 200 = 300
+    expect(getRebateAmount(100, 2025)).toBe(60);
     expect(applyRebate(100, 2025)).toBe(40); // 100 - 60 = 40
+    expect(getRebateAmount(50, 2025)).toBe(30);
     expect(applyRebate(50, 2025)).toBe(20); // 50 - 30 = 20
   });
 
@@ -141,6 +156,9 @@ describe("calculateTax", () => {
     expect(result.chargeableIncome).toBeGreaterThanOrEqual(0);
     expect(result.taxPayable).toBeGreaterThanOrEqual(0);
     expect(result.effectiveRate).toBeGreaterThanOrEqual(0);
+    expect(result.taxBeforeRebate).toBeGreaterThanOrEqual(result.taxPayable);
+    expect(result.rebateAmount).toBe(0);
+    expect(result.bracketAllocation.length).toBeGreaterThan(0);
   });
 
   it("applies $80k relief cap", () => {
@@ -167,6 +185,8 @@ describe("calculateTax", () => {
     });
 
     expect(result.taxPayable).toBeGreaterThanOrEqual(0);
+    expect(result.rebateAmount).toBeGreaterThan(0);
+    expect(result.taxBeforeRebate - result.rebateAmount).toBe(result.taxPayable);
   });
 
   it("returns zero tax when reliefs exceed income", () => {
@@ -180,5 +200,109 @@ describe("calculateTax", () => {
 
     expect(result.chargeableIncome).toBe(0);
     expect(result.taxPayable).toBe(0);
+  });
+});
+
+describe("solveBonusForTargetTaxPayable", () => {
+  it("returns bonus 0 when target matches tax at zero bonus", () => {
+    const year = 2026;
+    const base = {
+      profile: { birth_year: 1994 },
+      annual_salary: 100000,
+      insurancePolicies: [] as const,
+      manualReliefs: [] as const,
+      year,
+    };
+    const t0 = calculateTax({
+      profile: base.profile,
+      incomeConfig: { annual_salary: base.annual_salary, bonus_estimate: 0 },
+      insurancePolicies: [],
+      manualReliefs: [],
+      year,
+    }).taxPayable;
+    const sol = solveBonusForTargetTaxPayable({
+      ...base,
+      targetPayable: t0,
+    });
+    expect(sol.ok).toBe(true);
+    if (sol.ok) expect(sol.bonus_estimate).toBe(0);
+  });
+
+  it("finds bonus so forward tax matches target (2026)", () => {
+    const year = 2026;
+    const targetBonus = 25000;
+    const base = {
+      profile: { birth_year: 1994 },
+      annual_salary: 90000,
+      insurancePolicies: [] as const,
+      manualReliefs: [] as const,
+      year,
+    };
+    const target = calculateTax({
+      profile: base.profile,
+      incomeConfig: { annual_salary: base.annual_salary, bonus_estimate: targetBonus },
+      insurancePolicies: [],
+      manualReliefs: [],
+      year,
+    }).taxPayable;
+    const sol = solveBonusForTargetTaxPayable({
+      ...base,
+      targetPayable: target,
+    });
+    expect(sol.ok).toBe(true);
+    if (!sol.ok) return;
+    const check = calculateTax({
+      profile: base.profile,
+      incomeConfig: { annual_salary: base.annual_salary, bonus_estimate: sol.bonus_estimate },
+      insurancePolicies: [],
+      manualReliefs: [],
+      year,
+    }).taxPayable;
+    expect(Math.abs(check - target)).toBeLessThanOrEqual(0.02);
+  });
+
+  it("works with YA2025 rebate path", () => {
+    const year = 2025;
+    const base = {
+      profile: { birth_year: 1990 },
+      annual_salary: 55000,
+      insurancePolicies: [] as const,
+      manualReliefs: [] as const,
+      year,
+    };
+    const targetBonus = 12000;
+    const target = calculateTax({
+      profile: base.profile,
+      incomeConfig: { annual_salary: base.annual_salary, bonus_estimate: targetBonus },
+      insurancePolicies: [],
+      manualReliefs: [],
+      year,
+    }).taxPayable;
+    const sol = solveBonusForTargetTaxPayable({
+      ...base,
+      targetPayable: target,
+    });
+    expect(sol.ok).toBe(true);
+    if (!sol.ok) return;
+    const check = calculateTax({
+      profile: base.profile,
+      incomeConfig: { annual_salary: base.annual_salary, bonus_estimate: sol.bonus_estimate },
+      insurancePolicies: [],
+      manualReliefs: [],
+      year,
+    }).taxPayable;
+    expect(Math.abs(check - target)).toBeLessThanOrEqual(0.02);
+  });
+
+  it("fails when target is below tax at zero bonus", () => {
+    const sol = solveBonusForTargetTaxPayable({
+      profile: { birth_year: 1994 },
+      annual_salary: 120000,
+      insurancePolicies: [],
+      manualReliefs: [],
+      year: 2026,
+      targetPayable: 0,
+    });
+    expect(sol.ok).toBe(false);
   });
 });

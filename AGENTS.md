@@ -4,6 +4,10 @@
 
 **fdb-tracker** is a Next.js 16 app (App Router + Turbopack) with shadcn/ui v4, Tailwind CSS 4, and TypeScript 5.9. Supabase is used as the backend database.
 
+### Project Agent Skills (always consult)
+
+For **every** task that touches this codebase, **read and follow** the relevant `SKILL.md` under [`.cursor/skills/`](.cursor/skills/) before writing or changing code. Match the task to the skill by its YAML `description` and folder name (e.g. UI work → `fdb-frontend`, schema/API/Supabase → `fdb-supabase`, dollar amount forms → `fdb-money-inputs`). If multiple skills apply, read all of them. Do not skip skills in favor of guessing project conventions.
+
 ### Available npm scripts
 
 See `package.json` for the full list. Key commands:

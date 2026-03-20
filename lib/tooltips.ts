@@ -69,12 +69,52 @@ export const TOOLTIPS = {
       "74% of Singaporeans have a critical illness coverage gap.",
   },
   TAX_CALCULATED: {
-    label: "Tax Calculated",
+    label: "Estimated tax (total)",
     logic:
-      "Employment income \u2212 reliefs (cap $80k) = chargeable income \u2192 progressive rates \u2212 rebate.",
-    explanation: "Singapore resident tax, auto-derived where possible.",
+      "Per profile: employment income \u2212 reliefs (cap $80k) = chargeable income; progressive resident tax; minus any YA rebate modelled.",
+    explanation: "Sum of estimated tax payable for the year of assessment shown.",
     details:
-      "Reliefs auto-derived: earned income, CPF, SRS, life insurance, NSman. Remaining entered manually.",
+      "Compare each profile\u2019s estimate with IRAS actual. Reliefs auto-derived where possible; rest under Manual reliefs.",
+  },
+  TAX_ESTIMATED_PAYABLE: {
+    label: "Estimated tax payable",
+    logic:
+      "Salary + bonus \u2212 reliefs (max $80k) = chargeable income. Tax = Singapore resident progressive brackets. Then YA rebate if built into the model.",
+    explanation: "What the app thinks you owe before comparing to IRAS.",
+    details:
+      "Not a Notice of Assessment. Enter your IRAS figure to track variance. Missing income in settings hides the bracket ladder.",
+  },
+  TAX_FROM_MONTHLY: {
+    label: "Tax from monthly instalment",
+    logic:
+      "Implied annual tax = monthly amount \u00d7 number of payments (default 12). Optionally solves bonus estimate so the model\u2019s tax matches that total.",
+    explanation: "Back-solve from GIRO-style instalments when you do not have the full IRAS figure handy.",
+    details:
+      "Assumes equal instalments; IRAS schedules, lump sums, or interest may differ. If sync is on, only bonus estimate changes under Settings \u2192 Users; salary and manual reliefs stay fixed. If the target tax is below what the model allows at zero bonus, reduce salary or add reliefs first.",
+  },
+  TAX_PROGRESSIVE_BRACKETS: {
+    label: "Progressive tax brackets",
+    logic:
+      "Chargeable income is split into slices: first slice at 0%, next at 2%, then higher rates on higher slices (YA 2024+ resident table).",
+    explanation: "Bar width shows how much of your chargeable income sits in each rate band.",
+    details:
+      "Marginal rate is the rate on your top slice. Lower chargeable income (e.g. more reliefs under the cap) shifts dollars left into lower bands.",
+  },
+  TAX_RELIEF_BY_CATEGORY: {
+    label: "Relief mix",
+    logic: "Each slice is one relief type\u2019s share of total relief dollars stored for the year.",
+    explanation: "Shows composition of reliefs, not tax owed.",
+    details:
+      "Combined across household members when multiple profiles share this view. Amounts feed the $80k cap in the tax engine.",
+  },
+  TAX_REBATE_YA: {
+    label: "Tax rebate (YA-specific)",
+    logic:
+      "In this app, only certain years have a rebate rule wired in (e.g. YA 2025: 60% of tax before rebate, capped at $200).",
+    explanation:
+      "Rebate reduces tax after progressive brackets. IRAS announces rebates per year; other YAs may show $0 until the model is updated.",
+    details:
+      "Always compare final tax to your IRAS Notice of Assessment — rebates and rules can change.",
   },
   TAX_RELIEF_INPUTS: {
     label: "Tax Relief Inputs",
@@ -98,6 +138,15 @@ export const TOOLTIPS = {
       "Must refund on property sale to restore retirement savings.",
     details:
       "120% Valuation Limit cap; voluntary refund reduces future accrued interest.",
+  },
+  CPF_DPS: {
+    label: "Dependants' Protection Scheme (DPS)",
+    logic:
+      "Estimated annual premium by age band, spread monthly in OA projections (CPF deducts from OA/SA per Board rules).",
+    explanation:
+      "Term-style cover for death, terminal illness, and TPD. Not a bank outflow.",
+    details:
+      "Rates follow published schedules — verify on your CPF statement. Turn off in User Settings if you opted out of DPS.",
   },
   CPF_BRS: {
     label: "Basic Retirement Sum (BRS)",
@@ -130,7 +179,7 @@ export const TOOLTIPS = {
     explanation:
       "Horizontal lines show BRS/FRS/ERS benchmarks. See when your projection crosses each target.",
     details:
-      "Assumes income growth ~3% p.a., CPF interest OA 2.5%/SA 4%/MA 4%. Retirement sums increase ~3.5% p.a.",
+      "Assumes income growth ~3% p.a., CPF interest OA 2.5%/SA 4%/MA 4%. Optional DPS premium spread reduces OA when enabled in settings. Retirement sums increase ~3.5% p.a.",
   },
   GOAL_PROGRESS: {
     label: "Goal Progress",

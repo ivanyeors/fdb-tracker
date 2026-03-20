@@ -2,12 +2,21 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-import { getCoverageType, type InsuranceType } from "@/lib/insurance/coverage-config"
+import { getCoverageType } from "@/lib/insurance/coverage-config"
 import { z } from "zod"
+
+const onboardingInsuranceTypeEnum = z.enum([
+  "term_life",
+  "whole_life",
+  "integrated_shield",
+  "critical_illness",
+  "endowment",
+  "personal_accident",
+])
 
 const insuranceSchema = z.object({
   name: z.string(),
-  type: z.string(),
+  type: onboardingInsuranceTypeEnum,
   premium_amount: z.number().min(0).optional().default(0),
   frequency: z.enum(["monthly", "yearly"]).optional().default("yearly"),
   coverage_amount: z.number().min(0).nullable().optional(),
@@ -79,7 +88,7 @@ export async function POST(request: Request) {
     for (const pol of insurancePolicies) {
       const profileId = profiles[pol.profileIndex]?.id
       if (profileId && pol.name.trim() && pol.premium_amount > 0) {
-        const coverageType = getCoverageType(pol.type as InsuranceType)
+        const coverageType = getCoverageType(pol.type)
         await supabase.from("insurance_policies").insert({
           profile_id: profileId,
           name: pol.name.trim(),

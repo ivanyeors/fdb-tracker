@@ -93,6 +93,8 @@ function normalizeProfile(profile: Record<string, unknown>): ProfileWithIncome {
     id: profile.id as string,
     name: profile.name as string,
     birth_year: profile.birth_year as number,
+    dps_include_in_projection:
+      (profile.dps_include_in_projection as boolean | undefined) !== false,
     income_config: (income as ProfileWithIncome["income_config"]) ?? null,
   }
 }
@@ -123,6 +125,7 @@ export default async function UserSettingsPage() {
             id,
             name,
             birth_year,
+            dps_include_in_projection,
             family_id,
             income_config (
               annual_salary,

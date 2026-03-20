@@ -5,6 +5,7 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { calculateTax } from "@/lib/calculations/tax"
+import type { TaxSnapshot } from "@/lib/tax/tax-snapshot"
 
 const taxQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -52,6 +53,8 @@ export async function GET(request: NextRequest) {
       .in("id", profileIds)
 
     // Fetch tax entries
+    const taxSnapshots: Record<string, TaxSnapshot> = {}
+
     const { data: taxEntries, error: taxError } = await supabase
       .from("tax_entries")
       .select("*")
@@ -117,6 +120,23 @@ export async function GET(request: NextRequest) {
         })),
         year: currentYear,
       })
+
+      taxSnapshots[profileId] = {
+        year: currentYear,
+        employmentIncome: result.employmentIncome,
+        totalReliefs: result.totalReliefs,
+        reliefsRawTotal: result.reliefsRawTotal,
+        reliefCapHeadroom: result.reliefCapHeadroom,
+        chargeableIncome: result.chargeableIncome,
+        taxBeforeRebate: result.taxBeforeRebate,
+        rebateAmount: result.rebateAmount,
+        taxPayable: result.taxPayable,
+        effectiveRate: result.effectiveRate,
+        marginalRate: result.marginalRate,
+        marginalBandFrom: result.marginalBandFrom,
+        marginalBandTo: result.marginalBandTo,
+        bracketAllocation: result.bracketAllocation,
+      }
 
       const existingEntry = entryByProfileYear.get(profileId)?.get(currentYear)
       const { data: newEntry } = await supabase
@@ -191,6 +211,7 @@ export async function GET(request: NextRequest) {
       reliefs,
       profiles: profiles ?? [],
       profileDetails: Object.fromEntries(profileDetails),
+      taxSnapshots,
     })
   } catch (err) {
     console.error("[api/tax] Error:", err)

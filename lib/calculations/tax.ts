@@ -41,13 +41,36 @@ export type ReliefBreakdownItem = {
   source: "auto" | "manual";
 };
 
+/** One progressive tax band with income charged and tax attributable to that slice */
+export type ProgressiveBracketBand = {
+  bandFrom: number;
+  bandTo: number;
+  rate: number;
+  incomeInBand: number;
+  taxInBand: number;
+};
+
 export type TaxResult = {
   chargeableIncome: number;
   taxPayable: number;
+  taxBeforeRebate: number;
+  rebateAmount: number;
   reliefBreakdown: ReliefBreakdownItem[];
   effectiveRate: number;
   employmentIncome: number;
+  /** Reliefs after $80k cap — used for chargeable income */
   totalReliefs: number;
+  /** Sum of auto + manual reliefs before cap (for cap headroom hints) */
+  reliefsRawTotal: number;
+  /** Additional relief amount that could still count, up to $80k total */
+  reliefCapHeadroom: number;
+  bracketAllocation: ProgressiveBracketBand[];
+  /** Marginal rate on the last dollar of chargeable income */
+  marginalRate: number;
+  /** Lower bound of the marginal band */
+  marginalBandFrom: number;
+  /** Upper chargeable-income bound of the marginal band (null if unbounded in table) */
+  marginalBandTo: number | null;
 };
 
 export type ProfileForTax = {
@@ -76,8 +99,11 @@ function roundToCent(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-/** Apply relief formula per type — donations 250%, course_fees capped, etc. */
-function applyManualReliefFormula(reliefType: string, amount: number): number {
+/** Apply relief formula per type — donations 250%, course_fees capped, etc. (same as persisted tax) */
+export function countedManualReliefForType(
+  reliefType: string,
+  amount: number
+): number {
   switch (reliefType) {
     case "donations":
       return donationRelief(amount);
@@ -116,18 +142,183 @@ export function applyProgressiveBrackets(
   return roundToCent(tax);
 }
 
+/** Per-band allocation of chargeable income; taxInBand sums to applyProgressiveBrackets(ci). */
+export function getProgressiveBracketAllocation(
+  chargeableIncome: number,
+  _year: number = 2026
+): ProgressiveBracketBand[] {
+  if (chargeableIncome <= 0) return [];
+
+  const bands: ProgressiveBracketBand[] = [];
+  let prevThreshold = 0;
+
+  for (const { threshold, rate } of BRACKETS) {
+    const bandFrom = prevThreshold;
+    const sliceTop = Math.min(chargeableIncome, threshold);
+    const incomeInBand =
+      sliceTop > bandFrom ? roundToCent(sliceTop - bandFrom) : 0;
+
+    if (incomeInBand > 0) {
+      bands.push({
+        bandFrom,
+        bandTo: threshold === Infinity ? Number.POSITIVE_INFINITY : threshold,
+        rate,
+        incomeInBand,
+        taxInBand: roundToCent(incomeInBand * rate),
+      });
+    }
+    if (chargeableIncome <= threshold) break;
+    prevThreshold = threshold;
+  }
+
+  return bands;
+}
+
+/**
+ * One row of the resident progressive schedule clipped to [0, axisMax], for ladder UI.
+ * Schedule matches IRAS resident graduated rates (YA 2024+; same structure as `BRACKETS`).
+ */
+export type ResidentBracketChartLayer = {
+  bandFrom: number;
+  bandTo: number;
+  rate: number;
+  /** Dollar width of this slice on the chart axis */
+  widthDollars: number;
+};
+
+const TAX_LADDER_AXIS_MIN = 500_000;
+
+/** Chargeable income dollars that fall in [layerFrom, layerTo). */
+export function chargeableIncomeInLayer(
+  chargeableIncome: number,
+  layerFrom: number,
+  layerTo: number
+): number {
+  if (chargeableIncome <= layerFrom) return 0;
+  return roundToCent(Math.min(chargeableIncome, layerTo) - layerFrom);
+}
+
+/** Axis end ($) so the bar shows the full bracket ladder, not only income earned. */
+export function resolveTaxBracketChartAxisMaxDollars(params: {
+  chargeableIncome: number;
+  otherChargeableIncomes?: number[];
+}): number {
+  const others = params.otherChargeableIncomes ?? [];
+  const raw = Math.max(
+    TAX_LADDER_AXIS_MIN,
+    Math.max(0, params.chargeableIncome),
+    ...others.map((x) => Math.max(0, x))
+  );
+  const headroom = Math.max(raw * 0.04, 25_000);
+  const padded = Math.ceil((raw + headroom) / 10_000) * 10_000;
+  return Math.min(padded, 9_000_000);
+}
+
+/** Full resident bracket slices from $0 up to `axisMaxDollars` (partial top band if capped). */
+export function getResidentBracketChartLayers(
+  axisMaxDollars: number
+): ResidentBracketChartLayer[] {
+  if (axisMaxDollars <= 0) return [];
+
+  const layers: ResidentBracketChartLayer[] = [];
+  let prevThreshold = 0;
+
+  for (const { threshold, rate } of BRACKETS) {
+    const bandFrom = prevThreshold;
+    const sliceTop = Math.min(axisMaxDollars, threshold);
+    const widthDollars =
+      sliceTop > bandFrom ? roundToCent(sliceTop - bandFrom) : 0;
+
+    if (widthDollars > 0) {
+      layers.push({
+        bandFrom,
+        bandTo: sliceTop,
+        rate,
+        widthDollars,
+      });
+    }
+    if (axisMaxDollars <= threshold) break;
+    prevThreshold = threshold;
+  }
+
+  return layers;
+}
+
+/** Marginal bracket: rate on the top dollar of chargeable income */
+export function getMarginalBracketInfo(chargeableIncome: number): {
+  marginalRate: number;
+  marginalBandFrom: number;
+  marginalBandTo: number | null;
+} {
+  if (chargeableIncome <= 0) {
+    return { marginalRate: 0, marginalBandFrom: 0, marginalBandTo: null };
+  }
+  const bands = getProgressiveBracketAllocation(chargeableIncome);
+  const last = bands[bands.length - 1];
+  if (!last) {
+    return { marginalRate: 0, marginalBandFrom: 0, marginalBandTo: null };
+  }
+  return {
+    marginalRate: last.rate,
+    marginalBandFrom: last.bandFrom,
+    marginalBandTo: Number.isFinite(last.bandTo) ? last.bandTo : null,
+  };
+}
+
 /** Cap total reliefs at $80,000 */
 export function capReliefs(totalReliefs: number): number {
   return Math.min(Math.max(0, totalReliefs), RELIEF_CAP);
 }
 
+/**
+ * Chargeable income if extra *counted* relief (after per-type formulas) were added
+ * on top of current reliefsRawTotal, then $80k cap applied.
+ */
+export function previewChargeableAfterExtraCountedRelief(params: {
+  employmentIncome: number;
+  reliefsRawTotal: number;
+  extraCountedRelief: number;
+}): number {
+  const added = roundToCent(Math.max(0, params.extraCountedRelief));
+  const newRaw = roundToCent(params.reliefsRawTotal + added);
+  const totalReliefs = capReliefs(newRaw);
+  return roundToCent(Math.max(0, params.employmentIncome - totalReliefs));
+}
+
+/** Tax deltas when chargeable income moves (rebate rules for `year` applied). */
+export function taxDeltaFromLowerChargeableIncome(params: {
+  chargeableBefore: number;
+  chargeableAfter: number;
+  year: number;
+}): { taxBeforeRebateDelta: number; taxPayableDelta: number } {
+  const before = Math.max(0, params.chargeableBefore);
+  const after = Math.max(0, params.chargeableAfter);
+  const tbBefore = applyProgressiveBrackets(before, params.year);
+  const tbAfter = applyProgressiveBrackets(after, params.year);
+  const rebateBefore = getRebateAmount(tbBefore, params.year);
+  const rebateAfter = getRebateAmount(tbAfter, params.year);
+  const payBefore = roundToCent(Math.max(0, tbBefore - rebateBefore));
+  const payAfter = roundToCent(Math.max(0, tbAfter - rebateAfter));
+  return {
+    taxBeforeRebateDelta: roundToCent(tbBefore - tbAfter),
+    taxPayableDelta: roundToCent(payBefore - payAfter),
+  };
+}
+
+/** Rebate dollars for the year (0 if no rebate rule) */
+export function getRebateAmount(taxBeforeRebate: number, year: number): number {
+  if (year === 2025) {
+    return roundToCent(
+      Math.min(taxBeforeRebate * REBATE_2025.rate, REBATE_2025.cap)
+    );
+  }
+  return 0;
+}
+
 /** Apply rebate (e.g. YA2025: 60% capped $200) */
 export function applyRebate(taxPayable: number, year: number): number {
-  if (year === 2025) {
-    const rebate = Math.min(taxPayable * REBATE_2025.rate, REBATE_2025.cap);
-    return roundToCent(Math.max(0, taxPayable - rebate));
-  }
-  return taxPayable;
+  const rebate = getRebateAmount(taxPayable, year);
+  return roundToCent(Math.max(0, taxPayable - rebate));
 }
 
 /**
@@ -205,31 +396,156 @@ export function calculateTax(params: {
   );
 
   const manualTotal = params.manualReliefs.reduce(
-    (s, r) => s + applyManualReliefFormula(r.relief_type, r.amount),
+    (s, r) => s + countedManualReliefForType(r.relief_type, r.amount),
     0
   );
   const manualBreakdown: ReliefBreakdownItem[] = params.manualReliefs.map(
     (r) => ({
       type: r.relief_type,
-      amount: applyManualReliefFormula(r.relief_type, r.amount),
+      amount: countedManualReliefForType(r.relief_type, r.amount),
       source: "manual",
     })
   );
 
-  const totalReliefs = capReliefs(autoTotal + manualTotal);
+  const reliefsRawTotal = roundToCent(autoTotal + manualTotal);
+  const totalReliefs = capReliefs(reliefsRawTotal);
   const chargeableIncome = Math.max(0, employmentIncome - totalReliefs);
-  let taxPayable = applyProgressiveBrackets(chargeableIncome, year);
-  taxPayable = applyRebate(taxPayable, year);
+  const taxBeforeRebate = applyProgressiveBrackets(chargeableIncome, year);
+  const rebateAmount = getRebateAmount(taxBeforeRebate, year);
+  const taxPayable = roundToCent(Math.max(0, taxBeforeRebate - rebateAmount));
 
   const effectiveRate =
     employmentIncome > 0 ? (taxPayable / employmentIncome) * 100 : 0;
 
+  const bracketAllocation = getProgressiveBracketAllocation(
+    chargeableIncome,
+    year
+  );
+  const {
+    marginalRate,
+    marginalBandFrom,
+    marginalBandTo,
+  } = getMarginalBracketInfo(chargeableIncome);
+  const reliefCapHeadroom = roundToCent(
+    Math.max(0, RELIEF_CAP - reliefsRawTotal)
+  );
+
   return {
     chargeableIncome: roundToCent(chargeableIncome),
     taxPayable,
+    taxBeforeRebate,
+    rebateAmount,
     reliefBreakdown: [...autoBreakdown, ...manualBreakdown],
     effectiveRate: roundToCent(effectiveRate),
     employmentIncome,
     totalReliefs,
+    reliefsRawTotal,
+    reliefCapHeadroom,
+    bracketAllocation,
+    marginalRate,
+    marginalBandFrom,
+    marginalBandTo,
+  };
+}
+
+const TAX_MATCH_EPS = 0.01;
+const BONUS_SEARCH_DEFAULT_MAX = 10_000_000;
+const BONUS_SEARCH_MAX_EXPAND_STEPS = 30;
+const BONUS_SEARCH_MAX_ITER = 70;
+
+export type SolveBonusForTargetPayableResult =
+  | { ok: true; bonus_estimate: number }
+  | { ok: false; error: string };
+
+/**
+ * Find non-negative bonus_estimate such that calculateTax(...).taxPayable ≈ targetPayable,
+ * holding salary and reliefs fixed. Uses binary search (tax payable increases with bonus).
+ */
+export function solveBonusForTargetTaxPayable(params: {
+  profile: ProfileForTax;
+  annual_salary: number;
+  insurancePolicies: InsurancePolicyForTax[];
+  manualReliefs: ManualReliefInput[];
+  year: number;
+  targetPayable: number;
+  bonusUpperBound?: number;
+}): SolveBonusForTargetPayableResult {
+  const targetPayable = roundToCent(Math.max(0, params.targetPayable));
+
+  const taxAt = (bonus: number) =>
+    calculateTax({
+      profile: params.profile,
+      incomeConfig: {
+        annual_salary: params.annual_salary,
+        bonus_estimate: bonus,
+      },
+      insurancePolicies: params.insurancePolicies,
+      manualReliefs: params.manualReliefs,
+      year: params.year,
+    }).taxPayable;
+
+  const taxAtZero = taxAt(0);
+  if (targetPayable + TAX_MATCH_EPS < taxAtZero) {
+    return {
+      ok: false,
+      error:
+        "Target tax is lower than this model with zero bonus—reduce annual salary or add reliefs in Manual reliefs.",
+    };
+  }
+
+  if (Math.abs(targetPayable - taxAtZero) <= TAX_MATCH_EPS) {
+    return { ok: true, bonus_estimate: 0 };
+  }
+
+  let low = 0;
+  let high = params.bonusUpperBound ?? BONUS_SEARCH_DEFAULT_MAX;
+  let taxHigh = taxAt(high);
+  let expandStep = 0;
+  while (taxHigh + TAX_MATCH_EPS < targetPayable && expandStep < BONUS_SEARCH_MAX_EXPAND_STEPS) {
+    high *= 2;
+    taxHigh = taxAt(high);
+    expandStep++;
+  }
+
+  if (taxHigh + TAX_MATCH_EPS < targetPayable) {
+    return {
+      ok: false,
+      error:
+        "Target tax is too high to match by increasing bonus within limits—check the monthly amount or instalment count.",
+    };
+  }
+
+  for (let i = 0; i < BONUS_SEARCH_MAX_ITER; i++) {
+    const mid = (low + high) / 2;
+    const t = taxAt(mid);
+    if (Math.abs(t - targetPayable) <= TAX_MATCH_EPS) {
+      return { ok: true, bonus_estimate: roundToCent(mid) };
+    }
+    if (t < targetPayable) low = mid;
+    else high = mid;
+    if (high - low < 0.005) break;
+  }
+
+  const candidateLow = roundToCent(low);
+  const candidateHigh = roundToCent(high);
+  const candidates = [candidateLow, candidateHigh, roundToCent((low + high) / 2)];
+  let best = candidateLow;
+  let bestDiff = Math.abs(taxAt(candidateLow) - targetPayable);
+  for (const b of candidates) {
+    const d = Math.abs(taxAt(b) - targetPayable);
+    if (d < bestDiff) {
+      bestDiff = d;
+      best = b;
+    }
+  }
+
+  if (bestDiff <= TAX_MATCH_EPS * 2) {
+    return { ok: true, bonus_estimate: best };
+  }
+
+  return {
+    ok: false,
+    error:
+      "Could not converge on a bonus estimate for this target tax—try entering annual tax directly under Enter IRAS actual.",
   };
 }

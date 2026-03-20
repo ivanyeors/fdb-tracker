@@ -1,7 +1,7 @@
 "use client"
 
 /* eslint-disable react-hooks/set-state-in-effect -- sync UI state with server action results and prop changes */
-import { useActionState, useEffect, useState } from "react"
+import { useActionState, useCallback, useEffect, useMemo, useState } from "react"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/sheet"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -41,7 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SymbolPickerDrawer } from "@/components/dashboard/investments/symbol-picker-drawer"
 import { formatCurrency } from "@/lib/utils"
 import {
-  getFieldsForType,
+  getFieldsForInsurancePolicyRow,
   type InsuranceType,
 } from "@/lib/insurance/coverage-config"
 import {
@@ -72,6 +74,8 @@ const INVESTMENT_TYPES = [
   { value: "ilp", label: "ILP" },
 ] as const
 
+type InvestmentKind = (typeof INVESTMENT_TYPES)[number]["value"]
+
 const LOAN_TYPES = [
   { value: "housing", label: "Housing" },
   { value: "personal", label: "Personal" },
@@ -79,15 +83,26 @@ const LOAN_TYPES = [
   { value: "education", label: "Education" },
 ] as const
 
-const INSURANCE_TYPES = [
-  { value: "term_life", label: "Term Life" },
-  { value: "whole_life", label: "Whole Life" },
-  { value: "integrated_shield", label: "Integrated Shield" },
-  { value: "critical_illness", label: "Critical Illness" },
-  { value: "endowment", label: "Endowment" },
-  { value: "ilp", label: "ILP" },
-  { value: "personal_accident", label: "Personal Accident" },
+const INSURANCE_TYPES_FOR_NEW = [
+  { value: "term_life" satisfies InsuranceType, label: "Term Life" },
+  { value: "whole_life" satisfies InsuranceType, label: "Whole Life" },
+  { value: "integrated_shield" satisfies InsuranceType, label: "Integrated Shield" },
+  { value: "critical_illness" satisfies InsuranceType, label: "Critical Illness" },
+  { value: "endowment" satisfies InsuranceType, label: "Endowment" },
+  { value: "personal_accident" satisfies InsuranceType, label: "Personal Accident" },
 ] as const
+
+const INSURANCE_TYPE_LEGACY_ILP = {
+  value: "ilp" as const,
+  label: "ILP (legacy — use Investments)",
+}
+
+function insuranceTypeSelectItems(currentRowType: string) {
+  if (currentRowType === "ilp") {
+    return [...INSURANCE_TYPES_FOR_NEW, INSURANCE_TYPE_LEGACY_ILP] as const
+  }
+  return INSURANCE_TYPES_FOR_NEW
+}
 
 export type FinancialDataByFamily = {
   bankAccounts: Array<{
@@ -127,6 +142,7 @@ export type FinancialDataByFamily = {
     start_date: string
     lender: string | null
     use_cpf_oa: boolean
+    valuation_limit: number | null
     profile_id: string
   }>
   insurancePolicies: Array<{
@@ -191,6 +207,7 @@ function ProfileSection({
       ? String(profile.income_config.employee_cpf_rate)
       : ""
   )
+  const [dpsInclude, setDpsInclude] = useState(profile.dps_include_in_projection !== false)
 
   useEffect(() => {
     if (state.success) {
@@ -220,7 +237,8 @@ function ProfileSection({
         ? String(profile.income_config.employee_cpf_rate)
         : ""
     )
-  }, [profile.id, profile.name, profile.birth_year, profile.income_config])
+    setDpsInclude(profile.dps_include_in_projection !== false)
+  }, [profile.id, profile.name, profile.birth_year, profile.income_config, profile.dps_include_in_projection])
 
   const canDelete = profileCount > 1
 
@@ -235,6 +253,11 @@ function ProfileSection({
         <input type="hidden" name="bonusEstimate" value={bonusEstimate} />
         <input type="hidden" name="payFrequency" value={payFrequency} />
         <input type="hidden" name="employeeCpfRate" value={employeeCpfRate || ""} />
+        <input
+          type="hidden"
+          name="dpsIncludeInProjection"
+          value={dpsInclude ? "true" : "false"}
+        />
         <Table>
           <TableHeader>
             <TableRow>
@@ -364,6 +387,17 @@ function ProfileSection({
             </TableRow>
           </TableBody>
         </Table>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+          <Switch
+            id={`dps-${profile.id}`}
+            checked={dpsInclude}
+            onCheckedChange={setDpsInclude}
+          />
+          <Label htmlFor={`dps-${profile.id}`} className="font-normal cursor-pointer">
+            Include DPS in CPF projection
+          </Label>
+          <InfoTooltip id="CPF_DPS" />
+        </div>
       </form>
     </>
   )
@@ -1278,12 +1312,19 @@ function InvestmentsSection({
   const router = useRouter()
   const [savingId, setSavingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
-  const [newInv, setNewInv] = useState({
+  const [newInv, setNewInv] = useState<{
+    symbol: string
+    type: InvestmentKind
+    cost_basis: number
+  }>({
     symbol: "",
-    type: "stock" as const,
-    units: 0,
+    type: "stock",
     cost_basis: 0,
   })
+  const [newUnitsInput, setNewUnitsInput] = useState("")
+
+  const isGoldOrSilver = (t: string) => t === "gold" || t === "silver"
+  const needsSymbolPicker = (t: string) => !isGoldOrSilver(t) && t !== "ilp"
 
   async function handleSave(inv: (typeof investments)[0]) {
     setSavingId(inv.id)
@@ -1326,19 +1367,30 @@ function InvestmentsSection({
   }
 
   async function handleAdd() {
-    if (!newInv.symbol.trim()) {
-      toast.error("Symbol is required")
+    const symbolToSave = isGoldOrSilver(newInv.type)
+      ? newInv.type === "gold"
+        ? "Gold"
+        : "Silver"
+      : newInv.symbol.trim()
+    if (!symbolToSave) {
+      toast.error(newInv.type === "ilp" ? "Policy name is required" : "Symbol is required")
       return
     }
+    const unitsNum = Number.parseFloat(newUnitsInput)
+    if (Number.isNaN(unitsNum) || unitsNum < 0) {
+      toast.error("Please enter valid units.")
+      return
+    }
+
     setAdding(true)
     try {
       const res = await fetch("/api/investments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          symbol: newInv.symbol,
+          symbol: symbolToSave,
           type: newInv.type,
-          units: newInv.units,
+          units: unitsNum,
           costBasis: newInv.cost_basis,
           profileId,
           familyId,
@@ -1349,7 +1401,8 @@ function InvestmentsSection({
         throw new Error(data.error ?? "Failed to add")
       }
       toast.success("Investment added")
-      setNewInv({ symbol: "", type: "stock", units: 0, cost_basis: 0 })
+      setNewInv({ symbol: "", type: "stock", cost_basis: 0 })
+      setNewUnitsInput("")
       onMutate()
       router.refresh()
     } catch (err) {
@@ -1370,9 +1423,28 @@ function InvestmentsSection({
     setEditing(map)
   }, [investments])
 
-  const isGoldOrSilver = (t: string) => t === "gold" || t === "silver"
-  const effectiveNewSymbol =
-    isGoldOrSilver(newInv.type) ? (newInv.type === "gold" ? "Gold" : "Silver") : newInv.symbol
+  const effectiveNewSymbol = isGoldOrSilver(newInv.type)
+    ? newInv.type === "gold"
+      ? "Gold"
+      : "Silver"
+    : newInv.symbol
+
+  function onNewInvestmentTypeChange(nextType: InvestmentKind) {
+    setNewInv((p) => {
+      let symbol = p.symbol
+      if (
+        (p.type === "ilp" && needsSymbolPicker(nextType)) ||
+        (needsSymbolPicker(p.type) && nextType === "ilp")
+      ) {
+        symbol = ""
+      } else if (isGoldOrSilver(nextType)) {
+        symbol = nextType === "gold" ? "Gold" : "Silver"
+      } else if (isGoldOrSilver(p.type) && needsSymbolPicker(nextType)) {
+        symbol = ""
+      }
+      return { ...p, type: nextType, symbol }
+    })
+  }
 
   if (investments.length === 0 && !adding) {
     return (
@@ -1381,9 +1453,16 @@ function InvestmentsSection({
         <p className="text-sm text-muted-foreground">No investments. Add one below.</p>
         <div className="flex flex-wrap gap-4 rounded-lg border p-3 mt-2">
           <div className="space-y-1">
-            <Label>Symbol</Label>
+            <Label>{newInv.type === "ilp" ? "Policy name" : "Symbol"}</Label>
             {isGoldOrSilver(newInv.type) ? (
               <Input value={effectiveNewSymbol} disabled className="h-8 w-24 bg-muted" />
+            ) : newInv.type === "ilp" ? (
+              <Input
+                placeholder="e.g. Prudential ILP"
+                value={newInv.symbol}
+                onChange={(e) => setNewInv((p) => ({ ...p, symbol: e.target.value }))}
+                className="h-8 w-32"
+              />
             ) : effectiveNewSymbol ? (
               <div className="flex items-center gap-1">
                 <span className="inline-flex h-8 items-center gap-1 rounded-md border bg-muted px-2 text-sm font-medium">
@@ -1412,7 +1491,7 @@ function InvestmentsSection({
             <Label>Type</Label>
             <Select
               value={newInv.type}
-              onValueChange={(v) => setNewInv((p) => ({ ...p, type: v as typeof newInv.type }))}
+              onValueChange={(v) => onNewInvestmentTypeChange(v as InvestmentKind)}
             >
               <SelectTrigger className="h-8 w-24">
                 <SelectValue />
@@ -1426,10 +1505,13 @@ function InvestmentsSection({
           </div>
           <div className="space-y-1">
             <Label>Units</Label>
-            <CurrencyInput
-              placeholder="Units"
-              value={newInv.units}
-              onChange={(v) => setNewInv((p) => ({ ...p, units: v ?? 0 }))}
+            <Input
+              type="number"
+              step="any"
+              min={0}
+              placeholder="0"
+              value={newUnitsInput}
+              onChange={(ev) => setNewUnitsInput(ev.target.value)}
               className="h-8 w-20"
             />
           </div>
@@ -1467,7 +1549,7 @@ function InvestmentsSection({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Investment - Symbol</TableHead>
+            <TableHead>Symbol / Name</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Units</TableHead>
             <TableHead>Cost Basis</TableHead>
@@ -1483,6 +1565,18 @@ function InvestmentsSection({
                 <TableCell>
                   {isMetal ? (
                     <Input value={e.symbol} disabled className="h-8 w-24 bg-muted" />
+                  ) : e.type === "ilp" ? (
+                    <Input
+                      value={e.symbol}
+                      onChange={(ev) =>
+                        setEditing((prev) => ({
+                          ...prev,
+                          [inv.id]: { ...(prev[inv.id] ?? inv), symbol: ev.target.value },
+                        }))
+                      }
+                      placeholder="e.g. Prudential ILP"
+                      className="h-8 w-32"
+                    />
                   ) : (
                     <div className="flex items-center gap-1">
                       <span className="inline-flex h-8 min-w-[4rem] items-center gap-1 rounded-md border bg-muted px-2 text-sm font-medium">
@@ -1502,9 +1596,26 @@ function InvestmentsSection({
                 <TableCell>
                   <Select
                     value={e.type}
-                    onValueChange={(v) =>
-                      setEditing((p) => ({ ...p, [inv.id]: { ...(p[inv.id] ?? inv), type: v } }))
-                    }
+                    onValueChange={(v) => {
+                      setEditing((p) => {
+                        const cur = p[inv.id] ?? inv
+                        let symbol = cur.symbol
+                        if (
+                          (cur.type === "ilp" && needsSymbolPicker(v)) ||
+                          (needsSymbolPicker(cur.type) && v === "ilp")
+                        ) {
+                          symbol = ""
+                        } else if (isGoldOrSilver(v)) {
+                          symbol = v === "gold" ? "Gold" : "Silver"
+                        } else if (isGoldOrSilver(cur.type) && needsSymbolPicker(v)) {
+                          symbol = ""
+                        }
+                        return { ...p, [inv.id]: { ...cur, type: v, symbol } }
+                      })
+                      if (symbolDrawerEditId === inv.id && v === "ilp") {
+                        setSymbolDrawerEditId(null)
+                      }
+                    }}
                   >
                     <SelectTrigger className="h-8 w-24">
                       <SelectValue />
@@ -1517,11 +1628,22 @@ function InvestmentsSection({
                   </Select>
                 </TableCell>
                 <TableCell>
-                  <CurrencyInput
+                  <Input
+                    type="number"
+                    step="any"
+                    min={0}
                     value={e.units}
-                    onChange={(v) =>
-                      setEditing((p) => ({ ...p, [inv.id]: { ...(p[inv.id] ?? inv), units: v ?? 0 } }))
-                    }
+                    onChange={(ev) => {
+                      const raw = ev.target.value
+                      const n = raw === "" ? 0 : Number.parseFloat(raw)
+                      setEditing((p) => ({
+                        ...p,
+                        [inv.id]: {
+                          ...(p[inv.id] ?? inv),
+                          units: Number.isFinite(n) && n >= 0 ? n : 0,
+                        },
+                      }))
+                    }}
                     className="h-8 w-24"
                   />
                 </TableCell>
@@ -1551,9 +1673,16 @@ function InvestmentsSection({
             <TableCell colSpan={5} className="border-t">
               <div className="flex flex-wrap gap-4 pt-2">
                 <div className="space-y-1">
-                  <Label>Symbol</Label>
+                  <Label>{newInv.type === "ilp" ? "Policy name" : "Symbol"}</Label>
                   {isGoldOrSilver(newInv.type) ? (
                     <Input value={effectiveNewSymbol} disabled className="h-8 w-24 bg-muted" />
+                  ) : newInv.type === "ilp" ? (
+                    <Input
+                      placeholder="e.g. Prudential ILP"
+                      value={newInv.symbol}
+                      onChange={(e) => setNewInv((p) => ({ ...p, symbol: e.target.value }))}
+                      className="h-8 w-32"
+                    />
                   ) : effectiveNewSymbol ? (
                     <div className="flex items-center gap-1">
                       <span className="inline-flex h-8 items-center gap-1 rounded-md border bg-muted px-2 text-sm font-medium">
@@ -1582,7 +1711,7 @@ function InvestmentsSection({
                   <Label>Type</Label>
                   <Select
                     value={newInv.type}
-                    onValueChange={(v) => setNewInv((p) => ({ ...p, type: v as typeof newInv.type }))}
+                    onValueChange={(v) => onNewInvestmentTypeChange(v as InvestmentKind)}
                   >
                     <SelectTrigger className="h-8 w-24">
                       <SelectValue />
@@ -1596,10 +1725,13 @@ function InvestmentsSection({
                 </div>
                 <div className="space-y-1">
                   <Label>Units</Label>
-                  <CurrencyInput
-                    placeholder="Units"
-                    value={newInv.units}
-                    onChange={(v) => setNewInv((p) => ({ ...p, units: v ?? 0 }))}
+                  <Input
+                    type="number"
+                    step="any"
+                    min={0}
+                    placeholder="0"
+                    value={newUnitsInput}
+                    onChange={(ev) => setNewUnitsInput(ev.target.value)}
                     className="h-8 w-20"
                   />
                 </div>
@@ -1670,6 +1802,7 @@ function LoansSection({
     start_date: new Date().toISOString().slice(0, 10),
     lender: "",
     use_cpf_oa: false,
+    valuation_limit: null as number | null,
   })
 
   async function handleSave(loan: (typeof loans)[0]) {
@@ -1687,6 +1820,7 @@ function LoansSection({
           startDate: loan.start_date,
           lender: loan.lender,
           useCpfOa: loan.use_cpf_oa,
+          valuationLimit: loan.valuation_limit,
         }),
       })
       if (!res.ok) {
@@ -1743,11 +1877,12 @@ function LoansSection({
           startDate: newLoan.start_date,
           lender: newLoan.lender || undefined,
           useCpfOa: newLoan.use_cpf_oa,
+          valuationLimit: newLoan.valuation_limit,
         }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Failed to add")
+        throw new Error((data as { error?: string }).error ?? "Failed to add")
       }
       toast.success("Loan added")
       setNewLoan({
@@ -1759,6 +1894,7 @@ function LoansSection({
         start_date: new Date().toISOString().slice(0, 10),
         lender: "",
         use_cpf_oa: false,
+        valuation_limit: null,
       })
       onMutate()
       router.refresh()
@@ -1773,7 +1909,11 @@ function LoansSection({
   useEffect(() => {
     const map: Record<string, (typeof loans)[0]> = {}
     for (const l of loans) {
-      map[l.id] = { ...l }
+      map[l.id] = {
+        ...l,
+        valuation_limit: l.valuation_limit ?? null,
+        use_cpf_oa: l.use_cpf_oa ?? false,
+      }
     }
     setEditing(map)
   }, [loans])
@@ -1854,6 +1994,29 @@ function LoansSection({
               className="h-8 w-32"
             />
           </div>
+          <div className="flex items-center gap-2 pt-6">
+            <input
+              id="new-loan-cpf-empty"
+              type="checkbox"
+              className="h-4 w-4 rounded border border-input"
+              checked={newLoan.use_cpf_oa}
+              onChange={(ev) =>
+                setNewLoan((p) => ({ ...p, use_cpf_oa: ev.target.checked }))
+              }
+            />
+            <Label htmlFor="new-loan-cpf-empty" className="font-normal cursor-pointer">
+              CPF OA
+            </Label>
+          </div>
+          <div className="space-y-1">
+            <Label>VL (120% cap)</Label>
+            <CurrencyInput
+              placeholder="Optional"
+              value={newLoan.valuation_limit ?? undefined}
+              onChange={(v) => setNewLoan((p) => ({ ...p, valuation_limit: v ?? null }))}
+              className="h-8 w-24"
+            />
+          </div>
           <div className="flex items-end">
             <Button size="sm" onClick={handleAdd} disabled={adding}>
               {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -1877,6 +2040,8 @@ function LoansSection({
             <TableHead>Rate %</TableHead>
             <TableHead>Tenure (mo)</TableHead>
             <TableHead>Start Date</TableHead>
+            <TableHead className="text-center">CPF OA</TableHead>
+            <TableHead>VL (est.)</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -1957,6 +2122,33 @@ function LoansSection({
                     className="h-8 w-32"
                   />
                 </TableCell>
+                <TableCell className="text-center">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border border-input"
+                    checked={e.use_cpf_oa}
+                    onChange={(ev) =>
+                      setEditing((p) => ({
+                        ...p,
+                        [l.id]: { ...(p[l.id] ?? l), use_cpf_oa: ev.target.checked },
+                      }))
+                    }
+                    aria-label="Uses CPF OA for housing"
+                  />
+                </TableCell>
+                <TableCell>
+                  <CurrencyInput
+                    value={e.valuation_limit ?? undefined}
+                    onChange={(v) =>
+                      setEditing((p) => ({
+                        ...p,
+                        [l.id]: { ...(p[l.id] ?? l), valuation_limit: v ?? null },
+                      }))
+                    }
+                    className="h-8 w-24"
+                    placeholder="VL"
+                  />
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button size="sm" variant="ghost" onClick={() => handleDelete(l.id)}>
@@ -1971,7 +2163,7 @@ function LoansSection({
             )
           })}
           <TableRow>
-            <TableCell colSpan={7} className="border-t">
+            <TableCell colSpan={9} className="border-t">
               <div className="flex flex-wrap gap-4 pt-2">
                 <div className="space-y-1">
                   <Label>Name</Label>
@@ -2043,6 +2235,29 @@ function LoansSection({
                     className="h-8 w-32"
                   />
                 </div>
+                <div className="flex items-center gap-2 pt-6">
+                  <input
+                    id="new-loan-cpf-row"
+                    type="checkbox"
+                    className="h-4 w-4 rounded border border-input"
+                    checked={newLoan.use_cpf_oa}
+                    onChange={(ev) =>
+                      setNewLoan((p) => ({ ...p, use_cpf_oa: ev.target.checked }))
+                    }
+                  />
+                  <Label htmlFor="new-loan-cpf-row" className="font-normal cursor-pointer">
+                    CPF OA
+                  </Label>
+                </div>
+                <div className="space-y-1">
+                  <Label>VL</Label>
+                  <CurrencyInput
+                    placeholder="Optional"
+                    value={newLoan.valuation_limit ?? undefined}
+                    onChange={(v) => setNewLoan((p) => ({ ...p, valuation_limit: v ?? null }))}
+                    className="h-8 w-24"
+                  />
+                </div>
                 <div className="flex items-end">
                   <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding}>
                     {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -2054,6 +2269,232 @@ function LoansSection({
           </TableRow>
         </TableBody>
       </Table>
+    </>
+  )
+}
+
+type RepaymentApiRow = {
+  id: string
+  loan_id: string
+  amount: number
+  date: string
+  principal_portion: number | null
+  interest_portion: number | null
+  cpf_oa_amount: number | null
+}
+
+function LoanRepaymentsSection({
+  loans,
+  profileId,
+  onMutate,
+}: {
+  loans: FinancialDataByFamily["loans"]
+  profileId: string
+  onMutate: () => void
+}) {
+  const router = useRouter()
+  const loanNameById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const l of loans) m.set(l.id, l.name)
+    return m
+  }, [loans])
+
+  const [rows, setRows] = useState<RepaymentApiRow[]>([])
+  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [form, setForm] = useState({
+    loanId: "",
+    date: new Date().toISOString().slice(0, 10),
+    amount: 0,
+    cpfOaAmount: null as number | null,
+  })
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/loans/repayments?profileId=${profileId}`)
+      if (!res.ok) throw new Error("Failed to load repayments")
+      const data = (await res.json()) as { repayments?: RepaymentApiRow[] }
+      setRows(data.repayments ?? [])
+    } catch {
+      toast.error("Could not load repayments")
+    } finally {
+      setLoading(false)
+    }
+  }, [profileId])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  useEffect(() => {
+    if (loans.length === 0) return
+    setForm((f) => {
+      if (f.loanId && loans.some((l) => l.id === f.loanId)) return f
+      return { ...f, loanId: loans[0]!.id }
+    })
+  }, [loans])
+
+  async function handleSubmit() {
+    if (!form.loanId) {
+      toast.error("Select a loan")
+      return
+    }
+    if (form.amount <= 0) {
+      toast.error("Amount must be positive")
+      return
+    }
+    const cpf = form.cpfOaAmount
+    if (cpf != null && cpf > form.amount) {
+      toast.error("CPF OA cannot exceed repayment amount")
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await fetch("/api/loans/repayments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loanId: form.loanId,
+          amount: form.amount,
+          date: form.date,
+          cpfOaAmount: cpf != null && cpf > 0 ? cpf : undefined,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error((data as { error?: string }).error ?? "Failed to log repayment")
+      }
+      toast.success("Repayment logged")
+      setForm((f) => ({
+        ...f,
+        amount: 0,
+        cpfOaAmount: null,
+      }))
+      await load()
+      onMutate()
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to log repayment")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (loans.length === 0) return null
+
+  return (
+    <>
+      <SectionTitle>Loan repayments</SectionTitle>
+      <p className="text-sm text-muted-foreground">
+        Log instalments here. If you enter a CPF OA portion and the loan uses CPF OA, a matching monthly
+        housing tranche is created for the CPF dashboard.
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-end gap-3 rounded-lg border p-3">
+        <div className="space-y-1">
+          <Label>Loan</Label>
+          <Select value={form.loanId} onValueChange={(loanId) => setForm((f) => ({ ...f, loanId }))}>
+            <SelectTrigger className="h-8 w-48">
+              <SelectValue placeholder="Loan" />
+            </SelectTrigger>
+            <SelectContent>
+              {loans.map((l) => (
+                <SelectItem key={l.id} value={l.id}>
+                  {l.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label>Date</Label>
+          <Input
+            type="date"
+            className="h-8 w-36"
+            value={form.date}
+            onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label>Amount</Label>
+          <CurrencyInput
+            className="h-8 w-28"
+            value={form.amount || undefined}
+            onChange={(v) => setForm((f) => ({ ...f, amount: v ?? 0 }))}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="flex items-center gap-1">
+            CPF OA
+            <InfoTooltip id="CPF_HOUSING_REFUND" />
+          </Label>
+          <CurrencyInput
+            placeholder="Optional"
+            className="h-8 w-28"
+            value={form.cpfOaAmount ?? undefined}
+            onChange={(v) => setForm((f) => ({ ...f, cpfOaAmount: v ?? null }))}
+          />
+        </div>
+        <Button size="sm" onClick={() => void handleSubmit()} disabled={submitting}>
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          Add repayment
+        </Button>
+      </div>
+
+      <div className="mt-4 rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Loan</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="text-right">CPF OA</TableHead>
+              <TableHead className="text-right">Principal</TableHead>
+              <TableHead className="text-right">Interest</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-muted-foreground text-sm">
+                  Loading…
+                </TableCell>
+              </TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-muted-foreground text-sm">
+                  No repayments logged yet.
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.slice(0, 25).map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="tabular-nums">{r.date}</TableCell>
+                  <TableCell>{loanNameById.get(r.loan_id) ?? r.loan_id}</TableCell>
+                  <TableCell className="text-right tabular-nums">${formatCurrency(r.amount)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {r.cpf_oa_amount != null && r.cpf_oa_amount > 0
+                      ? `$${formatCurrency(r.cpf_oa_amount)}`
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {r.principal_portion != null ? `$${formatCurrency(r.principal_portion)}` : "—"}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {r.interest_portion != null ? `$${formatCurrency(r.interest_portion)}` : "—"}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+        {rows.length > 25 && (
+          <p className="border-t px-3 py-2 text-xs text-muted-foreground">
+            Showing latest 25 of {rows.length}
+          </p>
+        )}
+      </div>
     </>
   )
 }
@@ -2090,11 +2531,11 @@ function InsuranceSection({
     end_date: null,
   })
 
-  const newPolicyFields = getFieldsForType(newPolicy.type, newPolicy.frequency)
+  const newPolicyFields = getFieldsForInsurancePolicyRow(newPolicy.type, newPolicy.frequency)
 
   function setNewPolicyType(type: InsuranceType) {
     setNewPolicy((prev) => {
-      const fields = getFieldsForType(type, prev.frequency)
+      const fields = getFieldsForInsurancePolicyRow(type, prev.frequency)
       return {
         ...prev,
         type,
@@ -2241,7 +2682,7 @@ function InsuranceSection({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {INSURANCE_TYPES.map((t) => (
+                {INSURANCE_TYPES_FOR_NEW.map((t) => (
                   <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -2356,8 +2797,8 @@ function InsuranceSection({
         <TableBody>
           {policies.map((p) => {
             const e = editing[p.id] ?? p
-            const rowFields = getFieldsForType(
-              e.type as InsuranceType,
+            const rowFields = getFieldsForInsurancePolicyRow(
+              e.type,
               e.frequency as "monthly" | "yearly",
             )
             return (
@@ -2375,7 +2816,7 @@ function InsuranceSection({
                   <Select
                     value={e.type}
                     onValueChange={(v) => {
-                      const fields = getFieldsForType(v as InsuranceType, e.frequency as "monthly" | "yearly")
+                      const fields = getFieldsForInsurancePolicyRow(v, e.frequency as "monthly" | "yearly")
                       setEditing((prev) => ({
                         ...prev,
                         [p.id]: {
@@ -2391,7 +2832,7 @@ function InsuranceSection({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {INSURANCE_TYPES.map((t) => (
+                      {insuranceTypeSelectItems(e.type).map((t) => (
                         <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -2535,7 +2976,7 @@ function InsuranceSection({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {INSURANCE_TYPES.map((t) => (
+                      {INSURANCE_TYPES_FOR_NEW.map((t) => (
                         <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -2980,6 +3421,7 @@ export function FamilyMembersTable({
                   onMutate={handleMutate}
                 />
                 <LoansSection loans={profileLoans} profileId={p.id} onMutate={handleMutate} />
+                <LoanRepaymentsSection loans={profileLoans} profileId={p.id} onMutate={handleMutate} />
                 <InsuranceSection policies={profilePolicies} profileId={p.id} onMutate={handleMutate} />
               </TabsContent>
             )
