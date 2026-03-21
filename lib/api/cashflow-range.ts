@@ -127,10 +127,13 @@ function sumInsuranceOutflowPremiumsSplit(
 }
 
 function sumIlpPremiums(
-  rows: Array<{ monthly_premium: number }> | null,
+  rows: Array<{ monthly_premium: number; premium_payment_mode?: string | null }> | null,
 ): number {
   if (!rows?.length) return 0
-  return rows.reduce((sum, p) => sum + p.monthly_premium, 0)
+  return rows.reduce((sum, p) => {
+    if (p.premium_payment_mode === "one_time") return sum
+    return sum + p.monthly_premium
+  }, 0)
 }
 
 function effectiveInflowFromContext(
@@ -240,7 +243,7 @@ export async function fetchCashflowRangeSeries(
   if (profileIds.length === 0) {
     const { data: sharedRows } = await supabase
       .from("ilp_products")
-      .select("monthly_premium")
+      .select("monthly_premium, premium_payment_mode")
       .eq("family_id", familyId)
       .is("profile_id", null)
     const sharedIlp = sumIlpPremiums(sharedRows)
@@ -295,7 +298,7 @@ export async function fetchCashflowRangeSeries(
       .in("profile_id", profileIds),
     supabase
       .from("ilp_products")
-      .select("profile_id, monthly_premium")
+      .select("profile_id, monthly_premium, premium_payment_mode")
       .in("profile_id", profileIds),
     supabase
       .from("loans")
@@ -308,7 +311,7 @@ export async function fetchCashflowRangeSeries(
       .in("year", years.length ? years : [new Date().getFullYear()]),
     supabase
       .from("ilp_products")
-      .select("monthly_premium")
+      .select("monthly_premium, premium_payment_mode")
       .eq("family_id", familyId)
       .is("profile_id", null),
   ])
@@ -403,11 +406,17 @@ export async function fetchCashflowRangeSeries(
     insuranceByProfile.set(pid, list)
   }
 
-  const ilpByProfile = new Map<string, Array<{ monthly_premium: number }>>()
+  const ilpByProfile = new Map<
+    string,
+    Array<{ monthly_premium: number; premium_payment_mode?: string | null }>
+  >()
   for (const row of ilpRes.data ?? []) {
     const pid = row.profile_id as string
     const list = ilpByProfile.get(pid) ?? []
-    list.push({ monthly_premium: row.monthly_premium })
+    list.push({
+      monthly_premium: row.monthly_premium,
+      premium_payment_mode: row.premium_payment_mode,
+    })
     ilpByProfile.set(pid, list)
   }
 

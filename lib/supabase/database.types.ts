@@ -716,6 +716,41 @@ export type Database = {
           },
         ]
       }
+      ilp_fund_groups: {
+        Row: {
+          id: string
+          family_id: string
+          name: string
+          group_premium_amount: number | null
+          premium_payment_mode: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          name: string
+          group_premium_amount?: number | null
+          premium_payment_mode?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          name?: string
+          group_premium_amount?: number | null
+          premium_payment_mode?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ilp_fund_groups_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ilp_products: {
         Row: {
           id: string
@@ -724,6 +759,9 @@ export type Database = {
           name: string
           monthly_premium: number
           end_date: string
+          ilp_fund_group_id: string | null
+          group_allocation_pct: number | null
+          premium_payment_mode: string
           created_at: string
         }
         Insert: {
@@ -733,6 +771,9 @@ export type Database = {
           name: string
           monthly_premium: number
           end_date: string
+          ilp_fund_group_id?: string | null
+          group_allocation_pct?: number | null
+          premium_payment_mode?: string
           created_at?: string
         }
         Update: {
@@ -742,6 +783,9 @@ export type Database = {
           name?: string
           monthly_premium?: number
           end_date?: string
+          ilp_fund_group_id?: string | null
+          group_allocation_pct?: number | null
+          premium_payment_mode?: string
           created_at?: string
         }
         Relationships: [
@@ -750,6 +794,13 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ilp_products_ilp_fund_group_id_fkey"
+            columns: ["ilp_fund_group_id"]
+            isOneToOne: false
+            referencedRelation: "ilp_fund_groups"
             referencedColumns: ["id"]
           },
           {
@@ -1336,6 +1387,7 @@ export type Database = {
           insure_met: boolean
           invest_met: boolean
           grow_met: boolean
+          ocbc_card_spend_monthly: number | null
           created_at: string
         }
         Insert: {
@@ -1347,6 +1399,7 @@ export type Database = {
           insure_met?: boolean
           invest_met?: boolean
           grow_met?: boolean
+          ocbc_card_spend_monthly?: number | null
           created_at?: string
         }
         Update: {
@@ -1358,6 +1411,7 @@ export type Database = {
           insure_met?: boolean
           invest_met?: boolean
           grow_met?: boolean
+          ocbc_card_spend_monthly?: number | null
           created_at?: string
         }
         Relationships: [

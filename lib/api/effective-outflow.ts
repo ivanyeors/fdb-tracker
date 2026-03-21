@@ -17,11 +17,14 @@ export async function getSharedIlpTotalForFamily(
 ): Promise<number> {
   const { data: ilps } = await supabase
     .from("ilp_products")
-    .select("monthly_premium")
+    .select("monthly_premium, premium_payment_mode")
     .eq("family_id", familyId)
     .is("profile_id", null)
   if (!ilps) return 0
-  return ilps.reduce((sum, p) => sum + p.monthly_premium, 0)
+  return ilps.reduce((sum, p) => {
+    if (p.premium_payment_mode === "one_time") return sum
+    return sum + p.monthly_premium
+  }, 0)
 }
 
 export type EffectiveOutflowResult = {
@@ -79,10 +82,11 @@ export async function getEffectiveOutflowForProfile(
 
   const { data: ilps } = await supabase
     .from("ilp_products")
-    .select("monthly_premium")
+    .select("monthly_premium, premium_payment_mode")
     .eq("profile_id", profileId)
   if (ilps) {
     for (const ilpProd of ilps) {
+      if (ilpProd.premium_payment_mode === "one_time") continue
       ilp += ilpProd.monthly_premium
     }
   }

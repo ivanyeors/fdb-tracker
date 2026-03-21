@@ -14,6 +14,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Loader2, Pencil } from "lucide-react"
 import { toast } from "sonner"
@@ -38,28 +45,45 @@ interface EditIlpDialogProps {
   productId: string
   productName: string
   monthlyPremium: number
+  premiumPaymentMode?: "monthly" | "one_time"
   endDate: string
   /** Latest snapshot row from API (edit fund / premiums / month). */
   latestEntryMonth: string | null
   latestEntryFundValue: number
   latestEntryPremiumsPaid: number | null
   onSuccess?: () => void
+  /** Controlled dialog (e.g. “Update fund value” on the card). */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 export function EditIlpDialog({
   productId,
   productName,
   monthlyPremium,
+  premiumPaymentMode = "monthly",
   endDate,
   latestEntryMonth,
   latestEntryFundValue,
   latestEntryPremiumsPaid,
   onSuccess,
+  open: controlledOpen,
+  onOpenChange: onOpenChangeProp,
 }: EditIlpDialogProps) {
   const { activeFamilyId } = useActiveProfile()
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isControlled =
+    controlledOpen !== undefined && onOpenChangeProp !== undefined
+  const open = isControlled ? controlledOpen! : internalOpen
+  const setOpen = (v: boolean) => {
+    if (isControlled) onOpenChangeProp!(v)
+    else setInternalOpen(v)
+  }
   const [name, setName] = useState(productName)
   const [premium, setPremium] = useState<number | null>(monthlyPremium)
+  const [paymentMode, setPaymentMode] = useState<"monthly" | "one_time">(
+    premiumPaymentMode,
+  )
   const [end, setEnd] = useState(normalizeDateForInput(endDate))
   const [entryMonth, setEntryMonth] = useState("")
   const [fundValue, setFundValue] = useState<number | null>(0)
@@ -70,6 +94,7 @@ export function EditIlpDialog({
     if (!open) return
     setName(productName)
     setPremium(monthlyPremium)
+    setPaymentMode(premiumPaymentMode)
     setEnd(normalizeDateForInput(endDate))
     setEntryMonth(normalizeStatementMonth(latestEntryMonth))
     setFundValue(latestEntryFundValue)
@@ -82,6 +107,7 @@ export function EditIlpDialog({
     open,
     productName,
     monthlyPremium,
+    premiumPaymentMode,
     endDate,
     latestEntryMonth,
     latestEntryFundValue,
@@ -91,7 +117,7 @@ export function EditIlpDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const premiumVal = premium ?? 0
-    if (premiumVal <= 0) {
+    if (paymentMode === "monthly" && premiumVal <= 0) {
       toast.error("Please enter a valid monthly premium.")
       return
     }
@@ -122,6 +148,7 @@ export function EditIlpDialog({
         body: JSON.stringify({
           name: name.trim(),
           monthlyPremium: premiumVal,
+          premiumPaymentMode: paymentMode,
           endDate: end,
           familyId: activeFamilyId,
         }),
@@ -163,7 +190,7 @@ export function EditIlpDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" aria-label="Edit ILP">
           <Pencil className="size-4" />
         </Button>
       </DialogTrigger>
@@ -185,22 +212,49 @@ export function EditIlpDialog({
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="edit-ilp-premium">Monthly premium ($)</Label>
+              <Label htmlFor="edit-ilp-premium-mode">Premium payment</Label>
+              <Select
+                value={paymentMode}
+                onValueChange={(v) =>
+                  setPaymentMode(v as "monthly" | "one_time")
+                }
+              >
+                <SelectTrigger id="edit-ilp-premium-mode" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly (recurring)</SelectItem>
+                  <SelectItem value="one_time">One-time</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-ilp-premium">
+                {paymentMode === "monthly"
+                  ? "Monthly premium ($)"
+                  : "Premium amount ($)"}
+              </Label>
               <CurrencyInput
                 id="edit-ilp-premium"
                 name="ilp-premium"
                 value={premium}
                 onChange={(v) => setPremium(v)}
-                required
+                required={paymentMode === "monthly"}
               />
+              {paymentMode === "one_time" ? (
+                <p className="text-muted-foreground text-xs">
+                  One-time premiums do not add to estimated monthly cashflow.
+                </p>
+              ) : null}
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="edit-ilp-end-date">Premium end date</Label>
               <DatePicker
                 id="edit-ilp-end-date"
                 value={end || null}
                 onChange={(d) => setEnd(d ?? "")}
                 placeholder="Select end date"
+                showIsoInput
                 className="w-full"
               />
             </div>

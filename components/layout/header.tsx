@@ -18,7 +18,6 @@ const breadcrumbMap: Record<string, string> = {
   "/dashboard/cpf": "CPF",
   "/dashboard/cashflow": "Cashflow",
   "/dashboard/investments": "Investments",
-  "/dashboard/goals": "Savings Goals",
   "/dashboard/loans": "Loans",
   "/dashboard/insurance": "Insurance",
   "/dashboard/tax": "Tax Planner",

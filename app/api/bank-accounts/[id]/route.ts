@@ -11,6 +11,12 @@ const updateAccountSchema = z.object({
   interestRatePct: z.number().min(0).optional(),
   openingBalance: z.number().min(0).optional(),
   lockedAmount: z.number().min(0).optional(),
+  ocbc360: z
+    .object({
+      insure_met: z.boolean().optional(),
+      invest_met: z.boolean().optional(),
+    })
+    .optional(),
 })
 
 async function verifyAccountOwnership(
@@ -20,7 +26,7 @@ async function verifyAccountOwnership(
 ) {
   const { data: account } = await supabase
     .from("bank_accounts")
-    .select("id, family_id")
+    .select("id, family_id, account_type")
     .eq("id", resourceId)
     .single()
   if (!account) return null
@@ -66,19 +72,68 @@ export async function PATCH(
     if (parsed.data.openingBalance !== undefined) updates.opening_balance = parsed.data.openingBalance
     if (parsed.data.lockedAmount !== undefined) updates.locked_amount = parsed.data.lockedAmount
 
-    if (Object.keys(updates).length === 0) {
+    const ocbc360 = parsed.data.ocbc360
+    const ocbcHasConcrete =
+      ocbc360 !== undefined &&
+      (ocbc360.insure_met !== undefined || ocbc360.invest_met !== undefined)
+    if (Object.keys(updates).length === 0 && !ocbcHasConcrete) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })
     }
 
-    const { data, error } = await supabase
-      .from("bank_accounts")
-      .update(updates)
-      .eq("id", id)
-      .select()
-      .single()
+    if (ocbc360 && ocbcHasConcrete) {
+      if (account.account_type !== "ocbc_360") {
+        return NextResponse.json({ error: "Not an OCBC 360 account" }, { status: 400 })
+      }
+      const ocbcUpdates: Record<string, unknown> = {}
+      if (ocbc360.insure_met !== undefined) ocbcUpdates.insure_met = ocbc360.insure_met
+      if (ocbc360.invest_met !== undefined) ocbcUpdates.invest_met = ocbc360.invest_met
 
-    if (error) return NextResponse.json({ error: "Failed to update bank account" }, { status: 500 })
-    return NextResponse.json(data)
+      if (Object.keys(ocbcUpdates).length > 0) {
+        const { data: existing } = await supabase
+          .from("bank_account_ocbc360_config")
+          .select("id")
+          .eq("account_id", id)
+          .maybeSingle()
+
+        if (existing) {
+          const { error: ocbcErr } = await supabase
+            .from("bank_account_ocbc360_config")
+            .update(ocbcUpdates)
+            .eq("account_id", id)
+          if (ocbcErr) {
+            return NextResponse.json({ error: "Failed to update OCBC 360 settings" }, { status: 500 })
+          }
+        } else {
+          const { error: insErr } = await supabase.from("bank_account_ocbc360_config").insert({
+            account_id: id,
+            salary_met: false,
+            save_met: false,
+            spend_met: false,
+            insure_met: false,
+            invest_met: false,
+            grow_met: false,
+            ...ocbcUpdates,
+          })
+          if (insErr) {
+            return NextResponse.json({ error: "Failed to update OCBC 360 settings" }, { status: 500 })
+          }
+        }
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      const { data, error } = await supabase
+        .from("bank_accounts")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single()
+
+      if (error) return NextResponse.json({ error: "Failed to update bank account" }, { status: 500 })
+      return NextResponse.json(data)
+    }
+
+    return NextResponse.json({ ok: true })
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

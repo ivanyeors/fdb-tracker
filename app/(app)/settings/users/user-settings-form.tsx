@@ -1,9 +1,18 @@
 "use client"
 
 /* eslint-disable react-hooks/set-state-in-effect -- sync UI state with server action results and prop changes */
-import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useActionState,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import {
   useOptionalUserSettingsSave,
+  useUserSettingsSave,
   useUserSettingsSaveRegistration,
 } from "@/components/layout/user-settings-save-context"
 import { useActiveProfile } from "@/hooks/use-active-profile"
@@ -35,9 +44,10 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
 } from "@/components/ui/sheet"
 import { DatePicker } from "@/components/ui/date-picker"
 import { MonthYearPicker } from "@/components/ui/month-year-picker"
@@ -1260,13 +1270,48 @@ function MonthlyLogSection({
     inflow: number
     outflow: number
   } | null>(null)
+  const [entryToDelete, setEntryToDelete] = useState<
+    FinancialDataByFamily["monthlyCashflow"][0] | null
+  >(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const { aggregateDirty, saveAll, isSaving } = useUserSettingsSave()
 
   const profileLogs = logs.filter((l) => l.profile_id === profileId)
 
+  const normalizeMonthKey = (m: string) => m.slice(0, 10)
+
+  const applyMonthSelection = useCallback(
+    (nextMonth: string) => {
+      const key = normalizeMonthKey(nextMonth)
+      const entry = profileLogs.find((l) => normalizeMonthKey(l.month) === key)
+      const inf = entry ? Number(entry.inflow ?? 0) : 0
+      const outf = entry ? Number(entry.outflow ?? 0) : 0
+      setMonth(nextMonth)
+      setInflow(inf)
+      setOutflow(outf)
+      setLogBaseline({ month: nextMonth, inflow: inf, outflow: outf })
+    },
+    [profileLogs]
+  )
+
+  const prevDrawerOpen = useRef(false)
+  useLayoutEffect(() => {
+    if (drawerOpen && !prevDrawerOpen.current) {
+      applyMonthSelection(defaultMonth)
+    }
+    prevDrawerOpen.current = drawerOpen
+  }, [drawerOpen, defaultMonth, applyMonthSelection])
+
+  const effectiveBaseline =
+    logBaseline ?? (drawerOpen ? { month: defaultMonth, inflow: 0, outflow: 0 } : null)
+
   const logFormDirty =
     drawerOpen &&
-    logBaseline != null &&
-    (month !== logBaseline.month || inflow !== logBaseline.inflow || outflow !== logBaseline.outflow)
+    effectiveBaseline != null &&
+    (normalizeMonthKey(month) !== normalizeMonthKey(effectiveBaseline.month) ||
+      inflow !== effectiveBaseline.inflow ||
+      outflow !== effectiveBaseline.outflow)
 
   const persistMonthlyLog = useCallback(async () => {
     const res = await fetch("/api/cashflow", {
@@ -1299,6 +1344,34 @@ function MonthlyLogSection({
     return d.toLocaleDateString("en-SG", { year: "numeric", month: "short" })
   }
 
+  async function confirmDeleteMonthlyEntry() {
+    if (!entryToDelete) return
+    setDeletingId(entryToDelete.id)
+    try {
+      const res = await fetch("/api/cashflow", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: entryToDelete.id, familyId }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error((data as { error?: string }).error ?? "Failed to delete entry")
+      }
+      toast.success("Monthly entry removed")
+      if (normalizeMonthKey(entryToDelete.month) === normalizeMonthKey(month)) {
+        setInflow(0)
+        setOutflow(0)
+        setLogBaseline({ month, inflow: 0, outflow: 0 })
+      }
+      setEntryToDelete(null)
+      onMutate()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Delete failed")
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   return (
     <>
       <SectionTitle>Monthly</SectionTitle>
@@ -1318,12 +1391,7 @@ function MonthlyLogSection({
         open={drawerOpen}
         onOpenChange={(open) => {
           setDrawerOpen(open)
-          if (open) {
-            setMonth(defaultMonth)
-            setInflow(0)
-            setOutflow(0)
-            setLogBaseline({ month: defaultMonth, inflow: 0, outflow: 0 })
-          } else {
+          if (!open) {
             setLogBaseline(null)
           }
         }}
@@ -1339,15 +1407,14 @@ function MonthlyLogSection({
             </SheetDescription>
           </SheetHeader>
 
-          <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6">
+          <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pb-4">
             <div className="space-y-2">
               <Label htmlFor="log-month">Month</Label>
               <MonthYearPicker
                 id="log-month"
                 value={month}
                 onChange={(d) => {
-                  if (d) setMonth(d)
-                  else setMonth(defaultMonth)
+                  applyMonthSelection(d ?? defaultMonth)
                 }}
                 placeholder="Select month"
               />
@@ -1372,9 +1439,6 @@ function MonthlyLogSection({
                 />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Use <span className="font-medium text-foreground">Save</span> in the header to record this entry.
-            </p>
 
             <Separator />
 
@@ -1388,12 +1452,27 @@ function MonthlyLogSection({
                     {profileLogs.map((entry) => (
                       <div
                         key={entry.id}
-                        className="flex items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-muted/50"
+                        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted/50"
                       >
-                        <span className="font-medium">{formatMonth(entry.month)}</span>
-                        <span className="text-muted-foreground">
+                        <span className="min-w-0 flex-1 font-medium">{formatMonth(entry.month)}</span>
+                        <span className="shrink-0 text-right text-muted-foreground">
                           In: ${Number(entry.inflow ?? 0).toLocaleString()} · Out: ${Number(entry.outflow ?? 0).toLocaleString()}
                         </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="shrink-0 text-muted-foreground hover:text-destructive"
+                          disabled={deletingId === entry.id}
+                          aria-label={`Delete ${formatMonth(entry.month)} entry`}
+                          onClick={() => setEntryToDelete(entry)}
+                        >
+                          {deletingId === entry.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -1401,8 +1480,48 @@ function MonthlyLogSection({
               )}
             </div>
           </div>
+
+          <SheetFooter className="shrink-0 flex-row justify-end gap-2 border-t bg-background px-6 py-4">
+            <Button
+              type="button"
+              size="sm"
+              disabled={isSaving || (!logFormDirty && !aggregateDirty)}
+              onClick={() => void saveAll()}
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save
+            </Button>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog
+        open={entryToDelete != null}
+        onOpenChange={(open) => {
+          if (!open) setEntryToDelete(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete monthly entry?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {entryToDelete
+                ? `Remove ${formatMonth(entryToDelete.month)} cashflow for ${profileName}. Dashboard and bank balance use this data.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingId != null}>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={deletingId != null}
+              onClick={() => void confirmDeleteMonthlyEntry()}
+            >
+              {deletingId ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

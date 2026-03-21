@@ -1,3 +1,17 @@
+/** Balance at or above this amount qualifies for the Grow bonus (aligned with OCBC 360 tier). */
+export const OCBC_GROW_BALANCE_THRESHOLD = 250_000;
+
+/**
+ * OCBC 360 bonus interest is typically applied in two balance slices: first S$75,000 and next
+ * S$25,000 (often at a higher rate per category). Total bonus-bearing balance is therefore
+ * up to S$100,000 for those category bonuses; balance above that does not earn the same
+ * category bonus rates in this projection (see bank terms for base interest on full balance).
+ */
+export const OCBC_BONUS_FIRST_TIER_CAP = 75_000;
+export const OCBC_BONUS_SECOND_TIER_CAP = 25_000;
+export const OCBC_BONUS_INTEREST_BALANCE_CAP =
+  OCBC_BONUS_FIRST_TIER_CAP + OCBC_BONUS_SECOND_TIER_CAP;
+
 export type Ocbc360Config = {
   salaryMet: boolean;
   saveMet: boolean;
@@ -47,12 +61,15 @@ export function calculateOcbc360Interest(
   balance: number,
   config: Ocbc360Config,
 ): Ocbc360InterestResult {
-  const first75kAmount = Math.min(balance, 75_000);
-  const next25kAmount = Math.max(0, Math.min(balance - 75_000, 25_000));
+  const first75kAmount = Math.min(balance, OCBC_BONUS_FIRST_TIER_CAP);
+  const next25kAmount = Math.max(
+    0,
+    Math.min(balance - OCBC_BONUS_FIRST_TIER_CAP, OCBC_BONUS_SECOND_TIER_CAP),
+  );
 
   const effectiveConfig: Ocbc360Config = {
     ...config,
-    growMet: balance > 250_000,
+    growMet: balance >= OCBC_GROW_BALANCE_THRESHOLD,
   };
 
   const breakdown: InterestBreakdown[] = [];

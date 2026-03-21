@@ -91,8 +91,14 @@ type IlpProductWithEntries = {
   id: string
   name: string
   monthly_premium: number
+  premium_payment_mode?: string | null
   end_date: string
   created_at: string
+  ilp_fund_groups?: {
+    id: string
+    name: string
+    group_premium_amount?: number | null
+  } | null
   latestEntry: {
     fund_value: number
     month: string
@@ -384,7 +390,10 @@ export default function OverviewPage() {
             (now.getMonth() - startDate.getMonth()),
         ),
       )
-      const estimatedPremiums = p.monthly_premium * Math.max(1, monthsPaid)
+      const estimatedPremiums =
+        p.premium_payment_mode === "one_time"
+          ? 0
+          : p.monthly_premium * Math.max(1, monthsPaid)
       const entryPremiums = p.latestEntry?.premiums_paid
       const useEntryPremiums =
         entryPremiums != null && Number(entryPremiums) > 0
@@ -408,6 +417,9 @@ export default function OverviewPage() {
       if (monthlyData.length === 0 && fundValue > 0) {
         monthlyData = [{ month: currentMonthYm(), value: fundValue }]
       }
+      const pm: "monthly" | "one_time" =
+        p.premium_payment_mode === "one_time" ? "one_time" : "monthly"
+      const gAmt = p.ilp_fund_groups?.group_premium_amount
       return {
         productId: p.id,
         name: p.name,
@@ -416,6 +428,9 @@ export default function OverviewPage() {
         premiumsSource,
         returnPct,
         monthlyPremium: p.monthly_premium,
+        premiumPaymentMode: pm,
+        groupPremiumAmount:
+          gAmt != null && Number.isFinite(Number(gAmt)) ? Number(gAmt) : null,
         endDate: p.end_date,
         latestEntryMonth: p.latestEntry?.month ?? null,
         latestEntryFundValue: p.latestEntry?.fund_value ?? 0,
@@ -518,7 +533,7 @@ export default function OverviewPage() {
               <Skeleton className="h-24 w-full" />
             ) : goals.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No savings goals. Create one in Savings Goals.
+                No savings goals. Add them in Settings → User Settings.
               </p>
             ) : (
               <>
@@ -551,7 +566,7 @@ export default function OverviewPage() {
                     )
                   })}
                 </div>
-                <CardCTA href="/dashboard/goals">View goals</CardCTA>
+                <CardCTA href="/dashboard/banks#savings-goals">View goals</CardCTA>
               </>
             )}
           </CardContent>
@@ -697,6 +712,8 @@ export default function OverviewPage() {
                 premiumsSource={card.premiumsSource}
                 returnPct={card.returnPct}
                 monthlyPremium={card.monthlyPremium}
+                premiumPaymentMode={card.premiumPaymentMode}
+                groupPremiumAmount={card.groupPremiumAmount}
                 endDate={card.endDate}
                 latestEntryMonth={card.latestEntryMonth}
                 latestEntryFundValue={card.latestEntryFundValue}

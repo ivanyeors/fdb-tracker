@@ -8,7 +8,6 @@ import {
   Landmark,
   ArrowLeftRight,
   TrendingUp,
-  Target,
   CreditCard,
   Shield,
   Receipt,
@@ -41,7 +40,6 @@ import { CompleteSetupNav } from "@/components/layout/complete-setup-nav"
 const dashboardItems = [
   { title: "Overview", href: "/dashboard", icon: BarChart3 },
   { title: "Banks", href: "/dashboard/banks", icon: Building2 },
-  { title: "Savings Goals", href: "/dashboard/goals", icon: Target },
   { title: "CPF", href: "/dashboard/cpf", icon: Landmark },
   { title: "Cashflow", href: "/dashboard/cashflow", icon: ArrowLeftRight },
   { title: "Investments", href: "/dashboard/investments", icon: TrendingUp, badge: "BETA" },

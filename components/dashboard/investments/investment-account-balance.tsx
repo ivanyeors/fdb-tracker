@@ -18,6 +18,8 @@ interface InvestmentAccountBalanceProps {
   isLoading: boolean
   /** When set, uses this FX state instead of fetching `/api/fx/usd-sgd` (investments page dedupe). */
   parentFx?: { sgdPerUsd: number | null; fxLoading: boolean }
+  /** When true, omit bordered card and section heading (e.g. inside Sheet with SheetHeader). */
+  embedded?: boolean
 }
 
 export function InvestmentAccountBalance({
@@ -26,6 +28,7 @@ export function InvestmentAccountBalance({
   accountId,
   isLoading,
   parentFx,
+  embedded = false,
 }: InvestmentAccountBalanceProps) {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [inputUsd, setInputUsd] = useState<number | null>(null)
@@ -116,9 +119,11 @@ export function InvestmentAccountBalance({
 
   const showSkeleton = isLoading || fxLoading
 
-  return (
-    <div className="rounded-xl border p-4">
-      <h3 className="mb-4 text-sm font-medium">Cash balance</h3>
+  const body = (
+    <>
+      {!embedded ? (
+        <h3 className="mb-4 text-sm font-medium">Cash balance</h3>
+      ) : null}
       <p className="mb-3 text-xs text-muted-foreground">
         Enter uninvested brokerage cash in USD; we store the SGD equivalent for
         portfolio totals (negative balances allowed, e.g. GIRO). Buy/sell flows
@@ -178,6 +183,12 @@ export function InvestmentAccountBalance({
           </Button>
         </form>
       )}
-    </div>
+    </>
   )
+
+  if (embedded) {
+    return <div>{body}</div>
+  }
+
+  return <div className="rounded-xl border p-4">{body}</div>
 }

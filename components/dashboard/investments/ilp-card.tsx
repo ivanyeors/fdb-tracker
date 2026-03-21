@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useId, useMemo } from "react"
+import { useCallback, useId, useMemo, useState } from "react"
 import { ArrowDown, ArrowUp } from "lucide-react"
 import { AreaClosed, LinePath } from "@visx/shape"
 import { curveMonotoneX } from "@visx/curve"
@@ -10,6 +10,7 @@ import { Group } from "@visx/group"
 import { ParentSize } from "@visx/responsive"
 import { useTooltip, TooltipWithBounds } from "@visx/tooltip"
 import { Card, CardContent, CardCTA, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { AddIlpEntryDialog } from "@/components/dashboard/investments/add-ilp-entry-dialog"
 import { DeleteIlpDialog } from "@/components/dashboard/investments/delete-ilp-dialog"
@@ -34,6 +35,9 @@ interface IlpCardProps {
   premiumsSource: "entry" | "estimated"
   returnPct: number
   monthlyPremium: number
+  premiumPaymentMode?: "monthly" | "one_time"
+  /** Group lump budget when mode is one-time and product is grouped (optional display). */
+  groupPremiumAmount?: number | null
   endDate?: string
   /** Latest entry fields for edit dialog (fund / premiums / statement month). */
   latestEntryMonth: string | null
@@ -46,6 +50,8 @@ interface IlpCardProps {
   variant?: "default" | "summary"
   /** Latest imported fund report snapshot (jsonb), if any. */
   fundReportSnapshot?: Record<string, unknown> | null
+  /** Share of fund group portfolio (read-only; configured in Setup). */
+  groupAllocationPct?: number | null
 }
 
 function fmt(n: number): string {
@@ -346,6 +352,8 @@ export function IlpCard({
   premiumsSource,
   returnPct,
   monthlyPremium,
+  premiumPaymentMode = "monthly",
+  groupPremiumAmount = null,
   endDate,
   latestEntryMonth,
   latestEntryFundValue,
@@ -355,8 +363,19 @@ export function IlpCard({
   onEditSuccess,
   variant = "default",
   fundReportSnapshot = null,
+  groupAllocationPct = null,
 }: IlpCardProps) {
   const { formatMoney } = useInvestmentsDisplayCurrency()
+  const [editOpen, setEditOpen] = useState(false)
+
+  const premiumLineLabel =
+    premiumPaymentMode === "one_time" ? "One-time premium" : "Monthly premium"
+  const premiumLineAmount =
+    premiumPaymentMode === "one_time" &&
+    groupPremiumAmount != null &&
+    Number.isFinite(Number(groupPremiumAmount))
+      ? Number(groupPremiumAmount)
+      : monthlyPremium
 
   if (variant === "summary") {
     return (
@@ -374,7 +393,10 @@ export function IlpCard({
                 ({premiumsSource === "entry" ? "statement" : "est."})
               </span>
               <span className="mx-1">·</span>
-              <span>Monthly {formatMoney(monthlyPremium)}</span>
+              <span>
+                {premiumPaymentMode === "one_time" ? "One-time" : "Monthly"}{" "}
+                {formatMoney(premiumLineAmount)}
+              </span>
             </p>
             <div className="mt-1 flex items-center gap-1 text-sm">
               {returnPct >= 0 ? (
@@ -417,20 +439,28 @@ export function IlpCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-0">
-        <CardTitle className="min-w-0 flex-1 pr-2 text-base font-bold leading-tight">
-          {name}
-        </CardTitle>
+        <div className="min-w-0 flex-1 pr-2">
+          <CardTitle className="text-base font-bold leading-tight">{name}</CardTitle>
+          {groupAllocationPct != null && Number.isFinite(groupAllocationPct) ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Group allocation: {fmt(groupAllocationPct)}% of group
+            </p>
+          ) : null}
+        </div>
         {productId && (
           <div className="flex shrink-0 items-center gap-1">
             <EditIlpDialog
               productId={productId}
               productName={name}
               monthlyPremium={monthlyPremium}
+              premiumPaymentMode={premiumPaymentMode}
               endDate={endDate ?? ""}
               latestEntryMonth={latestEntryMonth}
               latestEntryFundValue={latestEntryFundValue}
               latestEntryPremiumsPaid={latestEntryPremiumsPaid}
               onSuccess={onEditSuccess ?? onAddEntry}
+              open={editOpen}
+              onOpenChange={setEditOpen}
             />
             <AddIlpEntryDialog
               productId={productId}
@@ -447,9 +477,20 @@ export function IlpCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-stretch">
         <div className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
-          <div className="flex justify-between">
+          <div className="flex items-start justify-between gap-2">
             <span className="text-muted-foreground">Fund Value</span>
-            <span className="font-medium">{formatMoney(fundValue)}</span>
+            <div className="flex flex-col items-end gap-1">
+              <span className="font-medium">{formatMoney(fundValue)}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setEditOpen(true)}
+              >
+                Update fund value
+              </Button>
+            </div>
           </div>
           <div className="flex justify-between gap-2">
             <span className="text-muted-foreground shrink-0">
@@ -475,8 +516,8 @@ export function IlpCard({
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Monthly Premium</span>
-            <span className="font-medium">{formatMoney(monthlyPremium)}</span>
+            <span className="text-muted-foreground">{premiumLineLabel}</span>
+            <span className="font-medium">{formatMoney(premiumLineAmount)}</span>
           </div>
         </div>
         <div className="h-[5.5rem] w-full min-w-0 sm:max-w-[10rem] sm:min-w-[7.5rem] sm:w-auto sm:shrink-0 sm:self-center">

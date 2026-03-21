@@ -30,6 +30,11 @@ const cashflowBodySchema = z.object({
   outflowMemo: z.string().max(2000).optional(),
 })
 
+const cashflowDeleteSchema = z.object({
+  id: z.string().uuid(),
+  familyId: z.string().uuid().optional(),
+})
+
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies()
@@ -223,6 +228,58 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data, { status: 201 })
   } catch (err) {
     console.error("[api/cashflow] POST Error:", err)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get(COOKIE_NAME)?.value
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const session = await validateSession(token)
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const { accountId } = session
+
+    const body = await request.json()
+    const parsed = cashflowDeleteSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 })
+    }
+
+    const { id, familyId } = parsed.data
+    const supabase = createSupabaseAdmin()
+
+    const { data: row, error: fetchErr } = await supabase
+      .from("monthly_cashflow")
+      .select("id, profile_id")
+      .eq("id", id)
+      .maybeSingle()
+
+    if (fetchErr || !row) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
+
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      accountId,
+      row.profile_id,
+      familyId ?? null
+    )
+    if (!resolved || !resolved.profileIds.includes(row.profile_id)) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
+
+    const { error: delErr } = await supabase.from("monthly_cashflow").delete().eq("id", id)
+
+    if (delErr) {
+      console.error("[api/cashflow] DELETE:", delErr)
+      return NextResponse.json({ error: "Failed to delete cashflow" }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error("[api/cashflow] DELETE Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

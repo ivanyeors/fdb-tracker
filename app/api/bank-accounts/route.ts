@@ -3,6 +3,7 @@ import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { fetchOcbc360DerivedForAccount } from "@/lib/api/ocbc360-derived"
 
 const createAccountSchema = z.object({
   bankName: z.string().min(1),
@@ -105,16 +106,34 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const result = accounts.map((account) => ({
-      ...account,
-      latest_balance:
-        account.id in latestBalances
-          ? latestBalances[account.id]
-          : account.opening_balance,
-      ...(account.account_type === "ocbc_360" && {
-        ocbc360Config: ocbcConfigs[account.id] ?? null,
+    const result = await Promise.all(
+      accounts.map(async (account) => {
+        const latest_balance =
+          account.id in latestBalances
+            ? latestBalances[account.id]
+            : Number(account.opening_balance)
+        if (account.account_type !== "ocbc_360") {
+          return { ...account, latest_balance }
+        }
+        const derived = await fetchOcbc360DerivedForAccount(
+          supabase,
+          {
+            id: account.id,
+            profile_id: account.profile_id,
+            opening_balance: Number(account.opening_balance),
+          },
+          ocbcConfigs[account.id] ?? null,
+          latest_balance,
+          profileId,
+        )
+        return {
+          ...account,
+          latest_balance,
+          ocbc360Config: ocbcConfigs[account.id] ?? null,
+          ocbc360Derived: derived,
+        }
       }),
-    }))
+    )
 
     return NextResponse.json(result)
   } catch {

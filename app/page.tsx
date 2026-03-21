@@ -14,7 +14,7 @@ const dashboardPages = [
   { title: "CPF", href: "/dashboard/cpf" },
   { title: "Cashflow", href: "/dashboard/cashflow" },
   { title: "Investments", href: "/dashboard/investments" },
-  { title: "Savings Goals", href: "/dashboard/goals" },
+  { title: "Savings Goals", href: "/dashboard/banks#savings-goals" },
   { title: "Loans", href: "/dashboard/loans" },
   { title: "Insurance", href: "/dashboard/insurance" },
   { title: "Tax Planner", href: "/dashboard/tax" },

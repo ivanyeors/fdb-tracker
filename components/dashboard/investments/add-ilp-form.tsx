@@ -6,6 +6,13 @@ import { CurrencyInput } from "@/components/ui/currency-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DatePicker } from "@/components/ui/date-picker"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -18,6 +25,9 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [name, setName] = useState("")
   const [monthlyPremium, setMonthlyPremium] = useState<number | null>(null)
+  const [premiumPaymentMode, setPremiumPaymentMode] = useState<
+    "monthly" | "one_time"
+  >("monthly")
   const [endDate, setEndDate] = useState("")
   const [initialFundValue, setInitialFundValue] = useState<number | null>(null)
   /** Cumulative premiums through the current month (optional; stored on the first entry). */
@@ -32,8 +42,12 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
     }
 
     const premium = monthlyPremium ?? 0
-    if (premium <= 0) {
+    if (premiumPaymentMode === "monthly" && premium <= 0) {
       toast.error("Please enter a valid monthly premium.")
+      return
+    }
+    if (premiumPaymentMode === "one_time" && premium < 0) {
+      toast.error("Premium amount cannot be negative.")
       return
     }
 
@@ -91,6 +105,7 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
       toast.success("ILP product added successfully")
       setName("")
       setMonthlyPremium(null)
+      setPremiumPaymentMode("monthly")
       setEndDate("")
       setInitialFundValue(null)
       setInitialPremiumsPaid(null)
@@ -116,22 +131,49 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="ilp-premium">Monthly premium ($)</Label>
+          <Label htmlFor="ilp-premium-mode">Premium payment</Label>
+          <Select
+            value={premiumPaymentMode}
+            onValueChange={(v) =>
+              setPremiumPaymentMode(v as "monthly" | "one_time")
+            }
+          >
+            <SelectTrigger id="ilp-premium-mode" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="monthly">Monthly (recurring)</SelectItem>
+              <SelectItem value="one_time">One-time</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ilp-premium">
+            {premiumPaymentMode === "monthly"
+              ? "Monthly premium ($)"
+              : "Premium amount ($)"}
+          </Label>
           <CurrencyInput
             id="ilp-premium"
             placeholder="0.00"
             value={monthlyPremium}
             onChange={(v) => setMonthlyPremium(v)}
-            required
+            required={premiumPaymentMode === "monthly"}
           />
+          {premiumPaymentMode === "one_time" ? (
+            <p className="text-muted-foreground text-xs">
+              One-time premiums are excluded from recurring monthly cashflow.
+            </p>
+          ) : null}
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="ilp-end-date">Premium end date</Label>
           <DatePicker
             id="ilp-end-date"
             value={endDate || null}
             onChange={(d) => setEndDate(d ?? "")}
             placeholder="Select end date"
+            showIsoInput
             className="w-full"
           />
         </div>

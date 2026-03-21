@@ -117,11 +117,17 @@ describe("calculateOcbc360Interest", () => {
     expect(growBreakdown!.next25k).toBe(25000 * 0.022);
   });
 
-  it("does not auto-enable grow for balance <= $250k", () => {
-    const result = calculateOcbc360Interest(250000, noneMet);
+  it("does not auto-enable grow for balance below $250k", () => {
+    const result = calculateOcbc360Interest(249_999, noneMet);
     const growBreakdown = result.breakdown.find((b) => b.category === "Grow");
     expect(growBreakdown!.met).toBe(false);
     expect(growBreakdown!.first75k).toBe(0);
+  });
+
+  it("auto-enables grow at exactly $250k", () => {
+    const result = calculateOcbc360Interest(250_000, noneMet);
+    const growBreakdown = result.breakdown.find((b) => b.category === "Grow");
+    expect(growBreakdown!.met).toBe(true);
   });
 
   it("returns 0 annual rate for zero balance", () => {

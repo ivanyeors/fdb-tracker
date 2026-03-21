@@ -52,8 +52,16 @@ type IlpProductWithEntries = {
   id: string
   name: string
   monthly_premium: number
+  premium_payment_mode?: string | null
   end_date: string
   created_at: string
+  group_allocation_pct?: number | null
+  ilp_fund_groups?: {
+    id: string
+    name: string
+    group_premium_amount?: number | null
+    premium_payment_mode?: string | null
+  } | null
   latestEntry: {
     fund_value: number
     month: string
@@ -128,6 +136,8 @@ export default function InvestmentsDetailPage() {
   const [fxLoading, setFxLoading] = useState(true)
   const [holdingDetail, setHoldingDetail] = useState<HoldingGroup | null>(null)
   const [addIlpOpen, setAddIlpOpen] = useState(false)
+  const [cashBalanceOpen, setCashBalanceOpen] = useState(false)
+  const [addHoldingOpen, setAddHoldingOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -263,6 +273,9 @@ export default function InvestmentsDetailPage() {
             name: string
             monthly_premium: number
             end_date: string
+            created_at: string
+            group_allocation_pct?: number | null
+            ilp_fund_groups?: { id: string; name: string } | null
             latestEntry: {
               fund_value: number
               month: string
@@ -520,7 +533,10 @@ export default function InvestmentsDetailPage() {
             (now.getMonth() - startDate.getMonth()),
         ),
       )
-      const estimatedPremiums = p.monthly_premium * Math.max(1, monthsPaid)
+      const estimatedPremiums =
+        p.premium_payment_mode === "one_time"
+          ? 0
+          : p.monthly_premium * Math.max(1, monthsPaid)
       const entryPremiums = p.latestEntry?.premiums_paid
       const useEntryPremiums =
         entryPremiums != null && Number(entryPremiums) > 0
@@ -544,14 +560,24 @@ export default function InvestmentsDetailPage() {
       if (monthlyData.length === 0 && fundValue > 0) {
         monthlyData = [{ month: currentMonthYm(), value: fundValue }]
       }
+      const pm: "monthly" | "one_time" =
+        p.premium_payment_mode === "one_time" ? "one_time" : "monthly"
+      const gAmt = p.ilp_fund_groups?.group_premium_amount
       return {
         productId: p.id,
         name: p.name,
+        groupId: p.ilp_fund_groups?.id ?? null,
+        groupName: p.ilp_fund_groups?.name ?? null,
+        groupAllocationPct:
+          p.group_allocation_pct != null ? Number(p.group_allocation_pct) : null,
         fundValue,
         totalPremiumsPaid,
         premiumsSource,
         returnPct,
         monthlyPremium: p.monthly_premium,
+        premiumPaymentMode: pm,
+        groupPremiumAmount:
+          gAmt != null && Number.isFinite(Number(gAmt)) ? Number(gAmt) : null,
         endDate: p.end_date,
         latestEntryMonth: p.latestEntry?.month ?? null,
         latestEntryFundValue: p.latestEntry?.fund_value ?? 0,
@@ -561,6 +587,38 @@ export default function InvestmentsDetailPage() {
       }
     })
   }, [ilpProducts])
+
+  const ilpGroupedSections = useMemo(() => {
+    type Card = (typeof ilpCardsData)[number]
+    const withGroup = ilpCardsData.filter((c) => c.groupId)
+    const without = ilpCardsData.filter((c) => !c.groupId)
+    const map = new Map<string, { title: string; cards: Card[] }>()
+    for (const c of withGroup) {
+      const key = c.groupId!
+      const title = c.groupName ?? "Group"
+      if (!map.has(key)) map.set(key, { title, cards: [] })
+      map.get(key)!.cards.push(c)
+    }
+    const sections = [...map.entries()].map(([key, v]) => ({
+      key,
+      title: v.title,
+      cards: v.cards,
+    }))
+    sections.sort((a, b) => a.title.localeCompare(b.title))
+    if (without.length > 0) {
+      sections.push({
+        key: "_ungrouped",
+        title: "Other ILPs",
+        cards: without,
+      })
+    }
+    return sections
+  }, [ilpCardsData])
+
+  const showIlpGrouped = useMemo(
+    () => ilpCardsData.some((c) => c.groupId),
+    [ilpCardsData],
+  )
 
   if (!activeProfileId && !activeFamilyId) {
     return (
@@ -668,22 +726,75 @@ export default function InvestmentsDetailPage() {
         </div>
 
         <TabsContent value="holdings" className="mt-4 space-y-4">
-          <InvestmentAccountBalance
-            onSuccess={fetchData}
-            cashBalance={cashBalance}
-            accountId={accountRowId}
-            isLoading={isLoading}
-            parentFx={{ sgdPerUsd, fxLoading }}
-          />
-          <div className="rounded-xl border p-4">
-            <h3 className="mb-4 text-sm font-medium">Add Holding</h3>
-            <AddHoldingForm onSuccess={fetchData} />
+          <div className="flex flex-wrap justify-end gap-2">
+            {activeProfileId || activeFamilyId ? (
+              <Button
+                type="button"
+                onClick={() => setCashBalanceOpen(true)}
+              >
+                Cash balance
+              </Button>
+            ) : null}
+            <Button type="button" onClick={() => setAddHoldingOpen(true)}>
+              Add holding
+            </Button>
           </div>
+          {activeProfileId || activeFamilyId ? (
+            <Sheet open={cashBalanceOpen} onOpenChange={setCashBalanceOpen}>
+              <SheetContent
+                side="right"
+                className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-lg"
+              >
+                <SheetHeader className="border-b p-4 text-left">
+                  <SheetTitle>Cash balance</SheetTitle>
+                  <SheetDescription>
+                    USD entry; we store the SGD equivalent for portfolio totals.
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="p-4">
+                  <InvestmentAccountBalance
+                    embedded
+                    onSuccess={() => {
+                      void fetchData()
+                      setCashBalanceOpen(false)
+                    }}
+                    cashBalance={cashBalance}
+                    accountId={accountRowId}
+                    isLoading={isLoading}
+                    parentFx={{ sgdPerUsd, fxLoading }}
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
+          ) : null}
+          <Sheet open={addHoldingOpen} onOpenChange={setAddHoldingOpen}>
+            <SheetContent
+              side="right"
+              className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-lg"
+            >
+              <SheetHeader className="border-b p-4 text-left">
+                <SheetTitle>Add holding</SheetTitle>
+                <SheetDescription>
+                  Symbol, units, cost basis, and optional note.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="p-4">
+                <AddHoldingForm
+                  onSuccess={() => {
+                    void fetchData()
+                    setAddHoldingOpen(false)
+                  }}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
           {isLoading ? (
             <ChartSkeleton height={256} className="rounded-xl" />
           ) : holdingGroups.length === 0 ? (
             <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-              No holdings found.
+              No holdings found. Use{" "}
+              <strong className="text-foreground">Add holding</strong> to add a
+              position.
             </div>
           ) : (
             <>
@@ -773,6 +884,41 @@ export default function InvestmentsDetailPage() {
               <strong className="text-foreground">Add ILP Product</strong> to get
               started.
             </div>
+          ) : showIlpGrouped ? (
+            <div className="space-y-8">
+              {ilpGroupedSections.map((section) => (
+                <section key={section.key} className="space-y-3">
+                  <h3 className="text-sm font-medium text-muted-foreground">
+                    {section.title}
+                  </h3>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {section.cards.map((card) => (
+                      <IlpCard
+                        key={card.productId}
+                        productId={card.productId}
+                        name={card.name}
+                        fundValue={card.fundValue}
+                        totalPremiumsPaid={card.totalPremiumsPaid}
+                        premiumsSource={card.premiumsSource}
+                        returnPct={card.returnPct}
+                        monthlyPremium={card.monthlyPremium}
+                        premiumPaymentMode={card.premiumPaymentMode}
+                        groupPremiumAmount={card.groupPremiumAmount}
+                        endDate={card.endDate}
+                        latestEntryMonth={card.latestEntryMonth}
+                        latestEntryFundValue={card.latestEntryFundValue}
+                        latestEntryPremiumsPaid={card.latestEntryPremiumsPaid}
+                        monthlyData={card.monthlyData}
+                        fundReportSnapshot={card.fundReportSnapshot}
+                        groupAllocationPct={card.groupAllocationPct}
+                        onAddEntry={fetchData}
+                        onEditSuccess={fetchData}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {ilpCardsData.map((card) => (
@@ -785,12 +931,15 @@ export default function InvestmentsDetailPage() {
                   premiumsSource={card.premiumsSource}
                   returnPct={card.returnPct}
                   monthlyPremium={card.monthlyPremium}
+                  premiumPaymentMode={card.premiumPaymentMode}
+                  groupPremiumAmount={card.groupPremiumAmount}
                   endDate={card.endDate}
                   latestEntryMonth={card.latestEntryMonth}
                   latestEntryFundValue={card.latestEntryFundValue}
                   latestEntryPremiumsPaid={card.latestEntryPremiumsPaid}
                   monthlyData={card.monthlyData}
                   fundReportSnapshot={card.fundReportSnapshot}
+                  groupAllocationPct={card.groupAllocationPct}
                   onAddEntry={fetchData}
                   onEditSuccess={fetchData}
                 />

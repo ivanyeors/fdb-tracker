@@ -38,6 +38,7 @@ See `package.json` for the full list. Key commands:
 - Dashboard (`/dashboard/*`) and Settings (`/settings/*`) routes live under the `app/(app)/` route group, which provides a shared sidebar layout. The `(app)` segment is a Next.js route group and does not appear in the URL.
 - `middleware.ts` protects `/dashboard/:path*`, `/settings/:path*`, and `/onboarding/:path*`; unauthenticated requests are redirected to `/login`. When testing dashboard/settings pages locally, you'll get a 307 redirect unless you have a valid session cookie.
 - The onboarding flow (`/onboarding/*`) uses an `OnboardingProvider` context that wraps the onboarding layout. All onboarding state (user count, profiles, income, banks, telegram, schedule) is held in React state; no Supabase calls are made during onboarding yet.
+- **ILP premium mode:** Migration `028_ilp_premium_mode_and_group_amount.sql` adds `premium_payment_mode` (`monthly` | `one_time`) on `ilp_products` and `group_premium_amount` + `premium_payment_mode` on `ilp_fund_groups`. Products with `one_time` are **not** included in recurring monthly ILP totals in `getEffectiveOutflowForProfile` / cashflow range; use entry `premiums_paid` for return % when the monthly premium is zero.
 
 ### Telegram Webhook Setup
 
@@ -137,3 +138,15 @@ If `GET /api/investments/account` returns 500 and logs show `Could not find the 
 ### ILP fund report import / `fund_report_snapshot` column missing
 
 If saving an imported fund report fails with `fund_report_snapshot` or schema cache errors, apply `supabase/migrations/024_ilp_entries_fund_report_snapshot.sql` (SQL Editor or `npx supabase db push`).
+
+### ILP fund groups / `ilp_fund_groups` missing
+
+If the app errors on ILP groups or `ilp_fund_group_id`, apply `supabase/migrations/025_ilp_fund_groups.sql` (SQL Editor or `npx supabase db push`).
+
+### ILP group allocation column missing
+
+If saving group allocations fails or `group_allocation_pct` is missing from the schema cache, apply `supabase/migrations/026_ilp_group_allocation_pct.sql`. Allocations for products in the same fund group must total **100%** (within rounding); configure groups and percentages under **Settings → Setup → ILP fund report** (not on the Investments page).
+
+### OCBC 360 / `ocbc_card_spend_monthly` column missing
+
+**Dashboard → Banks** derives Salary and Spend from **`monthly_cashflow`** (current month, Singapore) for the linked profile, not from a manual card-spend field. If the database predates the optional column and migrations fail mentioning `ocbc_card_spend_monthly`, apply `supabase/migrations/027_ocbc360_card_spend.sql` (SQL Editor or `npx supabase db push`). The column is optional legacy; the app does not require it for OCBC progress.
