@@ -6,12 +6,12 @@ import { CurrencyInput } from "@/components/ui/currency-input"
 import { Label } from "@/components/ui/label"
 import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+  ResponsiveDialogTrigger as DialogTrigger,
+} from "@/components/ui/responsive-dialog"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Loader2, Plus } from "lucide-react"
 import { toast } from "sonner"

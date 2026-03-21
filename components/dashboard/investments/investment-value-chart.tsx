@@ -1,13 +1,15 @@
 "use client"
 
 import { useState, useEffect, useMemo, useId, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { LinePath, AreaClosed } from "@visx/shape"
+import { useChartHeight } from "@/hooks/use-chart-height"
 import { curveMonotoneX } from "@visx/curve"
 import { scalePoint, scaleLinear } from "@visx/scale"
 import { GridRows } from "@visx/grid"
 import { Group } from "@visx/group"
 import { ParentSize } from "@visx/responsive"
-import { useTooltip, TooltipWithBounds } from "@visx/tooltip"
+import { useTooltip } from "@visx/tooltip"
 import { useInvestmentsDisplayCurrency } from "@/components/dashboard/investments/investments-display-currency"
 import { sgdToDisplayAmount } from "@/lib/investments/display-currency"
 
@@ -219,22 +221,30 @@ function ChartInner({
           })}
         </Group>
       </svg>
-      {tooltipOpen && tooltipData && (
-        <TooltipWithBounds
-          key={`${tooltipData.point.date}-${tooltipLeft}-${tooltipTop}`}
-          top={tooltipTop}
-          left={tooltipLeft}
-          className="pointer-events-none rounded-lg border border-border bg-card px-3 py-2 text-xs text-card-foreground shadow-md"
-          style={{ transform: "translate(12px, 12px)" }}
-        >
-          <div className="font-medium text-foreground">
-            {formatTooltipDate(tooltipData.point.date)}
-          </div>
-          <div className="mt-0.5 tabular-nums text-muted-foreground">
-            {formatMoney(tooltipData.point.valueSgd)}
-          </div>
-        </TooltipWithBounds>
-      )}
+      {tooltipOpen &&
+        tooltipData &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            key={`${tooltipData.point.date}-${tooltipLeft}-${tooltipTop}`}
+            role="tooltip"
+            className="pointer-events-none z-[9999] max-w-[min(280px,calc(100vw-24px))] rounded-lg border border-border bg-card px-3 py-2 text-xs text-card-foreground shadow-lg"
+            style={{
+              position: "fixed",
+              left: tooltipLeft,
+              top: tooltipTop,
+              transform: "translate(12px, 12px)",
+            }}
+          >
+            <div className="font-medium text-foreground">
+              {formatTooltipDate(tooltipData.point.date)}
+            </div>
+            <div className="mt-0.5 tabular-nums text-muted-foreground">
+              {formatMoney(tooltipData.point.valueSgd)}
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }
@@ -245,6 +255,7 @@ export function InvestmentValueChart({
   className = "",
   breakdown,
 }: InvestmentValueChartProps) {
+  const chartHeight = useChartHeight(192, 160)
   const { effectiveDisplayCurrency, sgdPerUsd, formatMoney } =
     useInvestmentsDisplayCurrency()
   const [days, setDays] = useState<30 | 60 | 90>(30)
@@ -361,15 +372,15 @@ export function InvestmentValueChart({
         </div>
       </div>
       {isLoading ? (
-        <div className="h-48 animate-pulse rounded-lg bg-muted" />
+        <div className="animate-pulse rounded-lg bg-muted" style={{ height: chartHeight }} />
       ) : series.length > 0 ? (
-        <div className="h-48 w-full">
+        <div className="w-full" style={{ height: chartHeight }}>
           <ParentSize>
             {({ width, height }) => (
               <ChartInner
                 data={series}
                 width={width}
-                height={height ?? 192}
+                height={height ?? chartHeight}
               />
             )}
           </ParentSize>

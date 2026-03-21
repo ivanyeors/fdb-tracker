@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { Group } from "@visx/group"
+import { useChartHeight } from "@/hooks/use-chart-height"
 import { useTooltip } from "@visx/tooltip"
 import { ParentSize } from "@visx/responsive"
 import { scaleLinear } from "@visx/scale"
@@ -294,16 +295,17 @@ function RadarChartInner({
 }
 
 export function RadarChart({ series, axes }: RadarChartProps) {
+  const chartSize = useChartHeight(320, 240)
   return (
     <div className="flex w-full items-center justify-center">
-      <div className="h-[320px] w-[320px]">
+      <div style={{ height: chartSize, width: chartSize }}>
         <ParentSize>
           {({ width, height }) => (
             <RadarChartInner
               series={series}
               axes={axes}
               width={width}
-              height={height ?? 320}
+              height={height ?? chartSize}
             />
           )}
         </ParentSize>

@@ -21,11 +21,11 @@ import { InfoTooltip } from "@/components/ui/info-tooltip"
 import type { TOOLTIPS } from "@/lib/tooltips"
 import { Separator } from "@/components/ui/separator"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from "@/components/ui/responsive-dialog"
 import {
   TaxBracketLadder,
   type HouseholdChargeableMarker,

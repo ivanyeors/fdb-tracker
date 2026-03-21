@@ -58,7 +58,6 @@ import {
 import { valuateGold, valuateSilver } from "@/lib/calculations/precious-metals"
 import {
   allocationByIlpGroupOrStandalone,
-  allocationByIlpProductWithGroupLabel,
 } from "@/lib/investments/ilp-allocation-aggregate"
 import { fundValueForAllocation } from "@/lib/investments/ilp-fund-value-for-allocation"
 import {
@@ -501,10 +500,10 @@ export default function InvestmentsDetailPage() {
       .sort((a, b) => b.value - a.value)
   }, [holdings, ilpProducts, cashBalance, fullPortfolioTotal])
 
-  /** One slice per ILP product (so grouped funds show multiple segments); label is `Group · Fund` when assigned. */
+  /** ILP donut: one slice per fund group (aggregated) or standalone product. */
   const ilpDonutSlices = useMemo(
     () =>
-      allocationByIlpProductWithGroupLabel(
+      allocationByIlpGroupOrStandalone(
         ilpProducts.map((p) => ({
           name: p.name,
           latestEntry: p.latestEntry,

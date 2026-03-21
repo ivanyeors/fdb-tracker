@@ -3,6 +3,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Pie } from "@visx/shape"
+import { useChartHeight } from "@/hooks/use-chart-height"
 import { Group } from "@visx/group"
 import { useTooltip } from "@visx/tooltip"
 import { ParentSize } from "@visx/responsive"
@@ -333,12 +334,14 @@ export function AllocationChart({
   data,
   title,
   legendMaxItems,
-  height: containerHeight = 280,
+  height: containerHeightProp = 280,
   centerLabel,
   centerSubtitle,
   legendLayout,
   legendBesideMinWidth,
 }: AllocationChartProps) {
+  const mobileHeight = useChartHeight(containerHeightProp, Math.round(containerHeightProp * 0.78))
+  const containerHeight = mobileHeight
   if (legendLayout === "beside") {
     return (
       <BesideAllocationChart

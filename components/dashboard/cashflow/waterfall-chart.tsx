@@ -3,6 +3,7 @@
 import { useMemo } from "react"
 import { createPortal } from "react-dom"
 import { Bar } from "@visx/shape"
+import { useChartHeight } from "@/hooks/use-chart-height"
 import { Group } from "@visx/group"
 import { scaleBand, scaleLinear } from "@visx/scale"
 import { AxisBottom, AxisLeft } from "@visx/axis"
@@ -323,11 +324,12 @@ function WaterfallChartInner({
 }
 
 export function WaterfallChart({ data }: { data: WaterfallData }) {
+  const chartHeight = useChartHeight(300, 220)
   return (
-    <div className="h-[300px] w-full">
+    <div className="w-full" style={{ height: chartHeight }}>
       <ParentSize>
         {({ width, height }) => (
-          <WaterfallChartInner data={data} width={width} height={height ?? 300} />
+          <WaterfallChartInner data={data} width={width} height={height ?? chartHeight} />
         )}
       </ParentSize>
     </div>

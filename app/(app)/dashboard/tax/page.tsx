@@ -234,8 +234,8 @@ export default function TaxPage() {
       </SectionHeader>
 
       {isLoading ? (
-        <div className="overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:thin] lg:overflow-x-visible">
-          <div className="grid min-w-[42rem] grid-cols-3 gap-4 lg:min-w-0 lg:w-full">
+        <div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Card className="min-w-0">
               <CardContent className="space-y-4 pt-6">
                 <div>
@@ -276,13 +276,13 @@ export default function TaxPage() {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:thin] lg:overflow-x-visible">
+          <div>
             <div
               className={cn(
-                "grid gap-4 lg:min-w-0 lg:w-full",
+                "grid gap-4",
                 reliefsForYear.length > 0
-                  ? "min-w-[42rem] grid-cols-3"
-                  : "min-w-0 grid-cols-2",
+                  ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                  : "grid-cols-1 sm:grid-cols-2",
               )}
             >
               <Card className="min-w-0">

@@ -24,13 +24,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+  ResponsiveSheet as Sheet,
+  ResponsiveSheetContent as SheetContent,
+  ResponsiveSheetDescription as SheetDescription,
+  ResponsiveSheetFooter as SheetFooter,
+  ResponsiveSheetHeader as SheetHeader,
+  ResponsiveSheetTitle as SheetTitle,
+} from "@/components/ui/responsive-sheet"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import {
   allocationSumMessage,

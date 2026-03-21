@@ -3,6 +3,7 @@
 import { useMemo } from "react"
 import { createPortal } from "react-dom"
 import { Sankey, sankeyCenter } from "@visx/sankey"
+import { useChartHeight } from "@/hooks/use-chart-height"
 import { Group } from "@visx/group"
 import { BarRounded, LinkHorizontal } from "@visx/shape"
 import { useTooltip } from "@visx/tooltip"
@@ -238,11 +239,12 @@ function CashflowSankeyInner({
 }
 
 export function CashflowSankey({ data }: { data: WaterfallData }) {
+  const chartHeight = useChartHeight(340, 240)
   return (
-    <div className="h-[340px] w-full overflow-visible">
+    <div className="w-full overflow-visible" style={{ height: chartHeight }}>
       <ParentSize>
         {({ width, height }) => (
-          <CashflowSankeyInner data={data} width={width} height={height ?? 340} />
+          <CashflowSankeyInner data={data} width={width} height={height ?? chartHeight} />
         )}
       </ParentSize>
     </div>

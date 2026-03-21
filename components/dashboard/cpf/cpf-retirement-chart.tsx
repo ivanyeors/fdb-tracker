@@ -3,6 +3,7 @@
 import { useMemo, useCallback, useId } from "react"
 import { AreaClosed, LinePath } from "@visx/shape"
 import { curveMonotoneX } from "@visx/curve"
+import { useChartHeight } from "@/hooks/use-chart-height"
 import { scaleLinear } from "@visx/scale"
 import { Group } from "@visx/group"
 import { GridRows } from "@visx/grid"
@@ -460,16 +461,17 @@ export function CpfRetirementChart({
   comparisonData,
   currentAge: _currentAge,
 }: CpfRetirementChartProps) {
+  const chartHeight = useChartHeight(400, 280)
   return (
     <div>
       <ChartLegend hasComparison={!!comparisonData && comparisonData.length > 0} />
-      <div className="h-[400px] w-full">
+      <div className="w-full" style={{ height: chartHeight }}>
         <ParentSize>
           {({ width, height }) => (
             <ChartInner
               data={data}
               width={width}
-              height={height ?? 400}
+              height={height ?? chartHeight}
               referenceLines={referenceLines}
               comparisonData={comparisonData}
             />

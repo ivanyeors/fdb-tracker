@@ -3,6 +3,7 @@
 import { useMemo, useCallback, useId } from "react"
 import { AreaClosed, LinePath } from "@visx/shape"
 import { curveMonotoneX } from "@visx/curve"
+import { useChartHeight } from "@/hooks/use-chart-height"
 import { Group } from "@visx/group"
 import { GridRows } from "@visx/grid"
 import { AxisBottom, AxisLeft } from "@visx/axis"
@@ -388,16 +389,17 @@ function CashflowChartInner({
 }
 
 export function CashflowChart({ data }: { data: CashflowRow[] }) {
+  const chartHeight = useChartHeight(350, 250)
   return (
     <div>
       <ChartLegend />
-      <div className="h-[350px] w-full">
+      <div className="w-full" style={{ height: chartHeight }}>
         <ParentSize>
           {({ width, height }) => (
             <CashflowChartInner
               data={data}
               width={width}
-              height={height ?? 350}
+              height={height ?? chartHeight}
             />
           )}
         </ParentSize>

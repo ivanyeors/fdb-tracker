@@ -354,7 +354,9 @@ function IlpLineChart({
   return <IlpDetailedLineChart data={data} width={width} height={height} />
 }
 
-const BAR_MARGIN = { top: 24, bottom: 20, left: 0, right: 0 }
+const HBAR_MARGIN = { top: 0, bottom: 0, left: 0, right: 0 }
+const HBAR_LABEL_WIDTH = 90
+const HBAR_VALUE_PAD = 8
 
 function IlpInvestedVsValueBar({
   invested,
@@ -369,31 +371,33 @@ function IlpInvestedVsValueBar({
   width: number
   height: number
 }) {
-  const innerWidth = width - BAR_MARGIN.left - BAR_MARGIN.right
-  const innerHeight = height - BAR_MARGIN.top - BAR_MARGIN.bottom
+  const innerWidth = width - HBAR_MARGIN.left - HBAR_MARGIN.right
+  const innerHeight = height - HBAR_MARGIN.top - HBAR_MARGIN.bottom
 
   const data = [
     { key: "invested", label: "Invested", value: invested },
-    { key: "current", label: "Current Value", value: currentValue },
+    { key: "current", label: "Current", value: currentValue },
   ]
 
-  const xScale = useMemo(
+  const yScale = useMemo(
     () =>
       scaleBand<string>({
         domain: data.map((d) => d.key),
-        range: [0, innerWidth],
-        padding: 0.35,
+        range: [0, innerHeight],
+        padding: 0.3,
       }),
-    [innerWidth],
+    [innerHeight],
   )
 
-  const yScale = useMemo(() => {
+  const barAreaWidth = innerWidth - HBAR_LABEL_WIDTH
+
+  const xScale = useMemo(() => {
     const max = Math.max(invested, currentValue, 1)
     return scaleLinear<number>({
       domain: [0, max * 1.05],
-      range: [innerHeight, 0],
+      range: [0, barAreaWidth],
     })
-  }, [invested, currentValue, innerHeight])
+  }, [invested, currentValue, barAreaWidth])
 
   if (width < 10) return null
 
@@ -401,44 +405,56 @@ function IlpInvestedVsValueBar({
 
   return (
     <svg width={width} height={height}>
-      <Group left={BAR_MARGIN.left} top={BAR_MARGIN.top}>
+      <Group left={HBAR_MARGIN.left} top={HBAR_MARGIN.top}>
         {data.map((d) => {
-          const barX = xScale(d.key) ?? 0
-          const barWidth = xScale.bandwidth()
-          const barHeight = innerHeight - (yScale(d.value) ?? 0)
-          const barY = yScale(d.value) ?? 0
+          const barY = yScale(d.key) ?? 0
+          const barH = yScale.bandwidth()
+          const barW = Math.max(xScale(d.value) ?? 0, 0)
           const fill =
             d.key === "invested"
               ? "var(--color-muted-foreground)"
               : gain
                 ? "var(--color-chart-positive)"
                 : "var(--color-chart-negative)"
+          const valueText = formatMoney(d.value)
+          const valueFitsInside = barW > 80
           return (
             <g key={d.key}>
+              {/* Row label */}
+              <text
+                x={0}
+                y={barY + barH / 2}
+                dominantBaseline="central"
+                className="fill-muted-foreground text-[11px]"
+              >
+                {d.label}
+              </text>
+              {/* Bar */}
               <Bar
-                x={barX}
+                x={HBAR_LABEL_WIDTH}
                 y={barY}
-                width={barWidth}
-                height={Math.max(barHeight, 0)}
+                width={barW}
+                height={barH}
                 fill={fill}
                 rx={4}
                 opacity={d.key === "invested" ? 0.35 : 0.85}
               />
+              {/* Value label */}
               <text
-                x={barX + barWidth / 2}
-                y={barY - 6}
-                textAnchor="middle"
-                className="fill-foreground text-[11px] font-medium"
+                x={
+                  valueFitsInside
+                    ? HBAR_LABEL_WIDTH + barW - HBAR_VALUE_PAD
+                    : HBAR_LABEL_WIDTH + barW + HBAR_VALUE_PAD
+                }
+                y={barY + barH / 2}
+                dominantBaseline="central"
+                textAnchor={valueFitsInside ? "end" : "start"}
+                className={cn(
+                  "text-[11px] font-medium",
+                  valueFitsInside ? "fill-card" : "fill-foreground",
+                )}
               >
-                {formatMoney(d.value)}
-              </text>
-              <text
-                x={barX + barWidth / 2}
-                y={innerHeight + 14}
-                textAnchor="middle"
-                className="fill-muted-foreground text-[10px]"
-              >
-                {d.label}
+                {valueText}
               </text>
             </g>
           )
@@ -534,6 +550,26 @@ export function IlpCard({
                     />
                   )}
                 </ParentSize>
+              </div>
+            )}
+            {(fundValue > 0 || totalPremiumsPaid > 0) && (
+              <div className="mt-3 border-t border-border pt-3">
+                <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Invested vs Current Value
+                </p>
+                <div className="h-14 w-full min-w-0">
+                  <ParentSize debounceTime={10}>
+                    {({ width, height }) => (
+                      <IlpInvestedVsValueBar
+                        invested={totalPremiumsPaid}
+                        currentValue={fundValue}
+                        formatMoney={formatMoney}
+                        width={width}
+                        height={height ?? 56}
+                      />
+                    )}
+                  </ParentSize>
+                </div>
               </div>
             )}
           </div>

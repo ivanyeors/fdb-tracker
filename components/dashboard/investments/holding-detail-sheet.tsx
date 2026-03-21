@@ -4,12 +4,12 @@ import { useCallback, useEffect, useState } from "react"
 import Image from "next/image"
 import { ArrowDown, ArrowUp, Loader2 } from "lucide-react"
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+  ResponsiveSheet as Sheet,
+  ResponsiveSheetContent as SheetContent,
+  ResponsiveSheetDescription as SheetDescription,
+  ResponsiveSheetHeader as SheetHeader,
+  ResponsiveSheetTitle as SheetTitle,
+} from "@/components/ui/responsive-sheet"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {

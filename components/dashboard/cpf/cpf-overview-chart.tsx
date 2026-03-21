@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { Pie } from "@visx/shape"
+import { useChartHeight } from "@/hooks/use-chart-height"
 import { Group } from "@visx/group"
 import { useTooltip } from "@visx/tooltip"
 import { ParentSize } from "@visx/responsive"
@@ -182,11 +183,12 @@ function CpfOverviewChartInner({
 }
 
 export function CpfOverviewChart({ data }: { data: CpfRow[] }) {
+  const chartHeight = useChartHeight(280, 200)
   return (
-    <div className="h-[280px] w-full">
+    <div className="w-full" style={{ height: chartHeight }}>
       <ParentSize>
         {({ width, height }) => (
-          <CpfOverviewChartInner data={data} width={width} height={height ?? 280} />
+          <CpfOverviewChartInner data={data} width={width} height={height ?? chartHeight} />
         )}
       </ParentSize>
     </div>
