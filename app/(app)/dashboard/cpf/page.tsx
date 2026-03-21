@@ -8,17 +8,12 @@ import { CpfRetirementChart } from "@/components/dashboard/cpf/cpf-retirement-ch
 import { CpfHousingTab, type CpfHousingApiResponse } from "@/components/dashboard/cpf/cpf-housing-tab"
 import { CpfLoansTab, type CpfLoanRow } from "@/components/dashboard/cpf/cpf-loans-tab"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { formatCurrency } from "@/lib/utils"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { ChartSkeleton } from "@/components/loading"
-
-const BRS = 110200
-const FRS = 220400
-const ERS = 440800
 
 type CpfBalanceRow = { month: string; oa: number; sa: number; ma: number }
 
@@ -136,16 +131,7 @@ function RetirementTab({
   data: RetirementData | null
   isFamilyView: boolean
 }) {
-  const cpfTotal = data?.currentCpf.total ?? 0
-  const retirementSums = useMemo(
-    () => data?.retirementSums ?? { brs: BRS, frs: FRS, ers: ERS },
-    [data?.retirementSums],
-  )
-  const retirementBenchmarks = [
-    { label: "BRS", fullLabel: "Basic Retirement Sum", target: retirementSums.brs, pct: Math.round((cpfTotal / retirementSums.brs) * 100), tooltipId: "CPF_BRS" as const },
-    { label: "FRS", fullLabel: "Full Retirement Sum", target: retirementSums.frs, pct: Math.round((cpfTotal / retirementSums.frs) * 100), tooltipId: "CPF_FRS" as const },
-    { label: "ERS", fullLabel: "Enhanced Retirement Sum", target: retirementSums.ers, pct: Math.round((cpfTotal / retirementSums.ers) * 100), tooltipId: "CPF_ERS" as const },
-  ]
+  const retirementSums = data?.retirementSums ?? { brs: 0, frs: 0, ers: 0 }
 
   const chartReferenceLines = useMemo(() => [
     { value: retirementSums.brs, label: "Basic Retirement Sum", shortLabel: "BRS" },
@@ -213,27 +199,6 @@ function RetirementTab({
           </CardContent>
         </Card>
       )}
-
-      <div className="space-y-4">
-        {retirementBenchmarks.map((b) => (
-          <Card key={b.label}>
-            <CardContent className="pt-1">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-medium">
-                    {b.label} ({b.fullLabel}) — ${formatCurrency(b.target)}
-                  </p>
-                  <InfoTooltip id={b.tooltipId} />
-                </div>
-                <span className="text-sm font-bold tabular-nums">
-                  {b.pct}%
-                </span>
-              </div>
-              <Progress value={Math.min(b.pct, 100)} className="h-2" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
       <Card>
         <CardHeader>

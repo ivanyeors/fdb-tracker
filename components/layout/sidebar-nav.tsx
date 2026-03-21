@@ -32,10 +32,13 @@ import {
   SidebarMenuButton,
   SidebarHeader,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar"
 
 import { createSupabaseClient } from "@/lib/supabase/client"
 import { CompleteSetupNav } from "@/components/layout/complete-setup-nav"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { cn } from "@/lib/utils"
 
 const dashboardItems = [
   { title: "Overview", href: "/dashboard", icon: BarChart3 },
@@ -59,6 +62,8 @@ const settingsItems = [
 export function SidebarNav() {
   const pathname = usePathname()
   const router = useRouter()
+  const isMobile = useIsMobile()
+  const { setOpenMobile } = useSidebar()
   const supabase = createSupabaseClient()
 
   const handleLogout = async () => {
@@ -66,6 +71,18 @@ export function SidebarNav() {
     router.push("/login")
     router.refresh()
   }
+
+  const handleMobileNav = () => {
+    if (isMobile) setOpenMobile(false)
+  }
+
+  const mobileButtonClass = isMobile
+    ? "h-12 gap-3 rounded-xl bg-sidebar-accent/50 px-4 text-base [&_svg]:size-5"
+    : "ml-4"
+
+  const mobileLogoutClass = isMobile
+    ? "h-12 gap-3 rounded-xl bg-sidebar-accent/50 px-4 text-base [&_svg]:size-5"
+    : ""
 
   return (
     <Sidebar>
@@ -80,16 +97,16 @@ export function SidebarNav() {
             Dashboard
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className={cn(isMobile && "gap-1.5 px-2")}>
               {dashboardItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
                     isActive={pathname === item.href}
                     tooltip={item.title}
-                    className="ml-4"
+                    className={mobileButtonClass}
                   >
-                    <Link href={item.href}>
+                    <Link href={item.href} onClick={handleMobileNav}>
                       <item.icon />
                       <span>{item.title}</span>
                       {"badge" in item && item.badge && (
@@ -111,16 +128,16 @@ export function SidebarNav() {
             Settings
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className={cn(isMobile && "gap-1.5 px-2")}>
               {settingsItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
                     isActive={pathname === item.href}
                     tooltip={item.title}
-                    className="ml-4"
+                    className={mobileButtonClass}
                   >
-                    <Link href={item.href}>
+                    <Link href={item.href} onClick={handleMobileNav}>
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>
@@ -131,10 +148,14 @@ export function SidebarNav() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
-        <SidebarMenu>
+      <SidebarFooter className={cn(isMobile && "px-2 pb-4")}>
+        <SidebarMenu className={cn(isMobile && "gap-1.5")}>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
+            <SidebarMenuButton
+              onClick={handleLogout}
+              tooltip="Logout"
+              className={mobileLogoutClass}
+            >
               <LogOut />
               <span>Logout</span>
             </SidebarMenuButton>
