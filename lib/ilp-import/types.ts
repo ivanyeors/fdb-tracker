@@ -4,6 +4,17 @@
 
 export type IlpFundReportParserId = "tokio-morningstar-v1"
 
+/** One row from Morningstar “Portfolio holdings” / top holdings table (0–10+ rows in source). */
+export type IlpTopHoldingRow = {
+  rank: number | null
+  securityName: string
+  /** Industry sector when present; often “—” in source for some names. */
+  sector: string | null
+  country: string | null
+  /** Weight as % of fund assets (same basis as report table). */
+  weightPct: number | null
+}
+
 /** Persisted shape (Option A jsonb on ilp_entries). */
 export interface IlpFundReportSnapshot {
   version: 1
@@ -32,6 +43,8 @@ export interface IlpFundReportSnapshot {
     weightPct: number | null
     categoryPct: number | null
   }>
+  /** Parsed from `mstar-component-id="topTenHoldingsTable"` when present (variable row count). */
+  topHoldings?: IlpTopHoldingRow[]
   warnings: string[]
 }
 

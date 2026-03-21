@@ -1,9 +1,18 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   Sheet,
   SheetContent,
@@ -39,11 +48,18 @@ import {
 } from "@/components/dashboard/investments/journal-list"
 import { ChartSkeleton } from "@/components/loading"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
 import {
   currentMonthYm,
   ilpEntryMonthKey,
 } from "@/lib/investments/ilp-chart"
 import { valuateGold, valuateSilver } from "@/lib/calculations/precious-metals"
+import {
+  allocationByIlpGroupOrStandalone,
+  allocationByIlpProductWithGroupLabel,
+} from "@/lib/investments/ilp-allocation-aggregate"
+import { fundValueForAllocation } from "@/lib/investments/ilp-fund-value-for-allocation"
 import {
   InvestmentsDisplayCurrencyProvider,
   InvestmentsCurrencyToggle,
@@ -139,6 +155,10 @@ export default function InvestmentsDetailPage() {
   const [addIlpOpen, setAddIlpOpen] = useState(false)
   const [cashBalanceOpen, setCashBalanceOpen] = useState(false)
   const [addHoldingOpen, setAddHoldingOpen] = useState(false)
+  const [ilpSelectedIds, setIlpSelectedIds] = useState<string[]>([])
+  const [ilpBulkDeleteOpen, setIlpBulkDeleteOpen] = useState(false)
+  const [ilpBulkDeleting, setIlpBulkDeleting] = useState(false)
+  const ilpSelectAllRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -450,12 +470,19 @@ export default function InvestmentsDetailPage() {
         (grouped.get("Cash balance") || 0) + cashBalance,
       )
     }
-    ilpProducts.forEach((p) => {
-      const fundVal = p.latestEntry?.fund_value ?? 0
-      if (fundVal > 0) {
-        grouped.set("ILP", (grouped.get("ILP") || 0) + fundVal)
-      }
-    })
+    const ilpMarketSlices = allocationByIlpGroupOrStandalone(
+      ilpProducts.map((p) => ({
+        name: p.name,
+        latestEntry: p.latestEntry,
+        ilp_fund_groups: p.ilp_fund_groups
+          ? { id: p.ilp_fund_groups.id, name: p.ilp_fund_groups.name }
+          : null,
+      })),
+    )
+    for (const row of ilpMarketSlices) {
+      const label = `ILP · ${row.name}`
+      grouped.set(label, (grouped.get(label) || 0) + row.value)
+    }
     const denom = fullPortfolioTotal > 0 ? fullPortfolioTotal : 1
     return Array.from(grouped.entries())
       .map(([name, value]) => ({
@@ -466,23 +493,20 @@ export default function InvestmentsDetailPage() {
       .sort((a, b) => b.value - a.value)
   }, [holdings, ilpProducts, cashBalance, fullPortfolioTotal])
 
-  /** One donut slice per ILP product (latest fund value). */
-  const allocationByIlpProduct = useMemo(() => {
-    const rows = ilpProducts
-      .map((p) => ({
-        name: p.name,
-        value: p.latestEntry?.fund_value ?? 0,
-      }))
-      .filter((r) => r.value > 0)
-    const ilpSum = rows.reduce((s, r) => s + r.value, 0)
-    return rows
-      .map((r) => ({
-        name: r.name,
-        value: r.value,
-        percentage: ilpSum > 0 ? (r.value / ilpSum) * 100 : 0,
-      }))
-      .sort((a, b) => b.value - a.value)
-  }, [ilpProducts])
+  /** One slice per ILP product (so grouped funds show multiple segments); label is `Group · Fund` when assigned. */
+  const ilpDonutSlices = useMemo(
+    () =>
+      allocationByIlpProductWithGroupLabel(
+        ilpProducts.map((p) => ({
+          name: p.name,
+          latestEntry: p.latestEntry,
+          ilp_fund_groups: p.ilp_fund_groups
+            ? { id: p.ilp_fund_groups.id, name: p.ilp_fund_groups.name }
+            : null,
+        })),
+      ),
+    [ilpProducts],
+  )
 
   const metalsHoldings = useMemo(() => {
     const goldSilver = holdings.filter(
@@ -564,6 +588,10 @@ export default function InvestmentsDetailPage() {
       const pm: "monthly" | "one_time" =
         p.premium_payment_mode === "one_time" ? "one_time" : "monthly"
       const gAmt = p.ilp_fund_groups?.group_premium_amount
+      const fundValueForAllocationWeighted = fundValueForAllocation(
+        p.latestEntry,
+        p.entries ?? [],
+      )
       return {
         productId: p.id,
         name: p.name,
@@ -572,6 +600,7 @@ export default function InvestmentsDetailPage() {
         groupAllocationPct:
           p.group_allocation_pct != null ? Number(p.group_allocation_pct) : null,
         fundValue,
+        fundValueForAllocation: fundValueForAllocationWeighted,
         totalPremiumsPaid,
         premiumsSource,
         returnPct,
@@ -625,6 +654,85 @@ export default function InvestmentsDetailPage() {
     () => ilpGroupedSections.find((s) => s.key === "_ungrouped"),
     [ilpGroupedSections],
   )
+
+  /** Bulk select on the ILP tab only applies to ungrouped fund cards when groups exist. */
+  const selectableIlpProductIds = useMemo(() => {
+    if (showIlpGrouped) {
+      return ilpCardsData.filter((c) => !c.groupId).map((c) => c.productId)
+    }
+    return ilpCardsData.map((c) => c.productId)
+  }, [ilpCardsData, showIlpGrouped])
+
+  useEffect(() => {
+    setIlpSelectedIds((prev) =>
+      prev.filter((id) => selectableIlpProductIds.includes(id)),
+    )
+  }, [selectableIlpProductIds])
+
+  const toggleIlpSelection = useCallback((productId: string) => {
+    setIlpSelectedIds((prev) =>
+      prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId],
+    )
+  }, [])
+
+  const allIlpSelected =
+    selectableIlpProductIds.length > 0 &&
+    selectableIlpProductIds.every((id) => ilpSelectedIds.includes(id))
+  const someIlpSelected =
+    ilpSelectedIds.length > 0 && !allIlpSelected
+
+  useEffect(() => {
+    const el = ilpSelectAllRef.current
+    if (el) el.indeterminate = someIlpSelected
+  }, [someIlpSelected])
+
+  const handleSelectAllIlp = useCallback(() => {
+    if (allIlpSelected) {
+      setIlpSelectedIds([])
+    } else {
+      setIlpSelectedIds([...selectableIlpProductIds])
+    }
+  }, [allIlpSelected, selectableIlpProductIds])
+
+  const handleBulkDeleteIlp = useCallback(async () => {
+    if (ilpSelectedIds.length === 0) return
+    setIlpBulkDeleting(true)
+    const ids = [...ilpSelectedIds]
+    const nameById = new Map(
+      ilpCardsData.map((c) => [c.productId, c.name] as const),
+    )
+    try {
+      for (const id of ids) {
+        const res = await fetch(`/api/investments/ilp/${id}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...(activeFamilyId && { familyId: activeFamilyId }),
+          }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(
+            typeof err.error === "string"
+              ? err.error
+              : `Failed to delete ${nameById.get(id) ?? id}`,
+          )
+        }
+      }
+      toast.success(
+        `Removed ${ids.length} ILP product${ids.length === 1 ? "" : "s"}`,
+      )
+      setIlpSelectedIds([])
+      setIlpBulkDeleteOpen(false)
+      await fetchData()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Delete failed")
+    } finally {
+      setIlpBulkDeleting(false)
+    }
+  }, [ilpSelectedIds, ilpCardsData, activeFamilyId, fetchData])
 
   if (!activeProfileId && !activeFamilyId) {
     return (
@@ -706,7 +814,7 @@ export default function InvestmentsDetailPage() {
         <div className="rounded-xl border bg-card p-4">
           {isLoading ? (
             <ChartSkeleton height={280} className="rounded-lg" />
-          ) : allocationByIlpProduct.length === 0 ? (
+          ) : ilpDonutSlices.length === 0 ? (
             <div className="flex h-[280px] flex-col justify-center gap-1 px-2 text-center text-sm text-muted-foreground">
               <span className="font-medium text-foreground">ILP</span>
               <span>
@@ -716,9 +824,10 @@ export default function InvestmentsDetailPage() {
             </div>
           ) : (
             <AllocationChart
-              data={allocationByIlpProduct}
+              data={ilpDonutSlices}
               title="ILP"
-              legendMaxItems={3}
+              centerSubtitle="Each fund; group prefix when in a fund group"
+              legendMaxItems={6}
               height={336}
             />
           )}
@@ -858,11 +967,91 @@ export default function InvestmentsDetailPage() {
         </TabsContent>
 
         <TabsContent value="ilp" className="mt-4 space-y-4">
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {selectableIlpProductIds.length > 0 ? (
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    ref={ilpSelectAllRef}
+                    type="checkbox"
+                    className="size-4 rounded border border-input accent-primary"
+                    checked={allIlpSelected}
+                    onChange={handleSelectAllIlp}
+                    aria-label="Select all ILP funds"
+                  />
+                  <span>Select all</span>
+                </label>
+                <span className="text-sm text-muted-foreground">
+                  {ilpSelectedIds.length} selected
+                </span>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  disabled={ilpSelectedIds.length === 0}
+                  onClick={() => setIlpBulkDeleteOpen(true)}
+                >
+                  Delete selected
+                </Button>
+              </div>
+            ) : (
+              <span />
+            )}
             <Button type="button" onClick={() => setAddIlpOpen(true)}>
               Add ILP Product
             </Button>
           </div>
+          <AlertDialog
+            open={ilpBulkDeleteOpen}
+            onOpenChange={(open) => {
+              if (!ilpBulkDeleting) setIlpBulkDeleteOpen(open)
+            }}
+          >
+            <AlertDialogContent className="max-w-md">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete selected ILP products?</AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-2 text-left">
+                    <p>
+                      The following{" "}
+                      {ilpSelectedIds.length === 1 ? "product" : "products"} and
+                      all monthly value history will be permanently removed:
+                    </p>
+                    <ul className="max-h-40 list-inside list-disc overflow-y-auto text-foreground">
+                      {ilpSelectedIds.map((id) => {
+                        const row = ilpCardsData.find((c) => c.productId === id)
+                        return (
+                          <li key={id} className="text-sm">
+                            {row?.name ?? id}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={ilpBulkDeleting}>
+                  Cancel
+                </AlertDialogCancel>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={ilpBulkDeleting}
+                  onClick={() => void handleBulkDeleteIlp()}
+                >
+                  {ilpBulkDeleting ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Deleting…
+                    </>
+                  ) : (
+                    "Delete"
+                  )}
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Sheet open={addIlpOpen} onOpenChange={setAddIlpOpen}>
             <SheetContent
               side="right"
@@ -940,6 +1129,10 @@ export default function InvestmentsDetailPage() {
                           groupAllocationPct={card.groupAllocationPct}
                           onAddEntry={fetchData}
                           onEditSuccess={fetchData}
+                          selection={{
+                            selected: ilpSelectedIds.includes(card.productId),
+                            onToggle: () => toggleIlpSelection(card.productId),
+                          }}
                         />
                       ))}
                   </div>
@@ -969,6 +1162,10 @@ export default function InvestmentsDetailPage() {
                   groupAllocationPct={card.groupAllocationPct}
                   onAddEntry={fetchData}
                   onEditSuccess={fetchData}
+                  selection={{
+                    selected: ilpSelectedIds.includes(card.productId),
+                    onToggle: () => toggleIlpSelection(card.productId),
+                  }}
                 />
               ))}
             </div>

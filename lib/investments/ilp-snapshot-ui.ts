@@ -53,13 +53,30 @@ export function morningstarCategoryFromSnapshot(
 }
 
 export function parseFundReportSnapshot(
-  raw: Record<string, unknown> | null | undefined
+  raw: Record<string, unknown> | null | undefined | string,
 ): IlpFundReportSnapshot | null {
-  if (!raw || typeof raw !== "object") return null
-  const o = raw as Record<string, unknown>
-  if (o.version !== 1) return null
-  if (typeof o.header !== "object" || o.header === null) return null
-  return raw as unknown as IlpFundReportSnapshot
+  if (raw == null) return null
+  let o: Record<string, unknown>
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw) as unknown
+      if (!parsed || typeof parsed !== "object") return null
+      o = parsed as Record<string, unknown>
+    } catch {
+      return null
+    }
+  } else if (typeof raw === "object") {
+    o = raw as Record<string, unknown>
+  } else {
+    return null
+  }
+  const versionOk = o.version === 1 || Number(o.version) === 1
+  if (!versionOk) return null
+  if (typeof o.header !== "object" || o.header === null) {
+    if (!Array.isArray(o.topHoldings) || o.topHoldings.length === 0) return null
+    o = { ...o, header: {} }
+  }
+  return o as unknown as IlpFundReportSnapshot
 }
 
 /** Parse a table cell that may contain %, unicode minus, em dash, commas. */

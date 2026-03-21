@@ -288,6 +288,8 @@ export function IlpFundReportPanel({ snapshot }: IlpFundReportPanelProps) {
 
   if (!s) return null
 
+  const topHoldings = s.topHoldings?.length ? s.topHoldings : []
+
   const hasContent =
     headerRows.length > 0 ||
     donutRows.length > 0 ||
@@ -295,6 +297,7 @@ export function IlpFundReportPanel({ snapshot }: IlpFundReportPanelProps) {
     barRows.length > 0 ||
     annualSeries.length > 0 ||
     annualRaw.length > 0 ||
+    topHoldings.length > 0 ||
     s.warnings.length > 0
 
   if (!hasContent) return null
@@ -402,6 +405,69 @@ export function IlpFundReportPanel({ snapshot }: IlpFundReportPanelProps) {
               </div>
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {topHoldings.length > 0 ? (
+        <div>
+          <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Portfolio holdings
+          </p>
+          <p className="mb-2 text-[10px] leading-snug text-muted-foreground/90">
+            From the report table (variable number of positions; weight is % of
+            fund assets).
+          </p>
+          <div className="overflow-x-auto rounded-md border border-border">
+            <table className="w-full min-w-[320px] text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-2 py-2 text-left text-[11px] font-medium text-muted-foreground">
+                    #
+                  </th>
+                  <th className="px-2 py-2 text-left text-[11px] font-medium text-muted-foreground">
+                    Security
+                  </th>
+                  <th className="px-2 py-2 text-left text-[11px] font-medium text-muted-foreground">
+                    Sector
+                  </th>
+                  <th className="px-2 py-2 text-left text-[11px] font-medium text-muted-foreground">
+                    Country
+                  </th>
+                  <th className="px-2 py-2 text-right text-[11px] font-medium text-muted-foreground">
+                    % assets
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {topHoldings.map((row, i) => (
+                  <tr
+                    key={`${row.securityName}-${i}`}
+                    className="border-b border-border/60 last:border-0"
+                  >
+                    <td className="px-2 py-1.5 tabular-nums text-muted-foreground">
+                      {row.rank ?? "—"}
+                    </td>
+                    <td className="max-w-[200px] px-2 py-1.5 font-medium text-foreground">
+                      <span className="line-clamp-2">{row.securityName}</span>
+                    </td>
+                    <td className="px-2 py-1.5 text-muted-foreground">
+                      {row.sector ?? "—"}
+                    </td>
+                    <td className="px-2 py-1.5 text-muted-foreground">
+                      {row.country ?? "—"}
+                    </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-foreground">
+                      {row.weightPct != null
+                        ? row.weightPct.toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                          })
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : null}
 

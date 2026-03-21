@@ -47,6 +47,34 @@ export function normalizeProportionalTo100(weights: number[]): number[] {
  * Set one fund to 0% and spread its share across the others (proportional to their
  * current weights; if all others were 0, split evenly).
  */
+/**
+ * Build unique rows for PATCH /groups/:id/allocations. When a file maps to an ILP
+ * that is already listed as an existing group member, e:id and n:fileIndex both
+ * reference the same product — merge percentages so the API never receives duplicates.
+ */
+export function mergeMultiGroupAllocationItems(
+  members: { id: string; name: string }[],
+  newProductIds: string[],
+  multiAllocPct: Record<string, number>,
+): { productId: string; allocationPct: number }[] {
+  const byId = new Map<string, number>()
+  for (const m of members) {
+    const pct = multiAllocPct[`e:${m.id}`]
+    if (pct == null) throw new Error(`Missing allocation for ${m.name}.`)
+    byId.set(m.id, (byId.get(m.id) ?? 0) + pct)
+  }
+  for (let fi = 0; fi < newProductIds.length; fi++) {
+    const pid = newProductIds[fi]!
+    const pct = multiAllocPct[`n:${fi}`]
+    if (pct == null) throw new Error(`Missing allocation for file ${fi + 1}.`)
+    byId.set(pid, (byId.get(pid) ?? 0) + pct)
+  }
+  return [...byId.entries()].map(([productId, allocationPct]) => ({
+    productId,
+    allocationPct,
+  }))
+}
+
 export function applySwitchOutZero(
   items: { productId: string; allocationPct: number }[],
   productId: string,

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { allocationByIlpGroupOrStandalone } from "@/lib/investments/ilp-allocation-aggregate"
+import {
+  allocationByIlpGroupOrStandalone,
+  allocationByIlpProductWithGroupLabel,
+} from "@/lib/investments/ilp-allocation-aggregate"
 
 describe("allocationByIlpGroupOrStandalone", () => {
   it("merges two products in the same group into one slice", () => {
@@ -74,5 +77,47 @@ describe("allocationByIlpGroupOrStandalone", () => {
     ])
     expect(rows[0].name).toBe("Big")
     expect(rows[1].name).toBe("Small")
+  })
+
+  it("allocationByIlpProductWithGroupLabel: one slice per fund with Group · Fund labels", () => {
+    const rows = allocationByIlpProductWithGroupLabel([
+      {
+        name: "Fund A",
+        latestEntry: { fund_value: 40 },
+        ilp_fund_groups: { id: "g1", name: "AIA PRE" },
+      },
+      {
+        name: "Fund B",
+        latestEntry: { fund_value: 60 },
+        ilp_fund_groups: { id: "g1", name: "AIA PRE" },
+      },
+    ])
+    expect(rows).toHaveLength(2)
+    expect(rows.map((r) => r.name).sort()).toEqual([
+      "AIA PRE · Fund A",
+      "AIA PRE · Fund B",
+    ])
+    expect(rows.find((r) => r.name === "AIA PRE · Fund B")?.percentage).toBeCloseTo(
+      60,
+      5,
+    )
+  })
+
+  it("disambiguates duplicate display titles from different groups", () => {
+    const rows = allocationByIlpGroupOrStandalone([
+      {
+        name: "A",
+        latestEntry: { fund_value: 40 },
+        ilp_fund_groups: { id: "g1", name: "Same" },
+      },
+      {
+        name: "B",
+        latestEntry: { fund_value: 60 },
+        ilp_fund_groups: { id: "g2", name: "Same" },
+      },
+    ])
+    expect(rows).toHaveLength(2)
+    const names = rows.map((r) => r.name).sort()
+    expect(names).toEqual(["Same", "Same (2)"])
   })
 })

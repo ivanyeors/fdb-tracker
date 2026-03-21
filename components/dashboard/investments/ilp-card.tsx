@@ -56,6 +56,8 @@ interface IlpCardProps {
   showAddMonthlyEntry?: boolean
   /** When false, hide delete (e.g. delete only from group editor). */
   showDeleteProduct?: boolean
+  /** Multi-select on Investments → ILP tab (bulk delete). */
+  selection?: { selected: boolean; onToggle: () => void }
 }
 
 function fmt(n: number): string {
@@ -217,6 +219,9 @@ function IlpDetailedLineChart({
 
   const handleOverlayMove = useCallback(
     (e: React.MouseEvent<SVGRectElement>) => {
+      const container = e.currentTarget.ownerSVGElement?.parentElement
+      if (!container) return
+      const bounds = container.getBoundingClientRect()
       const x = e.nativeEvent.offsetX - ILP_SPARK_MARGIN.left
       if (series.length === 0) return
       let nearest = 0
@@ -231,8 +236,8 @@ function IlpDetailedLineChart({
       }
       showTooltip({
         tooltipData: { index: nearest, point: series[nearest] },
-        tooltipLeft: e.clientX,
-        tooltipTop: e.clientY,
+        tooltipLeft: e.clientX - bounds.left,
+        tooltipTop: e.clientY - bounds.top,
       })
     },
     [series, showTooltip, xGetter],
@@ -317,8 +322,9 @@ function IlpDetailedLineChart({
           key={`${tooltipData.point.month}-${tooltipLeft}-${tooltipTop}`}
           top={tooltipTop}
           left={tooltipLeft}
+          offsetLeft={12}
+          offsetTop={12}
           className="pointer-events-none rounded-lg border border-border bg-card px-3 py-2 text-xs text-card-foreground shadow-md"
-          style={{ transform: "translate(12px, 12px)" }}
         >
           <div className="font-medium text-foreground">{tooltipData.point.label}</div>
           <div className="mt-0.5 tabular-nums text-muted-foreground">
@@ -370,6 +376,7 @@ export function IlpCard({
   groupAllocationPct = null,
   showAddMonthlyEntry = true,
   showDeleteProduct = true,
+  selection,
 }: IlpCardProps) {
   const { formatMoney } = useInvestmentsDisplayCurrency()
   const [editOpen, setEditOpen] = useState(false)
@@ -443,15 +450,32 @@ export function IlpCard({
   }
 
   return (
-    <Card className="h-auto overflow-visible">
+    <Card
+      className={cn(
+        "h-auto overflow-visible",
+        selection?.selected && "ring-2 ring-ring/60",
+      )}
+    >
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-0">
-        <div className="min-w-0 flex-1 pr-2">
-          <CardTitle className="text-base font-bold leading-tight">{name}</CardTitle>
-          {groupAllocationPct != null && Number.isFinite(groupAllocationPct) ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Group allocation: {fmt(groupAllocationPct)}% of group
-            </p>
+        <div className="flex min-w-0 flex-1 items-start gap-2 pr-2">
+          {selection ? (
+            <input
+              type="checkbox"
+              className="mt-1 size-4 shrink-0 rounded border border-input accent-primary"
+              checked={selection.selected}
+              onChange={() => selection.onToggle()}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`Select ${name}`}
+            />
           ) : null}
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-base font-bold leading-tight">{name}</CardTitle>
+            {groupAllocationPct != null && Number.isFinite(groupAllocationPct) ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Group allocation: {fmt(groupAllocationPct)}% of group
+              </p>
+            ) : null}
+          </div>
         </div>
         {productId && (
           <div className="flex shrink-0 items-center gap-1">

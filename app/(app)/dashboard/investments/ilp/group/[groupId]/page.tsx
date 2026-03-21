@@ -17,6 +17,7 @@ import {
   InvestmentsDisplayCurrencyProvider,
   InvestmentsCurrencyToggle,
 } from "@/components/dashboard/investments/investments-display-currency"
+import { IlpGroupAllocationPanel } from "@/components/dashboard/investments/ilp-group-allocation-panel"
 import { ChartSkeleton } from "@/components/loading"
 
 export default function IlpFundGroupDetailPage() {
@@ -106,6 +107,25 @@ export default function IlpFundGroupDetailPage() {
     [groupCards],
   )
 
+  const groupAllocationMembers = useMemo(
+    () =>
+      groupCards.map((c) => ({
+        name: c.name,
+        fundValue: c.fundValueForAllocation,
+        fundReportSnapshot: c.fundReportSnapshot,
+      })),
+    [groupCards],
+  )
+
+  const totalIlpAcrossProducts = useMemo(
+    () =>
+      ilpProducts.reduce(
+        (s, p) => s + (p.latestEntry?.fund_value ?? 0),
+        0,
+      ),
+    [ilpProducts],
+  )
+
   if (!activeProfileId && !activeFamilyId) {
     return (
       <InvestmentsDisplayCurrencyProvider
@@ -162,6 +182,28 @@ export default function IlpFundGroupDetailPage() {
           products={productsForEdit}
           onSuccess={() => void fetchIlp()}
         />
+
+        {!isLoading && groupCards.length > 0 ? (
+          <div className="rounded-xl border bg-card p-4 sm:p-5">
+            <h2 className="text-sm font-medium text-foreground">Group allocation</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              The companies and By sector views use the portfolio holdings table from each
+              imported report; Fund category uses each fund’s Morningstar category line
+              from the report header.
+            </p>
+            <div className="mt-3">
+              <IlpGroupAllocationPanel
+                key={groupId}
+                members={groupAllocationMembers}
+                fullPortfolioTotal={totalIlpAcrossProducts}
+                chartHeight={320}
+                legendMaxItems={8}
+                percentOfWhat="ILP portfolio"
+                variant="default"
+              />
+            </div>
+          </div>
+        ) : null}
 
         {isLoading ? (
           <div className="grid gap-4 md:grid-cols-2">

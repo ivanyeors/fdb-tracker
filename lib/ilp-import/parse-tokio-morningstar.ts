@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio"
+import { parseTopHoldingsTable } from "./parse-top-holdings"
 import type { IlpFundReportParseResult, IlpFundReportSnapshot } from "./types"
 import { parseTokioFundReportUrl } from "./parse-url"
 
@@ -137,6 +138,8 @@ export function parseTokioMorningstarHtml(
   })
   if (!foundTable) warnings.push("No Asset Allocation table matched")
 
+  const topHoldings = parseTopHoldingsTable($)
+
   const navDateText =
     header["Date of Latest NAV"] ?? header["latestNavDate"] ?? ""
   const suggestedMonth = navDateText ? parseMonthFromNavDate(navDateText) : null
@@ -165,6 +168,7 @@ export function parseTokioMorningstarHtml(
     calendarYearReturnsPresent,
     annualPerformance,
     assetAllocation,
+    topHoldings,
     warnings,
   }
 

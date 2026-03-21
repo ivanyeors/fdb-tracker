@@ -48,7 +48,8 @@ function AllocationChartInner({
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<AllocationData>()
 
-  const [hoveredName, setHoveredName] = useState<string | null>(null)
+  /** Index-based hover so duplicate `name` slices (e.g. two groups with same title) still render. */
+  const [hoveredArcIndex, setHoveredArcIndex] = useState<number | null>(null)
 
   const colorScale = useMemo(
     () => createCategoryColorScale(data.map((d) => d.name)),
@@ -126,17 +127,18 @@ function AllocationChartInner({
             {(pie) =>
               pie.arcs.map((arc) => {
                 const fill = colorScale(arc.data.name)
-                const dimmed = hoveredName !== null && hoveredName !== arc.data.name
+                const dimmed =
+                  hoveredArcIndex !== null && hoveredArcIndex !== arc.index
 
                 return (
-                  <g key={arc.data.name}>
+                  <g key={`arc-${arc.index}-${arc.data.name}`}>
                     <path
                       d={pie.path(arc) ?? ""}
                       fill={fill}
                       className="cursor-pointer transition-[opacity] duration-150"
                       style={{ opacity: dimmed ? 0.45 : 1 }}
                       onMouseMove={(e) => {
-                        setHoveredName(arc.data.name)
+                        setHoveredArcIndex(arc.index)
                         showTooltip({
                           tooltipData: arc.data,
                           tooltipLeft: e.clientX,
@@ -144,7 +146,7 @@ function AllocationChartInner({
                         })
                       }}
                       onMouseLeave={() => {
-                        setHoveredName(null)
+                        setHoveredArcIndex(null)
                         hideTooltip()
                       }}
                     />
@@ -213,8 +215,8 @@ function AllocationChartInner({
   const legendBlock =
     legendLayout === "beside" ? (
       <ul className="mx-auto w-full max-w-[11rem] shrink-0 space-y-0.5 pt-0.5 sm:mx-0 sm:w-auto sm:min-w-[6.5rem]">
-        {legendData.map((d) => (
-          <li key={d.name}>
+        {legendData.map((d, i) => (
+          <li key={`${i}-${d.name}`}>
             <div className="flex items-center gap-1 text-[11px] leading-tight sm:text-xs">
               <span
                 className="size-2 shrink-0 rounded-sm"
@@ -236,8 +238,8 @@ function AllocationChartInner({
       </ul>
     ) : (
       <ul className="mx-auto w-full max-w-md space-y-1 pt-1">
-        {legendData.map((d) => (
-          <li key={d.name}>
+        {legendData.map((d, i) => (
+          <li key={`${i}-${d.name}`}>
             <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/10 px-2.5 py-1.5 text-xs transition-colors hover:bg-muted/25 sm:gap-3 sm:px-3 sm:py-2 sm:text-sm">
               <span
                 className="size-2.5 shrink-0 rounded-sm"

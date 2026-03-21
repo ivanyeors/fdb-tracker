@@ -39,6 +39,10 @@ describe("mhtml extraction", () => {
 
 const CORPUS_DIR = join(process.cwd(), "docs/ILP-pages")
 const SAMPLE = join(CORPUS_DIR, "Amova Japan Dividend Equity Fund Dis SGD -H.mhtml")
+const FRANKLIN_TECH = join(
+  CORPUS_DIR,
+  "Franklin Technology Fund Acc USD (TABU).mhtml",
+)
 
 describe("Tokio corpus (optional)", () => {
   it("parses Amova Japan sample when present", () => {
@@ -50,6 +54,16 @@ describe("Tokio corpus (optional)", () => {
     expect(r.snapshot.currencyId).toBe("SGD")
     expect(r.snapshot.header["Latest NAV"]).toMatch(/\d/)
     expect(r.snapshot.assetAllocation?.length).toBeGreaterThan(0)
+  })
+
+  it("parses top holdings from Franklin Technology sample when present", () => {
+    if (!existsSync(FRANKLIN_TECH)) return
+    const raw = readFileSync(FRANKLIN_TECH, "utf8")
+    const r = parseIlpFundReportMhtml(raw, { sourceFile: "Franklin TABU.mhtml" })
+    expect(r.snapshot.topHoldings?.length).toBeGreaterThan(0)
+    const first = r.snapshot.topHoldings![0]
+    expect(first.securityName.length).toBeGreaterThan(0)
+    expect(first.weightPct).not.toBeNull()
   })
 
   it("parses all .mhtml in docs/ILP-pages when present", () => {

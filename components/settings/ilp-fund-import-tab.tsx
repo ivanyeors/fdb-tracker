@@ -25,6 +25,7 @@ import type { IlpFundReportSnapshot } from "@/lib/ilp-import/types"
 import {
   allocationSumMessage,
   isValidIlpGroupAllocationSum,
+  mergeMultiGroupAllocationItems,
   split100Across,
   sumAllocationPcts,
 } from "@/lib/investments/ilp-group-allocation"
@@ -694,36 +695,44 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
       }
 
       const newProductIds: string[] = []
+      const createdProductIds: string[] = []
       for (let i = 0; i < parsedBundles.length; i++) {
         const row = multiRows[i]!
         setProgress(5 + Math.round((40 * i) / parsedBundles.length))
+        const wasNew = row.productId === CREATE_NEW_ILP
         const pid = await resolveMultiRowProductId(row, i, {
           placeholderPremium: true,
         })
+        if (wasNew) createdProductIds.push(pid)
         newProductIds.push(pid)
       }
 
-      const items: { productId: string; allocationPct: number }[] = []
-      for (const m of multiMembersForGroup) {
-        const pct = multiAllocPct[`e:${m.id}`]
-        if (pct == null) throw new Error(`Missing allocation for ${m.name}.`)
-        items.push({ productId: m.id, allocationPct: pct })
-      }
-      for (let fi = 0; fi < newProductIds.length; fi++) {
-        const pct = multiAllocPct[`n:${fi}`]
-        if (pct == null) throw new Error(`Missing allocation for file ${fi + 1}.`)
-        items.push({ productId: newProductIds[fi]!, allocationPct: pct })
-      }
+      const items = mergeMultiGroupAllocationItems(
+        multiMembersForGroup,
+        newProductIds,
+        multiAllocPct,
+      )
 
       const sum = sumAllocationPcts(items.map((x) => x.allocationPct))
       if (!isValidIlpGroupAllocationSum(sum)) {
         throw new Error(allocationSumMessage(sum))
       }
 
-      await patchGroupAllocations(groupId, items, {
-        groupPremiumAmount: multiGroupPremiumAmount ?? 0,
-        premiumPaymentMode: multiGroupPremiumMode,
-      })
+      try {
+        await patchGroupAllocations(groupId, items, {
+          groupPremiumAmount: multiGroupPremiumAmount ?? 0,
+          premiumPaymentMode: multiGroupPremiumMode,
+        })
+      } catch (patchErr) {
+        for (const id of createdProductIds) {
+          await fetch(`/api/investments/ilp/${id}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ familyId }),
+          })
+        }
+        throw patchErr
+      }
       await loadProducts()
       setProgress(50)
 

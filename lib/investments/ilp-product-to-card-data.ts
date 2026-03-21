@@ -1,4 +1,5 @@
 import { currentMonthYm, ilpEntryMonthKey } from "@/lib/investments/ilp-chart"
+import { fundValueForAllocation as fundValueForAllocationFromEntries } from "@/lib/investments/ilp-fund-value-for-allocation"
 
 export type IlpProductWithEntries = {
   id: string
@@ -47,6 +48,8 @@ export type IlpCardRowData = {
   latestEntryPremiumsPaid: number | null
   monthlyData: { month: string; value: number }[]
   fundReportSnapshot: Record<string, unknown> | null
+  /** Balance used to weight group donuts; last positive month if latest is zero. */
+  fundValueForAllocation: number
 }
 
 export function buildIlpCardDataFromProduct(
@@ -91,6 +94,10 @@ export function buildIlpCardDataFromProduct(
   const pm: "monthly" | "one_time" =
     p.premium_payment_mode === "one_time" ? "one_time" : "monthly"
   const gAmt = p.ilp_fund_groups?.group_premium_amount
+  const fundValueForAllocation = fundValueForAllocationFromEntries(
+    p.latestEntry,
+    p.entries ?? [],
+  )
   return {
     productId: p.id,
     name: p.name,
@@ -99,6 +106,7 @@ export function buildIlpCardDataFromProduct(
     groupAllocationPct:
       p.group_allocation_pct != null ? Number(p.group_allocation_pct) : null,
     fundValue,
+    fundValueForAllocation,
     totalPremiumsPaid,
     premiumsSource,
     returnPct,
