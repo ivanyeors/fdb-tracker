@@ -22,16 +22,29 @@ const ERS = 440800
 
 type CpfBalanceRow = { month: string; oa: number; sa: number; ma: number }
 
+type ProjectionPoint = {
+  year: number
+  age: number
+  oa: number
+  sa: number
+  ma: number
+  total: number
+}
+
 type RetirementData = {
   currentCpf: { oa: number; sa: number; ma: number; total: number }
+  currentAge: number
   retirementSums: { brs: number; frs: number; ers: number }
-  extendedProjection: { year: number; oa: number; sa: number; ma: number; total: number }[]
+  extendedProjection: ProjectionPoint[]
+  projectionWithoutHousing?: ProjectionPoint[] | null
   profileName?: string | null
   dps?: {
     included: boolean
     estimatedAnnualPremium: number | null
     note: string
   }
+  housingOaDeduction?: { monthly: number; loanName: string; remainingMonths: number }[] | null
+  totalMonthlyHousingDeduction?: number | null
 }
 
 function OverviewTab({
@@ -124,19 +137,25 @@ function RetirementTab({
   isFamilyView: boolean
 }) {
   const cpfTotal = data?.currentCpf.total ?? 0
-  const retirementSums = data?.retirementSums ?? { brs: BRS, frs: FRS, ers: ERS }
+  const retirementSums = useMemo(
+    () => data?.retirementSums ?? { brs: BRS, frs: FRS, ers: ERS },
+    [data?.retirementSums],
+  )
   const retirementBenchmarks = [
     { label: "BRS", fullLabel: "Basic Retirement Sum", target: retirementSums.brs, pct: Math.round((cpfTotal / retirementSums.brs) * 100), tooltipId: "CPF_BRS" as const },
     { label: "FRS", fullLabel: "Full Retirement Sum", target: retirementSums.frs, pct: Math.round((cpfTotal / retirementSums.frs) * 100), tooltipId: "CPF_FRS" as const },
     { label: "ERS", fullLabel: "Enhanced Retirement Sum", target: retirementSums.ers, pct: Math.round((cpfTotal / retirementSums.ers) * 100), tooltipId: "CPF_ERS" as const },
   ]
 
-  const chartData = useMemo(() => {
-    const proj = data?.extendedProjection ?? []
-    return proj.map((p) => ({ year: p.year, balance: p.total }))
-  }, [data?.extendedProjection])
+  const chartReferenceLines = useMemo(() => [
+    { value: retirementSums.brs, label: "Basic Retirement Sum", shortLabel: "BRS" },
+    { value: retirementSums.frs, label: "Full Retirement Sum", shortLabel: "FRS" },
+    { value: retirementSums.ers, label: "Enhanced Retirement Sum", shortLabel: "ERS" },
+  ], [retirementSums])
 
   const dps = data?.dps
+  const housing = data?.housingOaDeduction
+  const totalMonthlyHousing = data?.totalMonthlyHousingDeduction
 
   return (
     <div className="space-y-6">
@@ -171,6 +190,30 @@ function RetirementTab({
         </p>
       )}
 
+      {housing && housing.length > 0 && totalMonthlyHousing != null && (
+        <Card>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-base">HDB Loan (CPF OA deduction)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold tabular-nums">
+              ${formatCurrency(totalMonthlyHousing)}
+              <span className="text-sm font-normal text-muted-foreground">/mo from OA</span>
+            </p>
+            <div className="mt-1 space-y-0.5">
+              {housing.map((h) => (
+                <p key={h.loanName} className="text-xs text-muted-foreground">
+                  {h.loanName} — ${formatCurrency(h.monthly)}/mo · {Math.ceil(h.remainingMonths / 12)}y remaining
+                </p>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              The dashed line on the chart shows your projection without this loan deduction.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="space-y-4">
         {retirementBenchmarks.map((b) => (
           <Card key={b.label}>
@@ -200,12 +243,17 @@ function RetirementTab({
           </div>
         </CardHeader>
         <CardContent>
-          {chartData.length === 0 ? (
-            <div className="flex h-[300px] items-center justify-center text-muted-foreground text-sm">
+          {!data?.extendedProjection || data.extendedProjection.length === 0 ? (
+            <div className="flex h-[400px] items-center justify-center text-muted-foreground text-sm">
               No projection data. Add income in Settings to see projections.
             </div>
           ) : (
-            <CpfRetirementChart data={chartData} />
+            <CpfRetirementChart
+              data={data.extendedProjection}
+              referenceLines={chartReferenceLines}
+              comparisonData={data.projectionWithoutHousing}
+              currentAge={data.currentAge}
+            />
           )}
         </CardContent>
       </Card>

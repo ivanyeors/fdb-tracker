@@ -18,7 +18,20 @@ export interface MySessionData extends Scenes.WizardSessionData {
   expecting?: string
   /** Optional note after /buy or /sell (Telegraf wizard). */
   journalNote?: string
-  // Add other generic wizard session fields here
+  /** Selected month (yyyy-MM-dd) for cashflow, ILP, etc. */
+  month?: string
+  /** Display label for the selected month (e.g. "March 2026"). */
+  monthLabel?: string
+  /** Cashflow memo (deferred to confirmation). */
+  memo?: string
+  /** Cached goal name for confirmation display. */
+  goalName?: string
+  /** Cached loan name for confirmation display. */
+  loanName?: string
+  /** Cached ILP product name for confirmation display. */
+  productName?: string
+  /** Which field is being edited in the confirmation step. */
+  editingField?: string
 }
 
 /** Ephemeral keys on ctx.state (set before entering a scene). Telegraf types state as Record<string | symbol, any>. */

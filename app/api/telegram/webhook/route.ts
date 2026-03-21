@@ -3,14 +3,17 @@ import { NextRequest, NextResponse } from "next/server"
 import { Scenes, session } from "telegraf"
 
 import { botState, getBot, MyContext } from "@/lib/telegram/bot"
+import { cancelMiddleware } from "@/lib/telegram/scene-helpers"
 import { generateAndStoreOtp } from "@/lib/auth/otp"
 import {
   resolveHouseholdId,
   getOrCreateAccount,
 } from "@/lib/telegram/resolve-household"
 import { supabaseSessionStore } from "@/lib/telegram/session"
-import { inflowScene } from "@/lib/telegram/scenes/inflow-scene"
-import { outflowScene } from "@/lib/telegram/scenes/outflow-scene"
+import {
+  inflowScene,
+  outflowScene,
+} from "@/lib/telegram/scenes/cashflow-scene-factory"
 import { buySellScene } from "@/lib/telegram/scenes/buy-sell-scene"
 import { ilpScene } from "@/lib/telegram/scenes/ilp-scene"
 import { goalAddScene } from "@/lib/telegram/scenes/goaladd-scene"
@@ -44,7 +47,8 @@ async function handleStartCommand(
       "Use /otp to get a one-time password for logging in.\n" +
       "Use /link to link your profile — I'll guide you through it.\n" +
       "Use /auth to link your account with an API key from the platform.\n" +
-      "Type / to see all available commands.",
+      "Type / to see all available commands.\n" +
+      "Type /cancel at any time to exit a command.",
   )
 }
 
@@ -119,6 +123,7 @@ function ensureHandlers() {
   ])
 
   bot.use(session({ store: supabaseSessionStore }))
+  stage.use(cancelMiddleware)
   bot.use(stage.middleware())
 
   bot.catch((err) => {

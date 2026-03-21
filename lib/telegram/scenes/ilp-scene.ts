@@ -3,133 +3,242 @@ import { format, startOfMonth } from "date-fns"
 
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { botState, MyContext } from "@/lib/telegram/bot"
+import {
+  progressHeader,
+  buildConfirmationMessage,
+  buildConfirmationKeyboard,
+  buildMonthPicker,
+  parseMonthCallback,
+  errorMsg,
+  fmtAmt,
+  advanceOrReturn,
+} from "@/lib/telegram/scene-helpers"
+
+// Step indices (STEP_PRODUCT=0, STEP_PRODUCT_CB=1 are implicit first steps)
+const STEP_MONTH = 2
+const STEP_VALUE = 3
+const STEP_CONFIRM = 4
+const TOTAL_STEPS = 3 // product, month, value
+
+async function sendConfirmation(ctx: MyContext) {
+  const s = ctx.scene.session
+  const fields = [
+    { label: "Product", value: s.productName ?? "—" },
+    { label: "Month", value: s.monthLabel ?? "—" },
+    {
+      label: "Fund Value",
+      value: s.amount != null ? fmtAmt(s.amount) : "—",
+    },
+  ]
+
+  const msg = buildConfirmationMessage("Confirm ILP Update", fields)
+  const editFields = [
+    { label: "Month", callbackData: "ed_month" },
+    { label: "Value", callbackData: "ed_val" },
+  ]
+  const keyboard = buildConfirmationKeyboard(editFields)
+  await ctx.reply(msg, { reply_markup: keyboard })
+}
 
 export const ilpScene = new Scenes.WizardScene<MyContext>(
   "ilp_wizard",
+  // STEP 0: Product selection
   async (ctx) => {
-    // Step 1: Request account and check existing ILP products
     const accountId = botState(ctx).accountId as string
-    
+
     if (!accountId) {
       await ctx.reply("❌ Session error: No account ID found.")
       return ctx.scene.leave()
     }
-    
+
     const supabase = createSupabaseAdmin()
-    
-    // Fetch all ILP products for the household
-    // Since ILP products use family_id, we fetch families first
     const { data: families, error: familiesError } = await supabase
       .from("families")
       .select("id")
       .eq("household_id", accountId)
-      
+
     if (familiesError || !families || families.length === 0) {
       await ctx.reply("❌ No family found for this account.")
       return ctx.scene.leave()
     }
-    
-    const familyIds = families.map(f => f.id)
-    
-    // Fetch ILPs linked to these families
+
+    const familyIds = families.map((f) => f.id)
     const { data: products, error: productsError } = await supabase
       .from("ilp_products")
       .select("id, name")
       .in("family_id", familyIds)
-      
+
     if (productsError || !products || products.length === 0) {
-      await ctx.reply("❌ No ILP products found. Create one in the web dashboard first.")
+      await ctx.reply(
+        "❌ No ILP products found. Create one in the web dashboard first.",
+      )
       return ctx.scene.leave()
     }
-    
+
+    // Set default month
+    const now = new Date()
+    ctx.scene.session.month = format(startOfMonth(now), "yyyy-MM-dd")
+    ctx.scene.session.monthLabel = format(now, "MMMM yyyy")
+
     if (products.length === 1) {
-      // Auto-select if only one ILP
       ctx.scene.session.productId = products[0].id
-      await ctx.reply(`Selected ILP Product: ${products[0].name}\n\nEnter the new fund value:`)
-      return ctx.wizard.next()
+      ctx.scene.session.productName = products[0].name
+
+      const header = progressHeader(2, TOTAL_STEPS, `Updating ${products[0].name}`)
+      await ctx.reply(`${header}\n\nSelect the month:`, {
+        reply_markup: buildMonthPicker(),
+      })
+      ctx.wizard.selectStep(STEP_MONTH)
+      return
     }
 
-    // Multiple products, show inline keyboard
     const buttons = products.map((p) => [
-      { text: p.name, callback_data: `ilp_${p.id}` }
+      { text: p.name, callback_data: `ilp_${p.id}_${p.name}` },
     ])
 
-    await ctx.reply("Select an ILP Product to update:", {
-      reply_markup: {
-        inline_keyboard: buttons
-      }
+    const header = progressHeader(1, TOTAL_STEPS, "Updating ILP fund value")
+    await ctx.reply(`${header}\n\nSelect an ILP Product:`, {
+      reply_markup: { inline_keyboard: buttons },
     })
-    
     return ctx.wizard.next()
   },
+
+  // STEP 1: Product callback
   async (ctx) => {
-    // Step 2: Handle ILP selection -> Ask for Fund Value
     if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
       const data = ctx.callbackQuery.data
       if (data.startsWith("ilp_")) {
-        const productId = data.replace("ilp_", "")
-        ctx.scene.session.productId = productId
-        
+        const rest = data.replace("ilp_", "")
+        const idx = rest.indexOf("_")
+        ctx.scene.session.productId = idx > -1 ? rest.slice(0, idx) : rest
+        ctx.scene.session.productName =
+          idx > -1 ? rest.slice(idx + 1) : "ILP Product"
         await ctx.answerCbQuery()
-        await ctx.reply("Enter the new fund value:")
+
+        const header = progressHeader(
+          2,
+          TOTAL_STEPS,
+          `Updating ${ctx.scene.session.productName}`,
+        )
+        await ctx.reply(`${header}\n\nSelect the month:`, {
+          reply_markup: buildMonthPicker(),
+        })
         return ctx.wizard.next()
       }
     }
-    
-    // Handle text input if it was auto-selected
-    if (ctx.scene.session.productId && ctx.message && "text" in ctx.message) {
-      return handleValueInput(ctx)
+    return undefined
+  },
+
+  // STEP 2: Month selection
+  async (ctx) => {
+    if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
+      const parsed = parseMonthCallback(ctx.callbackQuery.data)
+      if (parsed) {
+        ctx.scene.session.month = parsed.month
+        ctx.scene.session.monthLabel = parsed.monthLabel
+        await ctx.answerCbQuery()
+
+        const returned = await advanceOrReturn(
+          ctx,
+          STEP_CONFIRM,
+          sendConfirmation,
+        )
+        if (returned) return
+
+        const header = progressHeader(
+          3,
+          TOTAL_STEPS,
+          `Updating ${ctx.scene.session.productName} — ${parsed.monthLabel}`,
+        )
+        await ctx.reply(`${header}\n\nEnter the new fund value:`)
+        return ctx.wizard.next()
+      }
     }
 
-    return undefined 
+    if (ctx.message && "text" in ctx.message) {
+      await ctx.reply("Please select a month from the buttons above.")
+    }
+    return undefined
   },
+
+  // STEP 3: Fund value input
   async (ctx) => {
-    // Step 3: Handle Fund Value input
-    return handleValueInput(ctx)
-  }
+    if (!ctx.message || !("text" in ctx.message)) return undefined
+
+    const value = parseFloat(ctx.message.text)
+    if (isNaN(value) || value < 0) {
+      await ctx.reply(
+        errorMsg("Invalid value. Enter a positive number.", "12500"),
+      )
+      return undefined
+    }
+
+    ctx.scene.session.amount = value
+
+    const returned = await advanceOrReturn(
+      ctx,
+      STEP_CONFIRM,
+      sendConfirmation,
+    )
+    if (returned) return
+
+    ctx.wizard.selectStep(STEP_CONFIRM)
+    await sendConfirmation(ctx)
+    return
+  },
+
+  // STEP 4: Confirmation
+  async (ctx) => {
+    if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
+      const data = ctx.callbackQuery.data
+      await ctx.answerCbQuery()
+
+      if (data === "cf") {
+        const s = ctx.scene.session
+        const supabase = createSupabaseAdmin()
+
+        const { error } = await supabase.from("ilp_entries").upsert(
+          {
+            product_id: s.productId!,
+            month: s.month!,
+            fund_value: s.amount!,
+          },
+          { onConflict: "product_id,month" },
+        )
+
+        if (error) {
+          await ctx.reply(`❌ Database error: ${error.message}`)
+          return ctx.scene.leave()
+        }
+
+        await ctx.reply(
+          `✅ ${s.productName} fund value set to ${fmtAmt(s.amount!)} for ${s.monthLabel}.`,
+        )
+        return ctx.scene.leave()
+      }
+
+      if (data === "cn") {
+        await ctx.reply("Cancelled.")
+        return ctx.scene.leave()
+      }
+
+      if (data === "ed_month") {
+        ctx.scene.session.editingField = "month"
+        ctx.wizard.selectStep(STEP_MONTH)
+        await ctx.reply("Select a new month:", {
+          reply_markup: buildMonthPicker(),
+        })
+        return
+      }
+
+      if (data === "ed_val") {
+        ctx.scene.session.editingField = "value"
+        ctx.wizard.selectStep(STEP_VALUE)
+        await ctx.reply("Enter the new fund value:")
+        return
+      }
+    }
+
+    return undefined
+  },
 )
-
-async function handleValueInput(ctx: MyContext) {
-  if (!ctx.message || !("text" in ctx.message)) return undefined
-  
-  const value = parseFloat(ctx.message.text)
-  if (isNaN(value) || value < 0) {
-    await ctx.reply("❌ Invalid value. Please enter a valid positive number.")
-    return undefined // Stay on this step
-  }
-  
-  const productId = ctx.scene.session.productId!
-  const supabase = createSupabaseAdmin()
-  
-  // Need to fetch the product name for the success message
-  const { data: product } = await supabase
-    .from("ilp_products")
-    .select("name")
-    .eq("id", productId)
-    .single()
-    
-  if (!product) {
-    await ctx.reply("❌ Product lookup failed.")
-    return ctx.scene.leave()
-  }
-
-  const month = format(startOfMonth(new Date()), "yyyy-MM-dd")
-  const monthLabel = format(new Date(), "MMMM yyyy")
-
-  const { error } = await supabase.from("ilp_entries").upsert(
-    {
-      product_id: productId,
-      month,
-      fund_value: value,
-    },
-    { onConflict: "product_id,month" },
-  )
-
-  if (error) {
-     await ctx.reply(`❌ Database error: ${error.message}`)
-     return ctx.scene.leave()
-  }
-
-  await ctx.reply(`✅ ${product.name} fund value set to $${value} for ${monthLabel}.`)
-  return ctx.scene.leave()
-}

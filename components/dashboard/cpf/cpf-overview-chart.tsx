@@ -4,23 +4,16 @@ import { useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { Pie } from "@visx/shape"
 import { Group } from "@visx/group"
-import { scaleOrdinal } from "@visx/scale"
 import { useTooltip } from "@visx/tooltip"
 import { ParentSize } from "@visx/responsive"
 import { formatCurrency } from "@/lib/utils"
+import { createCategoryColorScale } from "@/lib/chart-colors"
 
 type CpfRow = {
   month: string
   oa: number
   sa: number
   ma: number
-}
-
-// CPF account colors: OA (blue), SA (green), MA (orange)
-const CPF_COLORS: Record<string, string> = {
-  OA: "oklch(0.55 0.15 250)",
-  SA: "oklch(0.55 0.15 145)",
-  MA: "oklch(0.65 0.15 45)",
 }
 
 type DonutData = {
@@ -57,11 +50,7 @@ function CpfOverviewChartInner({
 
   const total = donutData.reduce((s, d) => s + d.value, 0)
   const colorScale = useMemo(
-    () =>
-      scaleOrdinal<string, string>({
-        domain: donutData.map((d) => d.name),
-        range: donutData.map((d) => CPF_COLORS[d.name] ?? "var(--color-chart-neutral)"),
-      }),
+    () => createCategoryColorScale(donutData.map((d) => d.name)),
     [donutData],
   )
 

@@ -1,16 +1,18 @@
 import { Scenes } from "telegraf"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { MyContext } from "@/lib/telegram/bot"
-import {
-  validateApiKey,
-  countLinkedMembers,
-} from "@/lib/auth/api-keys"
+import { validateApiKey, countLinkedMembers } from "@/lib/auth/api-keys"
+import { progressHeader, errorMsg } from "@/lib/telegram/scene-helpers"
+
+const TOTAL_STEPS = 2 // key, confirm
 
 export const authScene = new Scenes.WizardScene<MyContext>(
   "auth_wizard",
   async (ctx) => {
+    const header = progressHeader(1, TOTAL_STEPS, "Linking Telegram account")
     await ctx.reply(
-      "To link your Telegram account to the platform, I'll need your API key.\n\n" +
+      `${header}\n\n` +
+        "To link your Telegram account to the platform, I'll need your API key.\n\n" +
         "You can create one in the platform under Settings → Setup. " +
         "Copy the key and paste it here when you're ready.",
     )
@@ -24,9 +26,10 @@ export const authScene = new Scenes.WizardScene<MyContext>(
 
     if (!result.ok) {
       await ctx.reply(
-        "That doesn't look like a valid API key. " +
-          "You can create one in Settings → Setup on the platform. " +
-          "Would you like to try again? Send /auth to start over.",
+        errorMsg(
+          "That doesn't look like a valid API key.",
+          "Paste the key from Settings → Setup. Send /auth to start over.",
+        ),
       )
       return ctx.scene.leave()
     }
@@ -34,7 +37,7 @@ export const authScene = new Scenes.WizardScene<MyContext>(
     const linkedCount = await countLinkedMembers(result.apiKeyId)
     if (linkedCount >= result.maxMembers) {
       await ctx.reply(
-        "This API key has reached its member limit. " +
+        "❌ This API key has reached its member limit. " +
           "Ask the household admin to create a new key or increase the limit in Settings → Setup.",
       )
       return ctx.scene.leave()
@@ -49,23 +52,50 @@ export const authScene = new Scenes.WizardScene<MyContext>(
     const display =
       username ? `@${username} (ID: ${userId})` : `user_${userId}`
 
+    const header = progressHeader(2, TOTAL_STEPS, "Confirm account link")
     await ctx.reply(
-      `I'll link this Telegram account (${display}) to the household.\n\n` +
-        "Is that correct? Reply Yes to confirm, or No to cancel.",
+      `${header}\n\n` +
+        `I'll link this Telegram account (${display}) to the household.`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "✅ Link Account", callback_data: "cf" },
+              { text: "❌ Cancel", callback_data: "cn" },
+            ],
+          ],
+        },
+      },
     )
     return ctx.wizard.next()
   },
   async (ctx) => {
-    if (!ctx.message || !("text" in ctx.message)) return undefined
+    // Handle inline button or text fallback
+    let confirmed: boolean | null = null
 
-    const text = ctx.message.text.trim().toLowerCase()
-    if (text !== "yes" && text !== "y" && text !== "no" && text !== "n") {
-      await ctx.reply("Just reply Yes or No to continue.")
-      return undefined
+    if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
+      const data = ctx.callbackQuery.data
+      await ctx.answerCbQuery()
+      if (data === "cf") confirmed = true
+      if (data === "cn") confirmed = false
     }
 
-    if (text === "no" || text === "n") {
-      await ctx.reply("No problem. Link cancelled. Send /auth anytime to try again.")
+    if (confirmed === null && ctx.message && "text" in ctx.message) {
+      const text = ctx.message.text.trim().toLowerCase()
+      if (text === "yes" || text === "y") confirmed = true
+      else if (text === "no" || text === "n") confirmed = false
+      else {
+        await ctx.reply("Tap a button above, or reply Yes / No.")
+        return undefined
+      }
+    }
+
+    if (confirmed === null) return undefined
+
+    if (!confirmed) {
+      await ctx.reply(
+        "No problem. Link cancelled. Send /auth anytime to try again.",
+      )
       return ctx.scene.leave()
     }
 
@@ -100,7 +130,7 @@ export const authScene = new Scenes.WizardScene<MyContext>(
     }
 
     await ctx.reply(
-      "Done! Your account is now linked. " +
+      "✅ Done! Your account is now linked. " +
         "You can use /otp anytime to get a login code for this household.",
     )
     return ctx.scene.leave()

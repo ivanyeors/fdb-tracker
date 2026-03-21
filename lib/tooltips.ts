@@ -236,4 +236,13 @@ export const TOOLTIPS = {
     details:
       "Each account balance derived from its own cashflow.",
   },
+  INSURANCE_COVERAGE_SCORE: {
+    label: "Coverage Score",
+    logic:
+      "Weighted average across death (30%), CI (25%), hospitalization (25%), disability (15%), PA (5%).",
+    explanation:
+      "100 = fully covered per LIA Singapore benchmarks.",
+    details:
+      "Each category scored as min(held/needed, 1) × 100. Hospitalization and PA scored as 0 or 100 based on active policy.",
+  },
 } as const satisfies Record<string, TooltipEntry>

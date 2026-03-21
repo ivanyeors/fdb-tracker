@@ -2,9 +2,9 @@
 
 import { useCallback, useId, useMemo, useState } from "react"
 import { ArrowDown, ArrowUp } from "lucide-react"
-import { AreaClosed, LinePath } from "@visx/shape"
+import { AreaClosed, Bar, LinePath } from "@visx/shape"
 import { curveMonotoneX } from "@visx/curve"
-import { scalePoint, scaleLinear } from "@visx/scale"
+import { scaleBand, scalePoint, scaleLinear } from "@visx/scale"
 import { GridRows } from "@visx/grid"
 import { Group } from "@visx/group"
 import { ParentSize } from "@visx/responsive"
@@ -354,6 +354,100 @@ function IlpLineChart({
   return <IlpDetailedLineChart data={data} width={width} height={height} />
 }
 
+const BAR_MARGIN = { top: 24, bottom: 20, left: 0, right: 0 }
+
+function IlpInvestedVsValueBar({
+  invested,
+  currentValue,
+  formatMoney,
+  width,
+  height,
+}: {
+  invested: number
+  currentValue: number
+  formatMoney: (v: number) => string
+  width: number
+  height: number
+}) {
+  const innerWidth = width - BAR_MARGIN.left - BAR_MARGIN.right
+  const innerHeight = height - BAR_MARGIN.top - BAR_MARGIN.bottom
+
+  const data = [
+    { key: "invested", label: "Invested", value: invested },
+    { key: "current", label: "Current Value", value: currentValue },
+  ]
+
+  const xScale = useMemo(
+    () =>
+      scaleBand<string>({
+        domain: data.map((d) => d.key),
+        range: [0, innerWidth],
+        padding: 0.35,
+      }),
+    [innerWidth],
+  )
+
+  const yScale = useMemo(() => {
+    const max = Math.max(invested, currentValue, 1)
+    return scaleLinear<number>({
+      domain: [0, max * 1.05],
+      range: [innerHeight, 0],
+    })
+  }, [invested, currentValue, innerHeight])
+
+  if (width < 10) return null
+
+  const gain = currentValue >= invested
+
+  return (
+    <svg width={width} height={height}>
+      <Group left={BAR_MARGIN.left} top={BAR_MARGIN.top}>
+        {data.map((d) => {
+          const barX = xScale(d.key) ?? 0
+          const barWidth = xScale.bandwidth()
+          const barHeight = innerHeight - (yScale(d.value) ?? 0)
+          const barY = yScale(d.value) ?? 0
+          const fill =
+            d.key === "invested"
+              ? "var(--color-muted-foreground)"
+              : gain
+                ? "var(--color-chart-positive)"
+                : "var(--color-chart-negative)"
+          return (
+            <g key={d.key}>
+              <Bar
+                x={barX}
+                y={barY}
+                width={barWidth}
+                height={Math.max(barHeight, 0)}
+                fill={fill}
+                rx={4}
+                opacity={d.key === "invested" ? 0.35 : 0.85}
+              />
+              <text
+                x={barX + barWidth / 2}
+                y={barY - 6}
+                textAnchor="middle"
+                className="fill-foreground text-[11px] font-medium"
+              >
+                {formatMoney(d.value)}
+              </text>
+              <text
+                x={barX + barWidth / 2}
+                y={innerHeight + 14}
+                textAnchor="middle"
+                className="fill-muted-foreground text-[10px]"
+              >
+                {d.label}
+              </text>
+            </g>
+          )
+        })}
+      </Group>
+    </svg>
+  )
+}
+
 export function IlpCard({
   productId,
   name,
@@ -560,19 +654,18 @@ export function IlpCard({
           <IlpFundReportPanel snapshot={fundReportSnapshot} />
         </CardContent>
       ) : null}
-      {monthlyData.length > 0 ? (
+      {(fundValue > 0 || totalPremiumsPaid > 0) ? (
         <CardContent className="flex-none border-t border-border pt-4">
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Tracked fund value
-          </p>
-          <p className="mb-3 text-[11px] text-muted-foreground">
-            From your monthly entries (not the Morningstar growth chart).
+            Invested vs Current Value
           </p>
           <div className="h-28 w-full min-w-0 sm:h-32">
             <ParentSize debounceTime={10}>
               {({ width, height }) => (
-                <IlpLineChart
-                  data={monthlyData}
+                <IlpInvestedVsValueBar
+                  invested={totalPremiumsPaid}
+                  currentValue={fundValue}
+                  formatMoney={formatMoney}
                   width={width}
                   height={height ?? 120}
                 />

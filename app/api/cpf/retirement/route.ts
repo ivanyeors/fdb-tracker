@@ -12,6 +12,7 @@ import {
   findBenchmarkAge,
 } from "@/lib/calculations/cpf-retirement"
 import { getDpsAnnualPremium, getDpsMonthlyOaDeduction } from "@/lib/calculations/cpf-dps"
+import { loanMonthlyPayment } from "@/lib/calculations/loans"
 
 const retirementQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -91,8 +92,47 @@ export async function GET(request: NextRequest) {
 
     const includeDps = profile.dps_include_in_projection !== false
     const birthYear = profile.birth_year
-    const getMonthlyOaDeduction = (_age: number, calendarYear: number) =>
+
+    // Fetch CPF OA loans for housing deduction
+    const { data: cpfLoans } = await supabase
+      .from("loans")
+      .select("id, name, principal, rate_pct, tenure_months, start_date")
+      .eq("profile_id", singleProfileId)
+      .eq("use_cpf_oa", true)
+
+    const now = new Date()
+    const currentMonth = now.getFullYear() * 12 + now.getMonth()
+    const activeLoans = (cpfLoans ?? []).map((loan) => {
+      const startDate = new Date(loan.start_date)
+      const startMonth = startDate.getFullYear() * 12 + startDate.getMonth()
+      const monthsElapsed = Math.max(0, currentMonth - startMonth)
+      const remainingMonths = Math.max(0, loan.tenure_months - monthsElapsed)
+      const endMonth = startMonth + loan.tenure_months
+      const endYear = Math.floor(endMonth / 12)
+      const monthly = loanMonthlyPayment(loan.principal, loan.rate_pct, loan.tenure_months)
+      return {
+        name: loan.name,
+        monthly: Math.round(monthly * 100) / 100,
+        remainingMonths,
+        endYear,
+      }
+    }).filter((l) => l.remainingMonths > 0)
+
+    const totalMonthlyHousing = activeLoans.reduce((sum, l) => sum + l.monthly, 0)
+
+    const getDpsOnly = (_age: number, calendarYear: number) =>
       getDpsMonthlyOaDeduction(birthYear, calendarYear, includeDps)
+
+    const getFullOaDeduction = (_age: number, calendarYear: number) => {
+      const dps = getDpsMonthlyOaDeduction(birthYear, calendarYear, includeDps)
+      let housing = 0
+      for (const loan of activeLoans) {
+        if (calendarYear <= loan.endYear) {
+          housing += loan.monthly
+        }
+      }
+      return dps + housing
+    }
 
     const cohortYear = profile.birth_year + 55
     const retirementSums = getRetirementSums(cohortYear)
@@ -104,7 +144,7 @@ export async function GET(request: NextRequest) {
       monthlyContribution,
       currentAge,
       targetAge: 55,
-      getMonthlyOaDeduction,
+      getMonthlyOaDeduction: getFullOaDeduction,
     })
 
     const projectedAt55 = projection.length > 0
@@ -122,8 +162,21 @@ export async function GET(request: NextRequest) {
       monthlyContribution,
       currentAge,
       targetAge: 70,
-      getMonthlyOaDeduction,
+      getMonthlyOaDeduction: getFullOaDeduction,
     })
+
+    // Compute comparison projection without housing (DPS only) when loans exist
+    const projectionWithoutHousing = activeLoans.length > 0
+      ? projectCpfGrowth({
+          currentOa,
+          currentSa,
+          currentMa,
+          monthlyContribution,
+          currentAge,
+          targetAge: 70,
+          getMonthlyOaDeduction: getDpsOnly,
+        })
+      : null
 
     const brsAge = findBenchmarkAge(extendedProjection, retirementSums.brs)
     const frsAge = findBenchmarkAge(extendedProjection, retirementSums.frs)
@@ -147,9 +200,18 @@ export async function GET(request: NextRequest) {
       currentCpf: { oa: currentOa, sa: currentSa, ma: currentMa, total: cpfTotal },
       projectionToAge55: projection,
       extendedProjection,
+      projectionWithoutHousing,
       projectedTotalAt55: projectedAt55,
       gaps: { brs: brsGap, frs: frsGap, ers: ersGap },
       benchmarkAges: { brs: brsAge, frs: frsAge, ers: ersAge },
+      housingOaDeduction: activeLoans.length > 0
+        ? activeLoans.map((l) => ({
+            monthly: l.monthly,
+            loanName: l.name,
+            remainingMonths: l.remainingMonths,
+          }))
+        : null,
+      totalMonthlyHousingDeduction: totalMonthlyHousing > 0 ? totalMonthlyHousing : null,
     })
   } catch (err) {
     console.error("[api/cpf/retirement] Error:", err)

@@ -74,7 +74,7 @@ supabase/migrations/  # PostgreSQL migration SQL files (28 migrations)
 - **Date pickers:** use project primitives (`DatePicker`, `MonthYearPicker`, `BirthDatePicker`, `DateRangePicker`, `ScheduleDatePicker`) from `components/ui/`. Never use `<input type="date">`.
 - **Tooltips:** use `InfoTooltip` from `@/components/ui/info-tooltip`. Content registry in `lib/tooltips.ts`.
 - **Toasts:** Sonner — `toast.success()` / `toast.error()` from `sonner`.
-- **Charts:** visx only (`@visx/*`). No Recharts or other chart libraries.
+- **Charts:** visx only (`@visx/*`). No Recharts or other chart libraries. See `/chart-tooltips` skill for tooltip pattern.
 - **Icons:** lucide-react.
 
 ### Formatting & Linting
@@ -151,4 +151,4 @@ export async function GET(request: Request) {
 
 ## Skill Commands
 
-Use `/frontend`, `/supabase`, `/money-inputs`, `/date-pickers` for domain-specific guidance. Use `/new-page` or `/new-api-route` to scaffold new features.
+Use `/frontend`, `/supabase`, `/money-inputs`, `/date-pickers`, `/chart-tooltips` for domain-specific guidance. Use `/new-page` or `/new-api-route` to scaffold new features.
