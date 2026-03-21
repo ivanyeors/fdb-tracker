@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { format } from "date-fns"
@@ -8,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button"
 import { ProfileSwitcher } from "./profile-switcher"
 import { TelegramApiKeysSection } from "./telegram-api-keys-section"
+import { SetupTabsClient } from "./setup-tabs"
 
 export default async function SetupPage() {
   const cookieStore = await cookies()
@@ -54,51 +56,62 @@ export default async function SetupPage() {
 
   const totalProfiles = (profiles ?? []).length
 
+  const firstFamilyId = families?.[0]?.id ?? null
+
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Setup</h1>
         <p className="text-muted-foreground mt-1">
-          Review setup configuration or add new families via the onboarding wizard.
+          Review setup configuration, import ILP fund reports, or add new families via the
+          onboarding wizard.
         </p>
       </div>
 
-      <ProfileSwitcher profiles={profiles ?? []} />
+      <Suspense
+        fallback={
+          <div className="text-sm text-muted-foreground">Loading setup…</div>
+        }
+      >
+        <SetupTabsClient familyId={firstFamilyId}>
+          <ProfileSwitcher profiles={profiles ?? []} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Onboarding Status</CardTitle>
-          <CardDescription>
-            Your current account setup details.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <span className="font-semibold">Families:</span> {families?.length ?? 0}
-          </div>
-          <div>
-            <span className="font-semibold">Total profiles:</span> {totalProfiles}
-          </div>
-          <div>
-            <span className="font-semibold">Setup Completed:</span>{" "}
-            {household.onboarding_completed_at
-              ? format(new Date(household.onboarding_completed_at), "MMM d, yyyy h:mm a")
-              : "Incomplete"}
-          </div>
-        </CardContent>
-        <CardFooter className="border-t bg-muted/50 px-6 py-4">
-          <div className="text-sm text-muted-foreground mb-4">
-            Add a new family profile with its own users and configuration.
-          </div>
-          <form action={addNewFamilyAction}>
-            <Button type="submit" variant="outline">
-              Add Family
-            </Button>
-          </form>
-        </CardFooter>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Onboarding Status</CardTitle>
+              <CardDescription>
+                Your current account setup details.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <span className="font-semibold">Families:</span> {families?.length ?? 0}
+              </div>
+              <div>
+                <span className="font-semibold">Total profiles:</span> {totalProfiles}
+              </div>
+              <div>
+                <span className="font-semibold">Setup Completed:</span>{" "}
+                {household.onboarding_completed_at
+                  ? format(new Date(household.onboarding_completed_at), "MMM d, yyyy h:mm a")
+                  : "Incomplete"}
+              </div>
+            </CardContent>
+            <CardFooter className="border-t bg-muted/50 px-6 py-4">
+              <div className="text-sm text-muted-foreground mb-4">
+                Add a new family profile with its own users and configuration.
+              </div>
+              <form action={addNewFamilyAction}>
+                <Button type="submit" variant="outline">
+                  Add Family
+                </Button>
+              </form>
+            </CardFooter>
+          </Card>
 
-      <TelegramApiKeysSection />
+          <TelegramApiKeysSection />
+        </SetupTabsClient>
+      </Suspense>
     </div>
   )
 }

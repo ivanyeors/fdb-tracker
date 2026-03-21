@@ -3,6 +3,14 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { SectionHeader } from "@/components/dashboard/section-header"
+import { Button } from "@/components/ui/button"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import {
   Tabs,
   TabsList,
@@ -50,8 +58,14 @@ type IlpProductWithEntries = {
     fund_value: number
     month: string
     premiums_paid?: number | null
+    fund_report_snapshot?: Record<string, unknown> | null
   } | null
-  entries: { month: string; fund_value: number; premiums_paid?: number | null }[]
+  entries: {
+    month: string
+    fund_value: number
+    premiums_paid?: number | null
+    fund_report_snapshot?: Record<string, unknown> | null
+  }[]
 }
 
 function mapToCategoryLabel(type: string): string {
@@ -113,6 +127,7 @@ export default function InvestmentsDetailPage() {
   const [sgdPerUsd, setSgdPerUsd] = useState<number | null>(null)
   const [fxLoading, setFxLoading] = useState(true)
   const [holdingDetail, setHoldingDetail] = useState<HoldingGroup | null>(null)
+  const [addIlpOpen, setAddIlpOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -252,8 +267,14 @@ export default function InvestmentsDetailPage() {
               fund_value: number
               month: string
               premiums_paid?: number | null
+              fund_report_snapshot?: Record<string, unknown> | null
             } | null
-            entries?: { month: string; fund_value: number; premiums_paid?: number | null }[]
+            entries?: {
+              month: string
+              fund_value: number
+              premiums_paid?: number | null
+              fund_report_snapshot?: Record<string, unknown> | null
+            }[]
           }) => ({
             ...p,
             entries: p.entries ?? [],
@@ -536,6 +557,7 @@ export default function InvestmentsDetailPage() {
         latestEntryFundValue: p.latestEntry?.fund_value ?? 0,
         latestEntryPremiumsPaid: p.latestEntry?.premiums_paid ?? null,
         monthlyData,
+        fundReportSnapshot: p.latestEntry?.fund_report_snapshot ?? null,
       }
     })
   }, [ilpProducts])
@@ -714,10 +736,32 @@ export default function InvestmentsDetailPage() {
         </TabsContent>
 
         <TabsContent value="ilp" className="mt-4 space-y-4">
-          <div className="rounded-xl border p-4">
-            <h3 className="mb-4 text-sm font-medium">Add ILP Product</h3>
-            <AddIlpForm onSuccess={fetchData} />
+          <div className="flex justify-end">
+            <Button type="button" onClick={() => setAddIlpOpen(true)}>
+              Add ILP Product
+            </Button>
           </div>
+          <Sheet open={addIlpOpen} onOpenChange={setAddIlpOpen}>
+            <SheetContent
+              side="right"
+              className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-lg"
+            >
+              <SheetHeader className="border-b p-4 text-left">
+                <SheetTitle>Add ILP Product</SheetTitle>
+                <SheetDescription>
+                  Enter policy details and optional initial snapshot values.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="p-4">
+                <AddIlpForm
+                  onSuccess={() => {
+                    void fetchData()
+                    setAddIlpOpen(false)
+                  }}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
           {isLoading ? (
             <div className="grid gap-4 md:grid-cols-2">
               <ChartSkeleton height={200} className="rounded-xl" />
@@ -725,7 +769,9 @@ export default function InvestmentsDetailPage() {
             </div>
           ) : ilpCardsData.length === 0 ? (
             <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-              No ILP products yet. Add one above to get started.
+              No ILP products yet. Use{" "}
+              <strong className="text-foreground">Add ILP Product</strong> to get
+              started.
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
@@ -744,6 +790,7 @@ export default function InvestmentsDetailPage() {
                   latestEntryFundValue={card.latestEntryFundValue}
                   latestEntryPremiumsPaid={card.latestEntryPremiumsPaid}
                   monthlyData={card.monthlyData}
+                  fundReportSnapshot={card.fundReportSnapshot}
                   onAddEntry={fetchData}
                   onEditSuccess={fetchData}
                 />

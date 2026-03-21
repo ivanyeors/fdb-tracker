@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils"
 import { AddIlpEntryDialog } from "@/components/dashboard/investments/add-ilp-entry-dialog"
 import { DeleteIlpDialog } from "@/components/dashboard/investments/delete-ilp-dialog"
 import { EditIlpDialog } from "@/components/dashboard/investments/edit-ilp-dialog"
+import { IlpSnapshotAllocation } from "@/components/dashboard/investments/ilp-snapshot-allocation"
 import { formatIlpChartMonthLabel } from "@/lib/investments/ilp-chart"
 import { useInvestmentsDisplayCurrency } from "@/components/dashboard/investments/investments-display-currency"
 import { sgdToDisplayAmount } from "@/lib/investments/display-currency"
@@ -43,6 +44,8 @@ interface IlpCardProps {
   onEditSuccess?: () => void
   /** Overview: match `InvestmentCard` layout; hide edit/add/delete (use Investments → ILP tab). */
   variant?: "default" | "summary"
+  /** Latest imported fund report snapshot (jsonb), if any. */
+  fundReportSnapshot?: Record<string, unknown> | null
 }
 
 function fmt(n: number): string {
@@ -351,6 +354,7 @@ export function IlpCard({
   onAddEntry,
   onEditSuccess,
   variant = "default",
+  fundReportSnapshot = null,
 }: IlpCardProps) {
   const { formatMoney } = useInvestmentsDisplayCurrency()
 
@@ -487,6 +491,11 @@ export function IlpCard({
           </ParentSize>
         </div>
       </CardContent>
+      {fundReportSnapshot ? (
+        <CardContent className="pt-0">
+          <IlpSnapshotAllocation snapshot={fundReportSnapshot} />
+        </CardContent>
+      ) : null}
     </Card>
   )
 }

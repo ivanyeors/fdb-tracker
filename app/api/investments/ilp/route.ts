@@ -107,6 +107,7 @@ export async function GET(request: NextRequest) {
           month: e.month,
           fund_value: e.fund_value,
           premiums_paid: e.premiums_paid ?? null,
+          fund_report_snapshot: e.fund_report_snapshot ?? null,
         })),
       }
     })

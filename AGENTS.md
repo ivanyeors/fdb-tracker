@@ -133,3 +133,7 @@ If `GET /api/investments/account` returns 500 and logs show `Could not find the 
 2. **Supabase CLI**: If linked, run `npx supabase db push` to apply all migrations.
 
 **Note:** The `investment_accounts` table depends on `families` and `profiles`. Ensure `008_add_families.sql` (and its dependencies) has been applied first.
+
+### ILP fund report import / `fund_report_snapshot` column missing
+
+If saving an imported fund report fails with `fund_report_snapshot` or schema cache errors, apply `supabase/migrations/024_ilp_entries_fund_report_snapshot.sql` (SQL Editor or `npx supabase db push`).

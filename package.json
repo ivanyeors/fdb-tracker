@@ -14,7 +14,8 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "parse-ilp-mhtml": "npx tsx scripts/parse-ilp-mhtml.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",
@@ -28,6 +29,7 @@
     "@visx/scale": "4.0.1-alpha.0",
     "@visx/shape": "4.0.1-alpha.0",
     "@visx/tooltip": "^4.0.1-alpha.0",
+    "cheerio": "^1.0.0-rc.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
