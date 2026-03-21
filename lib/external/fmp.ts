@@ -98,8 +98,10 @@ async function fetchBatchQuotes(tickers: string[]): Promise<StockPrice[]> {
   try {
     const res = await fetch(url);
 
-    if (res.status === 403) {
-      console.warn("[fmp] FMP returned 403. Using Yahoo Finance fallback (no API key).");
+    if (res.status === 403 || res.status === 402) {
+      console.warn(
+        `[fmp] FMP returned ${res.status}. Using Yahoo Finance for quotes (Stable API not entitled or forbidden).`,
+      );
       const yahooResults = await fetchYahooQuoteFallback(tickers);
       const hasValid = yahooResults.some((r) => r.price > 0);
       if (hasValid) return yahooResults;
@@ -134,8 +136,9 @@ async function fetchBatchQuotes(tickers: string[]): Promise<StockPrice[]> {
 
 async function fetchYahooQuoteFallback(tickers: string[]): Promise<StockPrice[]> {
   try {
-    const YahooFinance = (await import("yahoo-finance2")).default;
-    const quotes = await YahooFinance.quote(tickers);
+    const { getYahooFinance } = await import("@/lib/external/yahoo-finance-client");
+    const yahooFinance = await getYahooFinance();
+    const quotes = await yahooFinance.quote(tickers);
     const arr: unknown[] = Array.isArray(quotes) ? quotes : [quotes];
     return tickers.map((ticker, i) => {
       const q = arr[i] as { regularMarketPrice?: number; regularMarketChange?: number; regularMarketChangePercent?: number; regularMarketVolume?: number; currency?: string; symbol?: string } | undefined;

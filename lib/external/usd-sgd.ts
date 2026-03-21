@@ -1,3 +1,5 @@
+import { metalpriceApiDetail } from "@/lib/external/metalprice-log"
+
 const FMP_STABLE_BASE = "https://financialmodelingprep.com/stable"
 const CACHE_TTL_MS = 30 * 60 * 1000
 
@@ -9,9 +11,9 @@ function getFmpKey(): string {
 
 /**
  * SGD per 1 USD (multiply USD amount to get SGD).
- * Cached ~30m. Falls back through FMP USDSGD quote → MetalpriceAPI → 1.34.
+ * Cached ~30m. Tries FMP USDSGD → MetalpriceAPI → Yahoo `USDSGD=X` (same real-data pattern as stock quotes when FMP is blocked).
  */
-export async function getSgdPerUsd(): Promise<number> {
+export async function getSgdPerUsd(): Promise<number | null> {
   const now = Date.now()
   if (cache && cache.expires > now) return cache.rate
 
@@ -27,8 +29,35 @@ export async function getSgdPerUsd(): Promise<number> {
     return fromMetal
   }
 
-  console.warn("[usd-sgd] Using fallback 1.34 (configure FMP or METALPRICEAPI).")
-  return 1.34
+  const fromYahoo = await fetchSgdPerUsdFromYahoo()
+  if (fromYahoo != null && fromYahoo > 0) {
+    cache = { rate: fromYahoo, expires: now + CACHE_TTL_MS }
+    return fromYahoo
+  }
+
+  console.warn(
+    "[usd-sgd] No FX rate from FMP, MetalpriceAPI, or Yahoo (configure FMP_API_KEY and/or METALPRICEAPI_API_KEY, or check network).",
+  )
+  return null
+}
+
+/** Yahoo Finance USD/SGD spot; used when FMP Stable batch-quote fails (e.g. 402) and Metalprice is unavailable. */
+async function fetchSgdPerUsdFromYahoo(): Promise<number | null> {
+  try {
+    const { getYahooFinance } = await import("@/lib/external/yahoo-finance-client")
+    const yahooFinance = await getYahooFinance()
+    const quotes = await yahooFinance.quote(["USDSGD=X"])
+    const q = Array.isArray(quotes) ? quotes[0] : quotes
+    const raw = (q as { regularMarketPrice?: number } | undefined)?.regularMarketPrice
+    if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) return null
+
+    if (raw >= 1.0 && raw <= 2.0) return raw
+    if (raw >= 0.5 && raw < 1.0) return 1 / raw
+    return null
+  } catch (err) {
+    console.warn("[usd-sgd] Yahoo USDSGD=X quote failed:", err)
+    return null
+  }
 }
 
 async function fetchSgdPerUsdFromFmp(): Promise<number | null> {
@@ -67,9 +96,12 @@ async function fetchSgdPerUsdFromMetalprice(): Promise<number | null> {
     const res = await fetch(`https://api.metalpriceapi.com/v1?${params}`)
     if (!res.ok) return null
 
-    const data = (await res.json()) as {
+    const data = (await res.json()) as Record<string, unknown> & {
       success?: boolean
       rates?: { SGD?: number }
+    }
+    if (data.success === false) {
+      console.warn("[usd-sgd] MetalpriceAPI:", metalpriceApiDetail(data))
     }
     const sgd = data.rates?.SGD
     return typeof sgd === "number" && sgd > 0 ? sgd : null

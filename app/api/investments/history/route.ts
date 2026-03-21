@@ -174,8 +174,12 @@ async function backfillHistory(
         const curr = currencyBySymbol.get(sym) ?? "USD"
         let priceSgd = raw
         if (raw > 0) {
-          if (curr === "USD") priceSgd = raw * sgdPerUsd
-          else if (curr !== "SGD") priceSgd = 0
+          if (curr === "USD") {
+            if (sgdPerUsd == null || sgdPerUsd <= 0) priceSgd = 0
+            else priceSgd = raw * sgdPerUsd
+          } else if (curr !== "SGD") {
+            priceSgd = 0
+          }
           if (priceSgd > 0) marketSgd += inv.units * priceSgd
         }
       } else if (inv.type === "gold" || inv.type === "silver") {

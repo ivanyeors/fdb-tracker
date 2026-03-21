@@ -1,3 +1,5 @@
+import { metalpriceApiDetail } from "@/lib/external/metalprice-log"
+
 export type PreciousMetalPrice = {
   metalType: string
   buyPriceSgd: number
@@ -146,7 +148,24 @@ export async function getHistoricalMetalPrices(
   }
 }
 
-async function getMetalpriceApiFallback(): Promise<PreciousMetalPrice[]> {
+function logMetalpriceLatestInvalid(
+  data: {
+    success?: boolean
+    rates?: MetalpriceApiRates
+    error?: unknown
+    message?: unknown
+  },
+  httpStatus: number,
+) {
+  if (data.success === false || !data.rates) {
+    const detail = metalpriceApiDetail(data as Record<string, unknown>)
+    console.warn(
+      `[precious-metals] MetalpriceAPI latest invalid (HTTP ${httpStatus}): ${detail}`,
+    )
+  }
+}
+
+async function fetchMetalpriceLatest(): Promise<PreciousMetalPrice[]> {
   const apiKey = process.env.METALPRICEAPI_API_KEY?.trim() ?? ""
   if (!apiKey) {
     console.warn("[precious-metals] METALPRICEAPI_API_KEY not configured. Returning empty.")
@@ -175,10 +194,13 @@ async function getMetalpriceApiFallback(): Promise<PreciousMetalPrice[]> {
       base?: string
       timestamp?: number
       rates?: MetalpriceApiRates
+      error?: string
+      message?: string
     }
 
+    logMetalpriceLatestInvalid(data, res.status)
+
     if (!data.success || !data.rates) {
-      console.warn("[precious-metals] MetalpriceAPI returned invalid data.")
       return makeFallback()
     }
 
@@ -224,6 +246,53 @@ async function getMetalpriceApiFallback(): Promise<PreciousMetalPrice[]> {
   }
 }
 
+const OCBC_METALS_URL = "https://www.ocbc.com/api/precious-metals/prices"
+
+const OCBC_FETCH_INIT: RequestInit = {
+  next: { revalidate: 1800 },
+  headers: {
+    Accept: "application/json",
+    "User-Agent":
+      "Mozilla/5.0 (compatible; fdb-tracker/1.0; +https://github.com/)",
+  },
+}
+
+async function fetchOcbcPreciousMetalPricesRaw(): Promise<
+  PreciousMetalPrice[] | null
+> {
+  const res = await fetch(OCBC_METALS_URL, OCBC_FETCH_INIT)
+
+  if (!res.ok) {
+    console.warn(`[precious-metals] OCBC API returned ${res.status}.`)
+    return null
+  }
+
+  const contentType = res.headers.get("content-type") ?? ""
+  const text = await res.text()
+  if (
+    !contentType.includes("application/json") ||
+    (!text.trim().startsWith("{") && !text.trim().startsWith("["))
+  ) {
+    console.warn("[precious-metals] OCBC API returned non-JSON.")
+    return null
+  }
+
+  const raw = JSON.parse(text) as Array<{
+    metal: string
+    buyPrice: number
+    sellPrice: number
+    unit: string
+  }>
+
+  return raw.map((item) => ({
+    metalType: item.metal,
+    buyPriceSgd: item.buyPrice,
+    sellPriceSgd: item.sellPrice,
+    unit: item.unit,
+    timestamp: new Date().toISOString(),
+  }))
+}
+
 export async function getOcbcPreciousMetalPrices(): Promise<
   PreciousMetalPrice[]
 > {
@@ -231,63 +300,34 @@ export async function getOcbcPreciousMetalPrices(): Promise<
     return metalsCache.data
   }
 
-  try {
-    const res = await fetch(
-      "https://www.ocbc.com/api/precious-metals/prices",
-      { next: { revalidate: 1800 } },
-    )
+  const hasMetalpriceKey =
+    (process.env.METALPRICEAPI_API_KEY?.trim() ?? "") !== ""
 
-    if (!res.ok) {
-      console.warn(
-        `[precious-metals] OCBC API returned ${res.status}. Trying fallback.`,
-      )
-      const fallback = await getMetalpriceApiFallback()
-      if (fallback.length > 0) {
-        metalsCache = { data: fallback, expires: Date.now() + CACHE_TTL_MS }
-        return fallback
-      }
-      return makeFallback()
+  if (hasMetalpriceKey) {
+    const fromMetal = await fetchMetalpriceLatest()
+    if (fromMetal.length > 0) {
+      metalsCache = { data: fromMetal, expires: Date.now() + CACHE_TTL_MS }
+      return fromMetal
     }
-
-    const contentType = res.headers.get("content-type") ?? ""
-    const text = await res.text()
-    if (
-      !contentType.includes("application/json") ||
-      (!text.trim().startsWith("{") && !text.trim().startsWith("["))
-    ) {
-      console.warn("[precious-metals] OCBC API returned non-JSON. Trying fallback.")
-      const fallback = await getMetalpriceApiFallback()
-      if (fallback.length > 0) {
-        metalsCache = { data: fallback, expires: Date.now() + CACHE_TTL_MS }
-        return fallback
-      }
-      return makeFallback()
-    }
-
-    const raw = JSON.parse(text) as Array<{
-      metal: string
-      buyPrice: number
-      sellPrice: number
-      unit: string
-    }>
-
-    const data: PreciousMetalPrice[] = raw.map((item) => ({
-      metalType: item.metal,
-      buyPriceSgd: item.buyPrice,
-      sellPriceSgd: item.sellPrice,
-      unit: item.unit,
-      timestamp: new Date().toISOString(),
-    }))
-
-    metalsCache = { data, expires: Date.now() + CACHE_TTL_MS }
-    return data
-  } catch (err) {
-    console.warn("[precious-metals] Failed to fetch prices:", err)
-    const fallback = await getMetalpriceApiFallback()
-    if (fallback.length > 0) {
-      metalsCache = { data: fallback, expires: Date.now() + CACHE_TTL_MS }
-      return fallback
-    }
-    return makeFallback()
   }
+
+  try {
+    const fromOcbc = await fetchOcbcPreciousMetalPricesRaw()
+    if (fromOcbc && fromOcbc.length > 0) {
+      metalsCache = { data: fromOcbc, expires: Date.now() + CACHE_TTL_MS }
+      return fromOcbc
+    }
+  } catch (err) {
+    console.warn("[precious-metals] Failed to fetch OCBC prices:", err)
+  }
+
+  if (!hasMetalpriceKey) {
+    const fromMetal = await fetchMetalpriceLatest()
+    if (fromMetal.length > 0) {
+      metalsCache = { data: fromMetal, expires: Date.now() + CACHE_TTL_MS }
+      return fromMetal
+    }
+  }
+
+  return makeFallback()
 }

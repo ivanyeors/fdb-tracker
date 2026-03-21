@@ -16,16 +16,15 @@ const updateAccountSchema = z.object({
   familyId: z.string().uuid().optional(),
 })
 
-function getAccountFilter(
-  familyId: string,
+/** Resolved profile id for the row, or null for family-level (shared) account. */
+function effectiveAccountProfileId(
   profileId: string | null,
   profileIds: string[],
-) {
-  if (profileId && profileIds.includes(profileId)) {
-    return { family_id: familyId, profile_id: profileId }
-  }
-  return { family_id: familyId, profile_id: null }
+): string | null {
+  if (profileId && profileIds.includes(profileId)) return profileId
+  return null
 }
+
 
 export async function GET(request: NextRequest) {
   try {
@@ -58,13 +57,17 @@ export async function GET(request: NextRequest) {
 
     const { familyId, profileIds } = resolved
     const profileId = parsed.data.profileId ?? null
-    const filter = getAccountFilter(familyId, profileId, profileIds)
 
-    const { data: account, error } = await supabase
+    const eff = effectiveAccountProfileId(profileId, profileIds)
+    let accountQuery = supabase
       .from("investment_accounts")
       .select("id, cash_balance, created_at, updated_at")
-      .match(filter)
-      .maybeSingle()
+      .eq("family_id", familyId)
+    accountQuery = eff
+      ? accountQuery.eq("profile_id", eff)
+      : accountQuery.is("profile_id", null)
+
+    const { data: account, error } = await accountQuery.maybeSingle()
 
     if (error) {
       console.error("[api/investments/account] Supabase error:", error.message, error.code)
@@ -113,13 +116,17 @@ export async function PATCH(request: NextRequest) {
 
     const { familyId: resolvedFamilyId, profileIds } = resolved
     const singleProfileId = profileId ?? null
-    const filter = getAccountFilter(resolvedFamilyId, singleProfileId, profileIds)
 
-    const { data: existing } = await supabase
+    const effPatch = effectiveAccountProfileId(singleProfileId, profileIds)
+    let existingQuery = supabase
       .from("investment_accounts")
       .select("id")
-      .match(filter)
-      .maybeSingle()
+      .eq("family_id", resolvedFamilyId)
+    existingQuery = effPatch
+      ? existingQuery.eq("profile_id", effPatch)
+      : existingQuery.is("profile_id", null)
+
+    const { data: existing } = await existingQuery.maybeSingle()
 
     if (existing) {
       const { data: updated, error } = await supabase

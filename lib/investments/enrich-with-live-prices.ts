@@ -124,7 +124,10 @@ export async function enrichInvestmentsWithLivePrices<
     if (quoteCurrency === "SGD") {
       priceSgd = priceData.price
     } else if (quoteCurrency === "USD") {
-      priceSgd = priceData.price * (sgdPerUsd ?? 1)
+      if (sgdPerUsd == null || sgdPerUsd <= 0) {
+        return { ...inv, ...noneFields() }
+      }
+      priceSgd = priceData.price * sgdPerUsd
     } else {
       return { ...inv, ...noneFields() }
     }
