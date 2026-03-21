@@ -13,6 +13,8 @@ import { SectionHeader } from "@/components/dashboard/section-header"
 import { formatCurrency } from "@/lib/utils"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import { useCpfSimulator, type SimulatorSeedData } from "@/hooks/use-cpf-simulator"
+import { CpfSimulatorPanel } from "@/components/dashboard/cpf/cpf-simulator-panel"
 import { ChartSkeleton } from "@/components/loading"
 
 type CpfBalanceRow = { month: string; oa: number; sa: number; ma: number }
@@ -29,6 +31,7 @@ type ProjectionPoint = {
 type RetirementData = {
   currentCpf: { oa: number; sa: number; ma: number; total: number }
   currentAge: number
+  birthYear: number
   retirementSums: { brs: number; frs: number; ers: number }
   extendedProjection: ProjectionPoint[]
   projectionWithoutHousing?: ProjectionPoint[] | null
@@ -40,6 +43,17 @@ type RetirementData = {
   }
   housingOaDeduction?: { monthly: number; loanName: string; remainingMonths: number }[] | null
   totalMonthlyHousingDeduction?: number | null
+  annualSalary?: number
+  incomeGrowthRate?: number
+  loans?: Array<{
+    name: string
+    principal: number
+    ratePct: number
+    tenureMonths: number
+    monthlyPayment: number
+    remainingMonths: number
+    useCpfOa: boolean
+  }>
 }
 
 function OverviewTab({
@@ -134,14 +148,30 @@ function RetirementTab({
   const retirementSums = data?.retirementSums ?? { brs: 0, frs: 0, ers: 0 }
 
   const chartReferenceLines = useMemo(() => [
-    { value: retirementSums.brs, label: "Basic Retirement Sum", shortLabel: "BRS" },
-    { value: retirementSums.frs, label: "Full Retirement Sum", shortLabel: "FRS" },
-    { value: retirementSums.ers, label: "Enhanced Retirement Sum", shortLabel: "ERS" },
+    { value: retirementSums.brs, label: "Basic Retirement Sum", shortLabel: "BRS", color: "oklch(0.72 0.12 160)" },
+    { value: retirementSums.frs, label: "Full Retirement Sum", shortLabel: "FRS", color: "oklch(0.72 0.12 230)" },
+    { value: retirementSums.ers, label: "Enhanced Retirement Sum", shortLabel: "ERS", color: "oklch(0.72 0.12 300)" },
   ], [retirementSums])
 
   const dps = data?.dps
   const housing = data?.housingOaDeduction
   const totalMonthlyHousing = data?.totalMonthlyHousingDeduction
+
+  const simulatorSeed: SimulatorSeedData | null = useMemo(() => {
+    if (!data || !data.extendedProjection || data.extendedProjection.length === 0) return null
+    return {
+      currentCpf: { oa: data.currentCpf.oa, sa: data.currentCpf.sa, ma: data.currentCpf.ma },
+      currentAge: data.currentAge,
+      birthYear: data.birthYear,
+      annualSalary: data.annualSalary ?? 0,
+      incomeGrowthRate: data.incomeGrowthRate ?? 0.03,
+      loans: (data.loans ?? []).filter((l) => l.useCpfOa),
+      dpsIncluded: dps?.included ?? true,
+      extendedProjection: data.extendedProjection,
+    }
+  }, [data, dps?.included])
+
+  const simulator = useCpfSimulator(simulatorSeed)
 
   return (
     <div className="space-y-6">
@@ -200,6 +230,10 @@ function RetirementTab({
         </Card>
       )}
 
+      {simulator && (
+        <CpfSimulatorPanel simulator={simulator} />
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-center gap-1.5">
@@ -217,6 +251,8 @@ function RetirementTab({
               data={data.extendedProjection}
               referenceLines={chartReferenceLines}
               comparisonData={data.projectionWithoutHousing}
+              simulatedData={simulator?.isModified ? simulator.simulatedProjection : null}
+              isSimulating={simulator?.isModified ?? false}
               currentAge={data.currentAge}
             />
           )}

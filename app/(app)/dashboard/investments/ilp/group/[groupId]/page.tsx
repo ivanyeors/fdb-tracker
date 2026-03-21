@@ -18,6 +18,7 @@ import {
   InvestmentsCurrencyToggle,
 } from "@/components/dashboard/investments/investments-display-currency"
 import { IlpGroupAllocationPanel } from "@/components/dashboard/investments/ilp-group-allocation-panel"
+import { DeleteIlpGroupDialog } from "@/components/dashboard/investments/delete-ilp-group-dialog"
 import { ChartSkeleton } from "@/components/loading"
 
 export default function IlpFundGroupDetailPage() {
@@ -162,9 +163,16 @@ export default function IlpFundGroupDetailPage() {
           description="Funds in this group. Monthly values, returns, and imported report details."
         >
           {!isLoading ? (
-            <Button type="button" onClick={() => setEditGroupOpen(true)}>
-              Edit group funds
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="button" onClick={() => setEditGroupOpen(true)}>
+                Edit group funds
+              </Button>
+              <DeleteIlpGroupDialog
+                groupId={groupId}
+                groupName={groupTitle}
+                fundCount={groupCards.length}
+              />
+            </div>
           ) : null}
         </SectionHeader>
 

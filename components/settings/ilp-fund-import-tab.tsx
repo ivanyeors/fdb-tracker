@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { Loader2, Upload } from "lucide-react"
+import { Loader2, Upload, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -204,6 +204,42 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
     setMultiGroupPremiumMode("monthly")
     setMultiAllocPct({})
   }, [])
+
+  const removeBundle = useCallback(
+    (index: number) => {
+      setParsedBundles((prev) => {
+        const next = prev.filter((_, i) => i !== index)
+        if (next.length === 0) {
+          resetFlow()
+          return next
+        }
+        setFiles((f) => f.filter((_, i) => i !== index))
+        setFileLabel(
+          next.length === 1 ? next[0]!.file.name : `${next.length} files selected`,
+        )
+        setMultiRows((rows) => rows.filter((_, i) => i !== index))
+        // Re-index n:* keys (file-based allocation entries)
+        setMultiAllocPct((pct) => {
+          const out: Record<string, number> = {}
+          for (const [k, v] of Object.entries(pct)) {
+            if (k.startsWith("e:")) {
+              out[k] = v
+            }
+          }
+          let ni = 0
+          for (let i = 0; i < prev.length; i++) {
+            if (i === index) continue
+            const old = pct[`n:${i}`]
+            if (old != null) out[`n:${ni}`] = old
+            ni++
+          }
+          return out
+        })
+        return next
+      })
+    },
+    [resetFlow],
+  )
 
   const onPickFiles = (list: FileList | null) => {
     if (!list?.length) return
@@ -908,7 +944,17 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
         {parsedBundles.length === 1 && singleParse && step !== "success" ? (
           <div className="space-y-4 rounded-lg border bg-card p-4">
             <div>
-              <h4 className="text-sm font-medium">Parsed summary</h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium">Parsed summary</h4>
+                <button
+                  type="button"
+                  className="rounded-sm p-0.5 text-muted-foreground hover:text-destructive"
+                  title="Remove fund"
+                  onClick={() => removeBundle(0)}
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
               <dl className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
                 <div>
                   <dt className="font-medium text-foreground">Fund</dt>
@@ -1264,9 +1310,19 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                       key={b.file.name + i}
                       className="space-y-3 rounded-lg border bg-muted/20 p-3"
                     >
-                      <p className="text-xs font-medium text-foreground">
-                        File {i + 1}: {b.file.name}
-                      </p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-foreground">
+                          File {i + 1}: {b.file.name}
+                        </p>
+                        <button
+                          type="button"
+                          className="rounded-sm p-0.5 text-muted-foreground hover:text-destructive"
+                          title="Remove fund"
+                          onClick={() => removeBundle(i)}
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {b.parse.snapshot.investmentName ?? "—"}
                       </p>
@@ -1504,6 +1560,14 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                           }}
                         />
                         <span className="text-xs text-muted-foreground">%</span>
+                        <button
+                          type="button"
+                          className="rounded-sm p-0.5 text-muted-foreground hover:text-destructive"
+                          title="Remove fund"
+                          onClick={() => removeBundle(fi)}
+                        >
+                          <X className="size-3.5" />
+                        </button>
                       </div>
                     ))}
                     <p
@@ -1526,7 +1590,17 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                       key={b.file.name + i}
                       className="space-y-3 rounded-lg border bg-muted/20 p-3"
                     >
-                      <p className="text-xs font-medium">File {i + 1}: {b.file.name}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium">File {i + 1}: {b.file.name}</p>
+                        <button
+                          type="button"
+                          className="rounded-sm p-0.5 text-muted-foreground hover:text-destructive"
+                          title="Remove fund"
+                          onClick={() => removeBundle(i)}
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
                       <div className="space-y-2">
                         <Label>ILP product</Label>
                         <Select

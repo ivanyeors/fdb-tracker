@@ -26,12 +26,15 @@ type ReferenceLine = {
   value: number
   label: string
   shortLabel: string
+  color?: string
 }
 
 type CpfRetirementChartProps = {
   data: ProjectionPoint[]
   referenceLines: ReferenceLine[]
   comparisonData?: ProjectionPoint[] | null
+  simulatedData?: ProjectionPoint[] | null
+  isSimulating?: boolean
   currentAge?: number
 }
 
@@ -49,16 +52,20 @@ function ChartInner({
   height,
   referenceLines,
   comparisonData,
+  simulatedData,
+  isSimulating,
 }: {
   data: ProjectionPoint[]
   width: number
   height: number
   referenceLines: ReferenceLine[]
   comparisonData?: ProjectionPoint[] | null
+  simulatedData?: ProjectionPoint[] | null
+  isSimulating?: boolean
 }) {
   const gradPrefix = useId().replace(/:/g, "_")
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
-    useTooltip<{ point: ProjectionPoint; comparisonTotal?: number }>()
+    useTooltip<{ point: ProjectionPoint; comparisonTotal?: number; simulatedPoint?: ProjectionPoint; referenceLines: ReferenceLine[] }>()
 
   const innerWidth = width - MARGIN.left - MARGIN.right
   const innerHeight = height - MARGIN.top - MARGIN.bottom
@@ -67,9 +74,10 @@ function ChartInner({
     () => [
       ...data.map((d) => d.total),
       ...(comparisonData ?? []).map((d) => d.total),
+      ...(simulatedData ?? []).map((d) => d.total),
       ...referenceLines.map((r) => r.value),
     ],
-    [data, comparisonData, referenceLines],
+    [data, comparisonData, simulatedData, referenceLines],
   )
 
   const xScale = useMemo(
@@ -98,6 +106,13 @@ function ChartInner({
     return map
   }, [comparisonData])
 
+  const simulatedMap = useMemo(() => {
+    if (!simulatedData) return null
+    const map = new Map<number, ProjectionPoint>()
+    for (const p of simulatedData) map.set(p.year, p)
+    return map
+  }, [simulatedData])
+
   const handleOverlayMove = useCallback(
     (e: React.MouseEvent<SVGRectElement>) => {
       if (data.length === 0) return
@@ -116,12 +131,14 @@ function ChartInner({
         tooltipData: {
           point: closest,
           comparisonTotal: comparisonMap?.get(closest.year),
+          simulatedPoint: simulatedMap?.get(closest.year) ?? undefined,
+          referenceLines,
         },
         tooltipLeft: e.clientX,
         tooltipTop: e.clientY,
       })
     },
-    [data, xScale, comparisonMap, showTooltip],
+    [data, xScale, comparisonMap, simulatedMap, showTooltip],
   )
 
   if (width < 10 || data.length === 0) return null
@@ -168,68 +185,89 @@ function ChartInner({
             pointerEvents="none"
           />
 
-          {/* Stacked areas: MA (top), SA (middle), OA (bottom) */}
-          <AreaClosed<ProjectionPoint>
-            data={data}
-            x={(d) => xScale(d.year) ?? 0}
-            y={(d) => yScale(d.oa) ?? 0}
-            y0={() => innerHeight}
-            yScale={yScale}
-            curve={curveMonotoneX}
-            fill={`url(#${gradPrefix}oa)`}
-          />
-          <AreaClosed<ProjectionPoint>
-            data={data}
-            x={(d) => xScale(d.year) ?? 0}
-            y={(d) => yScale(d.oa + d.sa) ?? 0}
-            y0={(d) => yScale(d.oa) ?? innerHeight}
-            yScale={yScale}
-            curve={curveMonotoneX}
-            fill={`url(#${gradPrefix}sa)`}
-          />
-          <AreaClosed<ProjectionPoint>
-            data={data}
-            x={(d) => xScale(d.year) ?? 0}
-            y={(d) => yScale(d.total) ?? 0}
-            y0={(d) => yScale(d.oa + d.sa) ?? innerHeight}
-            yScale={yScale}
-            curve={curveMonotoneX}
-            fill={`url(#${gradPrefix}ma)`}
-          />
+          {/* Stacked filled areas — use simulatedData when simulating, otherwise baseline */}
+          {(() => {
+            const areaData = isSimulating && simulatedData && simulatedData.length > 0 ? simulatedData : data
+            return (
+              <>
+                <AreaClosed<ProjectionPoint>
+                  data={areaData}
+                  x={(d) => xScale(d.year) ?? 0}
+                  y={(d) => yScale(d.oa) ?? 0}
+                  y0={() => innerHeight}
+                  yScale={yScale}
+                  curve={curveMonotoneX}
+                  fill={`url(#${gradPrefix}oa)`}
+                />
+                <AreaClosed<ProjectionPoint>
+                  data={areaData}
+                  x={(d) => xScale(d.year) ?? 0}
+                  y={(d) => yScale(d.oa + d.sa) ?? 0}
+                  y0={(d) => yScale(d.oa) ?? innerHeight}
+                  yScale={yScale}
+                  curve={curveMonotoneX}
+                  fill={`url(#${gradPrefix}sa)`}
+                />
+                <AreaClosed<ProjectionPoint>
+                  data={areaData}
+                  x={(d) => xScale(d.year) ?? 0}
+                  y={(d) => yScale(d.total) ?? 0}
+                  y0={(d) => yScale(d.oa + d.sa) ?? innerHeight}
+                  yScale={yScale}
+                  curve={curveMonotoneX}
+                  fill={`url(#${gradPrefix}ma)`}
+                />
 
-          {/* Layer boundary lines */}
-          <LinePath<ProjectionPoint>
-            data={data}
-            x={(d) => xScale(d.year) ?? 0}
-            y={(d) => yScale(d.oa) ?? 0}
-            curve={curveMonotoneX}
-            stroke={LAYERS[0]!.color}
-            strokeWidth={1.5}
-            strokeOpacity={0.6}
-          />
-          <LinePath<ProjectionPoint>
-            data={data}
-            x={(d) => xScale(d.year) ?? 0}
-            y={(d) => yScale(d.oa + d.sa) ?? 0}
-            curve={curveMonotoneX}
-            stroke={LAYERS[1]!.color}
-            strokeWidth={1.5}
-            strokeOpacity={0.6}
-          />
+                {/* Layer boundary lines */}
+                <LinePath<ProjectionPoint>
+                  data={areaData}
+                  x={(d) => xScale(d.year) ?? 0}
+                  y={(d) => yScale(d.oa) ?? 0}
+                  curve={curveMonotoneX}
+                  stroke={LAYERS[0]!.color}
+                  strokeWidth={1.5}
+                  strokeOpacity={0.6}
+                />
+                <LinePath<ProjectionPoint>
+                  data={areaData}
+                  x={(d) => xScale(d.year) ?? 0}
+                  y={(d) => yScale(d.oa + d.sa) ?? 0}
+                  curve={curveMonotoneX}
+                  stroke={LAYERS[1]!.color}
+                  strokeWidth={1.5}
+                  strokeOpacity={0.6}
+                />
 
-          {/* Total line */}
-          <LinePath<ProjectionPoint>
-            data={data}
-            x={(d) => xScale(d.year) ?? 0}
-            y={(d) => yScale(d.total) ?? 0}
-            curve={curveMonotoneX}
-            stroke={LAYERS[2]!.color}
-            strokeWidth={2}
-            strokeLinecap="round"
-          />
+                {/* Total line for filled data */}
+                <LinePath<ProjectionPoint>
+                  data={areaData}
+                  x={(d) => xScale(d.year) ?? 0}
+                  y={(d) => yScale(d.total) ?? 0}
+                  curve={curveMonotoneX}
+                  stroke={LAYERS[2]!.color}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                />
+              </>
+            )
+          })()}
 
-          {/* Comparison ghost line (without housing) */}
-          {comparisonData && comparisonData.length > 0 && (
+          {/* Baseline "Current Plan" dashed line when simulating — white, above areas */}
+          {isSimulating && simulatedData && simulatedData.length > 0 && (
+            <LinePath<ProjectionPoint>
+              data={data}
+              x={(d) => xScale(d.year) ?? 0}
+              y={(d) => yScale(d.total) ?? 0}
+              curve={curveMonotoneX}
+              stroke="white"
+              strokeWidth={2}
+              strokeDasharray="6 4"
+              strokeOpacity={0.85}
+            />
+          )}
+
+          {/* Comparison ghost line (without housing) — hidden when simulating */}
+          {!isSimulating && comparisonData && comparisonData.length > 0 && (
             <LinePath<ProjectionPoint>
               data={comparisonData}
               x={(d) => xScale(d.year) ?? 0}
@@ -246,6 +284,7 @@ function ChartInner({
           {refPositions.map((ref) => {
             const rawY = yScale(ref.value) ?? 0
             if (rawY < 0 || rawY > innerHeight) return null
+            const lineColor = ref.color ?? "var(--color-chart-neutral)"
             return (
               <g key={ref.shortLabel}>
                 <line
@@ -253,10 +292,10 @@ function ChartInner({
                   y1={rawY}
                   x2={innerWidth}
                   y2={rawY}
-                  stroke="var(--color-chart-neutral)"
+                  stroke={lineColor}
                   strokeDasharray="6 3"
                   strokeWidth={1}
-                  strokeOpacity={0.6}
+                  strokeOpacity={0.5}
                 />
                 <rect
                   x={innerWidth + 4}
@@ -264,13 +303,13 @@ function ChartInner({
                   width={56}
                   height={20}
                   rx={4}
-                  fill="var(--color-muted)"
-                  opacity={0.8}
+                  fill={lineColor}
+                  opacity={0.15}
                 />
                 <text
                   x={innerWidth + 32}
                   y={ref.y}
-                  fill="var(--color-muted-foreground)"
+                  fill={lineColor}
                   fontSize={11}
                   fontWeight={500}
                   textAnchor="middle"
@@ -418,12 +457,60 @@ function ChartInner({
                 ${formatCurrency(tooltipData.point.total)}
               </span>
             </div>
-            {tooltipData.comparisonTotal != null && (
+            {tooltipData.simulatedPoint != null && (
+              <>
+                <div className="mt-1.5 border-t border-border pt-1.5 space-y-0.5">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Simulated</span>
+                    <span className="tabular-nums font-medium text-card-foreground">
+                      ${formatCurrency(tooltipData.simulatedPoint.total)}
+                    </span>
+                  </div>
+                  {(() => {
+                    const delta = tooltipData.simulatedPoint.total - tooltipData.point.total
+                    if (Math.abs(delta) < 1) return null
+                    return (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Delta</span>
+                        <span className={`tabular-nums font-medium ${delta > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                          {delta > 0 ? "+" : ""}${formatCurrency(delta)}
+                        </span>
+                      </div>
+                    )
+                  })()}
+                </div>
+              </>
+            )}
+            {tooltipData.comparisonTotal != null && !tooltipData.simulatedPoint && (
               <div className="mt-1 flex items-center justify-between text-muted-foreground">
                 <span>Without loan</span>
                 <span className="tabular-nums">
                   ${formatCurrency(tooltipData.comparisonTotal)}
                 </span>
+              </div>
+            )}
+            {tooltipData.referenceLines.length > 0 && (
+              <div className="mt-1.5 border-t border-border pt-1.5 space-y-0.5">
+                {tooltipData.referenceLines.map((ref) => {
+                  const total = tooltipData.simulatedPoint?.total ?? tooltipData.point.total
+                  const met = total >= ref.value
+                  return (
+                    <div key={ref.shortLabel} className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="inline-block h-1.5 w-1.5 rounded-full"
+                          style={{ backgroundColor: ref.color ?? "var(--color-chart-neutral)" }}
+                        />
+                        <span className="text-muted-foreground" title={ref.label}>
+                          {ref.shortLabel}
+                        </span>
+                      </div>
+                      <span className={`tabular-nums ${met ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+                        ${formatCurrency(ref.value)}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>,
@@ -433,7 +520,15 @@ function ChartInner({
   )
 }
 
-function ChartLegend({ hasComparison }: { hasComparison: boolean }) {
+function ChartLegend({
+  hasComparison,
+  isSimulating,
+  referenceLines,
+}: {
+  hasComparison: boolean
+  isSimulating?: boolean
+  referenceLines?: ReferenceLine[]
+}) {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
       {LAYERS.map((layer) => (
@@ -442,15 +537,30 @@ function ChartLegend({ hasComparison }: { hasComparison: boolean }) {
             className="inline-block h-2.5 w-2.5 rounded-sm"
             style={{ backgroundColor: layer.color }}
           />
-          <span>{layer.label}</span>
+          <span>{isSimulating ? `${layer.label} (Simulated)` : layer.label}</span>
         </div>
       ))}
-      {hasComparison && (
+      {isSimulating && (
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block h-0 w-4 border-t-2 border-dashed border-white dark:border-white/80" />
+          <span>Current Plan</span>
+        </div>
+      )}
+      {!isSimulating && hasComparison && (
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-0 w-4 border-t border-dashed border-muted-foreground" />
           <span>Without loan</span>
         </div>
       )}
+      {referenceLines?.map((ref) => (
+        <div key={ref.shortLabel} className="flex items-center gap-1.5">
+          <span
+            className="inline-block h-0 w-4 border-t border-dashed"
+            style={{ borderColor: ref.color ?? "var(--color-chart-neutral)" }}
+          />
+          <span title={ref.label}>{ref.shortLabel}</span>
+        </div>
+      ))}
     </div>
   )
 }
@@ -459,12 +569,18 @@ export function CpfRetirementChart({
   data,
   referenceLines,
   comparisonData,
+  simulatedData,
+  isSimulating,
   currentAge: _currentAge,
 }: CpfRetirementChartProps) {
   const chartHeight = useChartHeight(400, 280)
   return (
     <div>
-      <ChartLegend hasComparison={!!comparisonData && comparisonData.length > 0} />
+      <ChartLegend
+        hasComparison={!!comparisonData && comparisonData.length > 0}
+        isSimulating={isSimulating}
+        referenceLines={referenceLines}
+      />
       <div className="w-full" style={{ height: chartHeight }}>
         <ParentSize>
           {({ width, height }) => (
@@ -474,6 +590,8 @@ export function CpfRetirementChart({
               height={height ?? chartHeight}
               referenceLines={referenceLines}
               comparisonData={comparisonData}
+              simulatedData={simulatedData}
+              isSimulating={isSimulating}
             />
           )}
         </ParentSize>

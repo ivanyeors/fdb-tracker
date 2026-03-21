@@ -212,6 +212,24 @@ export async function GET(request: NextRequest) {
           }))
         : null,
       totalMonthlyHousingDeduction: totalMonthlyHousing > 0 ? totalMonthlyHousing : null,
+      // Simulator seed data
+      annualSalary: annualSalary,
+      incomeGrowthRate: 0.03,
+      loans: (cpfLoans ?? []).map((loan) => {
+        const startDate = new Date(loan.start_date)
+        const startMonth = startDate.getFullYear() * 12 + startDate.getMonth()
+        const monthsElapsed = Math.max(0, currentMonth - startMonth)
+        const remainingMonths = Math.max(0, loan.tenure_months - monthsElapsed)
+        return {
+          name: loan.name,
+          principal: loan.principal,
+          ratePct: loan.rate_pct,
+          tenureMonths: loan.tenure_months,
+          monthlyPayment: Math.round(loanMonthlyPayment(loan.principal, loan.rate_pct, loan.tenure_months) * 100) / 100,
+          remainingMonths,
+          useCpfOa: true,
+        }
+      }),
     })
   } catch (err) {
     console.error("[api/cpf/retirement] Error:", err)

@@ -64,6 +64,7 @@ import {
   InvestmentsDisplayCurrencyProvider,
   InvestmentsCurrencyToggle,
 } from "@/components/dashboard/investments/investments-display-currency"
+import { AllocationTab } from "@/components/dashboard/investments/allocation-tab"
 
 type IlpProductWithEntries = {
   id: string
@@ -107,14 +108,6 @@ function mapToCategoryLabel(type: string): string {
             : type === "bond"
               ? "Bonds"
               : type.charAt(0).toUpperCase() + type.slice(1)
-}
-
-function mapToMarketLabel(symbol: string, type: string): string {
-  if (type === "gold" || type === "silver") return "Precious Metals"
-  if (type === "ilp") return "ILP"
-  const s = symbol.trim().toUpperCase()
-  if (s.endsWith(".SI") || s.endsWith(".SG")) return "SGX"
-  return "US"
 }
 
 /** One donut slice per ticker / metal type (merged if duplicate symbols). */
@@ -410,31 +403,6 @@ export default function InvestmentsDetailPage() {
 
   const holdingGroups = useMemo(() => groupHoldings(holdings), [holdings])
 
-  const allocationByType = useMemo(() => {
-    const grouped = new Map<string, number>()
-    holdings.forEach((h) => {
-      const label = mapToCategoryLabel(h.type)
-      grouped.set(
-        label,
-        (grouped.get(label) || 0) + (h.currentValue ?? 0),
-      )
-    })
-    if (cashBalance > 0) {
-      grouped.set(
-        "Cash balance",
-        (grouped.get("Cash balance") || 0) + cashBalance,
-      )
-    }
-    const denom = fullPortfolioTotal > 0 ? fullPortfolioTotal : 1
-    return Array.from(grouped.entries())
-      .map(([name, value]) => ({
-        name,
-        value,
-        percentage: (value / denom) * 100,
-      }))
-      .sort((a, b) => b.value - a.value)
-  }, [holdings, cashBalance, fullPortfolioTotal])
-
   /** Hero donut: listed holdings + positive brokerage cash (pie cannot slice negatives). */
   const allocationByHolding = useMemo(() => {
     const grouped = new Map<string, number>()
@@ -461,44 +429,6 @@ export default function InvestmentsDetailPage() {
       }))
       .sort((a, b) => b.value - a.value)
   }, [holdings, cashBalance, fullPortfolioTotal])
-
-  const allocationByMarket = useMemo(() => {
-    const grouped = new Map<string, number>()
-    holdings.forEach((h) => {
-      const label = mapToMarketLabel(h.symbol, h.type)
-      grouped.set(
-        label,
-        (grouped.get(label) || 0) + (h.currentValue ?? 0),
-      )
-    })
-    if (cashBalance > 0) {
-      grouped.set(
-        "Cash balance",
-        (grouped.get("Cash balance") || 0) + cashBalance,
-      )
-    }
-    const ilpMarketSlices = allocationByIlpGroupOrStandalone(
-      ilpProducts.map((p) => ({
-        name: p.name,
-        latestEntry: p.latestEntry,
-        ilp_fund_groups: p.ilp_fund_groups
-          ? { id: p.ilp_fund_groups.id, name: p.ilp_fund_groups.name }
-          : null,
-      })),
-    )
-    for (const row of ilpMarketSlices) {
-      const label = `ILP · ${row.name}`
-      grouped.set(label, (grouped.get(label) || 0) + row.value)
-    }
-    const denom = fullPortfolioTotal > 0 ? fullPortfolioTotal : 1
-    return Array.from(grouped.entries())
-      .map(([name, value]) => ({
-        name,
-        value,
-        percentage: (value / denom) * 100,
-      }))
-      .sort((a, b) => b.value - a.value)
-  }, [holdings, ilpProducts, cashBalance, fullPortfolioTotal])
 
   /** ILP donut: one slice per fund group (aggregated) or standalone product. */
   const ilpDonutSlices = useMemo(
@@ -947,30 +877,14 @@ export default function InvestmentsDetailPage() {
         </TabsContent>
 
         <TabsContent value="allocation" className="mt-4">
-          {isLoading ? (
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="rounded-xl border p-4">
-                <ChartSkeleton height={320} />
-              </div>
-              <div className="rounded-xl border p-4">
-                <ChartSkeleton height={320} />
-              </div>
-            </div>
-          ) : allocationByType.length === 0 &&
-            allocationByMarket.length === 0 ? (
-            <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-              No allocation data. Add holdings, cash, or ILP to see breakdown.
-            </div>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="rounded-xl border p-4">
-                <AllocationChart data={allocationByType} title="By Type" />
-              </div>
-              <div className="rounded-xl border p-4">
-                <AllocationChart data={allocationByMarket} title="By Market" />
-              </div>
-            </div>
-          )}
+          <AllocationTab
+            holdings={holdings}
+            ilpProducts={ilpProducts}
+            cashBalance={cashBalance}
+            ilpTotalSum={ilpTotalSum}
+            fullPortfolioTotal={fullPortfolioTotal}
+            isLoading={isLoading}
+          />
         </TabsContent>
 
         <TabsContent value="ilp" className="mt-4 space-y-4">
