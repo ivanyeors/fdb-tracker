@@ -140,6 +140,7 @@ export async function POST(request: NextRequest) {
 
       const newUnits = existingHolding.units - quantity
 
+      // Step 1: Update holding units
       const { error: updateError } = await supabase
         .from("investments")
         .update({ units: newUnits })
@@ -149,6 +150,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Failed to update holding" }, { status: 500 })
       }
 
+      // Step 2: Update cash balance
       const { data: accountRow } = await supabase
         .from("investment_accounts")
         .select("id, cash_balance")
@@ -156,22 +158,42 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
 
       if (accountRow) {
-        await supabase
+        const { error: cashError } = await supabase
           .from("investment_accounts")
           .update({
             cash_balance: accountRow.cash_balance + amount,
             updated_at: new Date().toISOString(),
           })
           .eq("id", accountRow.id)
+
+        if (cashError) {
+          // Rollback: restore holding units
+          await supabase
+            .from("investments")
+            .update({ units: existingHolding.units })
+            .eq("id", existingHolding.id)
+          return NextResponse.json({ error: "Failed to update cash balance" }, { status: 500 })
+        }
       } else {
-        await supabase.from("investment_accounts").insert({
-          family_id: resolved.familyId,
-          profile_id: profileId ?? null,
-          cash_balance: amount,
-          updated_at: new Date().toISOString(),
-        })
+        const { error: cashError } = await supabase
+          .from("investment_accounts")
+          .insert({
+            family_id: resolved.familyId,
+            profile_id: profileId ?? null,
+            cash_balance: amount,
+            updated_at: new Date().toISOString(),
+          })
+
+        if (cashError) {
+          await supabase
+            .from("investments")
+            .update({ units: existingHolding.units })
+            .eq("id", existingHolding.id)
+          return NextResponse.json({ error: "Failed to create cash account" }, { status: 500 })
+        }
       }
 
+      // Step 3: Insert transaction record
       const { data: transaction, error: txError } = await supabase
         .from("investment_transactions")
         .insert({
@@ -189,13 +211,34 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (txError) {
+        // Rollback: restore holding and cash
+        await supabase
+          .from("investments")
+          .update({ units: existingHolding.units })
+          .eq("id", existingHolding.id)
+        const { data: acctRollback } = await supabase
+          .from("investment_accounts")
+          .select("id, cash_balance")
+          .match(accountFilter)
+          .maybeSingle()
+        if (acctRollback) {
+          await supabase
+            .from("investment_accounts")
+            .update({
+              cash_balance: acctRollback.cash_balance - amount,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", acctRollback.id)
+        }
         return NextResponse.json({ error: "Failed to create transaction" }, { status: 500 })
       }
 
       return NextResponse.json(transaction, { status: 201 })
     }
 
+    // --- BUY flow ---
     let investmentId: string
+    let wasNewHolding = false
 
     if (existingHolding) {
       const newCostBasis = calculateWeightedAverageCost(
@@ -235,8 +278,10 @@ export async function POST(request: NextRequest) {
       }
 
       investmentId = newHolding.id
+      wasNewHolding = true
     }
 
+    // Step 2: Update cash balance
     const { data: accountRow } = await supabase
       .from("investment_accounts")
       .select("id, cash_balance")
@@ -244,22 +289,50 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (accountRow) {
-      await supabase
+      const { error: cashError } = await supabase
         .from("investment_accounts")
         .update({
           cash_balance: accountRow.cash_balance - amount,
           updated_at: new Date().toISOString(),
         })
         .eq("id", accountRow.id)
+
+      if (cashError) {
+        // Rollback holding
+        if (wasNewHolding) {
+          await supabase.from("investments").delete().eq("id", investmentId)
+        } else if (existingHolding) {
+          await supabase
+            .from("investments")
+            .update({ units: existingHolding.units, cost_basis: existingHolding.cost_basis })
+            .eq("id", existingHolding.id)
+        }
+        return NextResponse.json({ error: "Failed to update cash balance" }, { status: 500 })
+      }
     } else {
-      await supabase.from("investment_accounts").insert({
-        family_id: resolved.familyId,
-        profile_id: profileId ?? null,
-        cash_balance: -amount,
-        updated_at: new Date().toISOString(),
-      })
+      const { error: cashError } = await supabase
+        .from("investment_accounts")
+        .insert({
+          family_id: resolved.familyId,
+          profile_id: profileId ?? null,
+          cash_balance: -amount,
+          updated_at: new Date().toISOString(),
+        })
+
+      if (cashError) {
+        if (wasNewHolding) {
+          await supabase.from("investments").delete().eq("id", investmentId)
+        } else if (existingHolding) {
+          await supabase
+            .from("investments")
+            .update({ units: existingHolding.units, cost_basis: existingHolding.cost_basis })
+            .eq("id", existingHolding.id)
+        }
+        return NextResponse.json({ error: "Failed to create cash account" }, { status: 500 })
+      }
     }
 
+    // Step 3: Insert transaction record
     const { data: transaction, error: txError } = await supabase
       .from("investment_transactions")
       .insert({
@@ -277,6 +350,29 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (txError) {
+      // Rollback holding and cash
+      if (wasNewHolding) {
+        await supabase.from("investments").delete().eq("id", investmentId)
+      } else if (existingHolding) {
+        await supabase
+          .from("investments")
+          .update({ units: existingHolding.units, cost_basis: existingHolding.cost_basis })
+          .eq("id", existingHolding.id)
+      }
+      const { data: acctRollback } = await supabase
+        .from("investment_accounts")
+        .select("id, cash_balance")
+        .match(accountFilter)
+        .maybeSingle()
+      if (acctRollback) {
+        await supabase
+          .from("investment_accounts")
+          .update({
+            cash_balance: acctRollback.cash_balance + amount,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", acctRollback.id)
+      }
       return NextResponse.json({ error: "Failed to create transaction" }, { status: 500 })
     }
 

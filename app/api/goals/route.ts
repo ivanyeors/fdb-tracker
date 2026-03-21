@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from("savings_goals")
-      .select("*")
+      .select("*, goal_contributions(id, amount, source, created_at)")
       .eq("family_id", familyId)
       .order("created_at", { ascending: true })
 

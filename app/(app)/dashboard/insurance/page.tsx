@@ -2,11 +2,14 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
-import { Shield, Check, X } from "lucide-react"
+import { Check, X, DollarSign, Percent } from "lucide-react"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import { getDpsAnnualPremium } from "@/lib/calculations/cpf-dps"
+import { getAge } from "@/lib/calculations/cpf"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -77,11 +80,12 @@ export default function InsurancePage() {
   const tabParam = searchParams.get("tab")
   const defaultTab = tabParam && TAB_SET.has(tabParam) ? tabParam : "overview"
 
-  const { activeProfileId, activeFamilyId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId, profiles } = useActiveProfile()
   const [policies, setPolicies] = useState<Policy[]>([])
   const [coverageData, setCoverageData] =
     useState<HouseholdCoverageAnalysis | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [showDollars, setShowDollars] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!activeProfileId && !activeFamilyId) {
@@ -130,6 +134,20 @@ export default function InsurancePage() {
     () => activePolicies.reduce((sum, p) => sum + (p.coverage_amount || 0), 0),
     [activePolicies],
   )
+
+  const dpsProfiles = useMemo(() => {
+    const year = new Date().getFullYear()
+    const relevant = activeProfileId
+      ? profiles.filter((p) => p.id === activeProfileId)
+      : profiles
+    return relevant
+      .map((p) => {
+        const age = getAge(p.birth_year, year)
+        const premium = getDpsAnnualPremium(age, year)
+        return premium != null ? { name: p.name, age, annualPremium: premium } : null
+      })
+      .filter((d) => d != null)
+  }, [profiles, activeProfileId])
 
   const currentItems = useMemo<CoverageGapItem[]>(() => {
     if (!coverageData) return []
@@ -326,13 +344,41 @@ export default function InsurancePage() {
             )}
 
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">
-                  Coverage Gap Analysis
-                </CardTitle>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">
+                      Coverage Gap Analysis
+                    </CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      How your coverage compares to LIA Singapore benchmarks.
+                      Click a row for details.
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center rounded-lg border p-0.5">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`h-7 gap-1 px-2 text-xs ${!showDollars ? "bg-accent" : ""}`}
+                      onClick={() => setShowDollars(false)}
+                    >
+                      <Percent className="size-3" />
+                      <span className="hidden sm:inline">Percent</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`h-7 gap-1 px-2 text-xs ${showDollars ? "bg-accent" : ""}`}
+                      onClick={() => setShowDollars(true)}
+                    >
+                      <DollarSign className="size-3" />
+                      <span className="hidden sm:inline">Dollars</span>
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <GapBars items={currentItems} />
+                <GapBars items={currentItems} showDollars={showDollars} />
               </CardContent>
             </Card>
 
@@ -360,6 +406,36 @@ export default function InsurancePage() {
 
           {/* ── Policies Tab ── */}
           <TabsContent value="policies" className="space-y-4">
+            {dpsProfiles.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Dependants&apos; Protection Scheme (DPS)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  <p className="mb-2">
+                    DPS provides a $70,000 death/TPD payout. Premiums are
+                    deducted from CPF OA, not bank accounts.
+                  </p>
+                  <div className="space-y-1">
+                    {dpsProfiles.map((d) => (
+                      <div
+                        key={d.name}
+                        className="flex items-center justify-between"
+                      >
+                        <span>
+                          {d.name} (age {d.age})
+                        </span>
+                        <span className="tabular-nums font-medium text-foreground">
+                          ${formatCurrency(d.annualPremium)}/yr
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             {policies.length === 0 ? (
               <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
                 No insurance policies found.

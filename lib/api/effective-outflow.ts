@@ -130,6 +130,14 @@ export async function getEffectiveOutflowForProfile(
     .eq("profile_id", profileId)
     .eq("year", year)
 
+  if (!profile || !incomeConfig) {
+    if (!profile) {
+      console.warn(`[effective-outflow] Profile ${profileId} not found — tax estimate skipped`)
+    } else if (!incomeConfig) {
+      console.warn(`[effective-outflow] No income_config for profile ${profileId} — tax estimate skipped`)
+    }
+  }
+
   if (profile && incomeConfig) {
     const result = calculateTax({
       profile: { birth_year: profile.birth_year },

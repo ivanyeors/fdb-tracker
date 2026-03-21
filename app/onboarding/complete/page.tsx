@@ -10,7 +10,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { useOnboarding } from "@/components/onboarding/onboarding-provider"
+import {
+  useOnboarding,
+  clearOnboardingDraft,
+} from "@/components/onboarding/onboarding-provider"
 import { CheckCircle2, ArrowRight, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -65,6 +68,7 @@ export default function CompletePage() {
           data.message ?? data.error ?? "Failed to complete onboarding"
         throw new Error(msg)
       }
+      clearOnboardingDraft()
       toast.success("Onboarding complete")
       router.push("/dashboard")
     } catch (err) {

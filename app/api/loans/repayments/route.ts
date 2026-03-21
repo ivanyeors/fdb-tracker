@@ -9,6 +9,7 @@ import {
   estimateOutstandingPrincipal,
   splitPayment,
 } from "@/lib/calculations/loans"
+import { vlHeadroom120 } from "@/lib/calculations/cpf-housing"
 
 const querySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -21,6 +22,7 @@ const postSchema = z.object({
   amount: z.number().positive(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   cpfOaAmount: z.number().min(0).optional().nullable(),
+  isEarly: z.boolean().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -110,7 +112,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { loanId, amount, date, cpfOaAmount } = parsed.data
+    const { loanId, amount, date, cpfOaAmount, isEarly } = parsed.data
     const cpf = cpfOaAmount ?? null
     if (cpf != null && cpf > amount) {
       return NextResponse.json({ error: "CPF OA amount cannot exceed repayment" }, { status: 400 })
@@ -124,7 +126,7 @@ export async function POST(request: NextRequest) {
 
     const { data: loan } = await supabase
       .from("loans")
-      .select("id, principal, rate_pct, use_cpf_oa, start_date")
+      .select("id, principal, rate_pct, use_cpf_oa, start_date, valuation_limit")
       .eq("id", loanId)
       .single()
 
@@ -132,6 +134,58 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Loan not found" }, { status: 404 })
     }
 
+    // Validate CPF OA withdrawal against 120% valuation limit
+    if (cpf != null && cpf > 0 && loan.use_cpf_oa && loan.valuation_limit != null) {
+      const { data: existingUsage } = await supabase
+        .from("cpf_housing_usage")
+        .select("principal_withdrawn")
+        .eq("loan_id", loanId)
+      const totalUsed = (existingUsage ?? []).reduce(
+        (sum, u) => sum + Number(u.principal_withdrawn),
+        0,
+      )
+      const headroom = vlHeadroom120(loan.valuation_limit, totalUsed)
+      if (headroom != null && cpf > headroom) {
+        return NextResponse.json(
+          {
+            error: `CPF withdrawal of $${cpf} exceeds 120% VL headroom ($${headroom} remaining)`,
+          },
+          { status: 400 },
+        )
+      }
+    }
+
+    // Early repayment: goes entirely to principal reduction
+    if (isEarly) {
+      const { data: inserted, error: insErr } = await supabase
+        .from("loan_early_repayments")
+        .insert({ loan_id: loanId, amount, date })
+        .select()
+        .single()
+
+      if (insErr) {
+        console.error("[api/loans/repayments] early insert", insErr)
+        return NextResponse.json({ error: "Failed to log early repayment" }, { status: 500 })
+      }
+
+      // If CPF OA was used for the early repayment, record housing usage
+      if (cpf != null && cpf > 0 && loan.use_cpf_oa) {
+        const { error: cpfErr } = await supabase.from("cpf_housing_usage").insert({
+          loan_id: loanId,
+          principal_withdrawn: cpf,
+          accrued_interest: 0,
+          withdrawal_date: date,
+          usage_type: "other",
+        })
+        if (cpfErr) {
+          console.error("[api/loans/repayments] early cpf_housing_usage", cpfErr)
+        }
+      }
+
+      return NextResponse.json(inserted, { status: 201 })
+    }
+
+    // Regular repayment: split into interest and principal
     const { data: priorRepays } = await supabase
       .from("loan_repayments")
       .select("amount, date")

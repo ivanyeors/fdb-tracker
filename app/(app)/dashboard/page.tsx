@@ -22,6 +22,7 @@ import { CashflowSankey } from "@/components/dashboard/cashflow/cashflow-sankey"
 import { JournalList, type JournalEntry } from "@/components/dashboard/investments/journal-list"
 import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import { useDataRefresh } from "@/hooks/use-data-refresh"
 import {
   currentMonthYm,
   ilpEntryMonthKey,
@@ -113,6 +114,7 @@ type IlpProductWithEntries = {
 
 export default function OverviewPage() {
   const { activeProfileId, activeFamilyId, families } = useActiveProfile()
+  const { dataVersion } = useDataRefresh()
   const [data, setData] = useState<{
     totalNetWorth?: number
     liquidNetWorth?: number
@@ -290,7 +292,7 @@ export default function OverviewPage() {
       }
     }
     fetchAll()
-  }, [params, activeFamilyId, families])
+  }, [params, activeFamilyId, families, dataVersion])
 
   useEffect(() => {
     if (!selectedMonth || (!activeProfileId && !activeFamilyId)) return

@@ -5,6 +5,7 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { buildBalanceTimeline } from "@/lib/calculations/bank-balance"
 import { getEffectiveInflowForProfile } from "@/lib/api/effective-inflow"
+import { getEffectiveOutflowForProfile } from "@/lib/api/effective-outflow"
 import {
   getGiroDebitForAccount,
   getGiroCreditForAccount,
@@ -79,6 +80,16 @@ export async function GET(request: NextRequest) {
 
     const profileId = account.profile_id
 
+    // For shared accounts (no profile_id), resolve all profiles in the family
+    let profileIds: string[] = profileId ? [profileId] : []
+    if (!profileId) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("family_id", account.family_id)
+      profileIds = profiles?.map((p) => p.id) ?? []
+    }
+
     const cashflowMap: Record<string, { inflow: number; outflow: number }> = {}
 
     if (profileId) {
@@ -96,7 +107,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // User's outflow is total (inclusive of insurance, ILP, loans, tax)
     // Add GIRO debit from this account and credit to this account
     const [giroDebit, giroCredit] = await Promise.all([
       getGiroDebitForAccount(supabase, bankAccountId),
@@ -106,17 +116,40 @@ export async function GET(request: NextRequest) {
     const monthlyData = await Promise.all(
       monthRange.map(async (month) => {
         const cf = cashflowMap[month] ?? { inflow: 0, outflow: 0 }
-        const resolvedInflow = profileId
-          ? await getEffectiveInflowForProfile(supabase, profileId, month)
-          : cf.inflow
+
+        // Resolve inflow and fixed costs across all relevant profiles
+        let resolvedInflow = 0
+        let insurancePremiums = 0
+        let ilpPremiums = 0
+        let loanRepayments = 0
+        let taxProvision = 0
+
+        for (const pid of profileIds) {
+          resolvedInflow += await getEffectiveInflowForProfile(
+            supabase,
+            pid,
+            month,
+          )
+          const eff = await getEffectiveOutflowForProfile(supabase, pid, month)
+          insurancePremiums += eff.insurance
+          ilpPremiums += eff.ilp
+          loanRepayments += eff.loans
+          taxProvision += eff.tax
+        }
+
+        // If no profiles resolved (edge case), fall back to raw cashflow
+        if (profileIds.length === 0) {
+          resolvedInflow = cf.inflow
+        }
+
         return {
           month,
           inflow: resolvedInflow + giroCredit,
           discretionaryOutflow: cf.outflow + giroDebit,
-          insurancePremiums: 0,
-          ilpPremiums: 0,
-          loanRepayments: 0,
-          taxProvision: 0,
+          insurancePremiums,
+          ilpPremiums,
+          loanRepayments,
+          taxProvision,
         }
       }),
     )

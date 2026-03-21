@@ -43,6 +43,11 @@ export async function getEffectiveInflowForProfile(
     .single()
 
   if (!profile || !incomeConfig || incomeConfig.annual_salary <= 0) {
+    if (!profile) {
+      console.warn(`[effective-inflow] Profile ${profileId} not found or missing birth_year`)
+    } else if (!incomeConfig) {
+      console.warn(`[effective-inflow] No income_config for profile ${profileId}`)
+    }
     return 0
   }
 

@@ -59,12 +59,15 @@ export async function POST(request: Request) {
       familyId = fam.id
     }
 
-    await supabase
+    // Get existing schedule IDs before modifying
+    const { data: existing } = await supabase
       .from("prompt_schedule")
-      .delete()
+      .select("id")
       .eq("family_id", familyId)
+    const existingIds = (existing ?? []).map((r) => r.id)
 
     if (promptSchedule.length > 0) {
+      // Insert new rows first — if this fails, old rows are preserved
       const { error } = await supabase.from("prompt_schedule").insert(
         promptSchedule.map((s) => ({
           family_id: familyId,
@@ -83,6 +86,14 @@ export async function POST(request: Request) {
           { status: 500 },
         )
       }
+    }
+
+    // Delete old rows only after new ones are successfully inserted
+    if (existingIds.length > 0) {
+      await supabase
+        .from("prompt_schedule")
+        .delete()
+        .in("id", existingIds)
     }
 
     return NextResponse.json({ success: true, familyId })

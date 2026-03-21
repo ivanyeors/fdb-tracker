@@ -23,6 +23,7 @@ type UserSettingsSaveContextValue = {
   unregister: (id: string) => void
   bumpDirty: () => void
   aggregateDirty: boolean
+  isProfileDirty: (profileId: string) => boolean
   saveAll: () => Promise<void>
   isSaving: boolean
 }
@@ -57,6 +58,17 @@ export function UserSettingsSaveProvider({ children }: { children: ReactNode }) 
     return false
   }, [generation])
 
+  const isProfileDirty = useCallback(
+    (profileId: string) => {
+      void generation
+      for (const [key, entry] of registry.current.entries()) {
+        if (key.includes(profileId) && entry.isDirty()) return true
+      }
+      return false
+    },
+    [generation]
+  )
+
   const saveAll = useCallback(async () => {
     const sorted = [...registry.current.entries()].sort(([a], [b]) => a.localeCompare(b))
     const toRun = sorted.filter(([, e]) => e.isDirty())
@@ -82,10 +94,11 @@ export function UserSettingsSaveProvider({ children }: { children: ReactNode }) 
       unregister,
       bumpDirty,
       aggregateDirty,
+      isProfileDirty,
       saveAll,
       isSaving,
     }),
-    [register, unregister, bumpDirty, aggregateDirty, saveAll, isSaving]
+    [register, unregister, bumpDirty, aggregateDirty, isProfileDirty, saveAll, isSaving]
   )
 
   return (

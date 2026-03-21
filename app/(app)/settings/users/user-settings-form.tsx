@@ -65,6 +65,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { SymbolPickerDrawer } from "@/components/dashboard/investments/symbol-picker-drawer"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import { Badge } from "@/components/ui/badge"
 import { cn, formatCurrency } from "@/lib/utils"
 import {
   getFieldsForInsurancePolicyRow,
@@ -78,7 +84,7 @@ import {
   deleteFamily,
 } from "../actions"
 import { toast } from "sonner"
-import { Loader2, Trash2, UserPlus, ExternalLink, Plus, FileText, X, Pencil } from "lucide-react"
+import { Loader2, Trash2, UserPlus, ExternalLink, Plus, FileText, X, Pencil, ChevronRight } from "lucide-react"
 import type { ProfileWithIncome } from "./types"
 
 const ACCOUNT_TYPES = [
@@ -205,6 +211,73 @@ export type FinancialDataByFamily = {
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <h3 className="text-sm font-semibold mb-2 mt-6 first:mt-0">{children}</h3>
+  )
+}
+
+function SectionGroupLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mt-8 mb-3 first:mt-0">
+      {children}
+    </h3>
+  )
+}
+
+function CollapsibleSection({
+  title,
+  badge,
+  defaultOpen = false,
+  children,
+}: {
+  title: string
+  badge?: string
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <Collapsible defaultOpen={defaultOpen} className="group/section">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2.5 text-left text-sm font-semibold transition-colors hover:bg-muted/60">
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]/section:rotate-90" />
+        <span className="flex-1">{title}</span>
+        {badge && (
+          <Badge variant="secondary" className="text-[11px] font-normal">
+            {badge}
+          </Badge>
+        )}
+      </CollapsibleTrigger>
+      <CollapsibleContent forceMount className="overflow-hidden data-[state=closed]:hidden">
+        <div className="pt-3 pb-1">
+          {children}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
+function ScrollableTableWrapper({
+  minWidth,
+  children,
+}: {
+  minWidth: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="overflow-x-auto -mx-1 px-1">
+      <div style={{ minWidth }}>{children}</div>
+    </div>
+  )
+}
+
+function EmptyState({ noun, onAdd }: { noun: string; onAdd?: () => void }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-dashed p-4">
+      <p className="text-sm text-muted-foreground">No {noun} yet.</p>
+      {onAdd && (
+        <Button size="sm" variant="outline" onClick={onAdd}>
+          <Plus className="mr-1 h-4 w-4" />
+          Add
+        </Button>
+      )}
+    </div>
   )
 }
 
@@ -395,8 +468,7 @@ function ProfileSection({
 
   return (
     <>
-      <div className="mb-2 mt-6 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">Profile</h3>
+      <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" asChild>
             <Link href={`/dashboard?profileId=${profile.id}`}>
@@ -448,81 +520,78 @@ function ProfileSection({
         </div>
       </div>
       <div data-profile-id={profile.id}>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Birth Year</TableHead>
-              <TableHead>Annual Salary</TableHead>
-              <TableHead>Bonus</TableHead>
-              <TableHead>Pay Freq</TableHead>
-              <TableHead>CPF %</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow>
-              <TableCell>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="h-8 w-full min-w-[100px]"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  min={1900}
-                  max={new Date().getFullYear()}
-                  value={birthYear}
-                  onChange={(e) => setBirthYear(Number(e.target.value) || 1990)}
-                  className="h-8 w-20"
-                />
-              </TableCell>
-              <TableCell>
-                <CurrencyInput
-                  value={annualSalary}
-                  onChange={(v) => setAnnualSalary(v ?? 0)}
-                  className="h-8 w-28"
-                />
-              </TableCell>
-              <TableCell>
-                <CurrencyInput
-                  value={bonusEstimate}
-                  onChange={(v) => setBonusEstimate(v ?? 0)}
-                  className="h-8 w-28"
-                />
-              </TableCell>
-              <TableCell>
-                <Select
-                  value={payFrequency}
-                  onValueChange={(v) => setPayFrequency(v as "monthly" | "bi-monthly" | "weekly")}
-                >
-                  <SelectTrigger className="h-8 w-[110px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="bi-monthly">Bi-Monthly</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.1}
-                  value={employeeCpfRate}
-                  onChange={(e) => setEmployeeCpfRate(e.target.value)}
-                  placeholder="Default"
-                  className="h-8 w-16"
-                />
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-1.5">
+            <Label htmlFor={`name-${profile.id}`}>Name</Label>
+            <Input
+              id={`name-${profile.id}`}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="h-8"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`birth-${profile.id}`}>Birth Year</Label>
+            <Input
+              id={`birth-${profile.id}`}
+              type="number"
+              min={1900}
+              max={new Date().getFullYear()}
+              value={birthYear}
+              onChange={(e) => setBirthYear(Number(e.target.value) || 1990)}
+              className="h-8"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`salary-${profile.id}`}>Annual Salary</Label>
+            <CurrencyInput
+              id={`salary-${profile.id}`}
+              value={annualSalary}
+              onChange={(v) => setAnnualSalary(v ?? 0)}
+              className="h-8"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`bonus-${profile.id}`}>Bonus Estimate</Label>
+            <CurrencyInput
+              id={`bonus-${profile.id}`}
+              value={bonusEstimate}
+              onChange={(v) => setBonusEstimate(v ?? 0)}
+              className="h-8"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`freq-${profile.id}`}>Pay Frequency</Label>
+            <Select
+              value={payFrequency}
+              onValueChange={(v) => setPayFrequency(v as "monthly" | "bi-monthly" | "weekly")}
+            >
+              <SelectTrigger id={`freq-${profile.id}`} className="h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="bi-monthly">Bi-Monthly</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`cpf-${profile.id}`}>Employee CPF %</Label>
+            <Input
+              id={`cpf-${profile.id}`}
+              type="number"
+              min={0}
+              max={100}
+              step={0.1}
+              value={employeeCpfRate}
+              onChange={(e) => setEmployeeCpfRate(e.target.value)}
+              placeholder="Default"
+              className="h-8"
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
           <Switch
             id={`dps-${profile.id}`}
             checked={dpsInclude}
@@ -573,7 +642,6 @@ function TelegramSection({ profile }: { profile: ProfileWithIncome }) {
 
   return (
     <>
-      <SectionTitle>Telegram Integration</SectionTitle>
       <div className="space-y-4 rounded-lg border p-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -709,48 +777,14 @@ function BanksSection({
   if (banks.length === 0 && !adding) {
     return (
       <>
-        <SectionTitle>Banks</SectionTitle>
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">No bank accounts. Add one below.</p>
-          <div className="flex flex-wrap gap-2 rounded-lg border p-3">
-            <Input
-              placeholder="Bank name"
-              value={newBank.bank_name}
-              onChange={(e) => setNewBank((p) => ({ ...p, bank_name: e.target.value }))}
-              className="h-8 w-32"
-            />
-            <Select
-              value={newBank.account_type}
-              onValueChange={(v) => setNewBank((p) => ({ ...p, account_type: v as typeof newBank.account_type }))}
-            >
-              <SelectTrigger className="h-8 w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ACCOUNT_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <CurrencyInput
-              placeholder="Balance"
-              value={newBank.opening_balance}
-              onChange={(v) => setNewBank((p) => ({ ...p, opening_balance: v ?? 0 }))}
-              className="h-8 w-28"
-            />
-            <Button size="sm" onClick={handleAdd} disabled={adding}>
-              {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Add
-            </Button>
-          </div>
-        </div>
+        <EmptyState noun="bank accounts" onAdd={() => setAdding(true)} />
       </>
     )
   }
 
   return (
     <>
-      <SectionTitle>Banks</SectionTitle>
+      <ScrollableTableWrapper minWidth="640px">
       <Table>
         <TableHeader>
           <TableRow>
@@ -892,6 +926,7 @@ function BanksSection({
           </TableRow>
         </TableBody>
       </Table>
+      </ScrollableTableWrapper>
     </>
   )
 }
@@ -1014,35 +1049,12 @@ function SavingsGoalsSection({
   useUserSettingsSaveRegistration(`user-settings-goals-${profileId}`, goalsDirty, persistGoals)
 
   if (goals.length === 0 && !adding) {
-    return (
-      <>
-        <SectionTitle>Savings Goals</SectionTitle>
-        <p className="text-sm text-muted-foreground">No savings goals. Add one to get started.</p>
-        <div className="flex flex-wrap gap-2 rounded-lg border p-3 mt-2">
-          <Input
-            placeholder="Goal name"
-            value={newGoal.name}
-            onChange={(e) => setNewGoal((p) => ({ ...p, name: e.target.value }))}
-            className="h-8 w-32"
-          />
-          <CurrencyInput
-            placeholder="Target"
-            value={newGoal.target_amount}
-            onChange={(v) => setNewGoal((p) => ({ ...p, target_amount: v ?? 0 }))}
-            className="h-8 w-24"
-          />
-          <Button size="sm" onClick={handleAdd} disabled={adding}>
-            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Add goal
-          </Button>
-        </div>
-      </>
-    )
+    return <EmptyState noun="savings goals" onAdd={() => setAdding(true)} />
   }
 
   return (
     <>
-      <SectionTitle>Savings Goals</SectionTitle>
+      <ScrollableTableWrapper minWidth="560px">
       <Table>
         <TableHeader>
           <TableRow>
@@ -1130,6 +1142,7 @@ function SavingsGoalsSection({
           </TableRow>
         </TableBody>
       </Table>
+      </ScrollableTableWrapper>
     </>
   )
 }
@@ -1143,7 +1156,6 @@ function CPFSection({
   cpfData: FinancialDataByFamily["cpfBalances"][0] | undefined
   familyId: string
 }) {
-  const [isEditingCpf, setIsEditingCpf] = useState(false)
   const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`
   const [oa, setOa] = useState(cpfData?.oa ?? 0)
   const [sa, setSa] = useState(cpfData?.sa ?? 0)
@@ -1156,8 +1168,7 @@ function CPFSection({
   }, [cpfData])
 
   const cpfDirty =
-    isEditingCpf &&
-    (oa !== (cpfData?.oa ?? 0) || sa !== (cpfData?.sa ?? 0) || ma !== (cpfData?.ma ?? 0))
+    oa !== (cpfData?.oa ?? 0) || sa !== (cpfData?.sa ?? 0) || ma !== (cpfData?.ma ?? 0)
 
   const persistCpf = useCallback(async () => {
     const res = await fetch("/api/cpf/balances", {
@@ -1176,71 +1187,41 @@ function CPFSection({
       const data = await res.json().catch(() => ({}))
       throw new Error((data as { error?: string }).error ?? "Failed to save CPF")
     }
-    setIsEditingCpf(false)
   }, [profileId, familyId, currentMonth, oa, sa, ma])
 
   useUserSettingsSaveRegistration(`user-settings-cpf-${profileId}`, cpfDirty, persistCpf)
 
-  function handleCancel() {
-    setOa(cpfData?.oa ?? 0)
-    setSa(cpfData?.sa ?? 0)
-    setMa(cpfData?.ma ?? 0)
-    setIsEditingCpf(false)
-  }
-
   return (
     <>
-      <SectionTitle>CPF</SectionTitle>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>OA</TableHead>
-            <TableHead>SA</TableHead>
-            <TableHead>MA</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow>
-            {isEditingCpf ? (
-              <>
-                <TableCell>
-                  <CurrencyInput value={oa} onChange={(v) => setOa(v ?? 0)} className="h-8 w-28" />
-                </TableCell>
-                <TableCell>
-                  <CurrencyInput value={sa} onChange={(v) => setSa(v ?? 0)} className="h-8 w-28" />
-                </TableCell>
-                <TableCell>
-                  <CurrencyInput value={ma} onChange={(v) => setMa(v ?? 0)} className="h-8 w-28" />
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button size="sm" variant="ghost" onClick={handleCancel}>
-                    Cancel
-                  </Button>
-                </TableCell>
-              </>
-            ) : (
-              <>
-                <TableCell className="text-muted-foreground">
-                  ${formatCurrency(oa)}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  ${formatCurrency(sa)}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  ${formatCurrency(ma)}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button size="sm" variant="outline" onClick={() => setIsEditingCpf(true)}>
-                    <Pencil className="h-4 w-4" />
-                    Edit
-                  </Button>
-                </TableCell>
-              </>
-            )}
-          </TableRow>
-        </TableBody>
-      </Table>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="space-y-1.5">
+          <Label htmlFor={`cpf-oa-${profileId}`}>Ordinary Account (OA)</Label>
+          <CurrencyInput
+            id={`cpf-oa-${profileId}`}
+            value={oa}
+            onChange={(v) => setOa(v ?? 0)}
+            className="h-8"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`cpf-sa-${profileId}`}>Special Account (SA)</Label>
+          <CurrencyInput
+            id={`cpf-sa-${profileId}`}
+            value={sa}
+            onChange={(v) => setSa(v ?? 0)}
+            className="h-8"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`cpf-ma-${profileId}`}>Medisave Account (MA)</Label>
+          <CurrencyInput
+            id={`cpf-ma-${profileId}`}
+            value={ma}
+            onChange={(v) => setMa(v ?? 0)}
+            className="h-8"
+          />
+        </div>
+      </div>
     </>
   )
 }
@@ -1373,7 +1354,6 @@ function MonthlyLogSection({
 
   return (
     <>
-      <SectionTitle>Monthly</SectionTitle>
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={() => setDrawerOpen(true)}>
           <FileText className="h-4 w-4" />
@@ -1810,7 +1790,6 @@ function InvestmentsSection({
   if (investments.length === 0 && !adding) {
     return (
       <>
-        <SectionTitle>Investments</SectionTitle>
         <InvestmentCashBalanceSettings
           profileId={profileId}
           familyId={familyId}
@@ -1911,12 +1890,12 @@ function InvestmentsSection({
 
   return (
     <>
-      <SectionTitle>Investments</SectionTitle>
       <InvestmentCashBalanceSettings
         profileId={profileId}
         familyId={familyId}
         onMutate={onMutate}
       />
+      <ScrollableTableWrapper minWidth="700px">
       <Table>
         <TableHeader>
           <TableRow>
@@ -2142,6 +2121,7 @@ function InvestmentsSection({
           </TableRow>
         </TableBody>
       </Table>
+      </ScrollableTableWrapper>
       <SymbolPickerDrawer
         open={symbolDrawerOpen || symbolDrawerEditId !== null}
         onOpenChange={(open) => {
@@ -2308,7 +2288,6 @@ function LoansSection({
   if (loans.length === 0 && !adding) {
     return (
       <>
-        <SectionTitle>Loans</SectionTitle>
         <p className="text-sm text-muted-foreground">No loans. Add one below.</p>
         <div className="flex flex-wrap gap-4 rounded-lg border p-3 mt-2">
           <div className="space-y-1">
@@ -2417,7 +2396,7 @@ function LoansSection({
 
   return (
     <>
-      <SectionTitle>Loans</SectionTitle>
+      <ScrollableTableWrapper minWidth="800px">
       <Table>
         <TableHeader>
           <TableRow>
@@ -2651,6 +2630,7 @@ function LoansSection({
           </TableRow>
         </TableBody>
       </Table>
+      </ScrollableTableWrapper>
     </>
   )
 }
@@ -2767,7 +2747,6 @@ function LoanRepaymentsSection({
 
   return (
     <>
-      <SectionTitle>Loan repayments</SectionTitle>
       <p className="text-sm text-muted-foreground">
         Log instalments here. If you enter a CPF OA portion and the loan uses CPF OA, a matching monthly
         housing tranche is created for the CPF dashboard.
@@ -2825,6 +2804,7 @@ function LoanRepaymentsSection({
       </div>
 
       <div className="mt-4 rounded-md border">
+        <ScrollableTableWrapper minWidth="600px">
         <Table>
           <TableHeader>
             <TableRow>
@@ -2871,6 +2851,7 @@ function LoanRepaymentsSection({
             )}
           </TableBody>
         </Table>
+        </ScrollableTableWrapper>
         {rows.length > 25 && (
           <p className="border-t px-3 py-2 text-xs text-muted-foreground">
             Showing latest 25 of {rows.length}
@@ -3058,7 +3039,6 @@ function InsuranceSection({
   if (policies.length === 0 && !adding) {
     return (
       <>
-        <SectionTitle>Insurance</SectionTitle>
         <p className="text-sm text-muted-foreground">No insurance policies. Add one below.</p>
         <div className="flex flex-wrap gap-4 rounded-lg border p-3 mt-2">
           <div className="space-y-1">
@@ -3178,7 +3158,7 @@ function InsuranceSection({
 
   return (
     <>
-      <SectionTitle>Insurance</SectionTitle>
+      <ScrollableTableWrapper minWidth="850px">
       <Table>
         <TableHeader>
           <TableRow>
@@ -3465,6 +3445,7 @@ function InsuranceSection({
           </TableRow>
         </TableBody>
       </Table>
+      </ScrollableTableWrapper>
     </>
   )
 }
@@ -3675,39 +3656,92 @@ function FamilyMemberSettingsPanels({
   const profilePolicies = financialData.insurancePolicies.filter((pol) => pol.profile_id === p.id)
   const cpfData = financialData.cpfBalances.find((c) => c.profile_id === p.id)
 
+  const profileLogs = financialData.monthlyCashflow.filter((l) => l.profile_id === p.id)
+  const telegramBadge = p.telegram_user_id ? "Connected" : "Not linked"
+
   return (
-    <div className="space-y-2">
-      <MonthlyLogSection
-        profileId={p.id}
-        profileName={p.name}
-        logs={financialData.monthlyCashflow}
-        familyId={family.id}
-        onMutate={handleMutate}
-      />
-      <ProfileSection profile={p} profileCount={profiles.length} />
-      <TelegramSection profile={p} />
-      <BanksSection
-        banks={profileBanks}
-        profileId={p.id}
-        familyId={family.id}
-        onMutate={handleMutate}
-      />
-      <SavingsGoalsSection
-        goals={profileGoals}
-        profileId={p.id}
-        familyId={family.id}
-        onMutate={handleMutate}
-      />
-      <CPFSection profileId={p.id} cpfData={cpfData} familyId={family.id} />
-      <InvestmentsSection
-        investments={profileInvestments}
-        profileId={p.id}
-        familyId={family.id}
-        onMutate={handleMutate}
-      />
-      <LoansSection loans={profileLoans} profileId={p.id} onMutate={handleMutate} />
-      <LoanRepaymentsSection loans={profileLoans} profileId={p.id} onMutate={handleMutate} />
-      <InsuranceSection policies={profilePolicies} profileId={p.id} onMutate={handleMutate} />
+    <div className="space-y-3">
+      <SectionGroupLabel>Personal</SectionGroupLabel>
+      <CollapsibleSection title="Profile" badge="Edit" defaultOpen>
+        <ProfileSection profile={p} profileCount={profiles.length} />
+      </CollapsibleSection>
+      <CollapsibleSection title="Telegram" badge={telegramBadge} defaultOpen>
+        <TelegramSection profile={p} />
+      </CollapsibleSection>
+      <CollapsibleSection
+        title="Monthly Log"
+        badge={profileLogs.length > 0 ? `${profileLogs.length} entries` : "No entries"}
+        defaultOpen
+      >
+        <MonthlyLogSection
+          profileId={p.id}
+          profileName={p.name}
+          logs={financialData.monthlyCashflow}
+          familyId={family.id}
+          onMutate={handleMutate}
+        />
+      </CollapsibleSection>
+
+      <SectionGroupLabel>Assets</SectionGroupLabel>
+      <CollapsibleSection
+        title="Banks"
+        badge={profileBanks.length > 0 ? `${profileBanks.length} accounts` : "None"}
+      >
+        <BanksSection
+          banks={profileBanks}
+          profileId={p.id}
+          familyId={family.id}
+          onMutate={handleMutate}
+        />
+      </CollapsibleSection>
+      <CollapsibleSection
+        title="CPF"
+        badge={cpfData ? "Set" : "Not set"}
+      >
+        <CPFSection profileId={p.id} cpfData={cpfData} familyId={family.id} />
+      </CollapsibleSection>
+      <CollapsibleSection
+        title="Investments"
+        badge={profileInvestments.length > 0 ? `${profileInvestments.length} holdings` : "None"}
+      >
+        <InvestmentsSection
+          investments={profileInvestments}
+          profileId={p.id}
+          familyId={family.id}
+          onMutate={handleMutate}
+        />
+      </CollapsibleSection>
+      <CollapsibleSection
+        title="Savings Goals"
+        badge={profileGoals.length > 0 ? `${profileGoals.length} goals` : "None"}
+      >
+        <SavingsGoalsSection
+          goals={profileGoals}
+          profileId={p.id}
+          familyId={family.id}
+          onMutate={handleMutate}
+        />
+      </CollapsibleSection>
+
+      <SectionGroupLabel>Liabilities</SectionGroupLabel>
+      <CollapsibleSection
+        title="Loans"
+        badge={profileLoans.length > 0 ? `${profileLoans.length} loans` : "None"}
+      >
+        <LoansSection loans={profileLoans} profileId={p.id} onMutate={handleMutate} />
+      </CollapsibleSection>
+      <CollapsibleSection
+        title="Loan Repayments"
+        badge={profileLoans.length > 0 ? `${profileLoans.length} loans` : "None"}
+      >
+        <LoanRepaymentsSection loans={profileLoans} profileId={p.id} onMutate={handleMutate} />
+      </CollapsibleSection>
+      <CollapsibleSection
+        title="Insurance"
+        badge={profilePolicies.length > 0 ? `${profilePolicies.length} policies` : "None"}
+      >
+        <InsuranceSection policies={profilePolicies} profileId={p.id} onMutate={handleMutate} />
+      </CollapsibleSection>
     </div>
   )
 }
@@ -3966,6 +4000,7 @@ export function FamilyMembersTable({
             >
               {profiles.map((p) => {
                 const isActive = activeTab === p.id
+                const isDirty = saveCtx?.isProfileDirty(p.id) ?? false
                 return (
                   <button
                     key={p.id}
@@ -3986,6 +4021,12 @@ export function FamilyMembersTable({
                       {profileInitials(p.name)}
                     </span>
                     <span className="min-w-0 truncate">{p.name}</span>
+                    {isDirty && (
+                      <span
+                        className="ml-auto h-2 w-2 shrink-0 rounded-full bg-primary"
+                        aria-label="Unsaved changes"
+                      />
+                    )}
                   </button>
                 )
               })}
@@ -3994,12 +4035,6 @@ export function FamilyMembersTable({
             <div className="min-w-0 flex-1 space-y-4">
               {activeProfile && (
                 <>
-                  <div className="rounded-lg border border-foreground/10 bg-muted/40 px-4 py-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Editing
-                    </p>
-                    <p className="text-base font-semibold text-foreground">{activeProfile.name}</p>
-                  </div>
                   <FamilyMemberSettingsPanels
                     key={`${activeProfile.id}-${tabsResetKey}`}
                     p={activeProfile}

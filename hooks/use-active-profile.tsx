@@ -154,6 +154,19 @@ export function ActiveProfileProvider({
     }
   }, [profiles, activeProfileId, setActiveProfileId])
 
+  // Sync active profile/family across tabs via storage events
+  React.useEffect(() => {
+    function handleStorage(e: StorageEvent) {
+      if (e.key === ACTIVE_FAMILY_KEY && e.newValue) {
+        setActiveFamilyIdState(e.newValue)
+      } else if (e.key === ACTIVE_PROFILE_KEY) {
+        setActiveProfileIdState(e.newValue)
+      }
+    }
+    window.addEventListener("storage", handleStorage)
+    return () => window.removeEventListener("storage", handleStorage)
+  }, [])
+
   const value = React.useMemo<ActiveProfileContextValue>(
     () => ({
       activeProfileId,

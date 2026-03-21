@@ -131,6 +131,14 @@ export default async function UserSettingsPage() {
 
   const supabase = createSupabaseAdmin()
 
+  const { data: household } = await supabase
+    .from("households")
+    .select("onboarding_completed_at")
+    .eq("id", householdId)
+    .single()
+
+  const onboardingComplete = !!household?.onboarding_completed_at
+
   const { data: families } = await supabase
     .from("families")
     .select("id, name, created_at")
@@ -188,20 +196,28 @@ export default async function UserSettingsPage() {
   }
 
   return (
-    <div className="p-2 sm:p-4 max-w-7xl mx-auto space-y-8">
+    <div className="p-2 sm:p-4 max-w-5xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-semibold">User Settings</h1>
         <p className="text-muted-foreground mt-1">
-          Per-user financial configuration across all families.
+          Manage family members and their financial data.
         </p>
         <UserSettingsActiveContext />
       </div>
 
-      <div className="flex items-center gap-3">
-        <Button variant="outline" asChild>
-          <Link href="/onboarding?mode=resume">Complete your setup</Link>
-        </Button>
-      </div>
+      {!onboardingComplete && (
+        <div className="flex items-center gap-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
+          <div className="flex-1">
+            <p className="text-sm font-medium">Setup incomplete</p>
+            <p className="text-xs text-muted-foreground">
+              Complete onboarding to configure all your financial data.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/onboarding?mode=resume">Continue setup</Link>
+          </Button>
+        </div>
+      )}
 
       <Suspense
         fallback={

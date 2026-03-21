@@ -6,6 +6,7 @@ import { formatCurrency } from "@/lib/utils"
 import { calculateMonthlyAuto } from "@/lib/calculations/savings-goals"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import { useDataRefresh } from "@/hooks/use-data-refresh"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -17,6 +18,13 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
+interface GoalContribution {
+  id: string
+  amount: number
+  source: string
+  created_at: string
+}
+
 interface Goal {
   id: string
   name: string
@@ -26,10 +34,12 @@ interface Goal {
   deadline: string | null
   category: string
   created_at: string
+  goal_contributions: GoalContribution[]
 }
 
 export function SavingsGoalsSection() {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
+  const { dataVersion } = useDataRefresh()
   const [goals, setGoals] = useState<Goal[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -58,7 +68,7 @@ export function SavingsGoalsSection() {
       }
     }
     void fetchGoals()
-  }, [activeProfileId, activeFamilyId])
+  }, [activeProfileId, activeFamilyId, dataVersion])
 
   const totalTarget = useMemo(
     () => goals.reduce((sum, g) => sum + g.target_amount, 0),
@@ -128,6 +138,13 @@ export function SavingsGoalsSection() {
                 goal.current_amount,
                 goal.deadline,
               )
+              const recentContributions = (goal.goal_contributions ?? [])
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime(),
+                )
+                .slice(0, 3)
 
               return (
                 <Card key={goal.id} className="flex flex-col">
@@ -174,6 +191,33 @@ export function SavingsGoalsSection() {
                         </span>
                       )}
                     </div>
+                    {recentContributions.length > 0 && (
+                      <div className="mt-3 border-t pt-2">
+                        <p className="mb-1 text-xs font-medium text-muted-foreground">
+                          Recent Contributions
+                        </p>
+                        <div className="space-y-1">
+                          {recentContributions.map((c) => (
+                            <div
+                              key={c.id}
+                              className="flex items-center justify-between text-xs"
+                            >
+                              <span className="text-muted-foreground">
+                                {new Date(c.created_at).toLocaleDateString()}
+                                {c.source !== "telegram" && (
+                                  <span className="ml-1 capitalize">
+                                    ({c.source})
+                                  </span>
+                                )}
+                              </span>
+                              <span className="font-medium text-green-600 dark:text-green-400">
+                                +${formatCurrency(c.amount)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )

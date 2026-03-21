@@ -171,6 +171,34 @@ const DEFAULT_PROMPT_SCHEDULE: PromptScheduleConfig[] = [
   },
 ]
 
+const ONBOARDING_STORAGE_KEY = "fdb-onboarding-draft"
+
+function saveOnboardingDraft(state: OnboardingState & { familyId: string | null }) {
+  try {
+    localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // Storage full or unavailable
+  }
+}
+
+function loadOnboardingDraft(): (OnboardingState & { familyId: string | null }) | null {
+  try {
+    const raw = localStorage.getItem(ONBOARDING_STORAGE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+export function clearOnboardingDraft() {
+  try {
+    localStorage.removeItem(ONBOARDING_STORAGE_KEY)
+  } catch {
+    // ignore
+  }
+}
+
 const OnboardingContext = createContext<OnboardingContextValue | null>(null)
 
 export function OnboardingProvider({
@@ -202,6 +230,26 @@ export function OnboardingProvider({
   const [insurancePolicies, setInsurancePolicies] = useState<OnboardingInsurance[]>([])
   const [ilpProducts, setIlpProducts] = useState<OnboardingIlp[]>([])
   const [taxReliefInputs, setTaxReliefInputs] = useState<OnboardingTaxRelief[]>([])
+
+  // Restore from localStorage immediately (before API call)
+  useEffect(() => {
+    const draft = loadOnboardingDraft()
+    if (draft) {
+      setUserCount(draft.userCount ?? 1)
+      if (draft.profiles?.length) setProfiles(draft.profiles)
+      if (draft.incomeConfigs?.length) setIncomeConfigs(draft.incomeConfigs)
+      setBankAccounts(draft.bankAccounts ?? [])
+      setCpfBalances(draft.cpfBalances ?? [])
+      setTelegramChatId(draft.telegramChatId ?? "")
+      if (draft.promptSchedule?.length) setPromptSchedule(draft.promptSchedule)
+      setInvestments(draft.investments ?? [])
+      setLoans(draft.loans ?? [])
+      setInsurancePolicies(draft.insurancePolicies ?? [])
+      setIlpProducts(draft.ilpProducts ?? [])
+      setTaxReliefInputs(draft.taxReliefInputs ?? [])
+      if (draft.familyId) setFamilyId(draft.familyId)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -237,7 +285,7 @@ export function OnboardingProvider({
         setTaxReliefInputs(data.taxReliefInputs ?? [])
         setFamilyId(data.familyId ?? null)
       } catch {
-        // Keep defaults on error
+        // Keep defaults on error (localStorage draft is already applied)
       } finally {
         if (!cancelled) setIsLoading(false)
       }
@@ -248,10 +296,35 @@ export function OnboardingProvider({
     }
   }, [initialMode])
 
+  // Persist onboarding state to localStorage on every change
+  useEffect(() => {
+    saveOnboardingDraft({
+      mode,
+      userCount,
+      profiles,
+      incomeConfigs,
+      bankAccounts,
+      cpfBalances,
+      telegramChatId,
+      promptSchedule,
+      investments,
+      loans,
+      insurancePolicies,
+      ilpProducts,
+      taxReliefInputs,
+      familyId,
+    })
+  }, [
+    mode, userCount, profiles, incomeConfigs, bankAccounts, cpfBalances,
+    telegramChatId, promptSchedule, investments, loans, insurancePolicies,
+    ilpProducts, taxReliefInputs, familyId,
+  ])
+
   const skipOnboarding = useCallback(async () => {
     try {
       const res = await fetch("/api/onboarding/skip", { method: "POST" })
       if (!res.ok) throw new Error("Failed to skip")
+      clearOnboardingDraft()
       toast.success("Setup skipped — welcome to your dashboard")
       router.push("/dashboard")
     } catch {

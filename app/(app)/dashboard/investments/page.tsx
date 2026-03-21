@@ -48,6 +48,7 @@ import {
 } from "@/components/dashboard/investments/journal-list"
 import { ChartSkeleton } from "@/components/loading"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import { useDataRefresh } from "@/hooks/use-data-refresh"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -140,6 +141,7 @@ export default function InvestmentsDetailPage() {
     tabParam && INVESTMENTS_TAB_SET.has(tabParam) ? tabParam : "holdings"
 
   const { activeProfileId, activeFamilyId } = useActiveProfile()
+  const { dataVersion, triggerRefresh } = useDataRefresh()
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [ilpProducts, setIlpProducts] = useState<IlpProductWithEntries[]>([])
   const [metalsPrices, setMetalsPrices] = useState<
@@ -373,11 +375,17 @@ export default function InvestmentsDetailPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [activeProfileId, activeFamilyId])
+  }, [activeProfileId, activeFamilyId, dataVersion])
 
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  /** Refetch local data and notify other pages of changes */
+  const handleMutation = useCallback(async () => {
+    await fetchData()
+    triggerRefresh()
+  }, [fetchData, triggerRefresh])
 
   /** Live market values are USD; convert to SGD for totals with cash / ILP. */
   const totalValue = useMemo(
@@ -875,7 +883,7 @@ export default function InvestmentsDetailPage() {
                   <InvestmentAccountBalance
                     embedded
                     onSuccess={() => {
-                      void fetchData()
+                      void handleMutation()
                       setCashBalanceOpen(false)
                     }}
                     cashBalance={cashBalance}
@@ -901,7 +909,7 @@ export default function InvestmentsDetailPage() {
               <div className="p-4">
                 <AddHoldingForm
                   onSuccess={() => {
-                    void fetchData()
+                    void handleMutation()
                     setAddHoldingOpen(false)
                   }}
                 />
@@ -921,7 +929,7 @@ export default function InvestmentsDetailPage() {
               <HoldingsTable
                 groups={holdingGroups}
                 portfolioDenominator={fullPortfolioTotal}
-                onChanged={fetchData}
+                onChanged={handleMutation}
                 onRowClick={(g) => setHoldingDetail(g)}
               />
               <HoldingDetailSheet
@@ -933,7 +941,7 @@ export default function InvestmentsDetailPage() {
                 lots={holdingDetail?.lots ?? []}
                 profileId={activeProfileId}
                 familyId={activeFamilyId}
-                onChanged={fetchData}
+                onChanged={handleMutation}
               />
             </>
           )}
@@ -1066,7 +1074,7 @@ export default function InvestmentsDetailPage() {
               <div className="p-4">
                 <AddIlpForm
                   onSuccess={() => {
-                    void fetchData()
+                    void handleMutation()
                     setAddIlpOpen(false)
                   }}
                 />
@@ -1127,8 +1135,8 @@ export default function InvestmentsDetailPage() {
                           monthlyData={card.monthlyData}
                           fundReportSnapshot={card.fundReportSnapshot}
                           groupAllocationPct={card.groupAllocationPct}
-                          onAddEntry={fetchData}
-                          onEditSuccess={fetchData}
+                          onAddEntry={handleMutation}
+                          onEditSuccess={handleMutation}
                           selection={{
                             selected: ilpSelectedIds.includes(card.productId),
                             onToggle: () => toggleIlpSelection(card.productId),
@@ -1160,8 +1168,8 @@ export default function InvestmentsDetailPage() {
                   monthlyData={card.monthlyData}
                   fundReportSnapshot={card.fundReportSnapshot}
                   groupAllocationPct={card.groupAllocationPct}
-                  onAddEntry={fetchData}
-                  onEditSuccess={fetchData}
+                  onAddEntry={handleMutation}
+                  onEditSuccess={handleMutation}
                   selection={{
                     selected: ilpSelectedIds.includes(card.productId),
                     onToggle: () => toggleIlpSelection(card.productId),
@@ -1175,7 +1183,7 @@ export default function InvestmentsDetailPage() {
         <TabsContent value="metals" className="mt-4 space-y-4">
           <div className="max-w-lg rounded-xl border p-4">
             <h3 className="mb-4 text-sm font-medium">Add Precious Metal</h3>
-            <AddMetalForm onSuccess={fetchData} />
+            <AddMetalForm onSuccess={handleMutation} />
           </div>
           {isLoading ? (
             <ChartSkeleton height={192} className="max-w-lg rounded-xl" />

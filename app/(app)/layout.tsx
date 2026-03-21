@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { SidebarNav } from "@/components/layout/sidebar-nav"
 import { AppMainChrome } from "@/components/layout/app-main-chrome"
 import { ActiveProfileProvider } from "@/hooks/use-active-profile"
+import { DataRefreshProvider } from "@/hooks/use-data-refresh"
 import { cookies } from "next/headers"
 import { getSessionFromCookies } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
@@ -44,12 +45,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       profiles={profiles ?? []}
       initialFamilyId={initialFamilyId}
     >
-      <SidebarProvider>
-        <SidebarNav />
-        <SidebarInset className="min-h-0">
-          <AppMainChrome>{children}</AppMainChrome>
-        </SidebarInset>
-      </SidebarProvider>
+      <DataRefreshProvider>
+        <SidebarProvider>
+          <SidebarNav />
+          <SidebarInset className="min-h-0">
+            <AppMainChrome>{children}</AppMainChrome>
+          </SidebarInset>
+        </SidebarProvider>
+      </DataRefreshProvider>
     </ActiveProfileProvider>
   )
 }
