@@ -5,6 +5,11 @@ export function sumAllocationPcts(pcts: number[]): number {
   return pcts.reduce((a, b) => a + b, 0)
 }
 
+/** Sum allocation percentages, excluding entries at exactly 0 (switch-outs). */
+export function sumNonZeroAllocationPcts(pcts: number[]): number {
+  return pcts.filter((p) => p > 0).reduce((a, b) => a + b, 0)
+}
+
 export function isValidIlpGroupAllocationSum(sum: number): boolean {
   return Math.abs(sum - 100) <= ILP_GROUP_ALLOCATION_EPSILON
 }

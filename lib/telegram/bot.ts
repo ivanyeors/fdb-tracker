@@ -39,6 +39,10 @@ export interface BotWebhookState {
   otpChatId?: string
   linkApiKeyOrToken?: string | undefined
   accountId?: string
+  /** Pre-resolved profile ID from linked Telegram account. */
+  profileId?: string
+  /** Pre-resolved family ID from linked Telegram account. */
+  familyId?: string
   type?: "buy" | "sell"
   isEarlyRepayment?: boolean
   fileId?: string

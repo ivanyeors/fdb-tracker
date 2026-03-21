@@ -248,7 +248,7 @@ export async function GET(request: NextRequest) {
 
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, name")
+        .select("id, name, telegram_chat_id")
         .eq("family_id", schedule.family_id)
 
       const ctx: ReminderContext = {
@@ -277,16 +277,28 @@ export async function GET(request: NextRequest) {
         continue
       }
 
-      const result = await sendTelegramMessage(
-        account.telegram_bot_token,
-        account.telegram_chat_id,
-        message,
-      )
+      // Send to profile-level chats if any profiles are linked, otherwise household chat
+      const profileChats = (profiles ?? [])
+        .filter((p) => p.telegram_chat_id)
+        .map((p) => p.telegram_chat_id as string)
 
-      if (result.ok) {
-        sent++
-      } else {
-        errors.push(`${schedule.id}: ${result.error}`)
+      const chatTargets =
+        profileChats.length > 0
+          ? profileChats
+          : [account.telegram_chat_id]
+
+      for (const chatTarget of chatTargets) {
+        const result = await sendTelegramMessage(
+          account.telegram_bot_token,
+          chatTarget,
+          message,
+        )
+
+        if (result.ok) {
+          sent++
+        } else {
+          errors.push(`${schedule.id}: ${result.error}`)
+        }
       }
     }
 

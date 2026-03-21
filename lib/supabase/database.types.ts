@@ -75,6 +75,9 @@ export type Database = {
           name: string
           telegram_user_id: string | null
           telegram_username: string | null
+          telegram_chat_id: string | null
+          telegram_link_token: string | null
+          telegram_last_used: string | null
           birth_year: number
           optional_onboarding_completed_at: string | null
           dps_include_in_projection: boolean
@@ -86,6 +89,9 @@ export type Database = {
           name: string
           telegram_user_id?: string | null
           telegram_username?: string | null
+          telegram_chat_id?: string | null
+          telegram_link_token?: string | null
+          telegram_last_used?: string | null
           birth_year: number
           optional_onboarding_completed_at?: string | null
           dps_include_in_projection?: boolean
@@ -97,6 +103,9 @@ export type Database = {
           name?: string
           telegram_user_id?: string | null
           telegram_username?: string | null
+          telegram_chat_id?: string | null
+          telegram_link_token?: string | null
+          telegram_last_used?: string | null
           birth_year?: number
           optional_onboarding_completed_at?: string | null
           dps_include_in_projection?: boolean

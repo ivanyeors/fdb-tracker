@@ -28,7 +28,9 @@ import {
   mergeMultiGroupAllocationItems,
   split100Across,
   sumAllocationPcts,
+  sumNonZeroAllocationPcts,
 } from "@/lib/investments/ilp-group-allocation"
+import { cn } from "@/lib/utils"
 
 const CREATE_NEW_ILP = "__create_ilp__"
 const NO_FUND_GROUP = "__no_group__"
@@ -51,6 +53,76 @@ type IlpProductRow = {
 type FundGroupRow = { id: string; name: string }
 
 type ParsedBundle = { file: File; parse: ParseResponse }
+
+type ParsedBundleMeta = {
+  fileName: string
+  snapshot: IlpFundReportSnapshot
+  suggestedMonth: string | null
+  latestNavNumeric: number | null
+}
+
+type IlpImportDraft = {
+  productId: string
+  newProductName: string
+  newMonthlyPremium: number | null
+  singlePremiumPaymentMode: "monthly" | "one_time"
+  newEndDate: string
+  fundGroupChoice: string
+  newFundGroupName: string
+  singleAllocPct: Record<string, number>
+  singleGroupPremiumAmount: number | null
+  singleGroupPremiumMode: "monthly" | "one_time"
+  month: string
+  fundValue: number | null
+  premiumsPaid: number | null
+  saveMultiAsIndividual: boolean
+  multiRows: {
+    productId: string
+    newProductName: string
+    newMonthlyPremium: number | null
+    newEndDate: string
+    fundGroupChoice: string
+    newFundGroupName: string
+    month: string
+    fundValue: number | null
+    premiumsPaid: number | null
+  }[]
+  multiGroupTarget: string
+  multiNewGroupName: string
+  multiGroupPremiumAmount: number | null
+  multiGroupPremiumMode: "monthly" | "one_time"
+  multiAllocPct: Record<string, number>
+  multiGroupTotalFundValue: number | null
+  parsedBundleMeta: ParsedBundleMeta[]
+}
+
+const ILP_IMPORT_STORAGE_KEY = "fdb-ilp-import-draft"
+
+function saveIlpImportDraft(state: IlpImportDraft) {
+  try {
+    localStorage.setItem(ILP_IMPORT_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // Storage full or unavailable
+  }
+}
+
+function loadIlpImportDraft(): IlpImportDraft | null {
+  try {
+    if (typeof window === "undefined") return null
+    const raw = localStorage.getItem(ILP_IMPORT_STORAGE_KEY)
+    return raw ? (JSON.parse(raw) as IlpImportDraft) : null
+  } catch {
+    return null
+  }
+}
+
+function clearIlpImportDraft() {
+  try {
+    localStorage.removeItem(ILP_IMPORT_STORAGE_KEY)
+  } catch {
+    // ignore
+  }
+}
 
 export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string | null }) {
   const { activeFamilyId, activeProfileId } = useActiveProfile()
@@ -113,6 +185,10 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
   >("monthly")
   /** Keys: `e:${productId}` or `n:${fileIndex}` for new products from files */
   const [multiAllocPct, setMultiAllocPct] = useState<Record<string, number>>({})
+  const [multiGroupTotalFundValue, setMultiGroupTotalFundValue] = useState<
+    number | null
+  >(null)
+  const [restoredFromDraft, setRestoredFromDraft] = useState(false)
 
   const loadProducts = useCallback(async () => {
     if (!familyId) return
@@ -135,8 +211,91 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
     void loadFundGroups()
   }, [loadProducts, loadFundGroups])
 
+  // Restore draft from localStorage on mount
+  useEffect(() => {
+    const draft = loadIlpImportDraft()
+    if (!draft || !draft.parsedBundleMeta?.length) return
+    // Reconstruct parsedBundles from stored metadata (File objects can't be serialized)
+    const bundles: ParsedBundle[] = draft.parsedBundleMeta.map((m) => ({
+      file: new File([], m.fileName),
+      parse: {
+        snapshot: m.snapshot,
+        suggestedMonth: m.suggestedMonth,
+        latestNavNumeric: m.latestNavNumeric,
+      },
+    }))
+    setParsedBundles(bundles)
+    setFileLabel(
+      bundles.length === 1
+        ? bundles[0]!.file.name
+        : `${bundles.length} files (restored)`,
+    )
+    setStep("preview")
+    setProductId(draft.productId)
+    setNewProductName(draft.newProductName)
+    setNewMonthlyPremium(draft.newMonthlyPremium)
+    setSinglePremiumPaymentMode(draft.singlePremiumPaymentMode)
+    setNewEndDate(draft.newEndDate)
+    setFundGroupChoice(draft.fundGroupChoice)
+    setNewFundGroupName(draft.newFundGroupName)
+    setSingleAllocPct(draft.singleAllocPct)
+    setSingleGroupPremiumAmount(draft.singleGroupPremiumAmount)
+    setSingleGroupPremiumMode(draft.singleGroupPremiumMode)
+    setMonth(draft.month)
+    setFundValue(draft.fundValue)
+    setPremiumsPaid(draft.premiumsPaid)
+    setSaveMultiAsIndividual(draft.saveMultiAsIndividual)
+    // Pad multiRows if draft has fewer rows than parsed bundles
+    const restoredRows = [...draft.multiRows]
+    for (let i = restoredRows.length; i < draft.parsedBundleMeta.length; i++) {
+      const meta = draft.parsedBundleMeta[i]!
+      restoredRows.push({
+        productId: CREATE_NEW_ILP,
+        newProductName: meta.snapshot.investmentName ?? "",
+        newMonthlyPremium: null,
+        newEndDate: "2060-01-01",
+        fundGroupChoice: NO_FUND_GROUP,
+        newFundGroupName: "",
+        month: meta.suggestedMonth ?? "",
+        fundValue: null,
+        premiumsPaid: null,
+      })
+    }
+    setMultiRows(restoredRows)
+    setMultiGroupTarget(draft.multiGroupTarget)
+    setMultiNewGroupName(draft.multiNewGroupName)
+    setMultiGroupPremiumAmount(draft.multiGroupPremiumAmount)
+    setMultiGroupPremiumMode(draft.multiGroupPremiumMode)
+    setMultiAllocPct(draft.multiAllocPct)
+    setMultiGroupTotalFundValue(draft.multiGroupTotalFundValue)
+    setRestoredFromDraft(true)
+    toast.success("Restored draft — pick files again if you need to re-extract.")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const isMulti = parsedBundles.length >= 2
   const singleParse = parsedBundles.length === 1 ? parsedBundles[0].parse : null
+
+  // Keep multiRows in sync with parsedBundles length (pad missing rows)
+  useEffect(() => {
+    if (!isMulti) return
+    setMultiRows((prev) => {
+      if (prev.length === parsedBundles.length) return prev
+      if (prev.length > parsedBundles.length) return prev.slice(0, parsedBundles.length)
+      const extra = parsedBundles.slice(prev.length).map((b) => ({
+        productId: CREATE_NEW_ILP,
+        newProductName: b.parse.snapshot.investmentName ?? "",
+        newMonthlyPremium: null,
+        newEndDate: "2060-01-01",
+        fundGroupChoice: NO_FUND_GROUP,
+        newFundGroupName: "",
+        month: b.parse.suggestedMonth ?? "",
+        fundValue: null,
+        premiumsPaid: null,
+      }))
+      return [...prev, ...extra]
+    })
+  }, [isMulti, parsedBundles])
 
   const membersInSelectedGroup = useMemo(() => {
     if (fundGroupChoice === NO_FUND_GROUP || fundGroupChoice === NEW_FUND_GROUP) {
@@ -171,10 +330,15 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
     })
   }, [needsSingleAllocStep, membersInSelectedGroup])
 
-  const singleAllocSum = useMemo(
-    () => sumAllocationPcts(Object.values(singleAllocPct)),
-    [singleAllocPct],
-  )
+  // Sum only non-zero existing members + new (0% existing = switch-out)
+  const singleAllocSum = useMemo(() => {
+    let sum = 0
+    for (const [k, v] of Object.entries(singleAllocPct)) {
+      if (k.startsWith("e:") && v === 0) continue // switch-out
+      sum += v
+    }
+    return sum
+  }, [singleAllocPct])
   const singleAllocValid = !needsSingleAllocStep || isValidIlpGroupAllocationSum(singleAllocSum)
 
   const resetFlow = useCallback(() => {
@@ -203,6 +367,9 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
     setMultiGroupPremiumAmount(null)
     setMultiGroupPremiumMode("monthly")
     setMultiAllocPct({})
+    setMultiGroupTotalFundValue(null)
+    setRestoredFromDraft(false)
+    clearIlpImportDraft()
   }, [])
 
   const removeBundle = useCallback(
@@ -240,6 +407,68 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
     },
     [resetFlow],
   )
+
+  // Auto-save form state to localStorage (debounced)
+  useEffect(() => {
+    if (step !== "preview" || parsedBundles.length === 0) return
+    const timer = setTimeout(() => {
+      const draft: IlpImportDraft = {
+        productId,
+        newProductName,
+        newMonthlyPremium,
+        singlePremiumPaymentMode,
+        newEndDate,
+        fundGroupChoice,
+        newFundGroupName,
+        singleAllocPct,
+        singleGroupPremiumAmount,
+        singleGroupPremiumMode,
+        month,
+        fundValue,
+        premiumsPaid,
+        saveMultiAsIndividual,
+        multiRows,
+        multiGroupTarget,
+        multiNewGroupName,
+        multiGroupPremiumAmount,
+        multiGroupPremiumMode,
+        multiAllocPct,
+        multiGroupTotalFundValue,
+        parsedBundleMeta: parsedBundles.map((b) => ({
+          fileName: b.file.name,
+          snapshot: b.parse.snapshot,
+          suggestedMonth: b.parse.suggestedMonth,
+          latestNavNumeric: b.parse.latestNavNumeric,
+        })),
+      }
+      saveIlpImportDraft(draft)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [
+    step,
+    parsedBundles,
+    productId,
+    newProductName,
+    newMonthlyPremium,
+    singlePremiumPaymentMode,
+    newEndDate,
+    fundGroupChoice,
+    newFundGroupName,
+    singleAllocPct,
+    singleGroupPremiumAmount,
+    singleGroupPremiumMode,
+    month,
+    fundValue,
+    premiumsPaid,
+    saveMultiAsIndividual,
+    multiRows,
+    multiGroupTarget,
+    multiNewGroupName,
+    multiGroupPremiumAmount,
+    multiGroupPremiumMode,
+    multiAllocPct,
+    multiGroupTotalFundValue,
+  ])
 
   const onPickFiles = (list: FileList | null) => {
     if (!list?.length) return
@@ -290,10 +519,10 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
       if (bundles.length >= 2) {
         setMultiRows(
           bundles.map((b) => ({
-            productId: "",
-            newProductName: "",
+            productId: CREATE_NEW_ILP,
+            newProductName: b.parse.snapshot.investmentName ?? "",
             newMonthlyPremium: null,
-            newEndDate: "",
+            newEndDate: "2060-01-01",
             fundGroupChoice: NO_FUND_GROUP,
             newFundGroupName: "",
             month: b.parse.suggestedMonth ?? "",
@@ -307,6 +536,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
         setMultiGroupPremiumAmount(null)
         setMultiGroupPremiumMode("monthly")
         setMultiAllocPct({})
+        setMultiGroupTotalFundValue(null)
       }
       await loadProducts()
       await loadFundGroups()
@@ -472,6 +702,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
       const k = `e:${m.id}`
       const pct = singleAllocPct[k]
       if (pct == null) throw new Error("Missing allocation for an existing group member.")
+      if (pct === 0) continue // switch-out: omit so PATCH removes from group
       items.push({ productId: m.id, allocationPct: pct })
     }
     const newPct = singleAllocPct.new
@@ -540,6 +771,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
       )
       setProgress(100)
       setStep("success")
+      clearIlpImportDraft()
       toast.success("ILP entry saved.")
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Save failed")
@@ -616,6 +848,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
       }
       setProgress(100)
       setStep("success")
+      clearIlpImportDraft()
       toast.success("ILP entries saved.")
       await loadProducts()
     } catch (e) {
@@ -639,29 +872,35 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
       setMultiAllocPct({})
       return
     }
-    if (multiGroupTarget === NEW_FUND_GROUP) {
-      const n = parsedBundles.length
-      if (n === 0) return
+    // Only auto-initialize when allocations are empty (don't overwrite user edits or draft)
+    setMultiAllocPct((prev) => {
+      // If there are already allocation keys matching the current context, keep them
+      const hasNewKeys = parsedBundles.some((_, fi) => prev[`n:${fi}`] != null)
+      if (hasNewKeys && Object.keys(prev).length > 0) return prev
+
+      if (multiGroupTarget === NEW_FUND_GROUP) {
+        const n = parsedBundles.length
+        if (n === 0) return prev
+        const split = split100Across(n)
+        const next: Record<string, number> = {}
+        parsedBundles.forEach((_, fi) => {
+          next[`n:${fi}`] = split[fi]!
+        })
+        return next
+      }
+      const existing = multiMembersForGroup
+      const n = existing.length + parsedBundles.length
+      if (n === 0) return prev
       const split = split100Across(n)
       const next: Record<string, number> = {}
-      parsedBundles.forEach((_, fi) => {
-        next[`n:${fi}`] = split[fi]!
+      existing.forEach((m, i) => {
+        next[`e:${m.id}`] = split[i]!
       })
-      setMultiAllocPct(next)
-      return
-    }
-    const existing = multiMembersForGroup
-    const n = existing.length + parsedBundles.length
-    if (n === 0) return
-    const split = split100Across(n)
-    const next: Record<string, number> = {}
-    existing.forEach((m, i) => {
-      next[`e:${m.id}`] = split[i]!
+      parsedBundles.forEach((_, fi) => {
+        next[`n:${fi}`] = split[existing.length + fi]!
+      })
+      return next
     })
-    parsedBundles.forEach((_, fi) => {
-      next[`n:${fi}`] = split[existing.length + fi]!
-    })
-    setMultiAllocPct(next)
   }, [
     isMulti,
     saveMultiAsIndividual,
@@ -670,10 +909,34 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
     parsedBundles,
   ])
 
-  const multiAllocSum = useMemo(
-    () => sumAllocationPcts(Object.values(multiAllocPct)),
-    [multiAllocPct],
-  )
+  // Auto-compute per-file fund values from total fund value + allocation %
+  useEffect(() => {
+    if (!isMulti || saveMultiAsIndividual) return
+    if (multiGroupTotalFundValue == null || multiGroupTotalFundValue <= 0) return
+    setMultiRows((prev) => {
+      const next = [...prev]
+      let changed = false
+      for (let i = 0; i < next.length; i++) {
+        const pct = multiAllocPct[`n:${i}`] ?? 0
+        const computed = Math.round(multiGroupTotalFundValue * pct) / 100
+        if (next[i] && next[i].fundValue !== computed) {
+          next[i] = { ...next[i]!, fundValue: computed }
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [isMulti, saveMultiAsIndividual, multiGroupTotalFundValue, multiAllocPct])
+
+  // Sum only non-zero existing members + all new files (0% existing = switch-out)
+  const multiAllocSum = useMemo(() => {
+    let sum = 0
+    for (const [k, v] of Object.entries(multiAllocPct)) {
+      if (k.startsWith("e:") && v === 0) continue // switch-out
+      sum += v
+    }
+    return sum
+  }, [multiAllocPct])
   const multiAllocValid = isValidIlpGroupAllocationSum(multiAllocSum)
 
   const handleCommitMultiGroup = async () => {
@@ -685,6 +948,13 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
     if (!multiAllocValid) {
       toast.error(allocationSumMessage(multiAllocSum))
       return
+    }
+    // Validate new files have > 0% allocation
+    for (let i = 0; i < parsedBundles.length; i++) {
+      if ((multiAllocPct[`n:${i}`] ?? 0) <= 0) {
+        toast.error(`File ${i + 1} cannot have 0% allocation — new funds must have a positive allocation.`)
+        return
+      }
     }
     const gp = multiGroupPremiumAmount ?? 0
     if (multiGroupPremiumMode === "monthly" && gp <= 0) {
@@ -743,11 +1013,13 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
         newProductIds.push(pid)
       }
 
-      const items = mergeMultiGroupAllocationItems(
+      const allItems = mergeMultiGroupAllocationItems(
         multiMembersForGroup,
         newProductIds,
         multiAllocPct,
       )
+      // Exclude 0% items (switch-outs) — PATCH endpoint removes omitted products
+      const items = allItems.filter((x) => x.allocationPct > 0)
 
       const sum = sumAllocationPcts(items.map((x) => x.allocationPct))
       if (!isValidIlpGroupAllocationSum(sum)) {
@@ -787,6 +1059,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
 
       setProgress(100)
       setStep("success")
+      clearIlpImportDraft()
       toast.success("ILP entries and group allocations saved.")
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Save failed")
@@ -828,7 +1101,8 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
         singleNewPremiumInvalid ||
         !/^\d{4}-\d{2}-\d{2}$/.test(newEndDate) ||
         (fundGroupChoice === NEW_FUND_GROUP && !newFundGroupName.trim()))) ||
-    (needsSingleAllocStep && !singleAllocValid)
+    (needsSingleAllocStep && !singleAllocValid) ||
+    (needsSingleAllocStep && (singleAllocPct.new ?? 0) <= 0)
 
   const multiIndividualDisabled =
     step === "saving" ||
@@ -856,6 +1130,8 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
     (multiGroupTarget === NEW_FUND_GROUP && !multiNewGroupName.trim()) ||
     !multiAllocValid ||
     multiGroupPremiumInvalid ||
+    // New files must have > 0% allocation
+    parsedBundles.some((_, i) => (multiAllocPct[`n:${i}`] ?? 0) <= 0) ||
     multiRows.some(
       (r) =>
         !r.productId ||
@@ -928,6 +1204,17 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
               {(files.length > 0 || parsedBundles.length > 0) && step !== "extracting" ? (
                 <Button type="button" variant="ghost" size="sm" onClick={resetFlow}>
                   Clear
+                </Button>
+              ) : null}
+              {restoredFromDraft && step !== "extracting" ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                  onClick={resetFlow}
+                >
+                  Discard draft
                 </Button>
               ) : null}
             </div>
@@ -1173,27 +1460,49 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                   </div>
                 </div>
                 <div className="space-y-2">
-                  {membersInSelectedGroup.map((m) => (
-                    <div key={m.id} className="flex flex-wrap items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate text-sm">{m.name}</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min={0}
-                        max={100}
-                        className="w-24"
-                        value={singleAllocPct[`e:${m.id}`] ?? ""}
-                        onChange={(e) => {
-                          const v = parseFloat(e.target.value)
-                          setSingleAllocPct((prev) => ({
-                            ...prev,
-                            [`e:${m.id}`]: Number.isFinite(v) ? v : 0,
-                          }))
-                        }}
-                      />
-                      <span className="text-sm text-muted-foreground">%</span>
-                    </div>
-                  ))}
+                  {membersInSelectedGroup.map((m) => {
+                    const pct = singleAllocPct[`e:${m.id}`] ?? 0
+                    const isSwitchOut = pct === 0
+                    return (
+                      <div
+                        key={m.id}
+                        className={cn(
+                          "flex flex-wrap items-center gap-2",
+                          isSwitchOut && "opacity-50",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "min-w-0 flex-1 truncate text-sm",
+                            isSwitchOut && "line-through",
+                          )}
+                        >
+                          {m.name}
+                          {isSwitchOut ? (
+                            <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                              (switching out)
+                            </span>
+                          ) : null}
+                        </span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          max={100}
+                          className="w-24"
+                          value={singleAllocPct[`e:${m.id}`] ?? ""}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value)
+                            setSingleAllocPct((prev) => ({
+                              ...prev,
+                              [`e:${m.id}`]: Number.isFinite(v) ? v : 0,
+                            }))
+                          }}
+                        />
+                        <span className="text-sm text-muted-foreground">%</span>
+                      </div>
+                    )
+                  })}
                   <div className="flex flex-wrap items-center gap-2 border-t pt-2">
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">
                       New policy ({newProductName || "—"})
@@ -1516,31 +1825,68 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                           onChange={(v) => setMultiGroupPremiumAmount(v)}
                         />
                       </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label htmlFor="ilp-multi-group-total-fv">
+                          Total fund value (SGD)
+                        </Label>
+                        <CurrencyInput
+                          id="ilp-multi-group-total-fv"
+                          placeholder="0.00"
+                          value={multiGroupTotalFundValue}
+                          onChange={(v) => setMultiGroupTotalFundValue(v)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Per-file fund values are auto-calculated from this total and
+                          each file's allocation %.
+                        </p>
+                      </div>
                     </div>
                     <p className="text-sm font-medium">Allocation (%)</p>
                     <p className="text-xs text-muted-foreground">
                       Includes existing policies in this group (if any) and one row per file.
                       Total must be 100%.
                     </p>
-                    {multiMembersForGroup.map((m) => (
-                      <div key={m.id} className="flex items-center gap-2">
-                        <span className="flex-1 truncate text-sm">{m.name}</span>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="w-24"
-                          value={multiAllocPct[`e:${m.id}`] ?? ""}
-                          onChange={(e) => {
-                            const v = parseFloat(e.target.value)
-                            setMultiAllocPct((prev) => ({
-                              ...prev,
-                              [`e:${m.id}`]: Number.isFinite(v) ? v : 0,
-                            }))
-                          }}
-                        />
-                        <span className="text-xs text-muted-foreground">%</span>
-                      </div>
-                    ))}
+                    {multiMembersForGroup.map((m) => {
+                      const pct = multiAllocPct[`e:${m.id}`] ?? 0
+                      const isSwitchOut = pct === 0
+                      return (
+                        <div
+                          key={m.id}
+                          className={cn(
+                            "flex items-center gap-2",
+                            isSwitchOut && "opacity-50",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "flex-1 truncate text-sm",
+                              isSwitchOut && "line-through",
+                            )}
+                          >
+                            {m.name}
+                            {isSwitchOut ? (
+                              <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                                (switching out)
+                              </span>
+                            ) : null}
+                          </span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            className="w-24"
+                            value={multiAllocPct[`e:${m.id}`] ?? ""}
+                            onChange={(e) => {
+                              const v = parseFloat(e.target.value)
+                              setMultiAllocPct((prev) => ({
+                                ...prev,
+                                [`e:${m.id}`]: Number.isFinite(v) ? v : 0,
+                              }))
+                            }}
+                          />
+                          <span className="text-xs text-muted-foreground">%</span>
+                        </div>
+                      )
+                    })}
                     {parsedBundles.map((b, fi) => (
                       <div key={`n-${fi}`} className="flex items-center gap-2">
                         <span className="flex-1 truncate text-sm text-muted-foreground">

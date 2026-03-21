@@ -155,6 +155,7 @@ export const stockImgScene = new Scenes.WizardScene<MyContext>(
 
 async function handleImageUpload(ctx: MyContext, fileId: string) {
   const accountId = botState(ctx).accountId as string
+  const preFamilyId = botState(ctx).familyId
   const symbol = ctx.scene.session.symbol!
 
   const bot = getBot()
@@ -163,13 +164,18 @@ async function handleImageUpload(ctx: MyContext, fileId: string) {
 
   const supabase = createSupabaseAdmin()
 
-  const { data: households } = await supabase
-    .from("households")
-    .select(`families ( id )`)
-    .eq("id", accountId)
-    .single()
+  let familyIds: string[] = []
+  if (preFamilyId) {
+    familyIds = [preFamilyId]
+  } else {
+    const { data: households } = await supabase
+      .from("households")
+      .select(`families ( id )`)
+      .eq("id", accountId)
+      .single()
 
-  const familyIds = households?.families?.map((f) => f.id) || []
+    familyIds = households?.families?.map((f) => f.id) || []
+  }
 
   const { data: tx, error: fetchError } = await supabase
     .from("investment_transactions")

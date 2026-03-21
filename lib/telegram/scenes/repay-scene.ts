@@ -39,6 +39,7 @@ export const repayScene = new Scenes.WizardScene<MyContext>(
   async (ctx) => {
     const accountId = botState(ctx).accountId as string
     const isEarlyRepayment = botState(ctx).isEarlyRepayment as boolean
+    const preFamilyId = botState(ctx).familyId
 
     if (!accountId) {
       await ctx.reply("❌ Session error: Missing account ID.")
@@ -48,21 +49,31 @@ export const repayScene = new Scenes.WizardScene<MyContext>(
     ctx.scene.session.isEarlyRepayment = isEarlyRepayment
 
     const supabase = createSupabaseAdmin()
-    const { data: households } = await supabase
-      .from("households")
-      .select(
-        `
-        families (
-          id,
-          profiles (id)
-        )
-      `,
-      )
-      .eq("id", accountId)
-      .single()
 
-    const profileIds =
-      households?.families?.flatMap((f) => f.profiles.map((p) => p.id)) || []
+    let profileIds: string[] = []
+    if (preFamilyId) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("family_id", preFamilyId)
+      profileIds = profiles?.map((p) => p.id) || []
+    } else {
+      const { data: households } = await supabase
+        .from("households")
+        .select(
+          `
+          families (
+            id,
+            profiles (id)
+          )
+        `,
+        )
+        .eq("id", accountId)
+        .single()
+
+      profileIds =
+        households?.families?.flatMap((f) => f.profiles.map((p) => p.id)) || []
+    }
 
     if (profileIds.length === 0) {
       await ctx.reply("❌ No profiles found for this account.")

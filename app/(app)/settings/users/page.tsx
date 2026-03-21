@@ -117,6 +117,10 @@ function normalizeProfile(profile: Record<string, unknown>): ProfileWithIncome {
     birth_year: profile.birth_year as number,
     dps_include_in_projection:
       (profile.dps_include_in_projection as boolean | undefined) !== false,
+    telegram_user_id: (profile.telegram_user_id as string | null) ?? null,
+    telegram_chat_id: (profile.telegram_chat_id as string | null) ?? null,
+    telegram_link_token: (profile.telegram_link_token as string | null) ?? null,
+    telegram_last_used: (profile.telegram_last_used as string | null) ?? null,
     income_config: (income as ProfileWithIncome["income_config"]) ?? null,
   }
 }
@@ -157,6 +161,10 @@ export default async function UserSettingsPage() {
             birth_year,
             dps_include_in_projection,
             family_id,
+            telegram_user_id,
+            telegram_chat_id,
+            telegram_link_token,
+            telegram_last_used,
             income_config (
               annual_salary,
               bonus_estimate,
@@ -196,7 +204,7 @@ export default async function UserSettingsPage() {
   }
 
   return (
-    <div className="p-2 sm:p-4 max-w-5xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-semibold">User Settings</h1>
         <p className="text-muted-foreground mt-1">

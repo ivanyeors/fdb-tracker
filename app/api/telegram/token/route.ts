@@ -48,8 +48,7 @@ export async function POST(request: NextRequest) {
 
     const { error: updateError } = await supabase
       .from("profiles")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .update({ telegram_link_token: token } as any)
+      .update({ telegram_link_token: token })
       .eq("id", profileId)
 
     if (updateError) {

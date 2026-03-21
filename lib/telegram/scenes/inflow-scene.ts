@@ -13,35 +13,50 @@ export const inflowScene = new Scenes.WizardScene<MyContext>(
   async (ctx) => {
     // Step 1: Ask for profile
     const accountId = botState(ctx).accountId as string
-    
+    const preProfileId = botState(ctx).profileId
+    const preFamilyId = botState(ctx).familyId
+
     if (!accountId) {
       await ctx.reply("❌ Session error: No account ID found.")
       return ctx.scene.leave()
     }
 
     const supabase = createSupabaseAdmin()
-    
-    // First, lookup families for this household.
-    const { data: families, error: familiesError } = await supabase
-      .from("families")
-      .select("id")
-      .eq("household_id", accountId)
-      
-    if (familiesError || !families || families.length === 0) {
-      await ctx.reply("❌ No family found for this account.")
-      return ctx.scene.leave()
+
+    // Use pre-resolved family when available (linked Telegram profile)
+    const familyIds: string[] = []
+    if (preFamilyId) {
+      familyIds.push(preFamilyId)
+    } else {
+      const { data: families, error: familiesError } = await supabase
+        .from("families")
+        .select("id")
+        .eq("household_id", accountId)
+
+      if (familiesError || !families || families.length === 0) {
+        await ctx.reply("❌ No family found for this account.")
+        return ctx.scene.leave()
+      }
+      familyIds.push(...families.map((f) => f.id))
     }
-    
-    const familyIds = families.map(f => f.id)
-    
+
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("id, name")
       .in("family_id", familyIds)
-      
+
     if (profilesError || !profiles || profiles.length === 0) {
       await ctx.reply("❌ No profiles found. Create one in the web dashboard first.")
       return ctx.scene.leave()
+    }
+
+    // Auto-select pre-resolved profile if it exists in the fetched profiles
+    if (preProfileId) {
+      const matched = profiles.find((p) => p.id === preProfileId)
+      if (matched) {
+        ctx.scene.session.profileId = matched.id
+        ctx.scene.session.profileName = matched.name
+      }
     }
 
     const commandRest = botState(ctx).cashflowCommandRest?.trim()

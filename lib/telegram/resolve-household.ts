@@ -120,6 +120,53 @@ export async function resolveHouseholdId(
   return getOrCreateAccount(chatId)
 }
 
+export type ProfileContext = {
+  householdId: string
+  profileId: string | null
+  familyId: string | null
+}
+
+export async function resolveProfileContext(
+  chatId: string,
+  fromUserId: string | null,
+  options: ResolveHouseholdOptions = {},
+): Promise<ProfileContext | null> {
+  const fromUserIdStr = fromUserId != null ? String(fromUserId) : null
+
+  if (fromUserIdStr) {
+    const supabase = createSupabaseAdmin()
+    const orConditions = `telegram_chat_id.eq.${chatId},telegram_user_id.eq.${fromUserIdStr}`
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, family_id")
+      .or(orConditions)
+      .limit(1)
+      .maybeSingle()
+
+    if (profile) {
+      const { data: family } = await supabase
+        .from("families")
+        .select("household_id")
+        .eq("id", profile.family_id)
+        .single()
+
+      if (family) {
+        return {
+          householdId: family.household_id,
+          profileId: profile.id,
+          familyId: profile.family_id,
+        }
+      }
+    }
+  }
+
+  const householdId = await resolveHouseholdId(chatId, fromUserId, options)
+  if (!householdId) return null
+
+  return { householdId, profileId: null, familyId: null }
+}
+
 export async function getOrCreateAccount(chatId: string): Promise<string | null> {
   try {
     const supabase = createSupabaseAdmin()

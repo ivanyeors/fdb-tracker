@@ -45,6 +45,7 @@ export const ilpScene = new Scenes.WizardScene<MyContext>(
   // STEP 0: Product selection
   async (ctx) => {
     const accountId = botState(ctx).accountId as string
+    const preFamilyId = botState(ctx).familyId
 
     if (!accountId) {
       await ctx.reply("❌ Session error: No account ID found.")
@@ -52,17 +53,24 @@ export const ilpScene = new Scenes.WizardScene<MyContext>(
     }
 
     const supabase = createSupabaseAdmin()
-    const { data: families, error: familiesError } = await supabase
-      .from("families")
-      .select("id")
-      .eq("household_id", accountId)
 
-    if (familiesError || !families || families.length === 0) {
-      await ctx.reply("❌ No family found for this account.")
-      return ctx.scene.leave()
+    // Use pre-resolved family when available (linked Telegram profile)
+    const familyIds: string[] = []
+    if (preFamilyId) {
+      familyIds.push(preFamilyId)
+    } else {
+      const { data: families, error: familiesError } = await supabase
+        .from("families")
+        .select("id")
+        .eq("household_id", accountId)
+
+      if (familiesError || !families || families.length === 0) {
+        await ctx.reply("❌ No family found for this account.")
+        return ctx.scene.leave()
+      }
+      familyIds.push(...families.map((f) => f.id))
     }
 
-    const familyIds = families.map((f) => f.id)
     const { data: products, error: productsError } = await supabase
       .from("ilp_products")
       .select("id, name")

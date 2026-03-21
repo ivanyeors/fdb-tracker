@@ -62,6 +62,8 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
   async (ctx) => {
     const accountId = botState(ctx).accountId as string
     const type = botState(ctx).type as "buy" | "sell"
+    const preProfileId = botState(ctx).profileId
+    const preFamilyId = botState(ctx).familyId
 
     if (!accountId || !type) {
       await ctx.reply("❌ Session error: Missing account ID or type.")
@@ -71,17 +73,24 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     ctx.scene.session.type = type
 
     const supabase = createSupabaseAdmin()
-    const { data: families, error: familiesError } = await supabase
-      .from("families")
-      .select("id")
-      .eq("household_id", accountId)
 
-    if (familiesError || !families || families.length === 0) {
-      await ctx.reply("❌ No family found for this account.")
-      return ctx.scene.leave()
+    // Use pre-resolved family when available (linked Telegram profile)
+    const familyIds: string[] = []
+    if (preFamilyId) {
+      familyIds.push(preFamilyId)
+    } else {
+      const { data: families, error: familiesError } = await supabase
+        .from("families")
+        .select("id")
+        .eq("household_id", accountId)
+
+      if (familiesError || !families || families.length === 0) {
+        await ctx.reply("❌ No family found for this account.")
+        return ctx.scene.leave()
+      }
+      familyIds.push(...families.map((f) => f.id))
     }
 
-    const familyIds = families.map((f) => f.id)
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("id, name")
@@ -90,6 +99,15 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     if (profilesError || !profiles || profiles.length === 0) {
       await ctx.reply("❌ No profiles found.")
       return ctx.scene.leave()
+    }
+
+    // Auto-select pre-resolved profile if it exists in the fetched profiles
+    if (preProfileId) {
+      const matched = profiles.find((p) => p.id === preProfileId)
+      if (matched) {
+        ctx.scene.session.profileId = matched.id
+        ctx.scene.session.profileName = matched.name
+      }
     }
 
     if (profiles.length === 1) {

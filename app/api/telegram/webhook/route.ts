@@ -7,8 +7,10 @@ import { cancelMiddleware } from "@/lib/telegram/scene-helpers"
 import { generateAndStoreOtp } from "@/lib/auth/otp"
 import {
   resolveHouseholdId,
+  resolveProfileContext,
   getOrCreateAccount,
 } from "@/lib/telegram/resolve-household"
+import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { supabaseSessionStore } from "@/lib/telegram/session"
 import {
   inflowScene,
@@ -173,64 +175,82 @@ function ensureHandlers() {
       return
     }
 
-    const accountId = await resolveHouseholdId(
+    const profileContext = await resolveProfileContext(
       String(chatId),
       msg.from?.id != null ? String(msg.from.id) : null,
     )
-    if (!accountId) {
+    if (!profileContext) {
       await ctx.reply("❌ Could not resolve your account. Use /link or /auth to link first, or /otp to set up.")
       return
     }
 
+    const accountId = profileContext.householdId
+
+    // Update telegram_last_used for linked profiles
+    if (profileContext.profileId) {
+      createSupabaseAdmin()
+        .from("profiles")
+        .update({ telegram_last_used: new Date().toISOString() })
+        .eq("id", profileContext.profileId)
+        .then(() => {})
+    }
+
+    function setBotContext() {
+      const st = botState(ctx)
+      st.accountId = accountId
+      st.profileId = profileContext!.profileId ?? undefined
+      st.familyId = profileContext!.familyId ?? undefined
+    }
+
     if (parsed.command === "in") {
-      botState(ctx).accountId = accountId
+      setBotContext()
       botState(ctx).cashflowCommandRest = parsed.rest
       await ctx.scene.enter("inflow_wizard")
       return
     }
 
     if (parsed.command === "out") {
-      botState(ctx).accountId = accountId
+      setBotContext()
       botState(ctx).cashflowCommandRest = parsed.rest
       await ctx.scene.enter("outflow_wizard")
       return
     }
 
     if (parsed.command === "buy") {
-      botState(ctx).accountId = accountId
+      setBotContext()
       botState(ctx).type = "buy"
       await ctx.scene.enter("buy_sell_wizard")
       return
     }
     
     if (parsed.command === "sell") {
-      botState(ctx).accountId = accountId
+      setBotContext()
       botState(ctx).type = "sell"
       await ctx.scene.enter("buy_sell_wizard")
       return
     }
 
     if (parsed.command === "ilp") {
-      botState(ctx).accountId = accountId
+      setBotContext()
       await ctx.scene.enter("ilp_wizard")
       return
     }
 
     if (parsed.command === "goaladd") {
-      botState(ctx).accountId = accountId
+      setBotContext()
       await ctx.scene.enter("goaladd_wizard")
       return
     }
 
     if (parsed.command === "repay") {
-      botState(ctx).accountId = accountId
+      setBotContext()
       botState(ctx).isEarlyRepayment = false
       await ctx.scene.enter("repay_wizard")
       return
     }
 
     if (parsed.command === "earlyrepay") {
-      botState(ctx).accountId = accountId
+      setBotContext()
       botState(ctx).isEarlyRepayment = true
       await ctx.scene.enter("repay_wizard")
       return
@@ -250,12 +270,12 @@ function ensureHandlers() {
         const photos = msg.reply_to_message.photo as Array<{ file_id: string }>
         fileId = photos[photos.length - 1].file_id
       }
-      
+
+      setBotContext()
       const st = botState(ctx)
-      st.accountId = accountId
       if (fileId) st.fileId = fileId
       if (parsed.rest.trim()) st.symbol = parsed.rest.trim().toUpperCase()
-      
+
       await ctx.scene.enter("stockimg_wizard")
       return
     }
