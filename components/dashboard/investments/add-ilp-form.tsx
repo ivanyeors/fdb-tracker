@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { CurrencyInput } from "@/components/ui/currency-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DatePicker } from "@/components/ui/date-picker"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -126,12 +127,12 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="ilp-end-date">Premium end date</Label>
-          <Input
+          <DatePicker
             id="ilp-end-date"
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            required
+            value={endDate || null}
+            onChange={(d) => setEndDate(d ?? "")}
+            placeholder="Select end date"
+            className="w-full"
           />
         </div>
         <div className="space-y-1.5 sm:col-span-2">

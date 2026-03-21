@@ -6,7 +6,7 @@
 
 ### Project Agent Skills (always consult)
 
-For **every** task that touches this codebase, **read and follow** the relevant `SKILL.md` under [`.cursor/skills/`](.cursor/skills/) before writing or changing code. Match the task to the skill by its YAML `description` and folder name (e.g. UI work → `fdb-frontend`, schema/API/Supabase → `fdb-supabase`, dollar amount forms → `fdb-money-inputs`). If multiple skills apply, read all of them. Do not skip skills in favor of guessing project conventions.
+For **every** task that touches this codebase, **read and follow** the relevant `SKILL.md` under [`.cursor/skills/`](.cursor/skills/) before writing or changing code. Match the task to the skill by its YAML `description` and folder name (e.g. UI work → `fdb-frontend`, date/calendar/range/month-year pickers → `fdb-date-calendars`, schema/API/Supabase → `fdb-supabase`, dollar amount forms → `fdb-money-inputs`). If multiple skills apply, read all of them. Do not skip skills in favor of guessing project conventions.
 
 ### Available npm scripts
 
@@ -26,6 +26,7 @@ See `package.json` for the full list. Key commands:
 - The dev server uses Turbopack (`next dev --turbopack`) and supports hot reload out of the box.
 - ESLint currently reports 1 warning for an unused `Geist` import in `app/layout.tsx`; this is pre-existing and not a blocker.
 - **Vitest** is configured (`vitest.config.ts`, `globals: true`, `@` path alias). Run tests with `npm test` (`vitest run`). Test files live in `__tests__/calculations/`.
+- **Charts:** Use **[visx](https://airbnb.io/visx/)** (`@visx/*`) only. Do **not** add or use **Recharts** (or other chart libraries) in this project.
 - Dark mode can be toggled by pressing the `d` key on the homepage (handled by `next-themes` via the `ThemeProvider`).
 - **`.env.local` is required for `npm run build` and `npm run dev`** — Supabase client init throws at module evaluation if `NEXT_PUBLIC_SUPABASE_URL` is missing. Ensure `.env.local` exists with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` at minimum.
 - Next.js 16 emits a deprecation warning for `middleware.ts` ("use proxy instead"); middleware still works correctly.

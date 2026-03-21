@@ -14,6 +14,7 @@ Frontend development guidelines for the finance tracking dashboard. Use shadcn M
 - Implementing side nav, tabs, or data tables
 - Styling with Tailwind
 - Creating forms or modals
+- Date pickers, calendars, ranges, month/year fields — read [`fdb-date-calendars`](../fdb-date-calendars/SKILL.md) (shadcn Calendar + project pickers)
 
 ## Stack
 
@@ -35,6 +36,7 @@ Example: Adding a new component → invoke shadcn MCP `add_component` or equival
 - **Layout:** Side nav + main content; tabs for Combined | Person A | Person B
 - **Theme:** next-themes (light/dark); Geist Mono + DM Sans fonts
 - **Action feedback:** After user-triggered saves, deletes, and API submits, use Sonner (`toast.success` / `toast.error` from `sonner`). The root layout (`app/layout.tsx`) must render `<Toaster />` from `@/components/ui/sonner` inside `ThemeProvider` so toasts respect light/dark mode.
+- **Charts:** Use **[visx](https://airbnb.io/visx/)** (`@visx/*`) only. Do **not** use Recharts or other chart libraries.
 
 ## Page Pattern
 
@@ -58,4 +60,5 @@ Use tooltips to explain calculation logic, formulas, and assumptions. Add Info i
 ## References
 
 - [components.json](components.json) — shadcn config
+- [`fdb-date-calendars`](../fdb-date-calendars/SKILL.md) — Calendar, date/range pickers, `MonthYearPicker`, shadcn doc links
 - [Vercel React Best Practices](https://raw.githubusercontent.com/vercel-labs/agent-skills/main/skills/react-best-practices/AGENTS.md) — performance patterns

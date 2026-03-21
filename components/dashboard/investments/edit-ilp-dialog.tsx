@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { CurrencyInput } from "@/components/ui/currency-input"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import {
   Dialog,
   DialogContent,
@@ -21,16 +23,15 @@ function normalizeDateForInput(d: string): string {
   return d.length >= 10 ? d.slice(0, 10) : d
 }
 
-/** API month is YYYY-MM-DD; <input type="month"> wants YYYY-MM */
-function monthToYm(month: string | null | undefined): string {
-  if (!month?.trim()) return ""
-  const s = month.length >= 10 ? month.slice(0, 10) : month
-  return s.length >= 7 ? s.slice(0, 7) : ""
-}
-
-function currentMonthYm(): string {
+/** API month string → `YYYY-MM-01` for MonthYearPicker */
+function normalizeStatementMonth(month: string | null | undefined): string {
   const n = new Date()
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`
+  const fallback = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-01`
+  if (!month?.trim()) return fallback
+  const head = month.trim().length >= 10 ? month.trim().slice(0, 10) : month.trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(head)) return `${head.slice(0, 7)}-01`
+  if (/^\d{4}-\d{2}$/.test(head)) return `${head}-01`
+  return fallback
 }
 
 interface EditIlpDialogProps {
@@ -70,8 +71,7 @@ export function EditIlpDialog({
     setName(productName)
     setPremium(monthlyPremium)
     setEnd(normalizeDateForInput(endDate))
-    const ym = monthToYm(latestEntryMonth) || currentMonthYm()
-    setEntryMonth(ym)
+    setEntryMonth(normalizeStatementMonth(latestEntryMonth))
     setFundValue(latestEntryFundValue)
     setPremiumsPaid(
       latestEntryPremiumsPaid != null && Number(latestEntryPremiumsPaid) > 0
@@ -99,8 +99,8 @@ export function EditIlpDialog({
       toast.error("Please enter a valid end date (YYYY-MM-DD).")
       return
     }
-    if (!entryMonth || !/^\d{4}-\d{2}$/.test(entryMonth)) {
-      toast.error("Please choose a valid statement month (YYYY-MM).")
+    if (!entryMonth || !/^\d{4}-\d{2}-\d{2}$/.test(entryMonth)) {
+      toast.error("Please choose a valid statement month.")
       return
     }
     if (!activeFamilyId) {
@@ -132,7 +132,7 @@ export function EditIlpDialog({
         throw new Error(err.error ?? "Failed to update product")
       }
 
-      const monthDate = `${entryMonth}-01`
+      const monthDate = entryMonth
       const entryRes = await fetch("/api/investments/ilp/entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -196,13 +196,12 @@ export function EditIlpDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="edit-ilp-end-date">Premium end date</Label>
-              <Input
+              <DatePicker
                 id="edit-ilp-end-date"
-                name="ilp-end-date"
-                type="date"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-                required
+                value={end || null}
+                onChange={(d) => setEnd(d ?? "")}
+                placeholder="Select end date"
+                className="w-full"
               />
             </div>
           </div>
@@ -215,13 +214,12 @@ export function EditIlpDialog({
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="edit-ilp-entry-month">Statement month</Label>
-                <Input
+                <MonthYearPicker
                   id="edit-ilp-entry-month"
-                  name="ilp-entry-month"
-                  type="month"
                   value={entryMonth}
-                  onChange={(e) => setEntryMonth(e.target.value)}
-                  required
+                  onChange={(d) => setEntryMonth(d ?? normalizeStatementMonth(null))}
+                  placeholder="Statement month"
+                  className="w-full max-w-none"
                 />
               </div>
               <div className="space-y-1.5">

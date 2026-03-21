@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import {
   Tabs,
@@ -85,7 +86,20 @@ function holdingDonutLabel(symbol: string, type: string): string {
   return mapToCategoryLabel(type)
 }
 
+const INVESTMENTS_TAB_SET = new Set([
+  "holdings",
+  "allocation",
+  "ilp",
+  "metals",
+  "activity",
+])
+
 export default function InvestmentsDetailPage() {
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const defaultTab =
+    tabParam && INVESTMENTS_TAB_SET.has(tabParam) ? tabParam : "holdings"
+
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [ilpProducts, setIlpProducts] = useState<IlpProductWithEntries[]>([])
@@ -620,7 +634,7 @@ export default function InvestmentsDetailPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="holdings">
+      <Tabs key={defaultTab} defaultValue={defaultTab}>
         <div className="-mx-1 min-w-0 overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
           <TabsList className="inline-flex w-fit flex-nowrap">
             <TabsTrigger value="holdings">Holdings</TabsTrigger>

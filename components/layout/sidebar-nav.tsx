@@ -46,7 +46,7 @@ const dashboardItems = [
   { title: "Cashflow", href: "/dashboard/cashflow", icon: ArrowLeftRight },
   { title: "Investments", href: "/dashboard/investments", icon: TrendingUp, badge: "BETA" },
   { title: "Loans", href: "/dashboard/loans", icon: CreditCard },
-  { title: "Insurance", href: "/dashboard/insurance", icon: Shield },
+  { title: "Insurance", href: "/dashboard/insurance", icon: Shield, badge: "BETA" },
   { title: "Tax Planner", href: "/dashboard/tax", icon: Receipt },
 ]
 

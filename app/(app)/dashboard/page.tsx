@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
-import { ArrowRight } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -26,6 +25,7 @@ import {
   ilpEntryMonthKey,
 } from "@/lib/investments/ilp-chart"
 import { formatCurrency } from "@/lib/utils"
+import { Progress } from "@/components/ui/progress"
 import { ChartSkeleton } from "@/components/loading"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -443,13 +443,6 @@ export default function OverviewPage() {
     return ((current - previous) / Math.abs(previous)) * 100
   }, [investmentHistory, investmentMonthlyData])
 
-  const goalsSummary = useMemo(() => {
-    const totalSaved = goals.reduce((sum, g) => sum + g.current_amount, 0)
-    const totalTarget = goals.reduce((sum, g) => sum + g.target_amount, 0)
-    const progress = totalTarget > 0 ? (totalSaved / totalTarget) * 100 : 0
-    return { totalSaved, totalTarget, progress }
-  }, [goals])
-
   const totalInsuranceCoverage = useMemo(
     () =>
       policies
@@ -457,21 +450,6 @@ export default function OverviewPage() {
         .reduce((sum, p) => sum + (p.coverage_amount ?? 0), 0),
     [policies],
   )
-
-  const refreshIlp = () => {
-    const qs = params ? `?${params}` : ""
-    fetch(`/api/investments/ilp${qs}`)
-      .then((r) => r.ok && r.json())
-      .then((products) => {
-        if (products)
-          setIlpProducts(
-            products.map((p: IlpProductWithEntries) => ({
-              ...p,
-              entries: p.entries ?? [],
-            })),
-          )
-      })
-  }
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -537,38 +515,41 @@ export default function OverviewPage() {
           </CardHeader>
           <CardContent>
             {isGoalsLoading ? (
-              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-24 w-full" />
             ) : goals.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No savings goals. Create one in Savings Goals.
               </p>
             ) : (
               <>
-                <div className="flex flex-1 flex-col gap-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Saved
-                    </span>
-                    <span className="font-medium">
-                      ${formatCurrency(goalsSummary.totalSaved)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Target
-                    </span>
-                    <span className="font-medium">
-                      ${formatCurrency(goalsSummary.totalTarget)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Progress
-                    </span>
-                    <span className="font-medium">
-                      {goalsSummary.progress.toFixed(1)}%
-                    </span>
-                  </div>
+                <div className="space-y-3">
+                  {goals.map((goal) => {
+                    const progressPct =
+                      goal.target_amount > 0
+                        ? Math.min(
+                            (goal.current_amount / goal.target_amount) * 100,
+                            100,
+                          )
+                        : 100
+                    return (
+                      <div key={goal.id} className="min-w-0 space-y-1.5">
+                        <div className="flex min-w-0 items-baseline justify-between gap-2">
+                          <span className="truncate text-sm font-medium">
+                            {goal.name}
+                          </span>
+                          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                            {progressPct.toFixed(1)}%
+                          </span>
+                        </div>
+                        <Progress
+                          value={progressPct}
+                          className={
+                            goals.length === 1 ? "h-2" : "h-0.5"
+                          }
+                        />
+                      </div>
+                    )
+                  })}
                 </div>
                 <CardCTA href="/dashboard/goals">View goals</CardCTA>
               </>
@@ -696,19 +677,15 @@ export default function OverviewPage() {
       </div>
 
       {isIlpLoading ? (
-        <Skeleton className="h-24 w-full rounded-xl" />
+        <Card>
+          <CardContent>
+            <Skeleton className="mb-3 h-4 w-24" />
+            <Skeleton className="h-8 w-32" />
+          </CardContent>
+        </Card>
       ) : ilpCardsData.length > 0 ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">ILP Performance</h3>
-            <Link
-              href="/dashboard/investments"
-              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-            >
-              View in Investments
-              <ArrowRight className="size-4" />
-            </Link>
-          </div>
+          <h3 className="text-lg font-semibold">ILP Performance</h3>
           <div className="grid gap-4 md:grid-cols-2">
             {ilpCardsData.map((card) => (
               <IlpCard
@@ -725,8 +702,7 @@ export default function OverviewPage() {
                 latestEntryFundValue={card.latestEntryFundValue}
                 latestEntryPremiumsPaid={card.latestEntryPremiumsPaid}
                 monthlyData={card.monthlyData}
-                onAddEntry={refreshIlp}
-                onEditSuccess={refreshIlp}
+                variant="summary"
               />
             ))}
           </div>

@@ -3,8 +3,8 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { CurrencyInput } from "@/components/ui/currency-input"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import {
   Dialog,
   DialogContent,
@@ -48,12 +48,12 @@ export function AddIlpEntryDialog({
       return
     }
 
-    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-      toast.error("Please enter a valid month (YYYY-MM).")
+    if (!month || !/^\d{4}-\d{2}-\d{2}$/.test(month)) {
+      toast.error("Please choose a valid month.")
       return
     }
 
-    const monthDate = `${month}-01`
+    const monthDate = month
 
     setIsSubmitting(true)
     try {
@@ -102,12 +102,12 @@ export function AddIlpEntryDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="ilp-entry-month">Month</Label>
-            <Input
+            <MonthYearPicker
               id="ilp-entry-month"
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              required
+              value={month || null}
+              onChange={(d) => setMonth(d ?? "")}
+              placeholder="Statement month"
+              className="w-full max-w-none"
             />
           </div>
           <div className="space-y-1.5">

@@ -40,6 +40,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet"
 import { DatePicker } from "@/components/ui/date-picker"
+import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
@@ -1076,15 +1077,15 @@ function SavingsGoalsSection({
                   />
                 </TableCell>
                 <TableCell>
-                  <Input
-                    type="date"
-                    value={e.deadline ?? ""}
-                    onChange={(ev) =>
+                  <DatePicker
+                    value={e.deadline ?? null}
+                    onChange={(d) =>
                       setEditing((p) => ({
                         ...p,
-                        [g.id]: { ...(p[g.id] ?? g), deadline: ev.target.value || null },
+                        [g.id]: { ...(p[g.id] ?? g), deadline: d },
                       }))
                     }
+                    placeholder="Deadline"
                     className="h-8 w-32"
                   />
                 </TableCell>
@@ -1341,7 +1342,7 @@ function MonthlyLogSection({
           <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6">
             <div className="space-y-2">
               <Label htmlFor="log-month">Month</Label>
-              <DatePicker
+              <MonthYearPicker
                 id="log-month"
                 value={month}
                 onChange={(d) => {
@@ -2255,10 +2256,10 @@ function LoansSection({
           </div>
           <div className="space-y-1">
             <Label>Start Date</Label>
-            <Input
-              type="date"
-              value={newLoan.start_date}
-              onChange={(e) => setNewLoan((p) => ({ ...p, start_date: e.target.value }))}
+            <DatePicker
+              value={newLoan.start_date || null}
+              onChange={(d) => setNewLoan((p) => ({ ...p, start_date: d ?? "" }))}
+              placeholder="Start date"
               className="h-8 w-32"
             />
           </div>
@@ -2381,12 +2382,12 @@ function LoansSection({
                   />
                 </TableCell>
                 <TableCell>
-                  <Input
-                    type="date"
-                    value={e.start_date}
-                    onChange={(ev) =>
-                      setEditing((p) => ({ ...p, [l.id]: { ...(p[l.id] ?? l), start_date: ev.target.value } }))
+                  <DatePicker
+                    value={e.start_date || null}
+                    onChange={(d) =>
+                      setEditing((p) => ({ ...p, [l.id]: { ...(p[l.id] ?? l), start_date: d ?? "" } }))
                     }
+                    placeholder="Start date"
                     className="h-8 w-32"
                   />
                 </TableCell>
@@ -2491,10 +2492,10 @@ function LoansSection({
                 </div>
                 <div className="space-y-1">
                   <Label>Start Date</Label>
-                  <Input
-                    type="date"
-                    value={newLoan.start_date}
-                    onChange={(e) => setNewLoan((p) => ({ ...p, start_date: e.target.value }))}
+                  <DatePicker
+                    value={newLoan.start_date || null}
+                    onChange={(d) => setNewLoan((p) => ({ ...p, start_date: d ?? "" }))}
+                    placeholder="Start date"
                     className="h-8 w-32"
                   />
                 </div>
@@ -2672,11 +2673,11 @@ function LoanRepaymentsSection({
         </div>
         <div className="space-y-1">
           <Label>Date</Label>
-          <Input
-            type="date"
+          <DatePicker
+            value={form.date || null}
+            onChange={(d) => setForm((f) => ({ ...f, date: d ?? "" }))}
+            placeholder="Date"
             className="h-8 w-36"
-            value={form.date}
-            onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
           />
         </div>
         <div className="space-y-1">
@@ -3038,10 +3039,10 @@ function InsuranceSection({
           {newPolicyFields.showEndDate && (
             <div className="space-y-1">
               <Label>{newPolicyFields.endDateLabel}</Label>
-              <Input
-                type="date"
-                value={newPolicy.end_date ?? ""}
-                onChange={(e) => setNewPolicy((p) => ({ ...p, end_date: e.target.value || null }))}
+              <DatePicker
+                value={newPolicy.end_date ?? null}
+                onChange={(d) => setNewPolicy((p) => ({ ...p, end_date: d }))}
+                placeholder="End date"
                 className="h-8 w-32"
               />
             </div>
@@ -3203,15 +3204,15 @@ function InsuranceSection({
                         />
                       )}
                       {rowFields.showEndDate && (
-                        <Input
-                          type="date"
-                          value={e.end_date ?? ""}
-                          onChange={(ev) =>
+                        <DatePicker
+                          value={e.end_date ?? null}
+                          onChange={(d) =>
                             setEditing((prev) => ({
                               ...prev,
-                              [p.id]: { ...(prev[p.id] ?? p), end_date: ev.target.value || null },
+                              [p.id]: { ...(prev[p.id] ?? p), end_date: d },
                             }))
                           }
+                          placeholder="End date"
                           className="h-8 w-28"
                         />
                       )}
@@ -3327,10 +3328,10 @@ function InsuranceSection({
                 {newPolicyFields.showEndDate && (
                   <div className="space-y-1">
                     <Label>{newPolicyFields.endDateLabel}</Label>
-                    <Input
-                      type="date"
-                      value={newPolicy.end_date ?? ""}
-                      onChange={(e) => setNewPolicy((prev) => ({ ...prev, end_date: e.target.value || null }))}
+                    <DatePicker
+                      value={newPolicy.end_date ?? null}
+                      onChange={(d) => setNewPolicy((prev) => ({ ...prev, end_date: d }))}
+                      placeholder="End date"
                       className="h-8 w-32"
                     />
                   </div>

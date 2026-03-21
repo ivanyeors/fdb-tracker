@@ -7,7 +7,7 @@ import { MetricCard } from "@/components/dashboard/metric-card"
 import { formatCurrency } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { CurrencyInput } from "@/components/ui/currency-input"
-import { Input } from "@/components/ui/input"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -243,11 +243,11 @@ export function CpfHousingTab({
             </div>
             <div className="space-y-1">
               <Label>Withdrawal date</Label>
-              <Input
-                type="date"
-                className="w-40"
-                value={withdrawalDate}
-                onChange={(e) => setWithdrawalDate(e.target.value)}
+              <DatePicker
+                value={withdrawalDate || null}
+                onChange={(d) => setWithdrawalDate(d ?? "")}
+                placeholder="Date"
+                className="h-9 w-40"
               />
             </div>
             <div className="space-y-1">

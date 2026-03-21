@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useId, useMemo } from "react"
+import { ArrowDown, ArrowUp } from "lucide-react"
 import { AreaClosed, LinePath } from "@visx/shape"
 import { curveMonotoneX } from "@visx/curve"
 import { scalePoint, scaleLinear } from "@visx/scale"
@@ -8,7 +9,7 @@ import { GridRows } from "@visx/grid"
 import { Group } from "@visx/group"
 import { ParentSize } from "@visx/responsive"
 import { useTooltip, TooltipWithBounds } from "@visx/tooltip"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardCTA, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { AddIlpEntryDialog } from "@/components/dashboard/investments/add-ilp-entry-dialog"
 import { DeleteIlpDialog } from "@/components/dashboard/investments/delete-ilp-dialog"
@@ -40,6 +41,8 @@ interface IlpCardProps {
   monthlyData: MonthlyData[]
   onAddEntry?: () => void
   onEditSuccess?: () => void
+  /** Overview: match `InvestmentCard` layout; hide edit/add/delete (use Investments → ILP tab). */
+  variant?: "default" | "summary"
 }
 
 function fmt(n: number): string {
@@ -71,7 +74,81 @@ interface IlpSparkPoint {
   valueSgd: number
 }
 
-function IlpLineChart({ data, width, height }: { data: MonthlyData[]; width: number; height: number }) {
+/** Same stroke and geometry as `InvestmentLineChart` in `investment-card.tsx`. */
+function IlpInvestmentStyleSparkline({
+  data,
+  width,
+  height,
+}: {
+  data: MonthlyData[]
+  width: number
+  height: number
+}) {
+  const { effectiveDisplayCurrency, sgdPerUsd } = useInvestmentsDisplayCurrency()
+  const chartData = useMemo(
+    () =>
+      data.map((d) => ({
+        label: d.month,
+        value: sgdToDisplayAmount(d.value, effectiveDisplayCurrency, sgdPerUsd),
+      })),
+    [data, effectiveDisplayCurrency, sgdPerUsd],
+  )
+
+  const xScale = useMemo(
+    () =>
+      scalePoint<string>({
+        domain: chartData.map((d) => d.label),
+        range: [0, width],
+        padding: 0.5,
+      }),
+    [chartData, width],
+  )
+
+  const yScale = useMemo(() => {
+    const values = chartData.map((d) => d.value)
+    const min = Math.min(...values, 0)
+    const max = Math.max(...values, 0)
+    const padding = (max - min) * 0.1 || 1
+    return scaleLinear<number>({
+      domain: [min - padding, max + padding],
+      range: [height, 0],
+    })
+  }, [chartData, height])
+
+  if (chartData.length === 0 || width < 10) return null
+
+  const stroke =
+    chartData[chartData.length - 1]?.value >= (chartData[0]?.value ?? 0)
+      ? "var(--color-chart-positive)"
+      : "var(--color-chart-negative)"
+
+  return (
+    <svg width={width} height={height}>
+      <Group>
+        <LinePath<{ label: string; value: number }>
+          data={chartData}
+          x={(d) => (xScale(d.label) ?? 0) + (xScale.step() ?? 0) / 2}
+          y={(d) => yScale(d.value) ?? 0}
+          curve={curveMonotoneX}
+          stroke={stroke}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Group>
+    </svg>
+  )
+}
+
+function IlpDetailedLineChart({
+  data,
+  width,
+  height,
+}: {
+  data: MonthlyData[]
+  width: number
+  height: number
+}) {
   const { effectiveDisplayCurrency, sgdPerUsd, formatMoney } =
     useInvestmentsDisplayCurrency()
   const gradId = useId().replace(/:/g, "_")
@@ -240,6 +317,24 @@ function IlpLineChart({ data, width, height }: { data: MonthlyData[]; width: num
   )
 }
 
+function IlpLineChart({
+  data,
+  width,
+  height,
+  style = "area",
+}: {
+  data: MonthlyData[]
+  width: number
+  height: number
+  /** `investment` matches `InvestmentCard` sparkline (line only, no fill/grid/axis). */
+  style?: "area" | "investment"
+}) {
+  if (style === "investment") {
+    return <IlpInvestmentStyleSparkline data={data} width={width} height={height} />
+  }
+  return <IlpDetailedLineChart data={data} width={width} height={height} />
+}
+
 export function IlpCard({
   productId,
   name,
@@ -255,8 +350,66 @@ export function IlpCard({
   monthlyData,
   onAddEntry,
   onEditSuccess,
+  variant = "default",
 }: IlpCardProps) {
   const { formatMoney } = useInvestmentsDisplayCurrency()
+
+  if (variant === "summary") {
+    return (
+      <Card>
+        <CardContent>
+          <div className="flex flex-1 flex-col">
+            <p className="text-sm text-muted-foreground">{name}</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight">
+              {formatMoney(fundValue)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Premiums {formatMoney(totalPremiumsPaid)}
+              <span className="opacity-70">
+                {" "}
+                ({premiumsSource === "entry" ? "statement" : "est."})
+              </span>
+              <span className="mx-1">·</span>
+              <span>Monthly {formatMoney(monthlyPremium)}</span>
+            </p>
+            <div className="mt-1 flex items-center gap-1 text-sm">
+              {returnPct >= 0 ? (
+                <ArrowUp className="size-4 text-emerald-500" />
+              ) : (
+                <ArrowDown className="size-4 text-red-500" />
+              )}
+              <span
+                className={cn(
+                  "font-medium",
+                  returnPct >= 0 ? "text-emerald-500" : "text-red-500",
+                )}
+              >
+                {returnPct >= 0 ? "+" : ""}
+                {fmt(returnPct)}%
+              </span>
+              <span className="text-muted-foreground">return</span>
+            </div>
+            {monthlyData.length > 0 && (
+              <div className="mt-2 h-16 w-full min-w-0">
+                <ParentSize debounceTime={10}>
+                  {({ width, height }) => (
+                    <IlpLineChart
+                      data={monthlyData}
+                      width={width}
+                      height={height ?? 64}
+                      style="investment"
+                    />
+                  )}
+                </ParentSize>
+              </div>
+            )}
+          </div>
+          <CardCTA href="/dashboard/investments?tab=ilp">View in Investments</CardCTA>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-0">

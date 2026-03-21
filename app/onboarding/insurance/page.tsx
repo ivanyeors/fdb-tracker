@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card"
 import { CurrencyInput } from "@/components/ui/currency-input"
 import { Input } from "@/components/ui/input"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -296,10 +297,11 @@ export default function InsurancePage() {
                     {fields.showEndDate && (
                       <div className="space-y-1.5">
                         <Label>{fields.endDateLabel}</Label>
-                        <Input
-                          type="date"
-                          value={item.end_date ?? ""}
-                          onChange={(e) => updateItem(i, "end_date", e.target.value)}
+                        <DatePicker
+                          value={item.end_date ?? null}
+                          onChange={(d) => updateItem(i, "end_date", d ?? "")}
+                          placeholder="Select date"
+                          className="w-full"
                         />
                       </div>
                     )}

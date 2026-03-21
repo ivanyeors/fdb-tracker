@@ -32,6 +32,7 @@ function formatMonthYear(monthStr: string): string {
 
 
 interface MonthYearPickerProps {
+  id?: string
   value: string | null
   onChange: (value: string | null) => void
   availableMonths?: string[]
@@ -41,6 +42,7 @@ interface MonthYearPickerProps {
 }
 
 export function MonthYearPicker({
+  id,
   value,
   onChange,
   availableMonths,
@@ -106,6 +108,7 @@ export function MonthYearPicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          id={id}
           variant="outline"
           disabled={disabled}
           className={cn(
