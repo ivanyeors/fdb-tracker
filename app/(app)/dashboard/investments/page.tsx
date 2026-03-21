@@ -826,7 +826,7 @@ export default function InvestmentsDetailPage() {
             <AllocationChart
               data={ilpDonutSlices}
               title="ILP"
-              centerSubtitle="Each fund; group prefix when in a fund group"
+
               legendMaxItems={6}
               height={336}
             />

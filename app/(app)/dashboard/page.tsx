@@ -15,6 +15,8 @@ import { SavingsThisMonthCard } from "@/components/dashboard/savings-this-month-
 import { InvestmentCard } from "@/components/dashboard/investments/investment-card"
 import { CpfCard } from "@/components/dashboard/cpf/cpf-card"
 import { IlpCard } from "@/components/dashboard/investments/ilp-card"
+import { IlpGroupSummaryCard } from "@/components/dashboard/investments/ilp-group-summary-card"
+import { fundValueForAllocation } from "@/lib/investments/ilp-fund-value-for-allocation"
 import { WaterfallChart, type WaterfallData } from "@/components/dashboard/cashflow/waterfall-chart"
 import { CashflowSankey } from "@/components/dashboard/cashflow/cashflow-sankey"
 import { JournalList, type JournalEntry } from "@/components/dashboard/investments/journal-list"
@@ -94,6 +96,7 @@ type IlpProductWithEntries = {
   premium_payment_mode?: string | null
   end_date: string
   created_at: string
+  group_allocation_pct?: number | null
   ilp_fund_groups?: {
     id: string
     name: string
@@ -103,6 +106,7 @@ type IlpProductWithEntries = {
     fund_value: number
     month: string
     premiums_paid?: number | null
+    fund_report_snapshot?: Record<string, unknown> | null
   } | null
   entries: { month: string; fund_value: number; premiums_paid?: number | null }[]
 }
@@ -420,10 +424,18 @@ export default function OverviewPage() {
       const pm: "monthly" | "one_time" =
         p.premium_payment_mode === "one_time" ? "one_time" : "monthly"
       const gAmt = p.ilp_fund_groups?.group_premium_amount
+      const fvAlloc = fundValueForAllocation(p.latestEntry, p.entries ?? [])
       return {
         productId: p.id,
         name: p.name,
+        groupId: p.ilp_fund_groups?.id ?? null,
+        groupName: p.ilp_fund_groups?.name ?? null,
+        groupAllocationPct:
+          p.group_allocation_pct != null
+            ? Number(p.group_allocation_pct)
+            : null,
         fundValue,
+        fundValueForAllocation: fvAlloc,
         totalPremiumsPaid,
         premiumsSource,
         returnPct,
@@ -436,9 +448,48 @@ export default function OverviewPage() {
         latestEntryFundValue: p.latestEntry?.fund_value ?? 0,
         latestEntryPremiumsPaid: p.latestEntry?.premiums_paid ?? null,
         monthlyData,
+        fundReportSnapshot: p.latestEntry?.fund_report_snapshot ?? null,
       }
     })
   }, [ilpProducts])
+
+  const ilpGroupedSections = useMemo(() => {
+    type Card = (typeof ilpCardsData)[number]
+    const withGroup = ilpCardsData.filter((c) => c.groupId)
+    const without = ilpCardsData.filter((c) => !c.groupId)
+
+    const map = new Map<string, { title: string; cards: Card[] }>()
+    for (const c of withGroup) {
+      const gid = c.groupId!
+      let bucket = map.get(gid)
+      if (!bucket) {
+        bucket = { title: c.groupName ?? gid, cards: [] }
+        map.set(gid, bucket)
+      }
+      bucket.cards.push(c)
+    }
+
+    const sections = [...map.entries()].map(([key, val]) => ({
+      key,
+      ...val,
+    }))
+
+    if (without.length > 0) {
+      sections.push({ key: "_ungrouped", title: "Other ILPs", cards: without })
+    }
+
+    return sections
+  }, [ilpCardsData])
+
+  const showIlpGrouped = useMemo(
+    () => ilpCardsData.some((c) => c.groupId),
+    [ilpCardsData],
+  )
+
+  const ilpPortfolioTotal = useMemo(
+    () => ilpCardsData.reduce((sum, c) => sum + c.fundValue, 0),
+    [ilpCardsData],
+  )
 
   const investmentTrend = useMemo(() => {
     const fromDaily =
@@ -483,7 +534,7 @@ export default function OverviewPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Inflow / Outflow</CardTitle>
+            <CardTitle className="text-base">Cashflow</CardTitle>
             <p className="text-xs text-muted-foreground">
               {isOverviewLoading
                 ? ""
@@ -505,7 +556,7 @@ export default function OverviewPage() {
                     <span className="text-sm text-muted-foreground">
                       Inflow
                     </span>
-                    <span className="font-medium">
+                    <span className="font-medium text-emerald-500">
                       ${formatCurrency(data?.latestInflow ?? 0)}
                     </span>
                   </div>
@@ -513,7 +564,7 @@ export default function OverviewPage() {
                     <span className="text-sm text-muted-foreground">
                       Outflow
                     </span>
-                    <span className="font-medium">
+                    <span className="font-medium text-red-500">
                       ${formatCurrency(data?.latestOutflow ?? 0)}
                     </span>
                   </div>
@@ -701,28 +752,73 @@ export default function OverviewPage() {
       ) : ilpCardsData.length > 0 ? (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">ILP Performance</h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            {ilpCardsData.map((card) => (
-              <IlpCard
-                key={card.productId}
-                productId={card.productId}
-                name={card.name}
-                fundValue={card.fundValue}
-                totalPremiumsPaid={card.totalPremiumsPaid}
-                premiumsSource={card.premiumsSource}
-                returnPct={card.returnPct}
-                monthlyPremium={card.monthlyPremium}
-                premiumPaymentMode={card.premiumPaymentMode}
-                groupPremiumAmount={card.groupPremiumAmount}
-                endDate={card.endDate}
-                latestEntryMonth={card.latestEntryMonth}
-                latestEntryFundValue={card.latestEntryFundValue}
-                latestEntryPremiumsPaid={card.latestEntryPremiumsPaid}
-                monthlyData={card.monthlyData}
-                variant="summary"
-              />
-            ))}
-          </div>
+          {showIlpGrouped ? (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {ilpGroupedSections
+                  .filter((s) => s.key !== "_ungrouped")
+                  .map((section) => (
+                    <IlpGroupSummaryCard
+                      key={section.key}
+                      groupId={section.key}
+                      title={section.title}
+                      cards={section.cards}
+                      fullPortfolioTotal={ilpPortfolioTotal}
+                      chartHeight={300}
+                    />
+                  ))}
+              </div>
+              {ilpGroupedSections.find((s) => s.key === "_ungrouped") && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {ilpGroupedSections
+                    .find((s) => s.key === "_ungrouped")!
+                    .cards.map((card) => (
+                      <IlpCard
+                        key={card.productId}
+                        productId={card.productId}
+                        name={card.name}
+                        fundValue={card.fundValue}
+                        totalPremiumsPaid={card.totalPremiumsPaid}
+                        premiumsSource={card.premiumsSource}
+                        returnPct={card.returnPct}
+                        monthlyPremium={card.monthlyPremium}
+                        premiumPaymentMode={card.premiumPaymentMode}
+                        groupPremiumAmount={card.groupPremiumAmount}
+                        endDate={card.endDate}
+                        latestEntryMonth={card.latestEntryMonth}
+                        latestEntryFundValue={card.latestEntryFundValue}
+                        latestEntryPremiumsPaid={card.latestEntryPremiumsPaid}
+                        monthlyData={card.monthlyData}
+                        variant="summary"
+                      />
+                    ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {ilpCardsData.map((card) => (
+                <IlpCard
+                  key={card.productId}
+                  productId={card.productId}
+                  name={card.name}
+                  fundValue={card.fundValue}
+                  totalPremiumsPaid={card.totalPremiumsPaid}
+                  premiumsSource={card.premiumsSource}
+                  returnPct={card.returnPct}
+                  monthlyPremium={card.monthlyPremium}
+                  premiumPaymentMode={card.premiumPaymentMode}
+                  groupPremiumAmount={card.groupPremiumAmount}
+                  endDate={card.endDate}
+                  latestEntryMonth={card.latestEntryMonth}
+                  latestEntryFundValue={card.latestEntryFundValue}
+                  latestEntryPremiumsPaid={card.latestEntryPremiumsPaid}
+                  monthlyData={card.monthlyData}
+                  variant="summary"
+                />
+              ))}
+            </div>
+          )}
         </div>
       ) : (activeProfileId || activeFamilyId) ? (
         <div className="rounded-lg border bg-card p-4 text-center text-sm text-muted-foreground">

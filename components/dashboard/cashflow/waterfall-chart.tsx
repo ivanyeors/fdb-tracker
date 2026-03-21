@@ -1,11 +1,12 @@
 "use client"
 
 import { useMemo } from "react"
+import { createPortal } from "react-dom"
 import { Bar } from "@visx/shape"
 import { Group } from "@visx/group"
 import { scaleBand, scaleLinear } from "@visx/scale"
 import { AxisBottom, AxisLeft } from "@visx/axis"
-import { useTooltip, TooltipWithBounds } from "@visx/tooltip"
+import { useTooltip } from "@visx/tooltip"
 import { ParentSize } from "@visx/responsive"
 
 export type WaterfallData = {
@@ -263,11 +264,10 @@ function WaterfallChartInner({
                   rx={2}
                   ry={2}
                   onMouseMove={(e) => {
-                    const rect = (e.target as SVGElement).getBoundingClientRect()
                     showTooltip({
                       tooltipData: { bar, data },
-                      tooltipLeft: rect.left + rect.width / 2,
-                      tooltipTop: rect.top,
+                      tooltipLeft: e.clientX,
+                      tooltipTop: e.clientY,
                     })
                   }}
                   onMouseLeave={hideTooltip}
@@ -298,23 +298,26 @@ function WaterfallChartInner({
           ))}
         </Group>
       </svg>
-      {tooltipOpen && tooltipData && (
-        <TooltipWithBounds
-          key={`${tooltipData.bar.name}-${tooltipLeft}-${tooltipTop}`}
-          top={tooltipTop}
-          left={tooltipLeft}
-          style={{
-            backgroundColor: "var(--color-card)",
-            border: "1px solid var(--color-border)",
-            borderRadius: "8px",
-            padding: "8px 12px",
-            fontSize: 12,
-            color: "var(--color-card-foreground)",
-          }}
-        >
-          <WaterfallTooltipContent bar={tooltipData.bar} data={tooltipData.data} formatValue={formatValue} />
-        </TooltipWithBounds>
-      )}
+      {tooltipOpen &&
+        tooltipData &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            key={`${tooltipData.bar.name}-${tooltipLeft}-${tooltipTop}`}
+            role="tooltip"
+            className="pointer-events-none z-[9999] max-w-[min(280px,calc(100vw-24px))] rounded-lg border border-border bg-card px-3 py-2 text-card-foreground shadow-lg"
+            style={{
+              position: "fixed",
+              left: tooltipLeft,
+              top: tooltipTop,
+              transform: "translate(12px, 12px)",
+              fontSize: 12,
+            }}
+          >
+            <WaterfallTooltipContent bar={tooltipData.bar} data={tooltipData.data} formatValue={formatValue} />
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

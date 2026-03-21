@@ -1,10 +1,11 @@
 "use client"
 
 import { useMemo } from "react"
+import { createPortal } from "react-dom"
 import { Sankey, sankeyCenter } from "@visx/sankey"
 import { Group } from "@visx/group"
 import { BarRounded, LinkHorizontal } from "@visx/shape"
-import { useTooltip, TooltipWithBounds } from "@visx/tooltip"
+import { useTooltip } from "@visx/tooltip"
 import { ParentSize } from "@visx/responsive"
 import type { SankeyNode } from "@visx/sankey"
 import type { WaterfallData } from "./waterfall-chart"
@@ -125,7 +126,6 @@ function CashflowSankeyInner({
                     strokeWidth={Math.max(link.width ?? 0, 1)}
                     strokeOpacity={0.4}
                     onMouseMove={(e) => {
-                      const rect = (e.target as SVGElement).getBoundingClientRect()
                       const pctOfInflow =
                         inflowTotal > 0 ? (link.value / inflowTotal) * 100 : undefined
                       showTooltip({
@@ -135,8 +135,8 @@ function CashflowSankeyInner({
                           value: link.value,
                           pctOfInflow,
                         },
-                        tooltipLeft: rect.left + rect.width / 2,
-                        tooltipTop: rect.top,
+                        tooltipLeft: e.clientX,
+                        tooltipTop: e.clientY,
                       })
                     }}
                     onMouseLeave={hideTooltip}
@@ -166,7 +166,6 @@ function CashflowSankeyInner({
                       strokeWidth={1}
                       all
                       onMouseMove={(e) => {
-                        const rect = (e.target as SVGElement).getBoundingClientRect()
                         const pctOfInflow =
                           inflowTotal > 0 && nodeValue > 0
                             ? (nodeValue / inflowTotal) * 100
@@ -178,8 +177,8 @@ function CashflowSankeyInner({
                             value: nodeValue,
                             pctOfInflow,
                           },
-                          tooltipLeft: rect.left + rect.width / 2,
-                          tooltipTop: rect.top,
+                          tooltipLeft: e.clientX,
+                          tooltipTop: e.clientY,
                         })
                       }}
                       onMouseLeave={hideTooltip}
@@ -203,34 +202,37 @@ function CashflowSankeyInner({
           )}
         </Sankey>
       </svg>
-      {tooltipOpen && tooltipData && (
-        <TooltipWithBounds
-          key={`${tooltipData.label}-${tooltipLeft}-${tooltipTop}`}
-          top={tooltipTop}
-          left={tooltipLeft}
-          style={{
-            backgroundColor: "var(--color-card)",
-            border: "1px solid var(--color-border)",
-            borderRadius: "8px",
-            padding: "10px 12px",
-            fontSize: 12,
-            color: "var(--color-card-foreground)",
-          }}
-        >
-          <div className="font-medium">{tooltipData.label}</div>
-          {tooltipData.value !== undefined && (
-            <div>
-              ${formatCurrency(tooltipData.value)}
-              {tooltipData.pctOfInflow != null && (
-                <span className="text-muted-foreground">
-                  {" "}
-                  ({tooltipData.pctOfInflow.toFixed(1)}% of inflow)
-                </span>
-              )}
-            </div>
-          )}
-        </TooltipWithBounds>
-      )}
+      {tooltipOpen &&
+        tooltipData &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            key={`${tooltipData.label}-${tooltipLeft}-${tooltipTop}`}
+            role="tooltip"
+            className="pointer-events-none z-[9999] max-w-[min(280px,calc(100vw-24px))] rounded-lg border border-border bg-card px-3 py-2 text-card-foreground shadow-lg"
+            style={{
+              position: "fixed",
+              left: tooltipLeft,
+              top: tooltipTop,
+              transform: "translate(12px, 12px)",
+              fontSize: 12,
+            }}
+          >
+            <div className="font-medium">{tooltipData.label}</div>
+            {tooltipData.value !== undefined && (
+              <div>
+                ${formatCurrency(tooltipData.value)}
+                {tooltipData.pctOfInflow != null && (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    ({tooltipData.pctOfInflow.toFixed(1)}% of inflow)
+                  </span>
+                )}
+              </div>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

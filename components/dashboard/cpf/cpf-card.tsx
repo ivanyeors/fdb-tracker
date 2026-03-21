@@ -1,22 +1,17 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
+import { createPortal } from "react-dom"
 import { ArrowUp, ArrowDown } from "lucide-react"
 import { Pie } from "@visx/shape"
 import { Group } from "@visx/group"
-import { scaleOrdinal } from "@visx/scale"
-import { useTooltip, TooltipWithBounds } from "@visx/tooltip"
+import { useTooltip } from "@visx/tooltip"
 import { ParentSize } from "@visx/responsive"
+import { createCategoryColorScale } from "@/lib/chart-colors"
 import { Card, CardContent, CardCTA } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatCurrency, cn } from "@/lib/utils"
 
-// CPF account colors: OA (blue), SA (green), MA (orange)
-const CPF_COLORS: Record<string, string> = {
-  OA: "oklch(0.55 0.15 250)",
-  SA: "oklch(0.55 0.15 145)",
-  MA: "oklch(0.65 0.15 45)",
-}
 
 interface CpfBreakdown {
   oa: number
@@ -47,15 +42,13 @@ function CpfDonutChart({
   width: number
   height: number
 }) {
+  const total = data.reduce((s, d) => s + d.value, 0)
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<DonutData>()
+  const [hoveredArcIndex, setHoveredArcIndex] = useState<number | null>(null)
 
   const colorScale = useMemo(
-    () =>
-      scaleOrdinal<string, string>({
-        domain: data.map((d) => d.name),
-        range: data.map((d) => CPF_COLORS[d.name] ?? "var(--color-chart-neutral)"),
-      }),
+    () => createCategoryColorScale(data.map((d) => d.name)),
     [data],
   )
 
@@ -63,7 +56,7 @@ function CpfDonutChart({
   const centerX = chartSize / 2
   const centerY = chartSize / 2
   const radius = chartSize / 2 - 8
-  const innerRadius = radius * 0.55
+  const innerRadius = radius * 0.58
 
   if (width < 10 || data.length === 0) return null
 
@@ -76,62 +69,65 @@ function CpfDonutChart({
             pieValue={(d) => d.value}
             outerRadius={radius}
             innerRadius={innerRadius}
-            padAngle={0.02}
-            cornerRadius={4}
+            padAngle={0.006}
           >
             {(pie) =>
               pie.arcs.map((arc) => {
                 const fill = colorScale(arc.data.name)
+                const dimmed =
+                  hoveredArcIndex !== null && hoveredArcIndex !== arc.index
                 return (
-                  <path
-                    key={arc.data.name}
-                    d={pie.path(arc) ?? ""}
-                    fill={fill}
-                    onMouseMove={(e) => {
-                      const rect = (e.target as SVGElement).getBoundingClientRect()
-                      showTooltip({
-                        tooltipData: arc.data,
-                        tooltipLeft: rect.left + rect.width / 2,
-                        tooltipTop: rect.top,
-                      })
-                    }}
-                    onMouseLeave={hideTooltip}
-                  />
+                  <g key={`arc-${arc.index}-${arc.data.name}`}>
+                    <path
+                      d={pie.path(arc) ?? ""}
+                      fill={fill}
+                      className="cursor-pointer transition-[opacity] duration-150"
+                      style={{ opacity: dimmed ? 0.45 : 1 }}
+                      onMouseMove={(e) => {
+                        setHoveredArcIndex(arc.index)
+                        showTooltip({
+                          tooltipData: arc.data,
+                          tooltipLeft: e.clientX,
+                          tooltipTop: e.clientY,
+                        })
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredArcIndex(null)
+                        hideTooltip()
+                      }}
+                    />
+                  </g>
                 )
               })
             }
           </Pie>
-          <text
-            x={0}
-            y={0}
-            textAnchor="middle"
-            dominantBaseline="central"
-            className="fill-foreground text-xs font-semibold"
-          >
-            ${formatCurrency(data.reduce((s, d) => s + d.value, 0))}
-          </text>
         </Group>
       </svg>
-      {tooltipOpen && tooltipData && (
-        <TooltipWithBounds
-          key={`${tooltipData.name}-${tooltipLeft}-${tooltipTop}`}
-          top={tooltipTop}
-          left={tooltipLeft}
-          style={{
-            borderRadius: "8px",
-            border: "1px solid var(--color-border)",
-            background: "var(--color-card)",
-            color: "var(--color-card-foreground)",
-            padding: "6px 10px",
-            fontSize: 12,
-          }}
-        >
-          <div className="font-medium">
-            {tooltipData.name} — {tooltipData.percentage.toFixed(1)}%
-          </div>
-          <div>${formatCurrency(tooltipData.value)}</div>
-        </TooltipWithBounds>
-      )}
+      {tooltipOpen &&
+        tooltipData &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            key={`${tooltipData.name}-${tooltipLeft}-${tooltipTop}`}
+            role="tooltip"
+            className="pointer-events-none z-[9999] max-w-[min(280px,calc(100vw-24px))] rounded-lg border border-border bg-card px-3 py-2 text-card-foreground shadow-lg"
+            style={{
+              position: "fixed",
+              left: tooltipLeft,
+              top: tooltipTop,
+              transform: "translate(12px, 12px)",
+              fontSize: 12,
+            }}
+          >
+            <div className="font-medium text-foreground">
+              {tooltipData.name} · {tooltipData.percentage.toFixed(1)}%
+            </div>
+            <div className="mt-0.5 tabular-nums text-muted-foreground">
+              ${formatCurrency(tooltipData.value)} of ${formatCurrency(total)}
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }
