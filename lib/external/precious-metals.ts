@@ -34,8 +34,9 @@ type MetalpriceApiRates = {
   USDXAG?: number
 }
 
-const METALPRICEAPI_BASE = "https://api.metalpriceapi.com/v1"
-const METALPRICEAPI_TIMEFRAME = `${METALPRICEAPI_BASE}/timeframe`
+const METALPRICEAPI_V1 = "https://api.metalpriceapi.com/v1"
+const METALPRICEAPI_LATEST = `${METALPRICEAPI_V1}/latest`
+const METALPRICEAPI_TIMEFRAME = `${METALPRICEAPI_V1}/timeframe`
 
 export type HistoricalMetalPrice = {
   date: string
@@ -178,7 +179,7 @@ async function fetchMetalpriceLatest(): Promise<PreciousMetalPrice[]> {
       base: "USD",
       currencies: "XAU,XAG,SGD",
     })
-    const url = `${METALPRICEAPI_BASE}?${params.toString()}`
+    const url = `${METALPRICEAPI_LATEST}?${params.toString()}`
 
     const res = await fetch(url)
 

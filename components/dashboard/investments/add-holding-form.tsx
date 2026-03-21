@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { CurrencyInput } from "@/components/ui/currency-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -38,6 +39,7 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
   )
   const [units, setUnits] = useState("")
   const [costPerUnit, setCostPerUnit] = useState<number | null>(null)
+  const [note, setNote] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const effectiveSymbol =
@@ -77,6 +79,7 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
           type,
           units: unitsNum,
           costBasis: cost,
+          ...(note.trim() && { journalText: note.trim() }),
           ...(activeProfileId && { profileId: activeProfileId }),
           ...(activeFamilyId && !activeProfileId && { familyId: activeFamilyId }),
         }),
@@ -91,6 +94,7 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
       setSymbol("")
       setUnits("")
       setCostPerUnit(null)
+      setNote("")
       setType("stock")
       onSuccess?.()
     } catch (err) {
@@ -204,6 +208,19 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
             required
           />
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="holding-note">Note (optional)</Label>
+        <Textarea
+          id="holding-note"
+          placeholder="Why you bought, thesis, reminders…"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={3}
+          maxLength={2000}
+          className="resize-none"
+        />
       </div>
 
       <Button type="submit" disabled={isSubmitting}>

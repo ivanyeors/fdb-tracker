@@ -3,6 +3,10 @@ import { format, startOfMonth } from "date-fns"
 
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { botState, MyContext } from "@/lib/telegram/bot"
+import {
+  parseAmountAndMemoFromRest,
+  parseCashflowOneLine,
+} from "@/lib/telegram/parse-cashflow-command-rest"
 
 export const inflowScene = new Scenes.WizardScene<MyContext>(
   "inflow_wizard",
@@ -38,6 +42,47 @@ export const inflowScene = new Scenes.WizardScene<MyContext>(
     if (profilesError || !profiles || profiles.length === 0) {
       await ctx.reply("❌ No profiles found. Create one in the web dashboard first.")
       return ctx.scene.leave()
+    }
+
+    const commandRest = botState(ctx).cashflowCommandRest?.trim()
+    if (commandRest) {
+      delete botState(ctx).cashflowCommandRest
+      const one = parseCashflowOneLine(commandRest, profiles)
+      if (one) {
+        const supabaseOne = createSupabaseAdmin()
+        const month = format(startOfMonth(new Date()), "yyyy-MM-dd")
+        const monthLabel = format(new Date(), "MMMM yyyy")
+        const { error } = await supabaseOne.from("monthly_cashflow").upsert(
+          {
+            profile_id: one.profileId,
+            month,
+            inflow: one.amount,
+            source: "telegram",
+            ...(one.memo != null ? { inflow_memo: one.memo } : {}),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "profile_id,month" },
+        )
+        if (error) {
+          await ctx.reply(`❌ Database error: ${error.message}`)
+          return ctx.scene.leave()
+        }
+        if (one.memo != null) {
+          await ctx.reply(
+            `✅ Added inflow of $${one.amount} for ${one.profileName} (${monthLabel}).\n📝 Note saved.`,
+          )
+          return ctx.scene.leave()
+        }
+        ctx.scene.session.profileId = one.profileId
+        ctx.scene.session.profileName = one.profileName
+        await ctx.reply(
+          `✅ Added inflow of $${one.amount} for ${one.profileName} (${monthLabel}).\n\n💭 Anything to remember for this month? Reply with a short note, or send /skip.`,
+        )
+        return ctx.wizard.selectStep(3)
+      }
+      await ctx.reply(
+        "ℹ️ Could not parse that message. Try `/in 5000` or `/in YourName 5000 short note`, or continue below.",
+      )
     }
 
     if (profiles.length === 1) {
@@ -92,19 +137,50 @@ export const inflowScene = new Scenes.WizardScene<MyContext>(
   async (ctx) => {
     // Step 3: Handle amount input
     return handleAmountInput(ctx)
-  }
+  },
+  async (ctx) => {
+    if (!ctx.message || !("text" in ctx.message)) return undefined
+    const t = ctx.message.text.trim()
+    const supabase = createSupabaseAdmin()
+    const month = format(startOfMonth(new Date()), "yyyy-MM-dd")
+
+    if (t === "/skip" || t.toLowerCase() === "skip") {
+      await ctx.reply("👍 All set!")
+      return ctx.scene.leave()
+    }
+
+    const memo = t.slice(0, 2000)
+    const { error } = await supabase
+      .from("monthly_cashflow")
+      .update({
+        inflow_memo: memo,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("profile_id", ctx.scene.session.profileId!)
+      .eq("month", month)
+
+    if (error) {
+      await ctx.reply(`⚠️ Could not save note: ${error.message}`)
+    } else {
+      await ctx.reply("📝 Note saved.")
+    }
+    return ctx.scene.leave()
+  },
 )
 
 async function handleAmountInput(ctx: MyContext) {
     if (!ctx.message || !("text" in ctx.message)) return undefined
 
-    const amountStr = ctx.message.text
-    const amount = parseFloat(amountStr)
-
-    if (isNaN(amount) || amount <= 0) {
-      await ctx.reply("❌ Invalid amount. Please enter a valid positive number.")
-      return undefined // Stay on this step
+    const text = ctx.message.text.trim()
+    const parsed = parseAmountAndMemoFromRest(text)
+    if (!parsed) {
+      await ctx.reply(
+        "❌ Invalid amount. Enter a positive number, optionally followed by a short note (e.g. `5000 salary`).",
+      )
+      return undefined
     }
+
+    const { amount, memo } = parsed
 
     // Save to DB
     const supabase = createSupabaseAdmin()
@@ -117,6 +193,8 @@ async function handleAmountInput(ctx: MyContext) {
         month,
         inflow: amount,
         source: "telegram",
+        ...(memo != null ? { inflow_memo: memo } : {}),
+        updated_at: new Date().toISOString(),
       },
       { onConflict: "profile_id,month" },
     )
@@ -126,8 +204,15 @@ async function handleAmountInput(ctx: MyContext) {
        return ctx.scene.leave()
     }
 
+    if (memo != null) {
+      await ctx.reply(
+        `✅ Added inflow of $${amount} for ${ctx.scene.session.profileName} (${monthLabel}).\n📝 Note saved.`,
+      )
+      return ctx.scene.leave()
+    }
+
     await ctx.reply(
-      `✅ Added inflow of $${amount} for ${ctx.scene.session.profileName} (${monthLabel}).`
+      `✅ Added inflow of $${amount} for ${ctx.scene.session.profileName} (${monthLabel}).\n\n💭 Anything to remember for this month? Reply with a short note, or send /skip.`,
     )
-    return ctx.scene.leave()
+    return ctx.wizard.next()
 }

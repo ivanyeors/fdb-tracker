@@ -8,6 +8,7 @@ import {
   type PreciousMetalPrice,
 } from "@/lib/external/precious-metals"
 import { getSgdPerUsd } from "@/lib/external/usd-sgd"
+import { tickerLookupVariants } from "@/lib/investments/ticker-lookup"
 
 export type PricingSource = "live" | "none"
 
@@ -18,6 +19,8 @@ export type LivePriceFields = {
   unrealisedPnL: number | null
   unrealisedPnLPct: number | null
   pricingSource: PricingSource
+  /** Average cost per unit in USD (from DB cost_basis in SGD × FX). */
+  cost_basis_usd: number | null
 }
 
 export type EnrichInvestmentInput = {
@@ -27,9 +30,43 @@ export type EnrichInvestmentInput = {
   cost_basis: number
 }
 
+function buildStockPriceMap(prices: StockPrice[]): Map<string, StockPrice> {
+  const map = new Map<string, StockPrice>()
+  for (const p of prices) {
+    for (const k of tickerLookupVariants(p.ticker)) {
+      if (!map.has(k)) map.set(k, p)
+    }
+  }
+  return map
+}
+
+function getStockPriceForSymbol(
+  map: Map<string, StockPrice>,
+  symbol: string,
+): StockPrice | undefined {
+  for (const k of tickerLookupVariants(symbol)) {
+    const p = map.get(k)
+    if (
+      p &&
+      typeof p.price === "number" &&
+      Number.isFinite(p.price) &&
+      p.price > 0
+    ) {
+      return p
+    }
+  }
+  return undefined
+}
+
 function noneFields(): Pick<
   LivePriceFields,
-  "currentPrice" | "currency" | "marketValue" | "unrealisedPnL" | "unrealisedPnLPct" | "pricingSource"
+  | "currentPrice"
+  | "currency"
+  | "marketValue"
+  | "unrealisedPnL"
+  | "unrealisedPnLPct"
+  | "pricingSource"
+  | "cost_basis_usd"
 > {
   return {
     currentPrice: null,
@@ -38,6 +75,7 @@ function noneFields(): Pick<
     unrealisedPnL: null,
     unrealisedPnLPct: null,
     pricingSource: "none",
+    cost_basis_usd: null,
   }
 }
 
@@ -51,6 +89,8 @@ export async function enrichInvestmentsWithLivePrices<
   },
 ): Promise<Array<T & LivePriceFields>> {
   if (investments.length === 0) return []
+
+  const sgdPerUsd = await getSgdPerUsd()
 
   const hasMetal = investments.some(
     (inv) => inv.type === "gold" || inv.type === "silver",
@@ -73,70 +113,74 @@ export async function enrichInvestmentsWithLivePrices<
       ? await getMultipleStockPrices(stockSymbols)
       : [])
 
-  const stockPricesMap = new Map(
-    stockPrices.map((p) => [p.ticker.toUpperCase(), p]),
-  )
-
-  const hasStockEtf = investments.some(
-    (inv) => inv.type === "stock" || inv.type === "etf",
-  )
-  const sgdPerUsd = hasStockEtf ? await getSgdPerUsd() : null
+  const stockPricesMap = buildStockPriceMap(stockPrices)
 
   return investments.map((inv) => {
+    const costBasisUsd =
+      sgdPerUsd != null && sgdPerUsd > 0 ? inv.cost_basis / sgdPerUsd : null
+
     if (inv.type === "gold" || inv.type === "silver") {
       const metalPrice = metalsPrices.find(
         (m) => m.metalType.toLowerCase() === inv.type.toLowerCase(),
       )
-      const sellPrice = metalPrice?.sellPriceSgd
+      const sellPriceSgd = metalPrice?.sellPriceSgd
       if (
-        sellPrice == null ||
-        !Number.isFinite(sellPrice) ||
-        sellPrice <= 0
+        sellPriceSgd == null ||
+        !Number.isFinite(sellPriceSgd) ||
+        sellPriceSgd <= 0 ||
+        sgdPerUsd == null ||
+        sgdPerUsd <= 0
       ) {
-        return { ...inv, ...noneFields() }
+        return { ...inv, ...noneFields(), cost_basis_usd: costBasisUsd }
       }
-      const pnl = calculatePnL(inv.units, inv.cost_basis, sellPrice)
+      const sellPriceUsd = sellPriceSgd / sgdPerUsd
+      const costUsdPerUnit = inv.cost_basis / sgdPerUsd
+      const pnl = calculatePnL(inv.units, costUsdPerUnit, sellPriceUsd)
       return {
         ...inv,
-        currentPrice: sellPrice,
-        currency: "SGD",
+        currentPrice: sellPriceUsd,
+        currency: "USD",
+        cost_basis_usd: costBasisUsd,
         pricingSource: "live",
         ...pnl,
       }
     }
 
     if (inv.type === "bond" || inv.type === "ilp") {
-      return { ...inv, ...noneFields() }
+      return { ...inv, ...noneFields(), cost_basis_usd: costBasisUsd }
     }
 
-    const priceData = stockPricesMap.get(inv.symbol.toUpperCase())
+    const priceData = getStockPriceForSymbol(stockPricesMap, inv.symbol)
     if (
       !priceData ||
       typeof priceData.price !== "number" ||
       !Number.isFinite(priceData.price) ||
       priceData.price <= 0
     ) {
-      return { ...inv, ...noneFields() }
+      return { ...inv, ...noneFields(), cost_basis_usd: costBasisUsd }
+    }
+
+    if (sgdPerUsd == null || sgdPerUsd <= 0) {
+      return { ...inv, ...noneFields(), cost_basis_usd: costBasisUsd }
     }
 
     const quoteCurrency = (priceData.currency ?? "USD").toUpperCase()
-    let priceSgd: number
+    let priceUsd: number
     if (quoteCurrency === "SGD") {
-      priceSgd = priceData.price
+      priceUsd = priceData.price / sgdPerUsd
     } else if (quoteCurrency === "USD") {
-      if (sgdPerUsd == null || sgdPerUsd <= 0) {
-        return { ...inv, ...noneFields() }
-      }
-      priceSgd = priceData.price * sgdPerUsd
+      priceUsd = priceData.price
     } else {
-      return { ...inv, ...noneFields() }
+      return { ...inv, ...noneFields(), cost_basis_usd: costBasisUsd }
     }
 
-    const pnl = calculatePnL(inv.units, inv.cost_basis, priceSgd)
+    const costUsdPerUnit = inv.cost_basis / sgdPerUsd
+    const pnl = calculatePnL(inv.units, costUsdPerUnit, priceUsd)
     return {
       ...inv,
-      currentPrice: priceSgd,
-      currency: "SGD",
+      currentPrice: priceUsd,
+      currency: "USD",
+      cost_basis_usd: costBasisUsd,
       pricingSource: "live",
       ...pnl,
     }

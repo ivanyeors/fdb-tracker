@@ -4,6 +4,7 @@ import type { PreciousMetalPrice } from "@/lib/external/precious-metals"
 import { enrichInvestmentsWithLivePrices } from "@/lib/investments/enrich-with-live-prices"
 import { getMultipleStockPrices } from "@/lib/external/fmp"
 import { getOcbcPreciousMetalPrices } from "@/lib/external/precious-metals"
+import { getSgdPerUsd } from "@/lib/external/usd-sgd"
 
 /** Latest ILP fund values per product (optional month ceiling on entries). */
 export async function computeIlpFundTotal(
@@ -101,10 +102,19 @@ export async function computeNetLiquidValue(
       metalsPrices,
     })
 
+    const sgdPerUsd = await getSgdPerUsd()
     for (const row of enriched) {
       if (row.pricingSource !== "live") continue
       const mv = row.marketValue
-      if (mv != null && Number.isFinite(mv) && mv > 0) holdingsLiveSgd += mv
+      if (
+        mv != null &&
+        Number.isFinite(mv) &&
+        mv > 0 &&
+        sgdPerUsd != null &&
+        sgdPerUsd > 0
+      ) {
+        holdingsLiveSgd += mv * sgdPerUsd
+      }
     }
   }
 

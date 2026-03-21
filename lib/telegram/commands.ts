@@ -7,8 +7,14 @@ export const BOT_COMMANDS = [
   { command: "otp", description: "Get OTP for login" },
   { command: "link", description: "Link profile or account with token/API key" },
   { command: "auth", description: "Link account with API key from platform" },
-  { command: "in", description: "Set monthly inflow" },
-  { command: "out", description: "Set monthly outflow" },
+  {
+    command: "in",
+    description: "Monthly inflow; optional note (/in 5000 or /in Name 5000 memo)",
+  },
+  {
+    command: "out",
+    description: "Monthly outflow; optional note (/out 3200 or /out Name 3200 memo)",
+  },
   { command: "buy", description: "Record stock buy" },
   { command: "sell", description: "Record stock sell" },
   { command: "stockimg", description: "Attach screenshot to transaction" },

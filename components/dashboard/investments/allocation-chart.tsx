@@ -6,7 +6,7 @@ import { Pie } from "@visx/shape"
 import { Group } from "@visx/group"
 import { useTooltip } from "@visx/tooltip"
 import { ParentSize } from "@visx/responsive"
-import { formatCurrency } from "@/lib/utils"
+import { useInvestmentsDisplayCurrency } from "@/components/dashboard/investments/investments-display-currency"
 import { createCategoryColorScale } from "@/lib/chart-colors"
 
 interface AllocationData {
@@ -18,14 +18,20 @@ interface AllocationData {
 interface AllocationChartProps {
   data: AllocationData[]
   title?: string
+  /** If set, only this many rows are shown in the legend (data should be pre-sorted by value). */
+  legendMaxItems?: number
+  /** Outer container height for ParentSize (default 280). */
+  height?: number
 }
 
 function AllocationChartInner({
   data,
   title,
+  legendMaxItems,
   width,
   height,
 }: AllocationChartProps & { width: number; height: number }) {
+  const { formatMoney } = useInvestmentsDisplayCurrency()
   const total = data.reduce((sum, d) => sum + d.value, 0)
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<AllocationData>()
@@ -38,7 +44,11 @@ function AllocationChartInner({
   )
 
   const titleBudget = title ? 28 : 0
-  const legendBudget = Math.min(100, 8 + data.length * 28)
+  const legendRowCount =
+    legendMaxItems != null
+      ? Math.min(legendMaxItems, data.length)
+      : data.length
+  const legendBudget = Math.min(100, 8 + legendRowCount * 28)
   const innerWidth = width
   const chartVertical = Math.max(
     96,
@@ -53,6 +63,11 @@ function AllocationChartInner({
   const innerRadius = radius * 0.58
 
   if (width < 10 || data.length === 0) return null
+
+  const legendData =
+    legendMaxItems != null
+      ? data.slice(0, Math.min(legendMaxItems, data.length))
+      : data
 
   return (
     <div className="flex w-full flex-col items-center gap-2">
@@ -138,7 +153,7 @@ function AllocationChartInner({
               dominantBaseline="central"
               className="fill-foreground text-sm font-semibold tabular-nums"
             >
-              ${formatCurrency(total)}
+              {formatMoney(total)}
             </text>
           </Group>
         </svg>
@@ -162,15 +177,15 @@ function AllocationChartInner({
                 {tooltipData.name} · {tooltipData.percentage.toFixed(1)}%
               </div>
               <div className="mt-0.5 tabular-nums text-muted-foreground">
-                ${formatCurrency(tooltipData.value)} of ${formatCurrency(total)}
+                {formatMoney(tooltipData.value)} of {formatMoney(total)}
               </div>
             </div>,
             document.body,
           )}
       </div>
 
-      <ul className="mx-auto max-h-[100px] w-full max-w-md space-y-1 overflow-y-auto overscroll-contain pt-1 pr-1 [-webkit-overflow-scrolling:touch]">
-        {data.map((d) => (
+      <ul className="mx-auto w-full max-w-md space-y-1 pt-1">
+        {legendData.map((d) => (
           <li key={d.name}>
             <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/10 px-2.5 py-1.5 text-xs transition-colors hover:bg-muted/25 sm:gap-3 sm:px-3 sm:py-2 sm:text-sm">
               <span
@@ -185,7 +200,7 @@ function AllocationChartInner({
                 {d.percentage.toFixed(1)}%
               </span>
               <span className="hidden shrink-0 tabular-nums text-muted-foreground sm:inline">
-                ${formatCurrency(d.value)}
+                {formatMoney(d.value)}
               </span>
             </div>
           </li>
@@ -195,16 +210,22 @@ function AllocationChartInner({
   )
 }
 
-export function AllocationChart({ data, title }: AllocationChartProps) {
+export function AllocationChart({
+  data,
+  title,
+  legendMaxItems,
+  height: containerHeight = 280,
+}: AllocationChartProps) {
   return (
-    <div className="w-full" style={{ height: 280 }}>
+    <div className="w-full" style={{ height: containerHeight }}>
       <ParentSize>
         {({ width, height }) => (
           <AllocationChartInner
             data={data}
             title={title}
+            legendMaxItems={legendMaxItems}
             width={width}
-            height={height ?? 280}
+            height={height ?? containerHeight}
           />
         )}
       </ParentSize>

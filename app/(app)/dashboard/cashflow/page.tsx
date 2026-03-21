@@ -20,6 +20,8 @@ export default function CashflowPage() {
       loans: number
       tax: number
       totalOutflow: number
+      inflowMemo?: string
+      outflowMemo?: string
     }>
   >([])
   const [isLoading, setIsLoading] = useState(true)
@@ -80,12 +82,15 @@ export default function CashflowPage() {
   }, [cashflowData])
 
   const currentMonthMetrics = useMemo(() => {
-    if (cashflowData.length === 0) return { inflow: 0, outflow: 0 }
+    if (cashflowData.length === 0)
+      return { inflow: 0, outflow: 0, inflowMemo: undefined as string | undefined, outflowMemo: undefined as string | undefined }
     const sorted = [...cashflowData].sort((a, b) => b.month.localeCompare(a.month))
     const latest = sorted[0]
     return {
       inflow: latest?.inflow ?? 0,
       outflow: latest?.totalOutflow ?? 0,
+      inflowMemo: latest?.inflowMemo,
+      outflowMemo: latest?.outflowMemo,
     }
   }, [cashflowData])
 
@@ -141,6 +146,28 @@ export default function CashflowPage() {
             suffix="%"
             tooltipId="SAVINGS_RATE"
           />
+
+          {(currentMonthMetrics.inflowMemo || currentMonthMetrics.outflowMemo) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">This month&apos;s notes</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                {currentMonthMetrics.inflowMemo ? (
+                  <p>
+                    <span className="font-medium text-foreground">Inflow: </span>
+                    {currentMonthMetrics.inflowMemo}
+                  </p>
+                ) : null}
+                {currentMonthMetrics.outflowMemo ? (
+                  <p>
+                    <span className="font-medium text-foreground">Outflow: </span>
+                    {currentMonthMetrics.outflowMemo}
+                  </p>
+                ) : null}
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>

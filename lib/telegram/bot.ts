@@ -16,6 +16,8 @@ export interface MySessionData extends Scenes.WizardSessionData {
   apiKeyId?: string
   householdId?: string
   expecting?: string
+  /** Optional note after /buy or /sell (Telegraf wizard). */
+  journalNote?: string
   // Add other generic wizard session fields here
 }
 
@@ -28,6 +30,8 @@ export interface BotWebhookState {
   isEarlyRepayment?: boolean
   fileId?: string
   symbol?: string
+  /** Trailing text after `/in` or `/out` for optional one-line amount + memo (parsed in scene). */
+  cashflowCommandRest?: string
 }
 
 export function botState(ctx: MyContext): BotWebhookState {

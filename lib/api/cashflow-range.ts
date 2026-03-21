@@ -18,6 +18,9 @@ export type CashflowRangeRow = {
   loans: number
   tax: number
   totalOutflow: number
+  /** Aggregated Telegram/dashboard notes for the month (per profile). */
+  inflowMemo?: string
+  outflowMemo?: string
 }
 
 export function getMonthsInRange(startMonth: string, endMonth: string): string[] {
@@ -135,7 +138,7 @@ function effectiveInflowFromContext(
   monthStr: string,
   year: number,
   cashflowByKey: Map<string, { inflow: number | null; outflow: number | null }>,
-  profileById: Map<string, { birth_year: number }>,
+  profileById: Map<string, { birth_year: number; name?: string }>,
   incomeByProfileId: Map<
     string,
     { annual_salary: number; bonus_estimate: number | null }
@@ -165,7 +168,7 @@ function effectiveInflowFromContext(
 function monthlyTaxForProfile(
   profileId: string,
   year: number,
-  profileById: Map<string, { birth_year: number }>,
+  profileById: Map<string, { birth_year: number; name?: string }>,
   incomeByProfileId: Map<
     string,
     { annual_salary: number; bonus_estimate: number | null }
@@ -250,6 +253,8 @@ export async function fetchCashflowRangeSeries(
       loans: 0,
       tax: 0,
       totalOutflow: sharedIlp,
+      inflowMemo: undefined,
+      outflowMemo: undefined,
     }))
   }
 
@@ -268,11 +273,11 @@ export async function fetchCashflowRangeSeries(
   ] = await Promise.all([
     supabase
       .from("monthly_cashflow")
-      .select("profile_id, month, inflow, outflow")
+      .select("profile_id, month, inflow, outflow, inflow_memo, outflow_memo")
       .in("profile_id", profileIds)
       .gte("month", startMonth)
       .lte("month", endMonth),
-    supabase.from("profiles").select("id, birth_year").in("id", profileIds),
+    supabase.from("profiles").select("id, birth_year, name").in("id", profileIds),
     supabase
       .from("income_config")
       .select("profile_id, annual_salary, bonus_estimate")
@@ -328,17 +333,32 @@ export async function fetchCashflowRangeSeries(
   if (bankErr) throw new Error(bankErr.message)
 
   const cashflowByKey = new Map<string, { inflow: number | null; outflow: number | null }>()
+  const inflowMemoByKey = new Map<string, string>()
+  const outflowMemoByKey = new Map<string, string>()
   for (const row of cashflowRes.data ?? []) {
     const m = normalizeMonthKey(row.month as string)
-    cashflowByKey.set(`${row.profile_id}:${m}`, {
+    const key = `${row.profile_id}:${m}`
+    cashflowByKey.set(key, {
       inflow: row.inflow,
       outflow: row.outflow,
     })
+    const r = row as {
+      profile_id: string
+      month: string
+      inflow_memo?: string | null
+      outflow_memo?: string | null
+    }
+    if (r.inflow_memo?.trim()) {
+      inflowMemoByKey.set(key, r.inflow_memo.trim())
+    }
+    if (r.outflow_memo?.trim()) {
+      outflowMemoByKey.set(key, r.outflow_memo.trim())
+    }
   }
 
-  const profileById = new Map<string, { birth_year: number }>()
+  const profileById = new Map<string, { birth_year: number; name: string }>()
   for (const p of profilesRes.data ?? []) {
-    profileById.set(p.id, { birth_year: p.birth_year })
+    profileById.set(p.id, { birth_year: p.birth_year, name: p.name })
   }
 
   const incomeByProfileId = new Map<
@@ -471,6 +491,18 @@ export async function fetchCashflowRangeSeries(
 
     ilp += sharedIlp
     const totalOutflow = discretionary + insurance + ilp + loans + tax
+
+    const inflowMemoParts: string[] = []
+    const outflowMemoParts: string[] = []
+    for (const pid of profileIds) {
+      const memoKey = `${pid}:${monthStr}`
+      const pname = profileById.get(pid)?.name ?? "Member"
+      const im = inflowMemoByKey.get(memoKey)
+      if (im) inflowMemoParts.push(`${pname}: ${im}`)
+      const om = outflowMemoByKey.get(memoKey)
+      if (om) outflowMemoParts.push(`${pname}: ${om}`)
+    }
+
     result.push({
       month,
       inflow,
@@ -480,6 +512,12 @@ export async function fetchCashflowRangeSeries(
       loans,
       tax,
       totalOutflow,
+      ...(inflowMemoParts.length > 0
+        ? { inflowMemo: inflowMemoParts.join(" · ") }
+        : {}),
+      ...(outflowMemoParts.length > 0
+        ? { outflowMemo: outflowMemoParts.join(" · ") }
+        : {}),
     })
   }
 

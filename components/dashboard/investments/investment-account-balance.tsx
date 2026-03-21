@@ -8,45 +8,64 @@ import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Loader2 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
+import { formatCurrency } from "@/lib/utils"
 
 interface InvestmentAccountBalanceProps {
   onSuccess?: () => void
+  /** Loaded with the rest of the investments page (SGD in DB). */
+  cashBalance: number
+  accountId: string | null
+  isLoading: boolean
+  /** When set, uses this FX state instead of fetching `/api/fx/usd-sgd` (investments page dedupe). */
+  parentFx?: { sgdPerUsd: number | null; fxLoading: boolean }
 }
 
-export function InvestmentAccountBalance({ onSuccess }: InvestmentAccountBalanceProps) {
+export function InvestmentAccountBalance({
+  onSuccess,
+  cashBalance,
+  accountId,
+  isLoading,
+  parentFx,
+}: InvestmentAccountBalanceProps) {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
-  const [inputValue, setInputValue] = useState<number | null>(null)
-  /** Row exists in DB; first submit creates the row, later submits update cash_balance. */
+  const [inputUsd, setInputUsd] = useState<number | null>(null)
   const [hasAccountRow, setHasAccountRow] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [sgdPerUsdInternal, setSgdPerUsdInternal] = useState<number | null>(null)
+  const [fxLoadingInternal, setFxLoadingInternal] = useState(true)
+
+  const useParentFx = parentFx != null
+  const sgdPerUsd = useParentFx ? parentFx.sgdPerUsd : sgdPerUsdInternal
+  const fxLoading = useParentFx ? parentFx.fxLoading : fxLoadingInternal
 
   useEffect(() => {
-    async function fetchBalance() {
-      if (!activeProfileId && !activeFamilyId) {
-        setIsLoading(false)
-        return
-      }
-      setIsLoading(true)
+    if (useParentFx) return
+    let cancelled = false
+    async function loadFx() {
+      setFxLoadingInternal(true)
       try {
-        const params = new URLSearchParams()
-        if (activeProfileId) params.set("profileId", activeProfileId)
-        else if (activeFamilyId) params.set("familyId", activeFamilyId)
-
-        const res = await fetch(`/api/investments/account?${params}`)
-        if (res.ok) {
-          const json = await res.json()
-          setInputValue(json.cashBalance ?? 0)
-          setHasAccountRow(json.id != null)
-        }
-      } catch {
-        toast.error("Failed to load cash balance")
+        const r = await fetch("/api/fx/usd-sgd")
+        const j = r.ok ? await r.json() : { sgdPerUsd: null }
+        if (!cancelled) setSgdPerUsdInternal(j.sgdPerUsd ?? null)
       } finally {
-        setIsLoading(false)
+        if (!cancelled) setFxLoadingInternal(false)
       }
     }
-    fetchBalance()
-  }, [activeProfileId, activeFamilyId])
+    void loadFx()
+    return () => {
+      cancelled = true
+    }
+  }, [useParentFx])
+
+  useEffect(() => {
+    if (isLoading || fxLoading) return
+    setHasAccountRow(accountId != null)
+    if (sgdPerUsd != null && sgdPerUsd > 0) {
+      setInputUsd(Math.round((cashBalance / sgdPerUsd) * 100) / 100)
+    } else {
+      setInputUsd(0)
+    }
+  }, [cashBalance, accountId, isLoading, fxLoading, sgdPerUsd])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -54,14 +73,18 @@ export function InvestmentAccountBalance({ onSuccess }: InvestmentAccountBalance
       toast.error("Please select a profile or family first.")
       return
     }
-    const value = inputValue ?? 0
+    if (sgdPerUsd == null || sgdPerUsd <= 0) {
+      toast.error("USD/SGD rate unavailable. Try again later.")
+      return
+    }
+    const cashSgd = Math.round((inputUsd ?? 0) * sgdPerUsd * 100) / 100
     setIsSubmitting(true)
     try {
       const res = await fetch("/api/investments/account", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cashBalance: value,
+          cashBalance: cashSgd,
           ...(activeProfileId && { profileId: activeProfileId }),
           ...(activeFamilyId && !activeProfileId && { familyId: activeFamilyId }),
         }),
@@ -83,15 +106,33 @@ export function InvestmentAccountBalance({ onSuccess }: InvestmentAccountBalance
 
   if (!activeProfileId && !activeFamilyId) return null
 
+  const sgdEquivalent =
+    sgdPerUsd != null &&
+    sgdPerUsd > 0 &&
+    inputUsd != null &&
+    Number.isFinite(inputUsd)
+      ? Math.round(inputUsd * sgdPerUsd * 100) / 100
+      : null
+
+  const showSkeleton = isLoading || fxLoading
+
   return (
     <div className="rounded-xl border p-4">
-      <h3 className="mb-4 text-sm font-medium">Investment account cash (SGD)</h3>
+      <h3 className="mb-4 text-sm font-medium">Cash balance</h3>
       <p className="mb-3 text-xs text-muted-foreground">
-        Uninvested cash in your brokerage in Singapore dollars (negative balances
-        allowed, e.g. GIRO). Buy deducts from this; sell adds to it. US-listed
-        holdings are converted to SGD using a live FX rate elsewhere.
+        Enter uninvested brokerage cash in USD; we store the SGD equivalent for
+        portfolio totals (negative balances allowed, e.g. GIRO). Buy/sell flows
+        still update the same SGD balance.
+        {!activeProfileId && activeFamilyId ? (
+          <>
+            {" "}
+            Family view shows total brokerage cash. Saving replaces that total:
+            per-profile cash rows are cleared and the full amount is stored on
+            the shared account (same total the charts use).
+          </>
+        ) : null}
       </p>
-      {isLoading ? (
+      {showSkeleton ? (
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[140px] flex-1 space-y-1.5">
             <Skeleton className="h-4 w-24" />
@@ -102,16 +143,28 @@ export function InvestmentAccountBalance({ onSuccess }: InvestmentAccountBalance
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
           <div className="min-w-[140px] flex-1 space-y-1.5">
-            <Label htmlFor="cash-balance">Cash balance (SGD)</Label>
+            <Label htmlFor="cash-balance">Cash balance (USD)</Label>
             <CurrencyInput
               id="cash-balance"
               placeholder="0.00"
-              value={inputValue}
-              onChange={setInputValue}
+              value={inputUsd}
+              onChange={setInputUsd}
               allowNegativeValue
+              disabled={sgdPerUsd == null || sgdPerUsd <= 0}
             />
+            {sgdEquivalent != null ? (
+              <p className="text-xs text-muted-foreground tabular-nums">
+                ≈ ${formatCurrency(sgdEquivalent)} SGD stored
+              </p>
+            ) : null}
+            {sgdPerUsd == null ? (
+              <p className="text-xs text-destructive">Could not load USD/SGD rate.</p>
+            ) : null}
           </div>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            disabled={isSubmitting || sgdPerUsd == null || sgdPerUsd <= 0}
+          >
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />

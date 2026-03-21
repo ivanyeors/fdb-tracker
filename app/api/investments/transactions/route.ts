@@ -58,8 +58,7 @@ export async function GET(request: NextRequest) {
     if (!resolved) {
       return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
-    const { familyId: resolvedFamilyId, profileIds } = resolved
-    const singleProfileId = profileIds[0] ?? null
+    const { familyId: resolvedFamilyId } = resolved
 
     let query = supabase
       .from("investment_transactions")
@@ -70,7 +69,9 @@ export async function GET(request: NextRequest) {
 
     if (symbol) query = query.eq("symbol", symbol)
     if (type) query = query.eq("type", type)
-    if (singleProfileId) query = query.eq("profile_id", singleProfileId)
+    if (profileId) {
+      query = query.or(`profile_id.eq.${profileId},profile_id.is.null`)
+    }
 
     const { data, error } = await query
 

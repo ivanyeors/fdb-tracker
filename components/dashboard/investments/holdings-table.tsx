@@ -12,21 +12,28 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { useInvestmentsDisplayCurrency } from "@/components/dashboard/investments/investments-display-currency"
+import { EditHoldingDialog } from "@/components/dashboard/investments/edit-holding-dialog"
+import { DeleteHoldingDialog } from "@/components/dashboard/investments/delete-holding-dialog"
+import { SellHoldingDialog } from "@/components/dashboard/investments/sell-holding-dialog"
+import type { Holding } from "@/lib/investments/holding"
 
-export interface Holding {
-  symbol: string
-  type: string
-  units: number
-  costBasis: number
-  currentPrice: number | null
-  currentValue: number | null
-  pnl: number | null
-  pnlPct: number | null
-  portfolioPct: number
-  createdAt?: string
+export type { Holding }
+
+export interface HoldingGroup {
+  summary: Holding
+  lots: Holding[]
 }
 
-type SortKey = keyof Holding
+type SortKey =
+  | "symbol"
+  | "type"
+  | "units"
+  | "costBasis"
+  | "currentValue"
+  | "pnl"
+  | "pnlPct"
+  | "portfolioPct"
 type SortDir = "asc" | "desc"
 
 function fmt(n: number): string {
@@ -37,10 +44,20 @@ function fmt(n: number): string {
 }
 
 interface HoldingsTableProps {
-  holdings: Holding[]
+  groups: HoldingGroup[]
+  onRowClick?: (group: HoldingGroup) => void
+  onChanged?: () => void
+  /** When set, % of Portfolio uses this denominator (full portfolio incl. cash + ILP). */
+  portfolioDenominator?: number
 }
 
-export function HoldingsTable({ holdings }: HoldingsTableProps) {
+export function HoldingsTable({
+  groups,
+  onRowClick,
+  onChanged,
+  portfolioDenominator,
+}: HoldingsTableProps) {
+  const { formatMoney } = useInvestmentsDisplayCurrency()
   const [sortKey, setSortKey] = useState<SortKey>("currentValue")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
 
@@ -53,16 +70,18 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
     }
   }
 
-  const sorted = [...holdings].sort((a, b) => {
+  const sorted = [...groups].sort((a, b) => {
+    const ha = a.summary
+    const hb = b.summary
     if (sortKey === "symbol" || sortKey === "type") {
-      const av = a[sortKey]
-      const bv = b[sortKey]
+      const av = ha[sortKey]
+      const bv = hb[sortKey]
       return sortDir === "asc"
         ? av.localeCompare(bv)
         : bv.localeCompare(av)
     }
-    const av = a[sortKey] as number | null
-    const bv = b[sortKey] as number | null
+    const av = ha[sortKey] as number | null
+    const bv = hb[sortKey] as number | null
     const nullLast = (n: number | null) =>
       n ??
       (sortDir === "asc" ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY)
@@ -77,10 +96,25 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
     { key: "units", label: "Units" },
     { key: "costBasis", label: "Total Invested" },
     { key: "currentValue", label: "Current Value" },
-    { key: "pnl", label: "P&L ($)" },
+    { key: "pnl", label: "P&L" },
     { key: "pnlPct", label: "P&L (%)" },
     { key: "portfolioPct", label: "% of Portfolio" },
   ]
+
+  const showActions =
+    groups.length > 0 &&
+    groups.every((g) => g.lots.length > 0 && g.lots.every((h) => h.id))
+
+  function pctOfPortfolio(h: Holding): number {
+    if (
+      portfolioDenominator != null &&
+      portfolioDenominator > 0 &&
+      h.currentValue != null
+    ) {
+      return (h.currentValue / portfolioDenominator) * 100
+    }
+    return h.portfolioPct
+  }
 
   return (
     <Table>
@@ -106,58 +140,109 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
               </span>
             </TableHead>
           ))}
+          {showActions ? (
+            <TableHead className="w-[130px] text-right">Actions</TableHead>
+          ) : null}
         </TableRow>
       </TableHeader>
       <TableBody>
-        {sorted.map((h) => (
-          <TableRow key={h.createdAt ? `${h.symbol}-${h.createdAt}` : h.symbol}>
-            <TableCell className="font-semibold">{h.symbol}</TableCell>
-            <TableCell>
-              <Badge variant="secondary">{h.type.toUpperCase()}</Badge>
-            </TableCell>
-            <TableCell>{fmt(h.units)}</TableCell>
-            <TableCell>${fmt(h.costBasis)}</TableCell>
-            <TableCell>
-              {h.currentValue == null ? "—" : `$${fmt(h.currentValue)}`}
-            </TableCell>
-            <TableCell>
-              {h.pnl == null ? (
-                "—"
-              ) : (
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1",
-                    h.pnl >= 0 ? "text-emerald-500" : "text-red-500",
-                  )}
+        {sorted.map((g) => {
+          const h = g.summary
+          const singleLot = g.lots.length === 1 ? g.lots[0] : null
+          return (
+            <TableRow
+              key={h.id || `${h.symbol}-${h.createdAt ?? ""}`}
+              className={cn(onRowClick && "cursor-pointer hover:bg-muted/50")}
+              onClick={() => onRowClick?.(g)}
+            >
+              <TableCell className="font-semibold">{h.symbol}</TableCell>
+              <TableCell>
+                <Badge variant="secondary">{h.type.toUpperCase()}</Badge>
+              </TableCell>
+              <TableCell>{fmt(h.units)}</TableCell>
+              <TableCell>{formatMoney(h.costBasis)}</TableCell>
+              <TableCell>
+                {h.currentValue == null ? "—" : formatMoney(h.currentValue)}
+              </TableCell>
+              <TableCell>
+                {h.pnl == null ? (
+                  "—"
+                ) : (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1",
+                      h.pnl >= 0 ? "text-emerald-500" : "text-red-500",
+                    )}
+                  >
+                    {h.pnl >= 0 ? (
+                      <ArrowUp className="size-3" />
+                    ) : (
+                      <ArrowDown className="size-3" />
+                    )}
+                    {formatMoney(Math.abs(h.pnl))}
+                  </span>
+                )}
+              </TableCell>
+              <TableCell>
+                {h.pnlPct == null ? (
+                  "—"
+                ) : (
+                  <span
+                    className={cn(
+                      h.pnlPct >= 0 ? "text-emerald-500" : "text-red-500",
+                    )}
+                  >
+                    {h.pnlPct >= 0 ? "+" : ""}
+                    {fmt(h.pnlPct)}%
+                  </span>
+                )}
+              </TableCell>
+              <TableCell>
+                {h.currentValue == null ? "—" : `${fmt(pctOfPortfolio(h))}%`}
+              </TableCell>
+              {showActions && singleLot?.id ? (
+                <TableCell
+                  className="text-right"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {h.pnl >= 0 ? (
-                    <ArrowUp className="size-3" />
-                  ) : (
-                    <ArrowDown className="size-3" />
-                  )}
-                  ${fmt(Math.abs(h.pnl))}
-                </span>
-              )}
-            </TableCell>
-            <TableCell>
-              {h.pnlPct == null ? (
-                "—"
-              ) : (
-                <span
-                  className={cn(
-                    h.pnlPct >= 0 ? "text-emerald-500" : "text-red-500",
-                  )}
+                  <div className="flex justify-end gap-0.5">
+                    {singleLot.units > 0 ? (
+                      <SellHoldingDialog
+                        initial={{
+                          symbol: singleLot.symbol,
+                          maxUnits: singleLot.units,
+                        }}
+                        onSuccess={onChanged}
+                      />
+                    ) : null}
+                    <EditHoldingDialog
+                      initial={{
+                        id: singleLot.id,
+                        symbol: singleLot.symbol,
+                        type: singleLot.type,
+                        units: singleLot.units,
+                        costPerUnit: singleLot.costPerUnit,
+                      }}
+                      onSuccess={onChanged}
+                    />
+                    <DeleteHoldingDialog
+                      investmentId={singleLot.id}
+                      symbol={singleLot.symbol}
+                      onSuccess={onChanged}
+                    />
+                  </div>
+                </TableCell>
+              ) : showActions ? (
+                <TableCell
+                  className="text-right text-muted-foreground"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {h.pnlPct >= 0 ? "+" : ""}
-                  {fmt(h.pnlPct)}%
-                </span>
-              )}
-            </TableCell>
-            <TableCell>
-              {h.currentValue == null ? "—" : `${fmt(h.portfolioPct)}%`}
-            </TableCell>
-          </TableRow>
-        ))}
+                  —
+                </TableCell>
+              ) : null}
+            </TableRow>
+          )
+        })}
       </TableBody>
     </Table>
   )

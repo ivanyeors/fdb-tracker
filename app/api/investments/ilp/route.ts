@@ -46,8 +46,8 @@ export async function GET(request: NextRequest) {
     if (!resolved) {
       return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
-    const { familyId, profileIds } = resolved
-    const profileId = profileIds[0] ?? null
+    const { familyId } = resolved
+    const requestedProfileId = parsed.data.profileId ?? null
 
     let query = supabase
       .from("ilp_products")
@@ -55,8 +55,12 @@ export async function GET(request: NextRequest) {
       .eq("family_id", familyId)
       .order("created_at", { ascending: true })
 
-    if (profileId) {
-      query = query.or(`profile_id.eq.${profileId},profile_id.is.null`)
+    // Match overview / computeIlpFundTotal: one profile → that profile + shared (null);
+    // family-wide (no profile in query) → every product in the family.
+    if (requestedProfileId) {
+      query = query.or(
+        `profile_id.eq.${requestedProfileId},profile_id.is.null`,
+      )
     }
 
     const { data: products, error } = await query

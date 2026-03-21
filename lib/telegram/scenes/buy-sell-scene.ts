@@ -101,19 +101,31 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     return ctx.wizard.next()
   },
   async (ctx) => {
-    // Step 5: Handle Price -> Execute DB
+    // Step 5: Handle Price -> Ask optional note
     if (!ctx.message || !("text" in ctx.message)) return undefined
-    
+
     const price = parseFloat(ctx.message.text)
     if (isNaN(price) || price <= 0) {
       await ctx.reply("❌ Invalid price. Please enter a positive number:")
       return undefined
     }
-    
+
     ctx.scene.session.price = price
-    
+    await ctx.reply(
+      "💭 Want to add a short note for your future self? (Optional)\nReply with text, or send /skip.",
+    )
+    return ctx.wizard.next()
+  },
+  async (ctx) => {
+    if (!ctx.message || !("text" in ctx.message)) return undefined
+    const t = ctx.message.text.trim()
+    if (t === "/skip" || t.toLowerCase() === "skip") {
+      ctx.scene.session.journalNote = undefined
+    } else {
+      ctx.scene.session.journalNote = t.slice(0, 2000)
+    }
     return finishBuySell(ctx)
-  }
+  },
 )
 
 async function handleSymbolInput(ctx: MyContext) {
@@ -139,6 +151,7 @@ async function finishBuySell(ctx: MyContext) {
   const type = session.type!
   
   const totalCost = quantity * price
+  const journalText = session.journalNote?.trim() || null
   const supabase = createSupabaseAdmin()
 
   // First need family ID
@@ -245,7 +258,7 @@ async function finishBuySell(ctx: MyContext) {
       symbol,
       quantity,
       price,
-      journal_text: null, // Can't easily support journal in this flow without more steps, keeping simple
+      ...(journalText ? { journal_text: journalText } : {}),
     })
 
   if (txError) {

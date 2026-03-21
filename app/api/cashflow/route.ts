@@ -26,6 +26,8 @@ const cashflowBodySchema = z.object({
   inflow: z.number().min(0).optional(),
   outflow: z.number().min(0).optional(),
   source: z.string().optional(),
+  inflowMemo: z.string().max(2000).optional(),
+  outflowMemo: z.string().max(2000).optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -180,7 +182,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { profileId, familyId, month, inflow, outflow, source } = parsed.data
+    const { profileId, familyId, month, inflow, outflow, source, inflowMemo, outflowMemo } =
+      parsed.data
     const supabase = createSupabaseAdmin()
     const resolved = await resolveFamilyAndProfiles(
       supabase,
@@ -204,6 +207,8 @@ export async function POST(request: NextRequest) {
           ...(inflow !== undefined && { inflow }),
           ...(outflow !== undefined && { outflow }),
           ...(source !== undefined && { source }),
+          ...(inflowMemo !== undefined && { inflow_memo: inflowMemo || null }),
+          ...(outflowMemo !== undefined && { outflow_memo: outflowMemo || null }),
           updated_at: new Date().toISOString(),
         },
         { onConflict: "profile_id,month" },

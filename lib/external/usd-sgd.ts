@@ -93,7 +93,7 @@ async function fetchSgdPerUsdFromMetalprice(): Promise<number | null> {
       base: "USD",
       currencies: "SGD",
     })
-    const res = await fetch(`https://api.metalpriceapi.com/v1?${params}`)
+    const res = await fetch(`https://api.metalpriceapi.com/v1/latest?${params}`)
     if (!res.ok) return null
 
     const data = (await res.json()) as Record<string, unknown> & {

@@ -5,6 +5,7 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { enrichInvestmentsWithLivePrices } from "@/lib/investments/enrich-with-live-prices"
+import { getSgdPerUsd } from "@/lib/external/usd-sgd"
 
 const investmentsQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -18,6 +19,8 @@ const createInvestmentSchema = z.object({
   costBasis: z.number().min(0),
   profileId: z.string().uuid().optional(),
   familyId: z.string().uuid().optional(),
+  /** Optional note stored on the linked buy transaction (same flow as Telegram /buy). */
+  journalText: z.string().max(2000).optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -72,8 +75,9 @@ export async function GET(request: NextRequest) {
     if (!investments) return NextResponse.json([])
 
     const enriched = await enrichInvestmentsWithLivePrices(investments)
+    const sgdPerUsd = await getSgdPerUsd()
 
-    return NextResponse.json(enriched)
+    return NextResponse.json({ investments: enriched, sgdPerUsd })
   } catch (err) {
     console.error("[api/investments] GET Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -96,7 +100,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { symbol, type, units, costBasis, profileId, familyId } = parsed.data
+    const { symbol, type, units, costBasis, profileId, familyId, journalText } =
+      parsed.data
     const supabase = createSupabaseAdmin()
     const resolved = await resolveFamilyAndProfiles(
       supabase,
@@ -111,7 +116,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 
-    const { data, error } = await supabase
+    const { data: inv, error: insertErr } = await supabase
       .from("investments")
       .insert({
         family_id: resolved.familyId,
@@ -124,11 +129,99 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (error) {
+    if (insertErr || !inv) {
       return NextResponse.json({ error: "Failed to create investment" }, { status: 500 })
     }
 
-    return NextResponse.json(data, { status: 201 })
+    const tradeAmount = units * costBasis
+    const accountFilter = {
+      family_id: resolved.familyId,
+      profile_id: profileId ?? null,
+    }
+
+    let restoredCash: { id: string; balance: number } | null = null
+    let newAccountId: string | null = null
+
+    const { data: accountRow } = await supabase
+      .from("investment_accounts")
+      .select("id, cash_balance")
+      .match(accountFilter)
+      .maybeSingle()
+
+    if (accountRow) {
+      restoredCash = {
+        id: accountRow.id,
+        balance: accountRow.cash_balance,
+      }
+      const { error: cashErr } = await supabase
+        .from("investment_accounts")
+        .update({
+          cash_balance: accountRow.cash_balance - tradeAmount,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", accountRow.id)
+
+      if (cashErr) {
+        await supabase.from("investments").delete().eq("id", inv.id)
+        return NextResponse.json(
+          { error: "Failed to update investment cash" },
+          { status: 500 },
+        )
+      }
+    } else {
+      const { data: newAcc, error: accInsErr } = await supabase
+        .from("investment_accounts")
+        .insert({
+          family_id: resolved.familyId,
+          profile_id: profileId ?? null,
+          cash_balance: -tradeAmount,
+          updated_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single()
+
+      if (accInsErr || !newAcc) {
+        await supabase.from("investments").delete().eq("id", inv.id)
+        return NextResponse.json(
+          { error: "Failed to create investment account" },
+          { status: 500 },
+        )
+      }
+      newAccountId = newAcc.id
+    }
+
+    const memo = journalText?.trim()
+    const { error: txErr } = await supabase.from("investment_transactions").insert({
+      family_id: resolved.familyId,
+      investment_id: inv.id,
+      symbol,
+      type: "buy",
+      quantity: units,
+      price: costBasis,
+      ...(memo ? { journal_text: memo } : {}),
+      ...(profileId && { profile_id: profileId }),
+    })
+
+    if (txErr) {
+      if (restoredCash) {
+        await supabase
+          .from("investment_accounts")
+          .update({
+            cash_balance: restoredCash.balance,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", restoredCash.id)
+      } else if (newAccountId) {
+        await supabase.from("investment_accounts").delete().eq("id", newAccountId)
+      }
+      await supabase.from("investments").delete().eq("id", inv.id)
+      return NextResponse.json(
+        { error: "Failed to record buy transaction" },
+        { status: 500 },
+      )
+    }
+
+    return NextResponse.json(inv, { status: 201 })
   } catch (err) {
     console.error("[api/investments] POST Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

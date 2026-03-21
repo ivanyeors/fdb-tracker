@@ -19,7 +19,6 @@ import { IlpCard } from "@/components/dashboard/investments/ilp-card"
 import { WaterfallChart, type WaterfallData } from "@/components/dashboard/cashflow/waterfall-chart"
 import { CashflowSankey } from "@/components/dashboard/cashflow/cashflow-sankey"
 import { JournalList, type JournalEntry } from "@/components/dashboard/investments/journal-list"
-import { JournalForm } from "@/components/dashboard/investments/journal-form"
 import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import {
@@ -474,37 +473,6 @@ export default function OverviewPage() {
       })
   }
 
-  const refreshTransactions = () => {
-    const qs = params ? `?${params}` : ""
-    fetch(`/api/investments/transactions${qs ? `${qs}&limit=100` : "?limit=100"}`)
-      .then((r) => r.ok && r.json())
-      .then((txs) => {
-        if (txs) {
-          setTransactions(
-            txs.map(
-              (t: {
-                id: string
-                symbol: string
-                type: string
-                quantity: number
-                price: number
-                journal_text?: string
-                created_at: string
-              }) => ({
-                id: t.id,
-                symbol: t.symbol,
-                type: t.type as "buy" | "sell",
-                quantity: t.quantity,
-                price: t.price,
-                journalText: t.journal_text,
-                date: t.created_at.slice(0, 10),
-              }),
-            ),
-          )
-        }
-      })
-  }
-
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
@@ -734,7 +702,7 @@ export default function OverviewPage() {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">ILP Performance</h3>
             <Link
-              href="/dashboard/investments/detail"
+              href="/dashboard/investments"
               className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
             >
               View in Investments
@@ -766,7 +734,7 @@ export default function OverviewPage() {
       ) : (activeProfileId || activeFamilyId) ? (
         <div className="rounded-lg border bg-card p-4 text-center text-sm text-muted-foreground">
           No ILP plans. Add one in{" "}
-          <Link href="/dashboard/investments/detail" className="text-primary hover:underline">
+          <Link href="/dashboard/investments" className="text-primary hover:underline">
             Investments
           </Link>
           .
@@ -830,16 +798,19 @@ export default function OverviewPage() {
           <CardHeader className="pb-2">
             <CardTitle>Trading / Investment Journal</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6 pt-4">
+          <CardContent className="space-y-4 pt-4">
+            <p className="text-sm text-muted-foreground">
+              Log buys and sells with optional notes on the{" "}
+              <Link href="/dashboard/investments" className="text-primary underline">
+                Investments
+              </Link>{" "}
+              page (Holdings and Activity tabs). Recent trades:
+            </p>
             {isTxLoading ? (
               <Skeleton className="h-32 w-full rounded-xl" />
             ) : (
               <JournalList entries={transactions} />
             )}
-            <div className="rounded-xl border p-4">
-              <h3 className="mb-4 text-sm font-medium">Add Journal Entry</h3>
-              <JournalForm onSuccess={refreshTransactions} />
-            </div>
           </CardContent>
         </Card>
       </div>

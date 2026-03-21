@@ -1406,6 +1406,136 @@ function MonthlyLogSection({
   )
 }
 
+function InvestmentCashBalanceSettings({
+  profileId,
+  familyId,
+  onMutate,
+}: {
+  profileId: string
+  familyId: string
+  onMutate: () => void
+}) {
+  const router = useRouter()
+  const [cashUsd, setCashUsd] = useState<number | null>(null)
+  const [initialCashSgd, setInitialCashSgd] = useState(0)
+  const [sgdPerUsd, setSgdPerUsd] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      try {
+        const params = new URLSearchParams()
+        params.set("profileId", profileId)
+        params.set("familyId", familyId)
+        const [accRes, fxRes] = await Promise.all([
+          fetch(`/api/investments/account?${params}`),
+          fetch("/api/fx/usd-sgd"),
+        ])
+        const fxJson = fxRes.ok ? await fxRes.json() : { sgdPerUsd: null }
+        const rate = fxJson.sgdPerUsd as number | null
+        if (!cancelled) setSgdPerUsd(rate)
+
+        if (accRes.ok) {
+          const acc = await accRes.json()
+          const sgd = Number(acc.cashBalance ?? 0)
+          if (!cancelled) {
+            setInitialCashSgd(sgd)
+            if (rate != null && rate > 0) {
+              setCashUsd(Math.round((sgd / rate) * 100) / 100)
+            } else {
+              setCashUsd(0)
+            }
+          }
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [profileId, familyId])
+
+  const dirty = useMemo(() => {
+    if (loading || sgdPerUsd == null || sgdPerUsd <= 0) return false
+    const nextSgd = Math.round((cashUsd ?? 0) * sgdPerUsd * 100) / 100
+    return Math.abs(nextSgd - initialCashSgd) > 0.005
+  }, [cashUsd, initialCashSgd, sgdPerUsd, loading])
+
+  const persistCash = useCallback(async () => {
+    if (sgdPerUsd == null || sgdPerUsd <= 0) {
+      throw new Error("USD/SGD rate unavailable. Try again later.")
+    }
+    const cashSgd = Math.round((cashUsd ?? 0) * sgdPerUsd * 100) / 100
+    const res = await fetch("/api/investments/account", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cashBalance: cashSgd,
+        profileId,
+        familyId,
+      }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error((data as { error?: string }).error ?? "Failed to save cash balance")
+    }
+    setInitialCashSgd(cashSgd)
+    onMutate()
+    router.refresh()
+  }, [cashUsd, sgdPerUsd, profileId, familyId, onMutate, router])
+
+  useUserSettingsSaveRegistration(
+    `user-settings-investment-cash-${profileId}`,
+    dirty,
+    persistCash,
+  )
+
+  const sgdEquivalent =
+    sgdPerUsd != null &&
+    sgdPerUsd > 0 &&
+    cashUsd != null &&
+    Number.isFinite(cashUsd)
+      ? Math.round(cashUsd * sgdPerUsd * 100) / 100
+      : null
+
+  return (
+    <div className="mb-4 flex flex-wrap items-end gap-4 rounded-lg border border-border/60 bg-muted/20 p-3">
+      <div className="max-w-md space-y-1">
+        <Label htmlFor={`investment-cash-usd-${profileId}`}>Cash balance (USD)</Label>
+        <p className="text-xs text-muted-foreground">
+          Stored in SGD for net-worth and investment totals. Enter your brokerage cash in USD;
+          we convert using a live USD/SGD rate.
+        </p>
+        {loading ? (
+          <div className="h-9 w-40 animate-pulse rounded-md bg-muted" />
+        ) : (
+          <CurrencyInput
+            id={`investment-cash-usd-${profileId}`}
+            placeholder="0.00"
+            value={cashUsd}
+            onChange={(v) => setCashUsd(v)}
+            allowNegativeValue
+            className="h-8 w-40"
+            disabled={sgdPerUsd == null || sgdPerUsd <= 0}
+          />
+        )}
+        {sgdEquivalent != null ? (
+          <p className="text-xs text-muted-foreground tabular-nums">
+            ≈ ${formatCurrency(sgdEquivalent)} SGD stored
+          </p>
+        ) : null}
+        {sgdPerUsd == null && !loading ? (
+          <p className="text-xs text-destructive">Could not load USD/SGD rate.</p>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 function InvestmentsSection({
   investments,
   profileId,
@@ -1562,6 +1692,11 @@ function InvestmentsSection({
     return (
       <>
         <SectionTitle>Investments</SectionTitle>
+        <InvestmentCashBalanceSettings
+          profileId={profileId}
+          familyId={familyId}
+          onMutate={onMutate}
+        />
         <p className="text-sm text-muted-foreground">No investments. Add one below.</p>
         <div className="flex flex-wrap gap-4 rounded-lg border p-3 mt-2">
           <div className="space-y-1">
@@ -1658,6 +1793,11 @@ function InvestmentsSection({
   return (
     <>
       <SectionTitle>Investments</SectionTitle>
+      <InvestmentCashBalanceSettings
+        profileId={profileId}
+        familyId={familyId}
+        onMutate={onMutate}
+      />
       <Table>
         <TableHeader>
           <TableRow>
@@ -1670,8 +1810,8 @@ function InvestmentsSection({
                 <InfoTooltip id="INVESTMENT_COST_PER_UNIT" />
               </span>
             </TableHead>
-            <TableHead className="tabular-nums">Current price</TableHead>
-            <TableHead className="tabular-nums">Current value</TableHead>
+            <TableHead className="tabular-nums">Current price (US$)</TableHead>
+            <TableHead className="tabular-nums">Current value (US$)</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -1779,14 +1919,14 @@ function InvestmentsSection({
                   {inv.current_price != null &&
                   Number.isFinite(inv.current_price) &&
                   inv.current_price > 0
-                    ? `$${formatCurrency(inv.current_price)}`
+                    ? `US$${formatCurrency(inv.current_price)}`
                     : "—"}
                 </TableCell>
                 <TableCell className="text-muted-foreground tabular-nums">
                   {inv.current_price != null &&
                   Number.isFinite(inv.current_price) &&
                   inv.current_price > 0
-                    ? `$${formatCurrency(e.units * inv.current_price)}`
+                    ? `US$${formatCurrency(e.units * inv.current_price)}`
                     : "—"}
                 </TableCell>
                 <TableCell className="text-right">

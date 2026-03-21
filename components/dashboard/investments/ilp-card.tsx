@@ -14,6 +14,8 @@ import { AddIlpEntryDialog } from "@/components/dashboard/investments/add-ilp-en
 import { DeleteIlpDialog } from "@/components/dashboard/investments/delete-ilp-dialog"
 import { EditIlpDialog } from "@/components/dashboard/investments/edit-ilp-dialog"
 import { formatIlpChartMonthLabel } from "@/lib/investments/ilp-chart"
+import { useInvestmentsDisplayCurrency } from "@/components/dashboard/investments/investments-display-currency"
+import { sgdToDisplayAmount } from "@/lib/investments/display-currency"
 
 /** `month` is YYYY-MM (stable sort key from `ilpEntryMonthKey`). */
 interface MonthlyData {
@@ -66,9 +68,12 @@ interface IlpSparkPoint {
   month: string
   label: string
   value: number
+  valueSgd: number
 }
 
 function IlpLineChart({ data, width, height }: { data: MonthlyData[]; width: number; height: number }) {
+  const { effectiveDisplayCurrency, sgdPerUsd, formatMoney } =
+    useInvestmentsDisplayCurrency()
   const gradId = useId().replace(/:/g, "_")
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<{ index: number; point: IlpSparkPoint }>()
@@ -78,9 +83,10 @@ function IlpLineChart({ data, width, height }: { data: MonthlyData[]; width: num
       data.map((d) => ({
         month: d.month,
         label: formatIlpChartMonthLabel(d.month),
-        value: d.value,
+        value: sgdToDisplayAmount(d.value, effectiveDisplayCurrency, sgdPerUsd),
+        valueSgd: d.value,
       })),
-    [data],
+    [data, effectiveDisplayCurrency, sgdPerUsd],
   )
 
   const innerWidth = width - ILP_SPARK_MARGIN.left - ILP_SPARK_MARGIN.right
@@ -225,7 +231,9 @@ function IlpLineChart({ data, width, height }: { data: MonthlyData[]; width: num
           style={{ transform: "translate(12px, 12px)" }}
         >
           <div className="font-medium text-foreground">{tooltipData.point.label}</div>
-          <div className="mt-0.5 tabular-nums text-muted-foreground">${fmt(tooltipData.point.value)}</div>
+          <div className="mt-0.5 tabular-nums text-muted-foreground">
+            {formatMoney(tooltipData.point.valueSgd)}
+          </div>
         </TooltipWithBounds>
       )}
     </div>
@@ -248,6 +256,7 @@ export function IlpCard({
   onAddEntry,
   onEditSuccess,
 }: IlpCardProps) {
+  const { formatMoney } = useInvestmentsDisplayCurrency()
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-0">
@@ -283,7 +292,7 @@ export function IlpCard({
         <div className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Fund Value</span>
-            <span className="font-medium">${fmt(fundValue)}</span>
+            <span className="font-medium">{formatMoney(fundValue)}</span>
           </div>
           <div className="flex justify-between gap-2">
             <span className="text-muted-foreground shrink-0">
@@ -292,7 +301,9 @@ export function IlpCard({
                 {premiumsSource === "entry" ? "(statement)" : "(est.)"}
               </span>
             </span>
-            <span className="font-medium tabular-nums">${fmt(totalPremiumsPaid)}</span>
+            <span className="font-medium tabular-nums">
+              {formatMoney(totalPremiumsPaid)}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Return</span>
@@ -308,7 +319,7 @@ export function IlpCard({
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Monthly Premium</span>
-            <span className="font-medium">${fmt(monthlyPremium)}</span>
+            <span className="font-medium">{formatMoney(monthlyPremium)}</span>
           </div>
         </div>
         <div className="h-[5.5rem] w-full min-w-0 sm:max-w-[10rem] sm:min-w-[7.5rem] sm:w-auto sm:shrink-0 sm:self-center">

@@ -8,7 +8,8 @@ import { GridRows } from "@visx/grid"
 import { Group } from "@visx/group"
 import { ParentSize } from "@visx/responsive"
 import { useTooltip, TooltipWithBounds } from "@visx/tooltip"
-import { formatCurrency } from "@/lib/utils"
+import { useInvestmentsDisplayCurrency } from "@/components/dashboard/investments/investments-display-currency"
+import { sgdToDisplayAmount } from "@/lib/investments/display-currency"
 
 interface DailyData {
   date: string
@@ -19,12 +20,21 @@ interface InvestmentValueChartProps {
   profileId?: string | null
   familyId?: string | null
   className?: string
+  /** Optional breakdown matching portfolio total (listed + cash + ILP). */
+  breakdown?: {
+    holdingsLive: number
+    brokerageCash: number
+    ilpTotal: number
+  }
 }
 
 interface SeriesPoint {
   date: string
   label: string
+  /** Y value in selected display currency (for chart geometry). */
   value: number
+  /** Original snapshot value in SGD (for tooltips). */
+  valueSgd: number
 }
 
 function formatDateLabel(dateStr: string): string {
@@ -67,6 +77,7 @@ function ChartInner({
   width: number
   height: number
 }) {
+  const { formatMoney } = useInvestmentsDisplayCurrency()
   const gradId = useId().replace(/:/g, "_")
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<{ index: number; point: SeriesPoint }>()
@@ -220,7 +231,7 @@ function ChartInner({
             {formatTooltipDate(tooltipData.point.date)}
           </div>
           <div className="mt-0.5 tabular-nums text-muted-foreground">
-            ${formatCurrency(tooltipData.point.value)}
+            {formatMoney(tooltipData.point.valueSgd)}
           </div>
         </TooltipWithBounds>
       )}
@@ -232,7 +243,10 @@ export function InvestmentValueChart({
   profileId,
   familyId,
   className = "",
+  breakdown,
 }: InvestmentValueChartProps) {
+  const { effectiveDisplayCurrency, sgdPerUsd, formatMoney } =
+    useInvestmentsDisplayCurrency()
   const [days, setDays] = useState<30 | 60 | 90>(30)
   const [history, setHistory] = useState<DailyData[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -273,15 +287,18 @@ export function InvestmentValueChart({
       history.map((d) => ({
         date: d.date,
         label: formatDateLabel(d.date),
-        value: d.value,
+        value: sgdToDisplayAmount(d.value, effectiveDisplayCurrency, sgdPerUsd),
+        valueSgd: d.value,
       })),
-    [history],
+    [history, effectiveDisplayCurrency, sgdPerUsd],
   )
 
-  const latestValue = history[history.length - 1]?.value ?? 0
-  const firstValue = history[0]?.value ?? 0
+  const latestValueSgd = history[history.length - 1]?.value ?? 0
+  const firstValueSgd = history[0]?.value ?? 0
   const trend =
-    firstValue > 0 ? ((latestValue - firstValue) / firstValue) * 100 : 0
+    firstValueSgd > 0
+      ? ((latestValueSgd - firstValueSgd) / firstValueSgd) * 100
+      : 0
 
   if (!profileId && !familyId) return null
 
@@ -293,8 +310,28 @@ export function InvestmentValueChart({
             Portfolio Value
           </h3>
           <p className="mt-1 text-2xl font-bold tracking-tight">
-            ${formatCurrency(latestValue)}
+            {formatMoney(latestValueSgd)}
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Includes brokerage cash, listed holdings with live prices, and ILP
+            fund values.
+          </p>
+          {breakdown && (
+            <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+              <div className="flex justify-between gap-4 tabular-nums">
+                <span>Listed holdings</span>
+                <span>{formatMoney(breakdown.holdingsLive)}</span>
+              </div>
+              <div className="flex justify-between gap-4 tabular-nums">
+                <span>Brokerage cash</span>
+                <span>{formatMoney(breakdown.brokerageCash)}</span>
+              </div>
+              <div className="flex justify-between gap-4 tabular-nums">
+                <span>ILP</span>
+                <span>{formatMoney(breakdown.ilpTotal)}</span>
+              </div>
+            </div>
+          )}
           {trend !== 0 && (
             <p
               className={`mt-0.5 text-sm font-medium ${

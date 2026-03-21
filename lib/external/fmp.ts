@@ -1,3 +1,5 @@
+import { tickerLookupVariants } from "@/lib/investments/ticker-lookup"
+
 export type StockPrice = {
   ticker: string;
   price: number;
@@ -87,7 +89,12 @@ function getApiKey(): string {
 async function fetchBatchQuotes(tickers: string[]): Promise<StockPrice[]> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.warn("[fmp] FMP_API_KEY not configured. Returning fallbacks.");
+    console.warn(
+      "[fmp] FMP_API_KEY not configured. Using Yahoo Finance for quotes.",
+    );
+    const yahooResults = await fetchYahooQuoteFallback(tickers);
+    const hasValid = yahooResults.some((r) => r.price > 0);
+    if (hasValid) return yahooResults;
     return tickers.map(makeFallback);
   }
 
@@ -98,9 +105,11 @@ async function fetchBatchQuotes(tickers: string[]): Promise<StockPrice[]> {
   try {
     const res = await fetch(url);
 
-    if (res.status === 403 || res.status === 402) {
+    if (res.status === 403 || res.status === 402 || res.status === 429) {
       console.warn(
-        `[fmp] FMP returned ${res.status}. Using Yahoo Finance for quotes (Stable API not entitled or forbidden).`,
+        res.status === 429
+          ? "[fmp] FMP returned 429 (rate limit). Using Yahoo Finance for quotes."
+          : `[fmp] FMP returned ${res.status}. Using Yahoo Finance for quotes (Stable API not entitled or forbidden).`,
       );
       const yahooResults = await fetchYahooQuoteFallback(tickers);
       const hasValid = yahooResults.some((r) => r.price > 0);
@@ -120,45 +129,124 @@ async function fetchBatchQuotes(tickers: string[]): Promise<StockPrice[]> {
     for (const item of items as FmpQuoteItem[]) {
       const mapped = mapFmpQuoteToStockPrice(item);
       if (mapped.ticker && mapped.ticker !== "UNKNOWN") {
-        priceMap.set(mapped.ticker.toUpperCase(), mapped);
+        for (const k of tickerLookupVariants(mapped.ticker)) {
+          if (!priceMap.has(k)) priceMap.set(k, mapped);
+        }
       }
     }
 
-    return tickers.map((t) => {
-      const key = t.toUpperCase();
-      return priceMap.get(key) ?? makeFallback(t);
+    const fmpMapped = tickers.map((t) => {
+      for (const k of tickerLookupVariants(t)) {
+        const hit = priceMap.get(k);
+        if (
+          hit &&
+          typeof hit.price === "number" &&
+          Number.isFinite(hit.price) &&
+          hit.price > 0
+        ) {
+          return hit;
+        }
+      }
+      return makeFallback(t);
     });
+    const fmpHasAny = fmpMapped.some(
+      (r) => typeof r.price === "number" && r.price > 0,
+    );
+    if (!fmpHasAny && tickers.length > 0) {
+      console.warn(
+        "[fmp] FMP batch returned no valid prices for requested symbols; trying Yahoo.",
+      );
+      const yahooResults = await fetchYahooQuoteFallback(tickers);
+      if (yahooResults.some((r) => r.price > 0)) return yahooResults;
+    }
+    return fmpMapped;
   } catch (err) {
     console.warn("[fmp] Failed to fetch quote:", err);
     return tickers.map(makeFallback);
   }
 }
 
+type YahooQuoteRow = {
+  symbol?: string
+  regularMarketPrice?: number
+  regularMarketChange?: number
+  regularMarketChangePercent?: number
+  regularMarketVolume?: number
+  currency?: string
+}
+
+/** Yahoo batch quote order may not match request order; match by `symbol`. */
+function findYahooQuoteRow(
+  rows: unknown[],
+  ticker: string,
+): YahooQuoteRow | undefined {
+  const u = ticker.toUpperCase()
+  const alt = u.replace(/\./g, "-")
+  for (const item of rows) {
+    const q = item as YahooQuoteRow
+    const sym = (q.symbol ?? "").toUpperCase()
+    if (!sym) continue
+    if (sym === u || sym === alt) return q
+  }
+  return undefined
+}
+
+function yahooRowToStockPrice(q: YahooQuoteRow, ticker: string): StockPrice {
+  if (!q || typeof q.regularMarketPrice !== "number") {
+    return makeFallback(ticker);
+  }
+  return {
+    ticker: (q.symbol ?? ticker).toUpperCase(),
+    price: q.regularMarketPrice,
+    change: typeof q.regularMarketChange === "number" ? q.regularMarketChange : 0,
+    changePct:
+      typeof q.regularMarketChangePercent === "number"
+        ? q.regularMarketChangePercent
+        : 0,
+    volume: typeof q.regularMarketVolume === "number" ? q.regularMarketVolume : 0,
+    timestamp: new Date().toISOString(),
+    currency: typeof q.currency === "string" ? q.currency : "USD",
+  };
+}
+
 async function fetchYahooQuoteFallback(tickers: string[]): Promise<StockPrice[]> {
-  try {
-    const { getYahooFinance } = await import("@/lib/external/yahoo-finance-client");
-    const yahooFinance = await getYahooFinance();
-    const quotes = await yahooFinance.quote(tickers);
-    const arr: unknown[] = Array.isArray(quotes) ? quotes : [quotes];
-    return tickers.map((ticker, i) => {
-      const q = arr[i] as { regularMarketPrice?: number; regularMarketChange?: number; regularMarketChangePercent?: number; regularMarketVolume?: number; currency?: string; symbol?: string } | undefined;
-      if (!q || typeof q.regularMarketPrice !== "number") {
+  const { getYahooFinance } = await import("@/lib/external/yahoo-finance-client");
+  const yahooFinance = await getYahooFinance();
+
+  const tryBatch = async (): Promise<StockPrice[] | null> => {
+    try {
+      const quotes = await yahooFinance.quote(tickers);
+      const arr: unknown[] = Array.isArray(quotes) ? quotes : [quotes];
+      const mapped = tickers.map((ticker) => {
+        const q = findYahooQuoteRow(arr, ticker);
+        return yahooRowToStockPrice(q ?? {}, ticker);
+      });
+      return mapped.some((r) => r.price > 0) ? mapped : null;
+    } catch (err) {
+      console.warn("[fmp] Yahoo batch quote failed:", err);
+      return null;
+    }
+  };
+
+  const batch = await tryBatch();
+  if (batch) return batch;
+
+  const perTicker = await Promise.all(
+    tickers.map(async (ticker) => {
+      try {
+        const raw = await yahooFinance.quote(ticker);
+        const row = Array.isArray(raw) ? raw[0] : raw;
+        const q = row as YahooQuoteRow;
+        return yahooRowToStockPrice(q ?? {}, ticker);
+      } catch {
         return makeFallback(ticker);
       }
-      return {
-        ticker: (q.symbol ?? ticker).toUpperCase(),
-        price: q.regularMarketPrice,
-        change: typeof q.regularMarketChange === "number" ? q.regularMarketChange : 0,
-        changePct: typeof q.regularMarketChangePercent === "number" ? q.regularMarketChangePercent : 0,
-        volume: typeof q.regularMarketVolume === "number" ? q.regularMarketVolume : 0,
-        timestamp: new Date().toISOString(),
-        currency: typeof q.currency === "string" ? q.currency : "USD",
-      };
-    });
-  } catch (err) {
-    console.warn("[fmp] Yahoo fallback failed:", err);
-    return tickers.map(makeFallback);
-  }
+    }),
+  );
+  if (perTicker.some((r) => r.price > 0)) return perTicker;
+
+  console.warn("[fmp] Yahoo per-ticker quotes returned no valid prices.");
+  return tickers.map(makeFallback);
 }
 
 export type HistoricalPricePoint = {
@@ -200,7 +288,11 @@ export async function getHistoricalPrices(
       apikey: apiKey,
     });
     const url = `${FMP_STABLE_BASE}/historical-price-eod/full?${params.toString()}`;
-    const res = await fetch(url);
+    let res = await fetch(url);
+    if (res.status === 429) {
+      await new Promise((r) => setTimeout(r, 1000));
+      res = await fetch(url);
+    }
 
     if (!res.ok) {
       console.warn(`[fmp] Historical API returned ${res.status} for ${ticker}`);
@@ -256,6 +348,21 @@ export async function getStockPrice(ticker: string): Promise<StockPrice> {
   return result;
 }
 
+function getCachedQuote(ticker: string, now: number): CacheEntry | undefined {
+  for (const k of tickerLookupVariants(ticker)) {
+    const entry = cache.get(k);
+    if (!entry || entry.expires <= now) continue;
+    if (
+      typeof entry.data.price === "number" &&
+      Number.isFinite(entry.data.price) &&
+      entry.data.price > 0
+    ) {
+      return entry;
+    }
+  }
+  return undefined;
+}
+
 export async function getMultipleStockPrices(
   tickers: string[],
 ): Promise<StockPrice[]> {
@@ -265,15 +372,28 @@ export async function getMultipleStockPrices(
   const uniqueTickers = [...new Set(tickers.map((t) => t.toUpperCase()))];
   const toFetch: string[] = [];
   for (const t of uniqueTickers) {
-    const entry = cache.get(t);
-    if (!entry || entry.expires <= now) toFetch.push(t);
+    if (!getCachedQuote(t, now)) toFetch.push(t);
   }
 
   if (toFetch.length > 0) {
     const results = await fetchBatchQuotes(toFetch);
-    for (const r of results) {
-      if (r.ticker) {
-        cache.set(r.ticker.toUpperCase(), {
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      const requested = toFetch[i];
+      if (
+        typeof r.price !== "number" ||
+        !Number.isFinite(r.price) ||
+        r.price <= 0
+      ) {
+        for (const k of tickerLookupVariants(requested)) cache.delete(k);
+        continue;
+      }
+      const keys = new Set([
+        ...tickerLookupVariants(requested),
+        ...tickerLookupVariants(r.ticker),
+      ]);
+      for (const k of keys) {
+        cache.set(k, {
           data: r,
           expires: now + CACHE_TTL_MS,
         });
@@ -282,8 +402,7 @@ export async function getMultipleStockPrices(
   }
 
   return tickers.map((t) => {
-    const key = t.toUpperCase();
-    const entry = cache.get(key);
+    const entry = getCachedQuote(t, now);
     return entry ? entry.data : makeFallback(t);
   });
 }

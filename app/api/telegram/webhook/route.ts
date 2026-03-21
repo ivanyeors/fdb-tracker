@@ -179,12 +179,14 @@ function ensureHandlers() {
 
     if (parsed.command === "in") {
       botState(ctx).accountId = accountId
+      botState(ctx).cashflowCommandRest = parsed.rest
       await ctx.scene.enter("inflow_wizard")
       return
     }
 
     if (parsed.command === "out") {
       botState(ctx).accountId = accountId
+      botState(ctx).cashflowCommandRest = parsed.rest
       await ctx.scene.enter("outflow_wizard")
       return
     }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { useInvestmentsDisplayCurrency } from "@/components/dashboard/investments/investments-display-currency"
 import { addDays } from "date-fns"
 import { ChevronDown, ChevronUp } from "lucide-react"
 import { type DateRange } from "react-day-picker"
@@ -46,6 +47,7 @@ const defaultDateRange: DateRange = {
 }
 
 export function JournalList({ entries }: JournalListProps) {
+  const { formatMoney } = useInvestmentsDisplayCurrency()
   const [filter, setFilter] = useState("")
   const [typeFilter, setTypeFilter] = useState<"all" | "buy" | "sell">("all")
   const [dateRange, setDateRange] = useState<DateRange | undefined>(
@@ -127,10 +129,10 @@ export function JournalList({ entries }: JournalListProps) {
                     {entry.type.toUpperCase()}
                   </Badge>
                   <span>
-                    {fmt(entry.quantity)} @ ${fmt(entry.price)}
+                    {fmt(entry.quantity)} @ {formatMoney(entry.price)}
                   </span>
                   <span className="text-muted-foreground">
-                    Total: ${fmt(total)}
+                    Total: {formatMoney(total)}
                   </span>
                 </div>
                 {expanded ? (

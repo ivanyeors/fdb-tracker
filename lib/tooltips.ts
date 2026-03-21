@@ -211,11 +211,11 @@ export const TOOLTIPS = {
     logic: "(current_price \u00d7 units) \u2212 cost_basis",
     explanation: "Unrealized gain or loss on holdings.",
     details:
-      "Prices from FMP API; cost_basis from buy transactions.",
+      "Live quotes are in USD (OCBC metals and FMP stocks/ETFs, with FX). Cost basis is stored in SGD per unit and converted to USD for P&L.",
   },
   GOLD_SILVER_VALUE: {
     label: "Gold/Silver Value",
-    logic: "units \u00d7 OCBC indicative sell price (SGD)",
+    logic: "units \u00d7 OCBC indicative sell price (converted from SGD to US$ for display)",
     explanation: "Conservative mark-to-market using sell price.",
     details:
       "Uses OCBC\u2019s sell price since holdings are in OCBC Precious Metals Account.",

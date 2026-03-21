@@ -59,24 +59,44 @@ export async function GET(request: NextRequest) {
     const profileId = parsed.data.profileId ?? null
 
     const eff = effectiveAccountProfileId(profileId, profileIds)
-    let accountQuery = supabase
-      .from("investment_accounts")
-      .select("id, cash_balance, created_at, updated_at")
-      .eq("family_id", familyId)
-    accountQuery = eff
-      ? accountQuery.eq("profile_id", eff)
-      : accountQuery.is("profile_id", null)
 
-    const { data: account, error } = await accountQuery.maybeSingle()
+    if (eff) {
+      const { data: account, error } = await supabase
+        .from("investment_accounts")
+        .select("id, cash_balance, created_at, updated_at")
+        .eq("family_id", familyId)
+        .eq("profile_id", eff)
+        .maybeSingle()
+
+      if (error) {
+        console.error("[api/investments/account] Supabase error:", error.message, error.code)
+        return NextResponse.json({ error: "Failed to fetch account" }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        cashBalance: account?.cash_balance ?? 0,
+        id: account?.id ?? null,
+      })
+    }
+
+    // Family-wide (no profile): sum all brokerage cash — matches computeNetLiquidValue.
+    const { data: accounts, error } = await supabase
+      .from("investment_accounts")
+      .select("id, cash_balance, profile_id")
+      .eq("family_id", familyId)
 
     if (error) {
       console.error("[api/investments/account] Supabase error:", error.message, error.code)
       return NextResponse.json({ error: "Failed to fetch account" }, { status: 500 })
     }
 
+    const totalCash =
+      accounts?.reduce((s, a) => s + (a.cash_balance ?? 0), 0) ?? 0
+    const sharedRow = accounts?.find((a) => a.profile_id === null)
+
     return NextResponse.json({
-      cashBalance: account?.cash_balance ?? 0,
-      id: account?.id ?? null,
+      cashBalance: totalCash,
+      id: sharedRow?.id ?? null,
     })
   } catch (err) {
     console.error("[api/investments/account] GET Error:", err)
@@ -118,22 +138,70 @@ export async function PATCH(request: NextRequest) {
     const singleProfileId = profileId ?? null
 
     const effPatch = effectiveAccountProfileId(singleProfileId, profileIds)
-    let existingQuery = supabase
+    const now = new Date().toISOString()
+
+    // Family-wide (no profile): GET sums all rows — PATCH must replace that total exactly.
+    if (!effPatch) {
+      await supabase
+        .from("investment_accounts")
+        .update({ cash_balance: 0, updated_at: now })
+        .eq("family_id", resolvedFamilyId)
+        .not("profile_id", "is", null)
+
+      const { data: shared } = await supabase
+        .from("investment_accounts")
+        .select("id")
+        .eq("family_id", resolvedFamilyId)
+        .is("profile_id", null)
+        .maybeSingle()
+
+      if (shared) {
+        const { data: updated, error } = await supabase
+          .from("investment_accounts")
+          .update({
+            cash_balance: cashBalance,
+            updated_at: now,
+          })
+          .eq("id", shared.id)
+          .select()
+          .single()
+
+        if (error) {
+          return NextResponse.json({ error: "Failed to update account" }, { status: 500 })
+        }
+        return NextResponse.json(updated)
+      }
+
+      const { data: created, error } = await supabase
+        .from("investment_accounts")
+        .insert({
+          family_id: resolvedFamilyId,
+          profile_id: null,
+          cash_balance: cashBalance,
+          updated_at: now,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        return NextResponse.json({ error: "Failed to create account" }, { status: 500 })
+      }
+      return NextResponse.json(created)
+    }
+
+    const { data: existing } = await supabase
       .from("investment_accounts")
       .select("id")
       .eq("family_id", resolvedFamilyId)
-    existingQuery = effPatch
-      ? existingQuery.eq("profile_id", effPatch)
-      : existingQuery.is("profile_id", null)
-
-    const { data: existing } = await existingQuery.maybeSingle()
+      .eq("profile_id", effPatch)
+      .maybeSingle()
 
     if (existing) {
       const { data: updated, error } = await supabase
         .from("investment_accounts")
         .update({
           cash_balance: cashBalance,
-          updated_at: new Date().toISOString(),
+          updated_at: now,
         })
         .eq("id", existing.id)
         .select()
@@ -149,9 +217,9 @@ export async function PATCH(request: NextRequest) {
       .from("investment_accounts")
       .insert({
         family_id: resolvedFamilyId,
-        profile_id: singleProfileId,
+        profile_id: effPatch,
         cash_balance: cashBalance,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       })
       .select()
       .single()

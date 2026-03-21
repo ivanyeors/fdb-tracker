@@ -4,6 +4,7 @@ import { Gem, Circle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { cn } from "@/lib/utils"
+import { useInvestmentsDisplayCurrency } from "@/components/dashboard/investments/investments-display-currency"
 
 interface MetalHolding {
   type: "gold" | "silver"
@@ -30,6 +31,7 @@ function fmt(n: number): string {
 }
 
 export function PreciousMetals({ metals }: PreciousMetalsProps) {
+  const { formatMoney } = useInvestmentsDisplayCurrency()
   const lastUpdated = metals[0]?.lastUpdated ?? "—"
 
   return (
@@ -68,12 +70,12 @@ export function PreciousMetals({ metals }: PreciousMetalsProps) {
                     OCBC Buy / Sell
                   </span>
                   <span>
-                    ${fmt(m.buyPrice)} / ${fmt(m.sellPrice)}
+                    {formatMoney(m.buyPrice)} / {formatMoney(m.sellPrice)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Current Value</span>
-                  <span className="font-medium">${fmt(m.currentValue)}</span>
+                  <span className="font-medium">{formatMoney(m.currentValue)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Date Added</span>
@@ -87,7 +89,8 @@ export function PreciousMetals({ metals }: PreciousMetalsProps) {
                       m.pnl >= 0 ? "text-emerald-500" : "text-red-500",
                     )}
                   >
-                    {m.pnl >= 0 ? "+" : ""}${fmt(Math.abs(m.pnl))} (
+                    {m.pnl >= 0 ? "+" : "-"}
+                    {formatMoney(Math.abs(m.pnl))} (
                     {m.pnlPct >= 0 ? "+" : ""}
                     {fmt(m.pnlPct)}%)
                   </span>

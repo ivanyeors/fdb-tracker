@@ -359,6 +359,8 @@ export type Database = {
           source: string
           created_at: string
           updated_at: string
+          inflow_memo: string | null
+          outflow_memo: string | null
         }
         Insert: {
           id?: string
@@ -369,6 +371,8 @@ export type Database = {
           source?: string
           created_at?: string
           updated_at?: string
+          inflow_memo?: string | null
+          outflow_memo?: string | null
         }
         Update: {
           id?: string
@@ -379,6 +383,8 @@ export type Database = {
           source?: string
           created_at?: string
           updated_at?: string
+          inflow_memo?: string | null
+          outflow_memo?: string | null
         }
         Relationships: [
           {
@@ -521,6 +527,7 @@ export type Database = {
           units: number
           cost_basis: number
           created_at: string
+          date_added: string | null
         }
         Insert: {
           id?: string
@@ -531,6 +538,7 @@ export type Database = {
           units?: number
           cost_basis?: number
           created_at?: string
+          date_added?: string | null
         }
         Update: {
           id?: string
@@ -541,6 +549,7 @@ export type Database = {
           units?: number
           cost_basis?: number
           created_at?: string
+          date_added?: string | null
         }
         Relationships: [
           {
