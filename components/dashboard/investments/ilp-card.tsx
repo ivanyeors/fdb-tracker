@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils"
 import { AddIlpEntryDialog } from "@/components/dashboard/investments/add-ilp-entry-dialog"
 import { DeleteIlpDialog } from "@/components/dashboard/investments/delete-ilp-dialog"
 import { EditIlpDialog } from "@/components/dashboard/investments/edit-ilp-dialog"
-import { IlpSnapshotAllocation } from "@/components/dashboard/investments/ilp-snapshot-allocation"
+import { IlpFundReportPanel } from "@/components/dashboard/investments/ilp-fund-report-panel"
 import { formatIlpChartMonthLabel } from "@/lib/investments/ilp-chart"
 import { useInvestmentsDisplayCurrency } from "@/components/dashboard/investments/investments-display-currency"
 import { sgdToDisplayAmount } from "@/lib/investments/display-currency"
@@ -52,6 +52,10 @@ interface IlpCardProps {
   fundReportSnapshot?: Record<string, unknown> | null
   /** Share of fund group portfolio (read-only; configured in Setup). */
   groupAllocationPct?: number | null
+  /** When false, hide “Add monthly value” (e.g. grouped funds use group editor). */
+  showAddMonthlyEntry?: boolean
+  /** When false, hide delete (e.g. delete only from group editor). */
+  showDeleteProduct?: boolean
 }
 
 function fmt(n: number): string {
@@ -364,6 +368,8 @@ export function IlpCard({
   variant = "default",
   fundReportSnapshot = null,
   groupAllocationPct = null,
+  showAddMonthlyEntry = true,
+  showDeleteProduct = true,
 }: IlpCardProps) {
   const { formatMoney } = useInvestmentsDisplayCurrency()
   const [editOpen, setEditOpen] = useState(false)
@@ -437,7 +443,7 @@ export function IlpCard({
   }
 
   return (
-    <Card>
+    <Card className="h-auto overflow-visible">
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-0">
         <div className="min-w-0 flex-1 pr-2">
           <CardTitle className="text-base font-bold leading-tight">{name}</CardTitle>
@@ -462,21 +468,25 @@ export function IlpCard({
               open={editOpen}
               onOpenChange={setEditOpen}
             />
-            <AddIlpEntryDialog
-              productId={productId}
-              productName={name}
-              onSuccess={onAddEntry}
-            />
-            <DeleteIlpDialog
-              productId={productId}
-              productName={name}
-              onSuccess={onEditSuccess ?? onAddEntry}
-            />
+            {showAddMonthlyEntry ? (
+              <AddIlpEntryDialog
+                productId={productId}
+                productName={name}
+                onSuccess={onAddEntry}
+              />
+            ) : null}
+            {showDeleteProduct ? (
+              <DeleteIlpDialog
+                productId={productId}
+                productName={name}
+                onSuccess={onEditSuccess ?? onAddEntry}
+              />
+            ) : null}
           </div>
         )}
       </CardHeader>
-      <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-stretch">
-        <div className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
+      <CardContent className="flex-none gap-3">
+        <div className="flex min-w-0 flex-col gap-1.5 text-sm">
           <div className="flex items-start justify-between gap-2">
             <span className="text-muted-foreground">Fund Value</span>
             <div className="flex flex-col items-end gap-1">
@@ -520,21 +530,31 @@ export function IlpCard({
             <span className="font-medium">{formatMoney(premiumLineAmount)}</span>
           </div>
         </div>
-        <div className="h-[5.5rem] w-full min-w-0 sm:max-w-[10rem] sm:min-w-[7.5rem] sm:w-auto sm:shrink-0 sm:self-center">
-          <ParentSize debounceTime={10}>
-            {({ width, height }) => (
-              <IlpLineChart
-                data={monthlyData}
-                width={width}
-                height={height ?? 88}
-              />
-            )}
-          </ParentSize>
-        </div>
       </CardContent>
       {fundReportSnapshot ? (
-        <CardContent className="pt-0">
-          <IlpSnapshotAllocation snapshot={fundReportSnapshot} />
+        <CardContent className="flex-none pt-0">
+          <IlpFundReportPanel snapshot={fundReportSnapshot} />
+        </CardContent>
+      ) : null}
+      {monthlyData.length > 0 ? (
+        <CardContent className="flex-none border-t border-border pt-4">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Tracked fund value
+          </p>
+          <p className="mb-3 text-[11px] text-muted-foreground">
+            From your monthly entries (not the Morningstar growth chart).
+          </p>
+          <div className="h-28 w-full min-w-0 sm:h-32">
+            <ParentSize debounceTime={10}>
+              {({ width, height }) => (
+                <IlpLineChart
+                  data={monthlyData}
+                  width={width}
+                  height={height ?? 120}
+                />
+              )}
+            </ParentSize>
+          </div>
         </CardContent>
       ) : null}
     </Card>

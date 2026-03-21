@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import Link from "next/link"
@@ -202,32 +203,38 @@ export default async function UserSettingsPage() {
         </Button>
       </div>
 
-      <div className="space-y-8">
-        {(families ?? []).map((family) => {
-          const rawProfiles = profilesByFamily.get(family.id) ?? []
-          const profiles = rawProfiles.map((p) =>
-            normalizeProfile(p as Record<string, unknown>)
-          )
-          const financialData = financialDataByFamily.get(family.id) ?? {
-            bankAccounts: [],
-            savingsGoals: [],
-            investments: [],
-            loans: [],
-            insurancePolicies: [],
-            cpfBalances: [],
-            monthlyCashflow: [],
-          }
-          return (
-            <FamilyMembersTable
-              key={family.id}
-              family={{ id: family.id, name: family.name }}
-              profiles={profiles}
-              financialData={financialData}
-              familyCount={(families ?? []).length}
-            />
-          )
-        })}
-      </div>
+      <Suspense
+        fallback={
+          <div className="text-sm text-muted-foreground">Loading user settings…</div>
+        }
+      >
+        <div className="space-y-8">
+          {(families ?? []).map((family) => {
+            const rawProfiles = profilesByFamily.get(family.id) ?? []
+            const profiles = rawProfiles.map((p) =>
+              normalizeProfile(p as Record<string, unknown>)
+            )
+            const financialData = financialDataByFamily.get(family.id) ?? {
+              bankAccounts: [],
+              savingsGoals: [],
+              investments: [],
+              loans: [],
+              insurancePolicies: [],
+              cpfBalances: [],
+              monthlyCashflow: [],
+            }
+            return (
+              <FamilyMembersTable
+                key={family.id}
+                family={{ id: family.id, name: family.name }}
+                profiles={profiles}
+                financialData={financialData}
+                familyCount={(families ?? []).length}
+              />
+            )
+          })}
+        </div>
+      </Suspense>
 
       {familyIds.length === 0 && (
         <p className="text-muted-foreground">

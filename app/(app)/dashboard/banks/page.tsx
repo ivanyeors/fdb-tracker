@@ -51,8 +51,19 @@ function formatEvalMonth(iso: string) {
   return d.toLocaleDateString("en-SG", { year: "numeric", month: "short" })
 }
 
+/** Matches GET /api/bank-accounts when `profileId` is set: that profile’s rows + shared (`profile_id` null). */
+function filterAccountsForActiveProfile(
+  list: BankAccountRow[],
+  profileId: string | null,
+): BankAccountRow[] {
+  if (!profileId) return list
+  return list.filter(
+    (a) => a.profile_id == null || a.profile_id === profileId,
+  )
+}
+
 export default function BanksPage() {
-  const { activeProfileId, activeFamilyId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId, profiles } = useActiveProfile()
   const [accounts, setAccounts] = useState<BankAccountRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [ocbcSaving, setOcbcSaving] = useState<string | null>(null)
@@ -63,7 +74,7 @@ export default function BanksPage() {
       const url = new URL("/api/bank-accounts", window.location.origin)
       if (activeProfileId) url.searchParams.set("profileId", activeProfileId)
       else if (activeFamilyId) url.searchParams.set("familyId", activeFamilyId)
-      const res = await fetch(url)
+      const res = await fetch(url, { cache: "no-store" })
       if (res.ok) {
         const json = await res.json()
         const list = Array.isArray(json) ? json : json.accounts ?? []
@@ -80,7 +91,19 @@ export default function BanksPage() {
     void fetchBanks()
   }, [fetchBanks])
 
-  const ocbc360Account = accounts.find((a) => a.account_type === "ocbc_360")
+  const visibleAccounts = useMemo(
+    () => filterAccountsForActiveProfile(accounts, activeProfileId),
+    [accounts, activeProfileId],
+  )
+
+  const staleRowsRemoved =
+    Boolean(activeProfileId) && accounts.length > visibleAccounts.length
+
+  const activeProfileName = activeProfileId
+    ? profiles.find((p) => p.id === activeProfileId)?.name
+    : null
+
+  const ocbc360Account = visibleAccounts.find((a) => a.account_type === "ocbc_360")
   const derived = ocbc360Account?.ocbc360Derived
 
   const categories = useMemo(
@@ -137,7 +160,11 @@ export default function BanksPage() {
     <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
         title="Banks"
-        description="Per-bank balances and OCBC 360 interest projection."
+        description={
+          activeProfileId
+            ? `Balances for ${activeProfileName ?? "this profile"} and shared accounts (no owner). Personal accounts must be assigned to a user under Settings → User Settings → Banks, or they stay “shared” and show for every profile.`
+            : "Per-bank balances for the whole family (combined). Pick a profile above to focus on one person plus shared accounts."
+        }
       />
 
       {isLoading ? (
@@ -162,14 +189,21 @@ export default function BanksPage() {
             </Card>
           ) : null}
         </>
-      ) : accounts.length === 0 ? (
+      ) : visibleAccounts.length === 0 ? (
         <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
           No bank accounts found for this profile.
         </div>
       ) : (
         <>
+          {staleRowsRemoved ? (
+            <p className="text-muted-foreground text-sm">
+              Showing only this profile and shared accounts. If the list still looked
+              like “combined”, refresh the page or check Settings → User Settings → Banks:
+              each personal account should have an owner so it isn’t treated as shared.
+            </p>
+          ) : null}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {accounts.map((acc, i) => (
+            {visibleAccounts.map((acc, i) => (
               <MetricCard
                 key={acc.id || i}
                 label={acc.bank_name || "Bank Account"}
@@ -183,7 +217,7 @@ export default function BanksPage() {
           </div>
 
           {!activeProfileId &&
-          accounts.some((a) => a.account_type === "ocbc_360") ? (
+          visibleAccounts.some((a) => a.account_type === "ocbc_360") ? (
             <p className="text-muted-foreground text-sm">
               Select a profile (not Combined) to see the OCBC 360 interest breakdown and
               cashflow-linked categories.

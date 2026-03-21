@@ -9,6 +9,7 @@ import {
   isValidIlpGroupAllocationSum,
   sumAllocationPcts,
 } from "@/lib/investments/ilp-group-allocation"
+import { rebalanceIlpFundGroupAfterProductDelete } from "@/lib/investments/ilp-rebalance-after-delete"
 
 const updateIlpSchema = z.object({
   name: z.string().min(1).optional(),
@@ -297,10 +298,28 @@ export async function DELETE(
       return NextResponse.json({ error: "ILP product not found" }, { status: 404 })
     }
 
+    const fundGroupId = product.ilp_fund_group_id as string | null
+    const resolvedFamilyId = product.family_id as string
+
     const { error } = await supabase.from("ilp_products").delete().eq("id", id)
     if (error) {
       return NextResponse.json({ error: "Failed to delete ILP product" }, { status: 500 })
     }
+
+    if (fundGroupId) {
+      const { error: rebalanceErr } = await rebalanceIlpFundGroupAfterProductDelete(
+        supabase,
+        resolvedFamilyId,
+        fundGroupId,
+      )
+      if (rebalanceErr) {
+        return NextResponse.json(
+          { error: rebalanceErr },
+          { status: 500 },
+        )
+      }
+    }
+
     return new NextResponse(null, { status: 204 })
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

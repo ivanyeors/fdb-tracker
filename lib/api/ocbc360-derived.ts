@@ -16,8 +16,9 @@ type AdminClient = ReturnType<typeof createSupabaseAdmin>
 /**
  * Loads income, cashflow, snapshots and builds OCBC 360 category rows for the Banks dashboard.
  *
- * @param contextProfileId - Active profile from `GET /api/bank-accounts?profileId=` when the bank
- *   row has `profile_id` null (shared account). Otherwise `account.profile_id` is used.
+ * @param contextProfileId - Active profile from `GET /api/bank-accounts?profileId=`. When set
+ *   (named profile in header), salary/spend use that profile's income + monthly_cashflow. When
+ *   null (Combined), uses `account.profile_id` for owner-linked accounts.
  */
 export async function fetchOcbc360DerivedForAccount(
   supabase: AdminClient,
@@ -31,7 +32,7 @@ export async function fetchOcbc360DerivedForAccount(
   contextProfileId: string | null,
 ): Promise<Ocbc360DerivedPayload> {
   const evalMonth = ocbcEvalMonthFirstDayIso()
-  const cashflowProfileId = account.profile_id ?? contextProfileId
+  const cashflowProfileId = contextProfileId ?? account.profile_id
   const profileLinked = Boolean(cashflowProfileId)
 
   let monthlyGrossSalaryFromIncome: number | null = null

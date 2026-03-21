@@ -26,6 +26,7 @@ import { HoldingDetailSheet } from "@/components/dashboard/investments/holding-d
 import { groupHoldings } from "@/lib/investments/group-holdings"
 import { AllocationChart } from "@/components/dashboard/investments/allocation-chart"
 import { IlpCard } from "@/components/dashboard/investments/ilp-card"
+import { IlpGroupSummaryCard } from "@/components/dashboard/investments/ilp-group-summary-card"
 import { PreciousMetals } from "@/components/dashboard/investments/precious-metals"
 import { AddHoldingForm } from "@/components/dashboard/investments/add-holding-form"
 import { InvestmentAccountBalance } from "@/components/dashboard/investments/investment-account-balance"
@@ -620,6 +621,11 @@ export default function InvestmentsDetailPage() {
     [ilpCardsData],
   )
 
+  const ilpUngroupedSection = useMemo(
+    () => ilpGroupedSections.find((s) => s.key === "_ungrouped"),
+    [ilpGroupedSections],
+  )
+
   if (!activeProfileId && !activeFamilyId) {
     return (
       <InvestmentsDisplayCurrencyProvider
@@ -709,7 +715,12 @@ export default function InvestmentsDetailPage() {
               </span>
             </div>
           ) : (
-            <AllocationChart data={allocationByIlpProduct} title="ILP" />
+            <AllocationChart
+              data={allocationByIlpProduct}
+              title="ILP"
+              legendMaxItems={3}
+              height={336}
+            />
           )}
         </div>
       </div>
@@ -874,7 +885,8 @@ export default function InvestmentsDetailPage() {
             </SheetContent>
           </Sheet>
           {isLoading ? (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <ChartSkeleton height={200} className="rounded-xl" />
               <ChartSkeleton height={200} className="rounded-xl" />
               <ChartSkeleton height={200} className="rounded-xl" />
             </div>
@@ -886,38 +898,53 @@ export default function InvestmentsDetailPage() {
             </div>
           ) : showIlpGrouped ? (
             <div className="space-y-8">
-              {ilpGroupedSections.map((section) => (
-                <section key={section.key} className="space-y-3">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {ilpGroupedSections
+                  .filter((s) => s.key !== "_ungrouped")
+                  .map((section) => (
+                    <div key={section.key} className="min-w-0">
+                      <IlpGroupSummaryCard
+                        groupId={section.key}
+                        title={section.title}
+                        cards={section.cards}
+                        fullPortfolioTotal={fullPortfolioTotal}
+                        chartHeight={380}
+                      />
+                    </div>
+                  ))}
+              </div>
+              {ilpUngroupedSection ? (
+                <section className="space-y-3">
                   <h3 className="text-sm font-medium text-muted-foreground">
-                    {section.title}
+                    {ilpUngroupedSection.title}
                   </h3>
                   <div className="grid gap-4 md:grid-cols-2">
-                    {section.cards.map((card) => (
-                      <IlpCard
-                        key={card.productId}
-                        productId={card.productId}
-                        name={card.name}
-                        fundValue={card.fundValue}
-                        totalPremiumsPaid={card.totalPremiumsPaid}
-                        premiumsSource={card.premiumsSource}
-                        returnPct={card.returnPct}
-                        monthlyPremium={card.monthlyPremium}
-                        premiumPaymentMode={card.premiumPaymentMode}
-                        groupPremiumAmount={card.groupPremiumAmount}
-                        endDate={card.endDate}
-                        latestEntryMonth={card.latestEntryMonth}
-                        latestEntryFundValue={card.latestEntryFundValue}
-                        latestEntryPremiumsPaid={card.latestEntryPremiumsPaid}
-                        monthlyData={card.monthlyData}
-                        fundReportSnapshot={card.fundReportSnapshot}
-                        groupAllocationPct={card.groupAllocationPct}
-                        onAddEntry={fetchData}
-                        onEditSuccess={fetchData}
-                      />
-                    ))}
+                    {ilpUngroupedSection.cards.map((card) => (
+                        <IlpCard
+                          key={card.productId}
+                          productId={card.productId}
+                          name={card.name}
+                          fundValue={card.fundValue}
+                          totalPremiumsPaid={card.totalPremiumsPaid}
+                          premiumsSource={card.premiumsSource}
+                          returnPct={card.returnPct}
+                          monthlyPremium={card.monthlyPremium}
+                          premiumPaymentMode={card.premiumPaymentMode}
+                          groupPremiumAmount={card.groupPremiumAmount}
+                          endDate={card.endDate}
+                          latestEntryMonth={card.latestEntryMonth}
+                          latestEntryFundValue={card.latestEntryFundValue}
+                          latestEntryPremiumsPaid={card.latestEntryPremiumsPaid}
+                          monthlyData={card.monthlyData}
+                          fundReportSnapshot={card.fundReportSnapshot}
+                          groupAllocationPct={card.groupAllocationPct}
+                          onAddEntry={fetchData}
+                          onEditSuccess={fetchData}
+                        />
+                      ))}
                   </div>
                 </section>
-              ))}
+              ) : null}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">

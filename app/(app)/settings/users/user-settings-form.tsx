@@ -17,7 +17,7 @@ import {
 } from "@/components/layout/user-settings-save-context"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { CurrencyInput } from "@/components/ui/currency-input"
@@ -64,9 +64,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SymbolPickerDrawer } from "@/components/dashboard/investments/symbol-picker-drawer"
-import { formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 import {
   getFieldsForInsurancePolicyRow,
   type InsuranceType,
@@ -3649,6 +3648,70 @@ function filterByProfile<T extends { profile_id: string | null }>(
   return items.filter((i) => i.profile_id === profileId || i.profile_id === null)
 }
 
+function profileInitials(name: string) {
+  const parts = name.trim().split(/\s+/)
+  const a = parts[0]?.[0] ?? "?"
+  const b = parts.length > 1 ? parts[parts.length - 1]![0] : ""
+  return (a + b).toUpperCase()
+}
+
+function FamilyMemberSettingsPanels({
+  p,
+  family,
+  financialData,
+  profiles,
+  handleMutate,
+}: {
+  p: ProfileWithIncome
+  family: { id: string; name: string }
+  financialData: FinancialDataByFamily
+  profiles: ProfileWithIncome[]
+  handleMutate: () => void
+}) {
+  const profileBanks = filterByProfile(financialData.bankAccounts, p.id)
+  const profileGoals = filterByProfile(financialData.savingsGoals, p.id)
+  const profileInvestments = filterByProfile(financialData.investments, p.id)
+  const profileLoans = financialData.loans.filter((l) => l.profile_id === p.id)
+  const profilePolicies = financialData.insurancePolicies.filter((pol) => pol.profile_id === p.id)
+  const cpfData = financialData.cpfBalances.find((c) => c.profile_id === p.id)
+
+  return (
+    <div className="space-y-2">
+      <MonthlyLogSection
+        profileId={p.id}
+        profileName={p.name}
+        logs={financialData.monthlyCashflow}
+        familyId={family.id}
+        onMutate={handleMutate}
+      />
+      <ProfileSection profile={p} profileCount={profiles.length} />
+      <TelegramSection profile={p} />
+      <BanksSection
+        banks={profileBanks}
+        profileId={p.id}
+        familyId={family.id}
+        onMutate={handleMutate}
+      />
+      <SavingsGoalsSection
+        goals={profileGoals}
+        profileId={p.id}
+        familyId={family.id}
+        onMutate={handleMutate}
+      />
+      <CPFSection profileId={p.id} cpfData={cpfData} familyId={family.id} />
+      <InvestmentsSection
+        investments={profileInvestments}
+        profileId={p.id}
+        familyId={family.id}
+        onMutate={handleMutate}
+      />
+      <LoansSection loans={profileLoans} profileId={p.id} onMutate={handleMutate} />
+      <LoanRepaymentsSection loans={profileLoans} profileId={p.id} onMutate={handleMutate} />
+      <InsuranceSection policies={profilePolicies} profileId={p.id} onMutate={handleMutate} />
+    </div>
+  )
+}
+
 export function FamilyMembersTable({
   family,
   profiles,
@@ -3661,6 +3724,8 @@ export function FamilyMembersTable({
   familyCount: number
 }) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -3679,6 +3744,20 @@ export function FamilyMembersTable({
     error: undefined,
   })
 
+  const updateProfileInUrl = useCallback(
+    (profileId: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (profiles.some((p) => p.id === profileId)) {
+        params.set("profile", profileId)
+      } else {
+        params.delete("profile")
+      }
+      const q = params.toString()
+      router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false })
+    },
+    [pathname, profiles, router, searchParams]
+  )
+
   const confirmDiscardUnsaved = useCallback(() => {
     discardUnsavedInProgressRef.current = true
     const pending = pendingNavigationRef.current
@@ -3687,25 +3766,27 @@ export function FamilyMembersTable({
     if (pending?.type === "tab") {
       setTabsResetKey((k) => k + 1)
       setActiveTab(pending.tab)
+      updateProfileInUrl(pending.tab)
     } else if (pending?.type === "route") {
       router.push(pending.href)
     }
     queueMicrotask(() => {
       discardUnsavedInProgressRef.current = false
     })
-  }, [router])
+  }, [router, updateProfileInUrl])
 
-  const handleTabChange = useCallback(
+  const handleProfileChange = useCallback(
     (next: string) => {
       if (next === activeTab) return
       if (!hasUnsavedChanges) {
         setActiveTab(next)
+        updateProfileInUrl(next)
         return
       }
       pendingNavigationRef.current = { type: "tab", tab: next }
       setUnsavedDialogOpen(true)
     },
-    [activeTab, hasUnsavedChanges]
+    [activeTab, hasUnsavedChanges, updateProfileInUrl]
   )
 
   useEffect(() => {
@@ -3752,12 +3833,28 @@ export function FamilyMembersTable({
   }, [hasUnsavedChanges])
 
   useEffect(() => {
-    if (profiles.length > 0 && !profiles.some((p) => p.id === activeTab)) {
-      setActiveTab(profiles[0]!.id)
-    } else if (profiles.length === 0) {
+    if (profiles.length === 0) {
       setActiveTab("add")
+      return
     }
-  }, [profiles, activeTab])
+    const pidFromUrl = searchParams.get("profile")
+    if (pidFromUrl && profiles.some((p) => p.id === pidFromUrl)) {
+      if (!hasUnsavedChanges && pidFromUrl !== activeTab) {
+        setActiveTab(pidFromUrl)
+      }
+      return
+    }
+    if (!profiles.some((p) => p.id === activeTab)) {
+      const next = profiles[0]!.id
+      setActiveTab(next)
+      if (!hasUnsavedChanges) {
+        const params = new URLSearchParams(searchParams.toString())
+        params.set("profile", next)
+        const q = params.toString()
+        router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false })
+      }
+    }
+  }, [profiles, activeTab, searchParams, hasUnsavedChanges, pathname, router])
 
   useEffect(() => {
     if (deleteState.success) {
@@ -3771,6 +3868,7 @@ export function FamilyMembersTable({
 
   const handleMutate = useCallback(() => router.refresh(), [router])
   const canDeleteFamily = familyCount > 1
+  const activeProfile = profiles.find((p) => p.id === activeTab)
 
   return (
     <Card>
@@ -3831,7 +3929,8 @@ export function FamilyMembersTable({
               )}
             </div>
             <CardDescription>
-              Edit profile and financial data. Each tab shows one family member&apos;s data.
+              Choose a family member to edit their profile and financial data. Save or discard before
+              switching to another person.
             </CardDescription>
           </div>
           <Button onClick={() => setAddDialogOpen(true)} variant="outline" size="sm">
@@ -3841,66 +3940,79 @@ export function FamilyMembersTable({
         </div>
       </CardHeader>
       <CardContent>
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <div className="min-w-0 max-w-full overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
-            <TabsList className="inline-flex h-9 w-fit flex-nowrap">
-              {profiles.map((p) => (
-                <TabsTrigger key={p.id} value={p.id} className="text-sm shrink-0 px-3">
-                  {p.name}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
-          {profiles.map((p) => {
-            const profileBanks = filterByProfile(financialData.bankAccounts, p.id)
-            const profileGoals = filterByProfile(financialData.savingsGoals, p.id)
-            const profileInvestments = filterByProfile(financialData.investments, p.id)
-            const profileLoans = financialData.loans.filter((l) => l.profile_id === p.id)
-            const profilePolicies = financialData.insurancePolicies.filter((pol) => pol.profile_id === p.id)
-            const cpfData = financialData.cpfBalances.find((c) => c.profile_id === p.id)
+        {profiles.length > 0 && (
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+            <div className="md:hidden">
+              <Label htmlFor={`member-select-${family.id}`} className="mb-2 block text-muted-foreground">
+                Family member
+              </Label>
+              <Select value={activeTab} onValueChange={handleProfileChange}>
+                <SelectTrigger id={`member-select-${family.id}`} className="w-full">
+                  <SelectValue placeholder="Select a member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {profiles.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            return (
-              <TabsContent
-                key={`${p.id}-${tabsResetKey}`}
-                value={p.id}
-                forceMount
-                className="mt-4 space-y-2"
-              >
-                <MonthlyLogSection
-                  profileId={p.id}
-                  profileName={p.name}
-                  logs={financialData.monthlyCashflow}
-                  familyId={family.id}
-                  onMutate={handleMutate}
-                />
-                <ProfileSection profile={p} profileCount={profiles.length} />
-                <TelegramSection profile={p} />
-                <BanksSection
-                  banks={profileBanks}
-                  profileId={p.id}
-                  familyId={family.id}
-                  onMutate={handleMutate}
-                />
-                <SavingsGoalsSection
-                  goals={profileGoals}
-                  profileId={p.id}
-                  familyId={family.id}
-                  onMutate={handleMutate}
-                />
-                <CPFSection profileId={p.id} cpfData={cpfData} familyId={family.id} />
-                <InvestmentsSection
-                  investments={profileInvestments}
-                  profileId={p.id}
-                  familyId={family.id}
-                  onMutate={handleMutate}
-                />
-                <LoansSection loans={profileLoans} profileId={p.id} onMutate={handleMutate} />
-                <LoanRepaymentsSection loans={profileLoans} profileId={p.id} onMutate={handleMutate} />
-                <InsuranceSection policies={profilePolicies} profileId={p.id} onMutate={handleMutate} />
-              </TabsContent>
-            )
-          })}
-        </Tabs>
+            <nav
+              className="hidden min-w-[11rem] shrink-0 flex-col gap-1 md:flex"
+              aria-label="Family members"
+            >
+              {profiles.map((p) => {
+                const isActive = activeTab === p.id
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleProfileChange(p.id)}
+                    aria-current={isActive ? "true" : undefined}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                      isActive
+                        ? "bg-muted font-medium text-foreground ring-1 ring-foreground/10"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                    )}
+                  >
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background text-xs font-medium ring-1 ring-foreground/10"
+                      aria-hidden
+                    >
+                      {profileInitials(p.name)}
+                    </span>
+                    <span className="min-w-0 truncate">{p.name}</span>
+                  </button>
+                )
+              })}
+            </nav>
+
+            <div className="min-w-0 flex-1 space-y-4">
+              {activeProfile && (
+                <>
+                  <div className="rounded-lg border border-foreground/10 bg-muted/40 px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Editing
+                    </p>
+                    <p className="text-base font-semibold text-foreground">{activeProfile.name}</p>
+                  </div>
+                  <FamilyMemberSettingsPanels
+                    key={`${activeProfile.id}-${tabsResetKey}`}
+                    p={activeProfile}
+                    family={family}
+                    financialData={financialData}
+                    profiles={profiles}
+                    handleMutate={handleMutate}
+                  />
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         <AlertDialog
           open={unsavedDialogOpen}

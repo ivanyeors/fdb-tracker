@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -31,18 +31,35 @@ const breadcrumbMap: Record<string, string> = {
 export function Header() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const profileIdFromUrl = searchParams.get("profileId")
   const { setActiveProfileId, profiles } = useActiveProfile()
   const { aggregateDirty, saveAll, isSaving } = useUserSettingsSave()
   const isUserSettings = pathname === "/settings/users"
 
+  /** Only sync URL → state when the query `profileId` actually changes (navigation / replace).
+   *  Otherwise we overwrite the user's tab selection while `router.replace` still has the old URL. */
+  const lastSyncedDashboardProfileUrl = useRef<string | null | undefined>(undefined)
+
   useEffect(() => {
-    if (pathname.startsWith("/dashboard") && searchParams.has("profileId")) {
-      const profileId = searchParams.get("profileId")
-      if (profileId && profiles.some((p) => p.id === profileId)) {
-        setActiveProfileId(profileId)
-      }
+    if (!pathname.startsWith("/dashboard")) {
+      lastSyncedDashboardProfileUrl.current = undefined
+      return
     }
-  }, [pathname, searchParams, setActiveProfileId, profiles])
+    const urlId = profileIdFromUrl
+    const prev = lastSyncedDashboardProfileUrl.current
+    if (prev === undefined) {
+      lastSyncedDashboardProfileUrl.current = urlId
+      if (urlId && profiles.some((p) => p.id === urlId)) {
+        setActiveProfileId(urlId)
+      }
+      return
+    }
+    if (urlId === prev) return
+    lastSyncedDashboardProfileUrl.current = urlId
+    if (urlId && profiles.some((p) => p.id === urlId)) {
+      setActiveProfileId(urlId)
+    }
+  }, [pathname, profileIdFromUrl, setActiveProfileId, profiles])
 
   const sectionName = breadcrumbMap[pathname] ?? "Dashboard"
 

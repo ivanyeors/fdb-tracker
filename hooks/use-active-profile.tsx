@@ -3,6 +3,7 @@
 import * as React from "react"
 
 const ACTIVE_FAMILY_KEY = "fdb-active-family-id"
+const ACTIVE_PROFILE_KEY = "fdb-active-profile-id"
 
 export type Profile = {
   id: string
@@ -65,7 +66,22 @@ export function ActiveProfileProvider({
       }
     }
   }, [initialFamilyId])
-  const [activeProfileId, setActiveProfileId] = React.useState<string | null>(null)
+  const [activeProfileId, setActiveProfileIdState] = React.useState<string | null>(null)
+
+  const setActiveProfileId = React.useCallback((id: string | null) => {
+    setActiveProfileIdState(id)
+    if (typeof window !== "undefined") {
+      try {
+        if (id) {
+          localStorage.setItem(ACTIVE_PROFILE_KEY, id)
+        } else {
+          localStorage.removeItem(ACTIVE_PROFILE_KEY)
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [])
 
   const setActiveFamilyId = React.useCallback((id: string | null) => {
     setActiveFamilyIdState(id)
@@ -89,6 +105,21 @@ export function ActiveProfileProvider({
     if (!effectiveFamilyId) return []
     return allProfiles.filter((p) => (p.family_id ?? effectiveFamilyId) === effectiveFamilyId)
   }, [allProfiles, effectiveFamilyId])
+
+  const profileLsHydratedRef = React.useRef(false)
+  React.useEffect(() => {
+    if (profileLsHydratedRef.current) return
+    if (profiles.length === 0) return
+    profileLsHydratedRef.current = true
+    try {
+      const stored = localStorage.getItem(ACTIVE_PROFILE_KEY)
+      if (stored && profiles.some((p) => p.id === stored)) {
+        setActiveProfileId(stored)
+      }
+    } catch {
+      // ignore
+    }
+  }, [profiles, setActiveProfileId])
 
   React.useEffect(() => {
     if (families.length > 0 && !effectiveFamilyId) {
@@ -121,7 +152,7 @@ export function ActiveProfileProvider({
     } else {
       setActiveProfileId(null)
     }
-  }, [profiles, activeProfileId])
+  }, [profiles, activeProfileId, setActiveProfileId])
 
   const value = React.useMemo<ActiveProfileContextValue>(
     () => ({
@@ -132,7 +163,7 @@ export function ActiveProfileProvider({
       families,
       profiles,
     }),
-    [activeProfileId, effectiveFamilyId, families, profiles, setActiveFamilyId],
+    [activeProfileId, effectiveFamilyId, families, profiles, setActiveFamilyId, setActiveProfileId],
   )
 
   return (
@@ -154,6 +185,15 @@ export function getStoredActiveFamilyId(): string | null {
   if (typeof window === "undefined") return null
   try {
     return localStorage.getItem(ACTIVE_FAMILY_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function getStoredActiveProfileId(): string | null {
+  if (typeof window === "undefined") return null
+  try {
+    return localStorage.getItem(ACTIVE_PROFILE_KEY)
   } catch {
     return null
   }
