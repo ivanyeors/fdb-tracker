@@ -1,4 +1,5 @@
 import { metalpriceApiDetail } from "@/lib/external/metalprice-log"
+import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 export type PreciousMetalPrice = {
   metalType: string
@@ -6,6 +7,7 @@ export type PreciousMetalPrice = {
   sellPriceSgd: number
   unit: string
   timestamp: string
+  source?: "live" | "cache"
 }
 
 type CacheEntry = {
@@ -18,6 +20,34 @@ let metalsCache: CacheEntry | null = null
 
 function makeFallback(): PreciousMetalPrice[] {
   return []
+}
+
+const DB_FALLBACK_TTL_MS = 5 * 60 * 1000
+
+async function fetchFromDb(): Promise<PreciousMetalPrice[]> {
+  try {
+    const supabase = createSupabaseAdmin()
+    const { data, error } = await supabase
+      .from("precious_metals_prices")
+      .select("metal_type, buy_price_sgd, sell_price_sgd, unit, last_updated")
+
+    if (error || !data || data.length === 0) {
+      console.warn("[precious-metals] DB fallback returned no data.")
+      return []
+    }
+
+    return data.map((row) => ({
+      metalType: row.metal_type,
+      buyPriceSgd: Number(row.buy_price_sgd),
+      sellPriceSgd: Number(row.sell_price_sgd),
+      unit: row.unit,
+      timestamp: row.last_updated,
+      source: "cache" as const,
+    }))
+  } catch (err) {
+    console.warn("[precious-metals] DB fallback failed:", err)
+    return []
+  }
 }
 
 /** MetalpriceAPI v1/latest response. See https://metalpriceapi.com/documentation */
@@ -230,6 +260,7 @@ async function fetchMetalpriceLatest(): Promise<PreciousMetalPrice[]> {
         sellPriceSgd: Math.round(goldSgd * (1 - spread) * 100) / 100,
         unit: "oz",
         timestamp: new Date().toISOString(),
+        source: "live",
       },
       {
         metalType: "silver",
@@ -237,6 +268,7 @@ async function fetchMetalpriceLatest(): Promise<PreciousMetalPrice[]> {
         sellPriceSgd: Math.round(silverSgd * (1 - spread) * 100) / 100,
         unit: "oz",
         timestamp: new Date().toISOString(),
+        source: "live",
       },
     ]
 
@@ -291,6 +323,7 @@ async function fetchOcbcPreciousMetalPricesRaw(): Promise<
     sellPriceSgd: item.sellPrice,
     unit: item.unit,
     timestamp: new Date().toISOString(),
+    source: "live" as const,
   }))
 }
 
@@ -330,5 +363,11 @@ export async function getOcbcPreciousMetalPrices(): Promise<
     }
   }
 
-  return makeFallback()
+  const fromDb = await fetchFromDb()
+  if (fromDb.length > 0) {
+    metalsCache = { data: fromDb, expires: Date.now() + DB_FALLBACK_TTL_MS }
+    return fromDb
+  }
+
+  return []
 }
