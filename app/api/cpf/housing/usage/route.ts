@@ -7,6 +7,7 @@ import { verifyLoanInHousehold } from "@/lib/api/verify-loan-in-household"
 
 const createSchema = z.object({
   loanId: z.string().uuid(),
+  profileId: z.string().uuid().optional(),
   principalWithdrawn: z.number().positive(),
   withdrawalDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   usageType: z
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
       .from("cpf_housing_usage")
       .insert({
         loan_id: parsed.data.loanId,
+        profile_id: parsed.data.profileId ?? null,
         principal_withdrawn: parsed.data.principalWithdrawn,
         accrued_interest: 0,
         withdrawal_date: parsed.data.withdrawalDate,

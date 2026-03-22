@@ -919,6 +919,7 @@ export type Database = {
         Row: {
           id: string
           loan_id: string
+          profile_id: string | null
           principal_withdrawn: number
           accrued_interest: number
           withdrawal_date: string
@@ -929,6 +930,7 @@ export type Database = {
         Insert: {
           id?: string
           loan_id: string
+          profile_id?: string | null
           principal_withdrawn: number
           accrued_interest?: number
           withdrawal_date: string
@@ -939,6 +941,7 @@ export type Database = {
         Update: {
           id?: string
           loan_id?: string
+          profile_id?: string | null
           principal_withdrawn?: number
           accrued_interest?: number
           withdrawal_date?: string
@@ -952,6 +955,13 @@ export type Database = {
             columns: ["loan_id"]
             isOneToOne: false
             referencedRelation: "loans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cpf_housing_usage_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

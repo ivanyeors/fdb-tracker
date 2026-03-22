@@ -13,6 +13,75 @@ import {
 } from "@/lib/calculations/loans"
 import { vlHeadroom120 } from "@/lib/calculations/cpf-housing"
 
+/**
+ * Build cpf_housing_usage insert rows, splitting between profiles
+ * when the loan is a split HDB loan.
+ */
+function buildCpfUsageRows(
+  loan: {
+    id: string
+    profile_id: string
+    split_profile_id: string | null
+    split_pct: number | null
+    property_type: string | null
+  },
+  cpfTotal: number,
+  date: string,
+  usageType: string,
+  loanRepaymentId: string | null,
+) {
+  const splitPct = loan.split_pct ?? 100
+  const isSplit =
+    loan.split_profile_id != null &&
+    splitPct < 100 &&
+    loan.property_type === "hdb"
+
+  if (!isSplit) {
+    return [
+      {
+        loan_id: loan.id,
+        profile_id: loan.profile_id,
+        principal_withdrawn: cpfTotal,
+        accrued_interest: 0,
+        withdrawal_date: date,
+        usage_type: usageType,
+        loan_repayment_id: loanRepaymentId,
+      },
+    ]
+  }
+
+  const primaryShare =
+    Math.round(cpfTotal * (splitPct / 100) * 100) / 100
+  const partnerShare =
+    Math.round((cpfTotal - primaryShare) * 100) / 100
+
+  const rows = [
+    {
+      loan_id: loan.id,
+      profile_id: loan.profile_id,
+      principal_withdrawn: primaryShare,
+      accrued_interest: 0,
+      withdrawal_date: date,
+      usage_type: usageType,
+      loan_repayment_id: loanRepaymentId,
+    },
+  ]
+
+  if (partnerShare > 0) {
+    rows.push({
+      loan_id: loan.id,
+      profile_id: loan.split_profile_id!,
+      principal_withdrawn: partnerShare,
+      accrued_interest: 0,
+      withdrawal_date: date,
+      usage_type: usageType,
+      loan_repayment_id: loanRepaymentId,
+    })
+  }
+
+  return rows
+}
+
 const querySchema = z.object({
   profileId: z.string().uuid().optional(),
   familyId: z.string().uuid().optional(),
@@ -67,29 +136,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([])
     }
 
-    const { data: rows, error } = await supabase
-      .from("loan_repayments")
-      .select("*")
-      .in("loan_id", loanIds)
-      .order("date", { ascending: false })
-      .limit(500)
+    const [repayResult, earlyResult] = await Promise.all([
+      supabase
+        .from("loan_repayments")
+        .select("*")
+        .in("loan_id", loanIds)
+        .order("date", { ascending: false })
+        .limit(500),
+      supabase
+        .from("loan_early_repayments")
+        .select("*")
+        .in("loan_id", loanIds)
+        .order("date", { ascending: false })
+        .limit(500),
+    ])
 
-    if (error) {
-      console.error("[api/loans/repayments] GET", error)
+    if (repayResult.error) {
+      console.error("[api/loans/repayments] GET", repayResult.error)
       return NextResponse.json({ error: "Failed to fetch" }, { status: 500 })
     }
 
-    const { data: earlyRows, error: earlyErr } = await supabase
-      .from("loan_early_repayments")
-      .select("*")
-      .in("loan_id", loanIds)
-      .order("date", { ascending: false })
-      .limit(500)
-
-    if (earlyErr) {
-      console.error("[api/loans/repayments] GET early", earlyErr)
+    if (earlyResult.error) {
+      console.error("[api/loans/repayments] GET early", earlyResult.error)
       return NextResponse.json({ error: "Failed to fetch" }, { status: 500 })
     }
+
+    const rows = repayResult.data
+    const earlyRows = earlyResult.data
 
     return NextResponse.json({
       repayments: rows ?? [],
@@ -129,7 +202,7 @@ export async function POST(request: NextRequest) {
 
     const { data: loan } = await supabase
       .from("loans")
-      .select("id, principal, rate_pct, use_cpf_oa, start_date, valuation_limit, property_type, lock_in_end_date, early_repayment_penalty_pct, max_annual_prepayment_pct")
+      .select("id, profile_id, principal, rate_pct, use_cpf_oa, start_date, valuation_limit, property_type, lock_in_end_date, early_repayment_penalty_pct, max_annual_prepayment_pct, split_profile_id, split_pct")
       .eq("id", loanId)
       .single()
 
@@ -244,13 +317,10 @@ export async function POST(request: NextRequest) {
 
       // If CPF OA was used for the early repayment, record housing usage
       if (cpf != null && cpf > 0 && loan.use_cpf_oa) {
-        const { error: cpfErr } = await supabase.from("cpf_housing_usage").insert({
-          loan_id: loanId,
-          principal_withdrawn: cpf,
-          accrued_interest: 0,
-          withdrawal_date: date,
-          usage_type: "other",
-        })
+        const cpfRows = buildCpfUsageRows(loan, cpf, date, "other", null)
+        const { error: cpfErr } = await supabase
+          .from("cpf_housing_usage")
+          .insert(cpfRows)
         if (cpfErr) {
           console.error("[api/loans/repayments] early cpf_housing_usage", cpfErr)
         }
@@ -306,14 +376,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (cpf != null && cpf > 0 && loan.use_cpf_oa) {
-      const { error: cpfErr } = await supabase.from("cpf_housing_usage").insert({
-        loan_id: loanId,
-        principal_withdrawn: cpf,
-        accrued_interest: 0,
-        withdrawal_date: date,
-        usage_type: "monthly",
-        loan_repayment_id: inserted.id,
-      })
+      const cpfRows = buildCpfUsageRows(loan, cpf, date, "monthly", inserted.id)
+      const { error: cpfErr } = await supabase
+        .from("cpf_housing_usage")
+        .insert(cpfRows)
       if (cpfErr) {
         console.error("[api/loans/repayments] cpf_housing_usage", cpfErr)
       }

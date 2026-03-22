@@ -26,18 +26,24 @@ import {
 } from "@/components/ui/table"
 import { toast } from "sonner"
 import { Loader2, Trash2 } from "lucide-react"
+import { useActiveProfile } from "@/hooks/use-active-profile"
 
 export type CpfHousingApiLoan = {
   loanId: string
   name: string
   type: string
   valuationLimit: number | null
+  profileId: string
+  splitProfileId: string | null
+  splitPct: number | null
+  propertyType: string | null
   totalPrincipal: number
   totalAccruedInterest: number
   refundDue: number
   vlHeadroom120: number | null
   tranches: Array<{
     id: string
+    profileId: string | null
     principalWithdrawn: number
     withdrawalDate: string
     usageType: string | null
@@ -68,12 +74,16 @@ export function CpfHousingTab({
   data,
   isLoading,
   onRefresh,
+  isFamilyView,
 }: {
   data: CpfHousingApiResponse | null
   isLoading: boolean
   onRefresh: () => void
+  isFamilyView?: boolean
 }) {
+  const { profiles } = useActiveProfile()
   const [loanId, setLoanId] = useState<string>("")
+  const [profileId, setProfileId] = useState<string>("")
   const [amount, setAmount] = useState<number | null>(null)
   const [withdrawalDate, setWithdrawalDate] = useState(
     () => new Date().toISOString().slice(0, 10),
@@ -84,6 +94,19 @@ export function CpfHousingTab({
 
   const cpfLoanOptions =
     data?.loans.map((l) => ({ id: l.loanId, name: l.name })) ?? []
+
+  // Check if selected loan is a split HDB loan
+  const selectedLoan = data?.loans.find((l) => l.loanId === loanId)
+  const isSplitLoan =
+    selectedLoan?.splitProfileId != null &&
+    (selectedLoan.splitPct ?? 100) < 100 &&
+    selectedLoan.propertyType === "hdb"
+  const splitProfileOptions = isSplitLoan
+    ? [
+        profiles.find((p) => p.id === selectedLoan.profileId),
+        profiles.find((p) => p.id === selectedLoan.splitProfileId),
+      ].filter(Boolean)
+    : []
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
@@ -96,6 +119,10 @@ export function CpfHousingTab({
       toast.error("Enter a positive amount")
       return
     }
+    if (isSplitLoan && !profileId) {
+      toast.error("Select whose CPF OA to debit")
+      return
+    }
     setSaving(true)
     try {
       const res = await fetch("/api/cpf/housing/usage", {
@@ -103,6 +130,7 @@ export function CpfHousingTab({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           loanId,
+          ...(profileId && { profileId }),
           principalWithdrawn: principal,
           withdrawalDate,
           usageType,
@@ -219,7 +247,7 @@ export function CpfHousingTab({
           <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
               <Label>Loan</Label>
-              <Select value={loanId} onValueChange={setLoanId}>
+              <Select value={loanId} onValueChange={(v) => { setLoanId(v); setProfileId("") }}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Select loan" />
                 </SelectTrigger>
@@ -232,6 +260,23 @@ export function CpfHousingTab({
                 </SelectContent>
               </Select>
             </div>
+            {isSplitLoan && splitProfileOptions.length > 0 && (
+              <div className="space-y-1">
+                <Label>CPF profile</Label>
+                <Select value={profileId} onValueChange={setProfileId}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Whose CPF?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {splitProfileOptions.map((p) => (
+                      <SelectItem key={p!.id} value={p!.id}>
+                        {p!.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1">
               <Label>OA amount</Label>
               <CurrencyInput
@@ -294,6 +339,7 @@ export function CpfHousingTab({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
+                    {isFamilyView && <TableHead>Profile</TableHead>}
                     <TableHead>Type</TableHead>
                     <TableHead className="text-right">Principal</TableHead>
                     <TableHead className="text-right">Months</TableHead>
@@ -305,6 +351,11 @@ export function CpfHousingTab({
                   {loan.tranches.map((t) => (
                     <TableRow key={t.id}>
                       <TableCell className="tabular-nums">{t.withdrawalDate}</TableCell>
+                      {isFamilyView && (
+                        <TableCell className="text-muted-foreground">
+                          {profiles.find((p) => p.id === t.profileId)?.name ?? "—"}
+                        </TableCell>
+                      )}
                       <TableCell className="text-muted-foreground">
                         {t.usageType ?? "—"}
                       </TableCell>

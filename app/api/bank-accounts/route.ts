@@ -68,40 +68,40 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch bank accounts" }, { status: 500 })
     }
 
+    const accountIds = accounts.map((a) => a.id)
     const ocbcAccountIds = accounts
       .filter((a) => a.account_type === "ocbc_360")
       .map((a) => a.id)
 
+    // Fetch OCBC configs and latest balance snapshots in parallel
+    const [ocbcConfigResult, snapshotsResult] = await Promise.all([
+      ocbcAccountIds.length > 0
+        ? supabase
+            .from("bank_account_ocbc360_config")
+            .select("*")
+            .in("account_id", ocbcAccountIds)
+        : Promise.resolve({ data: null }),
+      accountIds.length > 0
+        ? supabase
+            .from("bank_balance_snapshots")
+            .select("account_id, month, closing_balance")
+            .in("account_id", accountIds)
+            .order("month", { ascending: false })
+        : Promise.resolve({ data: null }),
+    ])
+
     const ocbcConfigs: Record<string, Record<string, unknown>> = {}
-
-    if (ocbcAccountIds.length > 0) {
-      const { data: ocbcConfigRows } = await supabase
-        .from("bank_account_ocbc360_config")
-        .select("*")
-        .in("account_id", ocbcAccountIds)
-
-      if (ocbcConfigRows) {
-        for (const config of ocbcConfigRows) {
-          ocbcConfigs[config.account_id] = config
-        }
+    if (ocbcConfigResult.data) {
+      for (const config of ocbcConfigResult.data) {
+        ocbcConfigs[config.account_id] = config
       }
     }
 
-    const accountIds = accounts.map((a) => a.id)
     const latestBalances: Record<string, number> = {}
-
-    if (accountIds.length > 0) {
-      const { data: snapshots } = await supabase
-        .from("bank_balance_snapshots")
-        .select("account_id, month, closing_balance")
-        .in("account_id", accountIds)
-        .order("month", { ascending: false })
-
-      if (snapshots) {
-        for (const s of snapshots) {
-          if (!(s.account_id in latestBalances)) {
-            latestBalances[s.account_id] = s.closing_balance
-          }
+    if (snapshotsResult.data) {
+      for (const s of snapshotsResult.data) {
+        if (!(s.account_id in latestBalances)) {
+          latestBalances[s.account_id] = s.closing_balance
         }
       }
     }

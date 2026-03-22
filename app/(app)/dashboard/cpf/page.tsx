@@ -486,6 +486,7 @@ export default function CpfPage() {
               data={housingData}
               isLoading={housingLoading}
               onRefresh={refreshHousing}
+              isFamilyView={!activeProfileId}
             />
           </TabsContent>
           <TabsContent value="loans" className="mt-4">

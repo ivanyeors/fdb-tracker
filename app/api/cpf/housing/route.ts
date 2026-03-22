@@ -51,10 +51,12 @@ export async function GET(request: NextRequest) {
 
     const asOf = new Date()
 
+    // Find CPF loans where profiles are primary OR split partner
+    const profileIdList = profileIds.join(",")
     const { data: cpfLoans } = await supabase
       .from("loans")
-      .select("id, name, type, use_cpf_oa, valuation_limit")
-      .in("profile_id", profileIds)
+      .select("id, name, type, use_cpf_oa, valuation_limit, profile_id, split_profile_id, split_pct, property_type")
+      .or(`profile_id.in.(${profileIdList}),split_profile_id.in.(${profileIdList})`)
       .eq("use_cpf_oa", true)
 
     if (!cpfLoans || cpfLoans.length === 0) {
@@ -70,10 +72,16 @@ export async function GET(request: NextRequest) {
 
     const loanIds = cpfLoans.map((l) => l.id)
 
-    const { data: usageRows } = await supabase
+    // When viewing a single profile, filter usage to that profile's CPF
+    let usageQuery = supabase
       .from("cpf_housing_usage")
-      .select("id, loan_id, principal_withdrawn, withdrawal_date, usage_type")
+      .select("id, loan_id, profile_id, principal_withdrawn, withdrawal_date, usage_type")
       .in("loan_id", loanIds)
+    if (profileId) {
+      // Show only this profile's CPF usage (or legacy rows without profile_id)
+      usageQuery = usageQuery.or(`profile_id.eq.${profileId},profile_id.is.null`)
+    }
+    const { data: usageRows } = await usageQuery
 
     const byLoan = new Map<string, typeof usageRows>()
     for (const row of usageRows ?? []) {
@@ -92,6 +100,7 @@ export async function GET(request: NextRequest) {
       const rows = byLoan.get(loan.id) ?? []
       const tranches = rows.map((r) => ({
         id: r.id,
+        profileId: r.profile_id,
         principalWithdrawn: Number(r.principal_withdrawn),
         withdrawalDate: r.withdrawal_date,
         usageType:
@@ -123,6 +132,10 @@ export async function GET(request: NextRequest) {
         name: loan.name,
         type: loan.type,
         valuationLimit: vl,
+        profileId: loan.profile_id,
+        splitProfileId: loan.split_profile_id ?? null,
+        splitPct: loan.split_pct != null ? Number(loan.split_pct) : null,
+        propertyType: loan.property_type ?? null,
         ...agg,
         vlHeadroom120: headroom,
         tranches: tranches.map((t) => ({

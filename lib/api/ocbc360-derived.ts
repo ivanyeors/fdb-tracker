@@ -39,37 +39,45 @@ export async function fetchOcbc360DerivedForAccount(
   let monthlyCashflowInflow: number | null = null
   let monthlyDiscretionaryOutflow: number | null = null
 
-  if (cashflowProfileId) {
-    const { data: ic } = await supabase
-      .from("income_config")
-      .select("annual_salary")
-      .eq("profile_id", cashflowProfileId)
-      .maybeSingle()
-    if (ic && typeof ic.annual_salary === "number" && ic.annual_salary > 0) {
-      monthlyGrossSalaryFromIncome = ic.annual_salary / 12
-    }
+  // Run all independent queries in parallel
+  const [icResult, cfResult, snapsResult] = await Promise.all([
+    cashflowProfileId
+      ? supabase
+          .from("income_config")
+          .select("annual_salary")
+          .eq("profile_id", cashflowProfileId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    cashflowProfileId
+      ? supabase
+          .from("monthly_cashflow")
+          .select("inflow, outflow")
+          .eq("profile_id", cashflowProfileId)
+          .eq("month", evalMonth)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("bank_balance_snapshots")
+      .select("closing_balance")
+      .eq("account_id", account.id)
+      .order("month", { ascending: false })
+      .limit(2),
+  ])
 
-    const { data: cf } = await supabase
-      .from("monthly_cashflow")
-      .select("inflow, outflow")
-      .eq("profile_id", cashflowProfileId)
-      .eq("month", evalMonth)
-      .maybeSingle()
-
-    if (cf) {
-      monthlyCashflowInflow =
-        cf.inflow !== null && cf.inflow !== undefined ? Number(cf.inflow) : 0
-      monthlyDiscretionaryOutflow =
-        cf.outflow !== null && cf.outflow !== undefined ? Number(cf.outflow) : 0
-    }
+  const ic = icResult.data
+  if (ic && typeof ic.annual_salary === "number" && ic.annual_salary > 0) {
+    monthlyGrossSalaryFromIncome = ic.annual_salary / 12
   }
 
-  const { data: twoSnaps } = await supabase
-    .from("bank_balance_snapshots")
-    .select("closing_balance")
-    .eq("account_id", account.id)
-    .order("month", { ascending: false })
-    .limit(2)
+  const cf = cfResult.data
+  if (cf) {
+    monthlyCashflowInflow =
+      cf.inflow !== null && cf.inflow !== undefined ? Number(cf.inflow) : 0
+    monthlyDiscretionaryOutflow =
+      cf.outflow !== null && cf.outflow !== undefined ? Number(cf.outflow) : 0
+  }
+
+  const twoSnaps = snapsResult.data
 
   let snapshotsClosing: [number, number] | null = null
   if (twoSnaps && twoSnaps.length >= 2) {
