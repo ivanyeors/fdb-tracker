@@ -18,6 +18,7 @@ type CoverageTableProps = {
     coverage_amount: number | null
     is_active: boolean
     profile_id: string
+    coverages: Array<{ coverage_type: string; coverage_amount: number }>
   }>
 }
 
@@ -116,7 +117,10 @@ export function CoverageTable({ profiles, policies }: CoverageTableProps) {
                   <tbody>
                     {profile.items.map((item) => {
                       const matchingPolicies = profilePolicies.filter(
-                        (p) => p.coverage_type === item.coverageType,
+                        (p) =>
+                          (p.coverages && p.coverages.length > 0
+                            ? p.coverages.some((c) => c.coverage_type === item.coverageType)
+                            : p.coverage_type === item.coverageType),
                       )
                       const recommendation = getCoverageRecommendation(item)
 

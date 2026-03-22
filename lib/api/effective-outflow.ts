@@ -62,13 +62,16 @@ export async function getEffectiveOutflowForProfile(
   let ilp = 0
   const { data: policies } = await supabase
     .from("insurance_policies")
-    .select("premium_amount, frequency, is_active, deduct_from_outflow, type")
+    .select("premium_amount, frequency, is_active, deduct_from_outflow, type, end_date")
     .eq("profile_id", profileId)
     .eq("is_active", true)
     .eq("deduct_from_outflow", true)
 
+  const now = new Date().toISOString().slice(0, 10)
   if (policies) {
     for (const p of policies) {
+      // Skip expired policies even if is_active hasn't been toggled yet
+      if (p.end_date && p.end_date < now) continue
       const monthlyEq = p.frequency === "monthly" ? p.premium_amount : p.premium_amount / 12
       if (p.type === "ilp") {
         ilp += monthlyEq

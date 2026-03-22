@@ -7,6 +7,10 @@ import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { calculateTax, type TaxResult } from "@/lib/calculations/tax"
 import type { TaxSnapshot } from "@/lib/tax/tax-snapshot"
 
+function formatNum(n: number): string {
+  return n.toLocaleString("en-SG", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
+
 function resultToTaxSnapshot(ya: number, result: TaxResult): TaxSnapshot {
   return {
     year: ya,
@@ -236,6 +240,49 @@ export async function GET(request: NextRequest) {
       ...(reliefAuto ?? []).map((r) => ({ ...r, source: "auto" as const })),
     ].sort((a, b) => b.year - a.year)
 
+    // Build suggested reliefs from existing data (SRS accounts, etc.)
+    const suggestedReliefs: Array<{
+      profile_id: string
+      relief_type: string
+      amount: number
+      label: string
+    }> = []
+
+    // Check for SRS bank accounts — suggest as SRS contribution relief
+    const { data: allFamilies } = await supabase
+      .from("families")
+      .select("id")
+      .eq("household_id", session.accountId)
+
+    if (allFamilies) {
+      const familyIds = allFamilies.map((f) => f.id)
+      const { data: srsAccounts } = await supabase
+        .from("bank_accounts")
+        .select("id, opening_balance, profile_id")
+        .in("family_id", familyIds)
+        .eq("account_type", "srs")
+
+      if (srsAccounts) {
+        for (const srs of srsAccounts) {
+          if (!srs.profile_id || !profileIds.includes(srs.profile_id)) continue
+          // Check if SRS relief already entered manually for this profile+year
+          const hasManualSrs = (reliefInputs ?? []).some(
+            (r) => r.profile_id === srs.profile_id && r.year === currentYear && r.relief_type === "srs"
+          )
+          if (!hasManualSrs && srs.opening_balance > 0) {
+            // Cap at SRS annual limit ($15,300 for citizens/PRs)
+            const suggestedAmount = Math.min(srs.opening_balance, 15300)
+            suggestedReliefs.push({
+              profile_id: srs.profile_id,
+              relief_type: "srs",
+              amount: suggestedAmount,
+              label: `SRS account balance: $${formatNum(srs.opening_balance)}`,
+            })
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       entries: entries.sort((a, b) => b.year - a.year),
       reliefs,
@@ -243,6 +290,7 @@ export async function GET(request: NextRequest) {
       profileDetails: Object.fromEntries(profileDetails),
       taxSnapshots,
       taxSnapshotsNextYa,
+      suggestedReliefs,
     })
   } catch (err) {
     console.error("[api/tax] Error:", err)

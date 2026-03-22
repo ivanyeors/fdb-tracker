@@ -28,6 +28,50 @@ export type CoverageBenchmarks = {
   ciTarget?: number
   hospitalizationCoverage?: string
   disabilityTarget?: number
+  tpdTarget?: number
+  longTermCareMonthlyTarget?: number
+}
+
+export type LifeStageParams = {
+  maritalStatus?: string | null
+  numDependents?: number | null
+  age?: number | null
+}
+
+/**
+ * Adjust coverage multipliers based on life stage.
+ * - Single, no dependents: lower death (3x), maintain CI (4x)
+ * - Married, no dependents: moderate death (6x), CI (4x)
+ * - Married, with children: full death (9x), higher CI (5x)
+ * - Nearing retirement (55+): reduce death (3x), increase hospitalization awareness
+ */
+export function getLifeStageMultipliers(params: LifeStageParams): {
+  deathMultiplier: number
+  ciMultiplier: number
+  label: string
+} {
+  const age = params.age ?? 30
+  const dependents = params.numDependents ?? 0
+  const married = params.maritalStatus === "married"
+
+  if (age >= 55) {
+    return { deathMultiplier: 3, ciMultiplier: 4, label: "Pre-retirement" }
+  }
+  if (!married && dependents === 0) {
+    return { deathMultiplier: 3, ciMultiplier: 4, label: "Single, no dependents" }
+  }
+  if (married && dependents === 0) {
+    return { deathMultiplier: 6, ciMultiplier: 4, label: "Married, no dependents" }
+  }
+  if (dependents > 0) {
+    return { deathMultiplier: 9, ciMultiplier: 5, label: `${dependents} dependent${dependents > 1 ? "s" : ""}` }
+  }
+  return { deathMultiplier: 9, ciMultiplier: 4, label: "Default" }
+}
+
+export type PolicyCoverageEntry = {
+  coverage_type: string
+  coverage_amount: number
 }
 
 type PolicyForGap = {
@@ -35,21 +79,26 @@ type PolicyForGap = {
   coverage_amount: number | null
   is_active: boolean
   type: string
+  coverages?: PolicyCoverageEntry[]
 }
 
 const COVERAGE_LABELS: Record<CoverageType, string> = {
   death: "Death / Life",
   critical_illness: "Critical Illness",
   hospitalization: "Hospitalization",
-  disability: "Disability",
+  disability: "Disability Income",
   personal_accident: "Personal Accident",
+  long_term_care: "Long-term Care",
+  tpd: "Total Permanent Disability",
 }
 
 const SCORE_WEIGHTS: Record<CoverageType, number> = {
-  death: 0.3,
-  critical_illness: 0.25,
-  hospitalization: 0.25,
-  disability: 0.15,
+  death: 0.25,
+  critical_illness: 0.2,
+  hospitalization: 0.2,
+  disability: 0.12,
+  tpd: 0.1,
+  long_term_care: 0.08,
   personal_accident: 0.05,
 }
 
@@ -58,8 +107,17 @@ function sumCoverageByType(
   coverageType: CoverageType,
 ): number {
   return policies
-    .filter((p) => p.is_active && p.coverage_type === coverageType)
-    .reduce((sum, p) => sum + (p.coverage_amount || 0), 0)
+    .filter((p) => p.is_active)
+    .reduce((sum, p) => {
+      if (p.coverages && p.coverages.length > 0) {
+        const match = p.coverages.find((c) => c.coverage_type === coverageType)
+        return sum + (match?.coverage_amount ?? 0)
+      }
+      if (p.coverage_type === coverageType) {
+        return sum + (p.coverage_amount || 0)
+      }
+      return sum
+    }, 0)
 }
 
 function hasActiveISP(policies: PolicyForGap[]): boolean {
@@ -72,19 +130,27 @@ export function calculateCoverageGap(
   policies: PolicyForGap[],
   annualSalary: number,
   customBenchmarks?: CoverageBenchmarks,
+  lifeStage?: LifeStageParams,
 ): CoverageGapItem[] {
   const monthlySalary = annualSalary / 12
+  const multipliers = lifeStage ? getLifeStageMultipliers(lifeStage) : null
 
-  const deathNeeded = customBenchmarks?.deathTarget ?? annualSalary * 9
-  const ciNeeded = customBenchmarks?.ciTarget ?? annualSalary * 4
+  const deathNeeded = customBenchmarks?.deathTarget ?? annualSalary * (multipliers?.deathMultiplier ?? 9)
+  const ciNeeded = customBenchmarks?.ciTarget ?? annualSalary * (multipliers?.ciMultiplier ?? 4)
   const disabilityNeeded =
     customBenchmarks?.disabilityTarget ?? monthlySalary * 0.75 * 60
+  const tpdNeeded = customBenchmarks?.tpdTarget ?? annualSalary * 9
+  // CareShield Life base is ~$600/mo; supplement needed for ~$3,600/mo total
+  const ltcMonthlyNeeded =
+    customBenchmarks?.longTermCareMonthlyTarget ?? 3000
 
   const deathHeld = sumCoverageByType(policies, "death")
   const ciHeld = sumCoverageByType(policies, "critical_illness")
   const hasISP = hasActiveISP(policies)
   const disabilityHeld = sumCoverageByType(policies, "disability")
   const paHeld = sumCoverageByType(policies, "personal_accident")
+  const tpdHeld = sumCoverageByType(policies, "tpd")
+  const ltcHeld = sumCoverageByType(policies, "long_term_care")
 
   const makeItem = (
     coverageType: CoverageType,
@@ -117,6 +183,8 @@ export function calculateCoverageGap(
       hasCoverage: hasISP,
     },
     makeItem("disability", disabilityHeld, disabilityNeeded),
+    makeItem("tpd", tpdHeld, tpdNeeded),
+    makeItem("long_term_care", ltcHeld, ltcMonthlyNeeded),
     {
       coverageType: "personal_accident",
       label: COVERAGE_LABELS.personal_accident,
@@ -137,9 +205,10 @@ export function calculateOverallScore(items: CoverageGapItem[]): number {
     const weight = SCORE_WEIGHTS[item.coverageType] ?? 0
     totalWeight += weight
 
-    if (item.coverageType === "hospitalization") {
-      weightedSum += item.hasCoverage ? weight * 100 : 0
-    } else if (item.coverageType === "personal_accident") {
+    if (
+      item.coverageType === "hospitalization" ||
+      item.coverageType === "personal_accident"
+    ) {
       weightedSum += item.hasCoverage ? weight * 100 : 0
     } else if (item.needed > 0) {
       const pct = Math.min(item.held / item.needed, 1) * 100
@@ -157,6 +226,7 @@ export function getHouseholdCoverage(
     annualSalary: number
     policies: PolicyForGap[]
     benchmarks?: CoverageBenchmarks
+    lifeStage?: LifeStageParams
   }>,
 ): HouseholdCoverageAnalysis {
   const profiles: ProfileCoverageAnalysis[] = profileData.map((pd) => {
@@ -164,6 +234,7 @@ export function getHouseholdCoverage(
       pd.policies,
       pd.annualSalary,
       pd.benchmarks,
+      pd.lifeStage,
     )
     return {
       profileId: pd.profileId,
@@ -187,13 +258,27 @@ function combineCoverageItems(
     "critical_illness",
     "hospitalization",
     "disability",
+    "tpd",
+    "long_term_care",
     "personal_accident",
   ]
 
   return coverageTypes.map((ct) => {
-    const perProfile = profiles.map(
-      (p) => p.items.find((i) => i.coverageType === ct)!,
-    )
+    const perProfile = profiles
+      .map((p) => p.items.find((i) => i.coverageType === ct))
+      .filter((i): i is CoverageGapItem => i != null)
+
+    if (perProfile.length === 0) {
+      return {
+        coverageType: ct,
+        label: COVERAGE_LABELS[ct],
+        held: 0,
+        needed: 0,
+        gap: 0,
+        gapPct: 0,
+        hasCoverage: false,
+      }
+    }
 
     if (ct === "hospitalization") {
       const allCovered = perProfile.every((i) => i.hasCoverage)
@@ -226,7 +311,9 @@ function combineCoverageItems(
   })
 }
 
-export function getCoverageRecommendation(item: CoverageGapItem): string | null {
+export function getCoverageRecommendation(
+  item: CoverageGapItem,
+): string | null {
   if (item.gapPct === 0) return null
 
   switch (item.coverageType) {
@@ -238,6 +325,10 @@ export function getCoverageRecommendation(item: CoverageGapItem): string | null 
       return "Consider an Integrated Shield Plan for private hospital coverage beyond MediShield Life"
     case "disability":
       return "Income protection insurance can cover disability risk (75% salary replacement)"
+    case "tpd":
+      return `TPD coverage of $${Math.round(item.gap).toLocaleString()} recommended (9\u00d7 income benchmark, often bundled with life)`
+    case "long_term_care":
+      return `Consider supplementary long-term care coverage of $${Math.round(item.gap).toLocaleString()}/mo to supplement CareShield Life`
     default:
       return null
   }

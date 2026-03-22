@@ -25,8 +25,10 @@ import {
   type Ocbc360CategoryRow,
 } from "@/lib/calculations/ocbc360-status"
 import { Switch } from "@/components/ui/switch"
-import { cn } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 import { SavingsGoalsSection } from "@/components/dashboard/savings-goals-section"
+import { aggregateForecast, type ForecastMonth } from "@/lib/calculations/balance-forecast"
+import { Badge } from "@/components/ui/badge"
 
 type Ocbc360Derived = {
   categories: Ocbc360CategoryRow[]
@@ -395,7 +397,158 @@ export default function BanksPage() {
         </>
       )}
 
+      {activeProfileId && !isLoading && visibleAccounts.length > 0 && (
+        <BalanceForecastSection
+          profileId={activeProfileId}
+          accounts={visibleAccounts}
+        />
+      )}
+
       <SavingsGoalsSection />
     </div>
+  )
+}
+
+function BalanceForecastSection({
+  profileId,
+  accounts,
+}: {
+  profileId: string
+  accounts: BankAccountRow[]
+}) {
+  const [forecast, setForecast] = useState<ForecastMonth[] | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      setIsLoading(true)
+      try {
+        const url = new URL("/api/cashflow/effective", window.location.origin)
+        url.searchParams.set("profileId", profileId)
+        const res = await fetch(url)
+        if (!res.ok) {
+          setForecast(null)
+          return
+        }
+        const data = await res.json()
+        const { inflow = 0, outflow = 0 } = data
+
+        const now = new Date()
+        const startMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
+
+        const result = aggregateForecast({
+          accounts: accounts.map((a) => ({
+            balance: a.latest_balance ?? a.opening_balance ?? 0,
+            annualRatePct: 0, // Simple approximation; real interest is computed separately
+          })),
+          monthlyInflow: inflow,
+          monthlyOutflow: outflow,
+          months: 6,
+          startMonth,
+        })
+
+        setForecast(result)
+      } catch {
+        setForecast(null)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    void load()
+  }, [profileId, accounts])
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="mt-2 h-4 w-64" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-32 w-full" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!forecast || forecast.length === 0) return null
+
+  const minBalance = Math.min(...forecast.map((f) => f.balance))
+  const goesNegative = minBalance < 0
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <CardTitle>6-Month Balance Forecast</CardTitle>
+          {goesNegative && (
+            <Badge variant="destructive" className="text-xs">
+              Goes Negative
+            </Badge>
+          )}
+        </div>
+        <CardDescription>
+          Projected total balance based on your effective monthly inflow and outflow.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[500px] text-sm">
+            <thead>
+              <tr className="border-b text-left text-muted-foreground">
+                <th className="pb-2 pr-4 font-medium">Month</th>
+                <th className="pb-2 pr-4 text-right font-medium">Balance</th>
+                <th className="pb-2 pr-4 text-right font-medium">Inflow</th>
+                <th className="pb-2 pr-4 text-right font-medium">Outflow</th>
+                <th className="pb-2 text-right font-medium">Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              {forecast.map((f) => {
+                const monthLabel = new Date(f.month).toLocaleDateString("en-SG", {
+                  year: "numeric",
+                  month: "short",
+                })
+                return (
+                  <tr
+                    key={f.month}
+                    className={cn(
+                      "border-b last:border-0",
+                      f.balance < 0 && "bg-red-50/50 dark:bg-red-950/20"
+                    )}
+                  >
+                    <td className="py-2 pr-4 font-medium">{monthLabel}</td>
+                    <td
+                      className={cn(
+                        "py-2 pr-4 text-right tabular-nums",
+                        f.balance < 0 && "text-red-600 dark:text-red-400"
+                      )}
+                    >
+                      ${formatCurrency(f.balance)}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums text-green-600 dark:text-green-400">
+                      +${formatCurrency(f.inflow)}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums text-red-600 dark:text-red-400">
+                      -${formatCurrency(f.outflow)}
+                    </td>
+                    <td
+                      className={cn(
+                        "py-2 text-right tabular-nums",
+                        f.netChange >= 0
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
+                      )}
+                    >
+                      {f.netChange >= 0 ? "+" : ""}${formatCurrency(f.netChange)}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

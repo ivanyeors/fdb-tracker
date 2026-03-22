@@ -15,6 +15,8 @@ const updateAccountSchema = z.object({
     .object({
       insure_met: z.boolean().optional(),
       invest_met: z.boolean().optional(),
+      linked_insurance_policy_id: z.string().uuid().nullable().optional(),
+      linked_investment_id: z.string().uuid().nullable().optional(),
     })
     .optional(),
 })
@@ -75,7 +77,10 @@ export async function PATCH(
     const ocbc360 = parsed.data.ocbc360
     const ocbcHasConcrete =
       ocbc360 !== undefined &&
-      (ocbc360.insure_met !== undefined || ocbc360.invest_met !== undefined)
+      (ocbc360.insure_met !== undefined ||
+        ocbc360.invest_met !== undefined ||
+        ocbc360.linked_insurance_policy_id !== undefined ||
+        ocbc360.linked_investment_id !== undefined)
     if (Object.keys(updates).length === 0 && !ocbcHasConcrete) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })
     }
@@ -87,6 +92,13 @@ export async function PATCH(
       const ocbcUpdates: Record<string, unknown> = {}
       if (ocbc360.insure_met !== undefined) ocbcUpdates.insure_met = ocbc360.insure_met
       if (ocbc360.invest_met !== undefined) ocbcUpdates.invest_met = ocbc360.invest_met
+      if (ocbc360.linked_insurance_policy_id !== undefined)
+        ocbcUpdates.linked_insurance_policy_id = ocbc360.linked_insurance_policy_id
+      if (ocbc360.linked_investment_id !== undefined)
+        ocbcUpdates.linked_investment_id = ocbc360.linked_investment_id
+      // Clear linked record when toggling off
+      if (ocbc360.insure_met === false) ocbcUpdates.linked_insurance_policy_id = null
+      if (ocbc360.invest_met === false) ocbcUpdates.linked_investment_id = null
 
       if (Object.keys(ocbcUpdates).length > 0) {
         const { data: existing } = await supabase

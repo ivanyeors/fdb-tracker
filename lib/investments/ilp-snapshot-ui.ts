@@ -2,7 +2,11 @@
  * Pure helpers for displaying persisted `IlpFundReportSnapshot` (fund report import).
  */
 
-import type { IlpFundReportSnapshot } from "@/lib/ilp-import/types"
+import type {
+  IlpFundReportSnapshot,
+  PerformanceTable,
+  SectorBreakdownRow,
+} from "@/lib/ilp-import/types"
 
 /** Preferred order for key facts (matches Tokio/Morningstar-style labels). */
 const HEADER_PRIORITY: readonly string[] = [
@@ -70,7 +74,8 @@ export function parseFundReportSnapshot(
   } else {
     return null
   }
-  const versionOk = o.version === 1 || Number(o.version) === 1
+  const v = Number(o.version)
+  const versionOk = v === 1 || v === 2
   if (!versionOk) return null
   if (typeof o.header !== "object" || o.header === null) {
     if (!Array.isArray(o.topHoldings) || o.topHoldings.length === 0) return null
@@ -210,4 +215,97 @@ export function assetAllocationToBarRows(
 
 export function hasAnyCategoryPct(rows: AssetAllocationBarRow[]): boolean {
   return rows.some((r) => r.categoryPct != null)
+}
+
+// --- Version 2 helpers ---
+
+/** Multi-series performance point for fund vs benchmark vs category charts. */
+export type PerformanceSeriesPoint = {
+  period: string
+  fund: number | null
+  benchmark: number | null
+  category: number | null
+}
+
+/** Convert a PerformanceTable to a multi-series array for chart rendering. */
+export function performanceTableToSeries(
+  table: PerformanceTable | undefined,
+): PerformanceSeriesPoint[] {
+  if (!table?.periodLabels?.length) return []
+  return table.periodLabels.map((label, i) => ({
+    period: label.trim(),
+    fund: parsePercentCell(table.fundValues[i] ?? null),
+    benchmark: parsePercentCell(table.benchmarkValues?.[i] ?? null),
+    category: parsePercentCell(table.categoryValues?.[i] ?? null),
+  }))
+}
+
+/** Convert sector breakdown to donut rows. */
+export function sectorBreakdownToDonutRows(
+  sectors: SectorBreakdownRow[] | undefined,
+): DonutSliceRow[] {
+  if (!sectors || sectors.length === 0) return []
+  const total = sectors.reduce((sum, r) => sum + r.weightPct, 0)
+  if (total <= 0) return []
+  return sectors.map((r) => ({
+    name: r.sector,
+    value: r.weightPct,
+    percentage: (r.weightPct / total) * 100,
+  }))
+}
+
+/** Style box labels for the 3×3 grid (row-major: large→small, value→growth). */
+export const STYLE_BOX_LABELS = [
+  "Large Value",
+  "Large Blend",
+  "Large Growth",
+  "Mid Value",
+  "Mid Blend",
+  "Mid Growth",
+  "Small Value",
+  "Small Blend",
+  "Small Growth",
+] as const
+
+/** Key-value entries for stats/fees/risk display. */
+export type KeyValueEntry = { label: string; value: string }
+
+export function stockStatsToEntries(
+  stats: IlpFundReportSnapshot["stockStats"],
+): KeyValueEntry[] {
+  if (!stats) return []
+  const entries: KeyValueEntry[] = []
+  if (stats.peRatio != null) entries.push({ label: "P/E Ratio", value: stats.peRatio.toFixed(2) })
+  if (stats.pbRatio != null) entries.push({ label: "P/B Ratio", value: stats.pbRatio.toFixed(2) })
+  if (stats.dividendYield != null)
+    entries.push({ label: "Dividend Yield", value: `${stats.dividendYield.toFixed(2)}%` })
+  return entries
+}
+
+export function feesToEntries(
+  fees: IlpFundReportSnapshot["fees"],
+): KeyValueEntry[] {
+  if (!fees) return []
+  const entries: KeyValueEntry[] = []
+  if (fees.expenseRatio != null)
+    entries.push({ label: "Expense Ratio", value: `${fees.expenseRatio.toFixed(2)}%` })
+  if (fees.managementFee != null)
+    entries.push({ label: "Management Fee", value: `${fees.managementFee.toFixed(2)}%` })
+  return entries
+}
+
+export function riskMeasuresToEntries(
+  measures: IlpFundReportSnapshot["riskMeasures"],
+): KeyValueEntry[] {
+  if (!measures) return []
+  const entries: KeyValueEntry[] = []
+  if (measures.standardDeviation != null)
+    entries.push({ label: "Std Deviation", value: measures.standardDeviation.toFixed(2) })
+  if (measures.sharpeRatio != null)
+    entries.push({ label: "Sharpe Ratio", value: measures.sharpeRatio.toFixed(2) })
+  if (measures.alpha != null)
+    entries.push({ label: "Alpha", value: measures.alpha.toFixed(2) })
+  if (measures.beta != null)
+    entries.push({ label: "Beta", value: measures.beta.toFixed(2) })
+  return entries
 }

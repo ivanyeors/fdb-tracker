@@ -9,7 +9,10 @@ import {
   calculateOverallScore,
   type CoverageBenchmarks,
   type HouseholdCoverageAnalysis,
+  type LifeStageParams,
+  getLifeStageMultipliers,
 } from "@/lib/calculations/insurance"
+import { getAge } from "@/lib/calculations/cpf"
 
 const querySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -64,7 +67,7 @@ export async function GET(request: NextRequest) {
         supabase
           .from("insurance_policies")
           .select(
-            "id, profile_id, name, type, coverage_type, coverage_amount, is_active, premium_amount, frequency, yearly_outflow_date",
+            "id, profile_id, name, type, coverage_type, coverage_amount, is_active, premium_amount, frequency, yearly_outflow_date, insurance_policy_coverages(coverage_type, coverage_amount)",
           )
           .in("profile_id", profileIds)
           .eq("is_active", true),
@@ -75,16 +78,21 @@ export async function GET(request: NextRequest) {
         supabase
           .from("insurance_coverage_benchmarks")
           .select(
-            "profile_id, death_coverage_target, ci_coverage_target, hospitalization_coverage",
+            "profile_id, death_coverage_target, ci_coverage_target, hospitalization_coverage, tpd_coverage_target, long_term_care_monthly_target",
           )
           .in("profile_id", profileIds),
         supabase
           .from("profiles")
-          .select("id, name, birth_year")
+          .select("id, name, birth_year, marital_status, num_dependents")
           .in("id", profileIds),
       ])
 
-    const policies = policiesRes.data ?? []
+    const policies = (policiesRes.data ?? []).map((p) => ({
+      ...p,
+      coverages: (p as Record<string, unknown>).insurance_policy_coverages as
+        | { coverage_type: string; coverage_amount: number }[]
+        | undefined,
+    }))
     const incomeByProfile = new Map(
       (incomeRes.data ?? []).map((r) => [r.profile_id, r.annual_salary ?? 0]),
     )
@@ -107,14 +115,26 @@ export async function GET(request: NextRequest) {
             ciTarget: bench.ci_coverage_target ?? undefined,
             hospitalizationCoverage:
               bench.hospitalization_coverage ?? undefined,
+            tpdTarget: bench.tpd_coverage_target ?? undefined,
+            longTermCareMonthlyTarget:
+              bench.long_term_care_monthly_target ?? undefined,
           }
         : undefined
+
+      const lifeStage: LifeStageParams = {
+        maritalStatus: (profile as Record<string, unknown>)?.marital_status as string | null ?? null,
+        numDependents: (profile as Record<string, unknown>)?.num_dependents as number | null ?? null,
+        age: profile?.birth_year ? getAge(profile.birth_year, new Date().getFullYear()) : null,
+      }
 
       const items = calculateCoverageGap(
         profilePolicies,
         annualSalary,
         customBenchmarks,
+        lifeStage,
       )
+
+      const multipliers = getLifeStageMultipliers(lifeStage)
 
       return {
         profileId: pid,
@@ -122,6 +142,7 @@ export async function GET(request: NextRequest) {
         annualSalary,
         items,
         overallScore: calculateOverallScore(items),
+        lifeStageLabel: multipliers.label,
       }
     })
 

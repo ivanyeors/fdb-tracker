@@ -42,10 +42,12 @@ export async function GET(request: NextRequest) {
     }
     const { profileIds } = resolved
 
+    // Include loans where user is the primary profile OR the split partner
+    const profileIdList = profileIds.join(",")
     const { data: loans, error } = await supabase
       .from("loans")
       .select("*")
-      .in("profile_id", profileIds)
+      .or(`profile_id.in.(${profileIdList}),split_profile_id.in.(${profileIdList})`)
       .order("created_at", { ascending: true })
 
     if (error) {
@@ -70,6 +72,17 @@ const createLoanSchema = z.object({
   lender: z.string().optional(),
   useCpfOa: z.boolean().optional(),
   valuationLimit: z.number().positive().optional().nullable(),
+  // Split between couples
+  splitProfileId: z.string().uuid().optional().nullable(),
+  splitPct: z.number().min(0).max(100).optional(),
+  // Rate increase
+  rateIncreasePct: z.number().min(0).optional().nullable(),
+  // Property type (HDB vs Private)
+  propertyType: z.enum(["hdb", "private"]).optional().nullable(),
+  // Private loan constraints
+  lockInEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  earlyRepaymentPenaltyPct: z.number().min(0).optional().nullable(),
+  maxAnnualPrepaymentPct: z.number().min(0).max(100).optional().nullable(),
 })
 
 export async function POST(request: NextRequest) {
@@ -109,8 +122,15 @@ export async function POST(request: NextRequest) {
         tenure_months: parsed.data.tenureMonths,
         start_date: parsed.data.startDate,
         lender: parsed.data.lender ?? null,
-        use_cpf_oa: parsed.data.useCpfOa ?? false,
+        use_cpf_oa: parsed.data.useCpfOa ?? parsed.data.type === "housing",
         valuation_limit: parsed.data.valuationLimit ?? null,
+        split_profile_id: parsed.data.splitProfileId ?? null,
+        split_pct: parsed.data.splitPct ?? 100,
+        rate_increase_pct: parsed.data.rateIncreasePct ?? null,
+        property_type: parsed.data.propertyType ?? null,
+        lock_in_end_date: parsed.data.lockInEndDate ?? null,
+        early_repayment_penalty_pct: parsed.data.earlyRepaymentPenaltyPct ?? null,
+        max_annual_prepayment_pct: parsed.data.maxAnnualPrepaymentPct ?? null,
       })
       .select()
       .single()

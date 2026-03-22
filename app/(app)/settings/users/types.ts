@@ -2,6 +2,8 @@ export type ProfileWithIncome = {
   id: string
   name: string
   birth_year: number
+  marital_status: string | null
+  num_dependents: number
   dps_include_in_projection?: boolean
   family_id?: string
   telegram_user_id?: string | null

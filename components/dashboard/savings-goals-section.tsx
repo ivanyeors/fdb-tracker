@@ -33,6 +33,7 @@ interface Goal {
   monthly_auto_amount: number
   deadline: string | null
   category: string
+  linked_bank_account_id: string | null
   created_at: string
   goal_contributions: GoalContribution[]
 }
@@ -156,14 +157,24 @@ export function SavingsGoalsSection() {
                           {goal.category}
                         </CardDescription>
                       </div>
-                      {isCompleted && (
-                        <Badge
-                          variant="default"
-                          className="bg-green-600/20 text-green-700 hover:bg-green-600/30 dark:text-green-400"
-                        >
-                          Achieved
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {goal.linked_bank_account_id && (
+                          <Badge
+                            variant="outline"
+                            className="text-blue-600 dark:text-blue-400"
+                          >
+                            Synced
+                          </Badge>
+                        )}
+                        {isCompleted && (
+                          <Badge
+                            variant="default"
+                            className="bg-green-600/20 text-green-700 hover:bg-green-600/30 dark:text-green-400"
+                          >
+                            Achieved
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="flex flex-1 flex-col justify-end">

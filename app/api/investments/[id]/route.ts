@@ -9,6 +9,7 @@ const updateInvestmentSchema = z.object({
   type: z.string().min(1).optional(),
   units: z.number().min(0).optional(),
   costBasis: z.number().min(0).optional(),
+  targetAllocationPct: z.number().min(0).max(100).nullable().optional(),
   profileId: z.string().uuid().nullable().optional(),
 })
 
@@ -62,6 +63,7 @@ export async function PATCH(
     if (parsed.data.type !== undefined) updates.type = parsed.data.type
     if (parsed.data.units !== undefined) updates.units = parsed.data.units
     if (parsed.data.costBasis !== undefined) updates.cost_basis = parsed.data.costBasis
+    if (parsed.data.targetAllocationPct !== undefined) updates.target_allocation_pct = parsed.data.targetAllocationPct
     if (parsed.data.profileId !== undefined) updates.profile_id = parsed.data.profileId
 
     if (Object.keys(updates).length === 0) {

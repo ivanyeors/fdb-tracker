@@ -22,6 +22,7 @@ import { DatePicker } from "@/components/ui/date-picker"
 import { Input } from "@/components/ui/input"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import type { IlpFundReportSnapshot } from "@/lib/ilp-import/types"
+import { stripMhtmlToHtmlOnly } from "@/lib/ilp-import/strip-mhtml-client"
 import {
   allocationSumMessage,
   isValidIlpGroupAllocationSum,
@@ -498,8 +499,12 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
     try {
       const bundles: ParsedBundle[] = []
       for (const file of files) {
+        // Strip non-HTML MIME parts to reduce payload (avoids 413 on Vercel)
+        const rawText = await file.text()
+        const stripped = stripMhtmlToHtmlOnly(rawText)
+        const slimFile = new File([stripped], file.name, { type: file.type })
         const fd = new FormData()
-        fd.set("file", file)
+        fd.set("file", slimFile)
         const res = await fetch("/api/investments/ilp/fund-report/parse", {
           method: "POST",
           body: fd,

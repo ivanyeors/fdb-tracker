@@ -16,6 +16,8 @@ import { useActiveProfile } from "@/hooks/use-active-profile"
 import { useCpfSimulator, type SimulatorSeedData } from "@/hooks/use-cpf-simulator"
 import { CpfSimulatorPanel } from "@/components/dashboard/cpf/cpf-simulator-panel"
 import { ChartSkeleton } from "@/components/loading"
+import { Badge } from "@/components/ui/badge"
+import { calculateRetirementGap, findBenchmarkAge } from "@/lib/calculations/cpf-retirement"
 
 type CpfBalanceRow = { month: string; oa: number; sa: number; ma: number }
 
@@ -138,6 +140,101 @@ function OverviewTab({
   )
 }
 
+function RetirementReadinessCard({
+  projection,
+  retirementSums,
+  currentAge,
+}: {
+  projection: ProjectionPoint[]
+  retirementSums: { brs: number; frs: number; ers: number }
+  currentAge: number
+}) {
+  const analysis = useMemo(() => {
+    const at55 = projection.find((p) => p.age === 55)
+    const projectedTotal = at55?.total ?? projection[projection.length - 1]?.total ?? 0
+
+    const brsGap = calculateRetirementGap(projectedTotal, retirementSums.brs)
+    const frsGap = calculateRetirementGap(projectedTotal, retirementSums.frs)
+    const ersGap = calculateRetirementGap(projectedTotal, retirementSums.ers)
+
+    const brsAge = findBenchmarkAge(projection, retirementSums.brs)
+    const frsAge = findBenchmarkAge(projection, retirementSums.frs)
+    const ersAge = findBenchmarkAge(projection, retirementSums.ers)
+
+    let tier: "below_brs" | "brs" | "frs" | "ers"
+    if (ersGap.onTrack) tier = "ers"
+    else if (frsGap.onTrack) tier = "frs"
+    else if (brsGap.onTrack) tier = "brs"
+    else tier = "below_brs"
+
+    return { projectedTotal, brsGap, frsGap, ersGap, brsAge, frsAge, ersAge, tier }
+  }, [projection, retirementSums])
+
+  const tierLabels = {
+    below_brs: { label: "Below BRS", variant: "destructive" as const },
+    brs: { label: "On track for BRS", variant: "outline" as const },
+    frs: { label: "On track for FRS", variant: "secondary" as const },
+    ers: { label: "On track for ERS", variant: "default" as const },
+  }
+
+  const tiers = [
+    { key: "brs", label: "Basic (BRS)", target: retirementSums.brs, gap: analysis.brsGap, reachAge: analysis.brsAge },
+    { key: "frs", label: "Full (FRS)", target: retirementSums.frs, gap: analysis.frsGap, reachAge: analysis.frsAge },
+    { key: "ers", label: "Enhanced (ERS)", target: retirementSums.ers, gap: analysis.ersGap, reachAge: analysis.ersAge },
+  ]
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
+        <CardTitle className="text-base">Retirement Readiness</CardTitle>
+        <Badge variant={tierLabels[analysis.tier].variant}>
+          {tierLabels[analysis.tier].label}
+        </Badge>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground mb-4">
+          Projected CPF at age 55: <span className="font-semibold text-foreground">${formatCurrency(analysis.projectedTotal)}</span>
+        </p>
+
+        <div className="space-y-3">
+          {tiers.map((t) => {
+            const pct = Math.min((analysis.projectedTotal / t.target) * 100, 100)
+            return (
+              <div key={t.key}>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="font-medium">{t.label}</span>
+                  <span className="text-muted-foreground tabular-nums">
+                    ${formatCurrency(t.target)}
+                    {t.reachAge && t.reachAge > currentAge && !t.gap.onTrack && (
+                      <span className="ml-1">· reach at {t.reachAge}</span>
+                    )}
+                    {t.gap.onTrack && t.reachAge && (
+                      <span className="ml-1">· reached at {t.reachAge}</span>
+                    )}
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      t.gap.onTrack ? "bg-green-500" : pct >= 70 ? "bg-yellow-500" : "bg-red-500"
+                    }`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                {!t.gap.onTrack && t.gap.gap > 0 && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Gap: ${formatCurrency(t.gap.gap)} ({Math.round(t.gap.gapPercentage)}% short)
+                  </p>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function RetirementTab({
   data,
   isFamilyView,
@@ -232,6 +329,14 @@ function RetirementTab({
 
       {simulator && (
         <CpfSimulatorPanel simulator={simulator} />
+      )}
+
+      {data?.extendedProjection && data.extendedProjection.length > 0 && (
+        <RetirementReadinessCard
+          projection={data.extendedProjection}
+          retirementSums={retirementSums}
+          currentAge={data.currentAge}
+        />
       )}
 
       <Card>

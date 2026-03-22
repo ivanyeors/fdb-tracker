@@ -6,6 +6,8 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { verifyLoanInHousehold } from "@/lib/api/verify-loan-in-household"
 import {
+  calculateEarlyRepaymentPenalty,
+  checkAnnualPrepaymentLimit,
   estimateOutstandingPrincipal,
   splitPayment,
 } from "@/lib/calculations/loans"
@@ -23,6 +25,7 @@ const postSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   cpfOaAmount: z.number().min(0).optional().nullable(),
   isEarly: z.boolean().optional(),
+  source: z.enum(["cash", "cpf_oa"]).optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -112,7 +115,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { loanId, amount, date, cpfOaAmount, isEarly } = parsed.data
+    const { loanId, amount, date, cpfOaAmount, isEarly, source } = parsed.data
     const cpf = cpfOaAmount ?? null
     if (cpf != null && cpf > amount) {
       return NextResponse.json({ error: "CPF OA amount cannot exceed repayment" }, { status: 400 })
@@ -126,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     const { data: loan } = await supabase
       .from("loans")
-      .select("id, principal, rate_pct, use_cpf_oa, start_date, valuation_limit")
+      .select("id, principal, rate_pct, use_cpf_oa, start_date, valuation_limit, property_type, lock_in_end_date, early_repayment_penalty_pct, max_annual_prepayment_pct")
       .eq("id", loanId)
       .single()
 
@@ -157,9 +160,80 @@ export async function POST(request: NextRequest) {
 
     // Early repayment: goes entirely to principal reduction
     if (isEarly) {
+      // Check annual prepayment limit (private property loans)
+      if (loan.max_annual_prepayment_pct != null) {
+        const yearStart = date.slice(0, 4) + "-01-01"
+        const yearEnd = date.slice(0, 4) + "-12-31"
+        const { data: existingThisYear } = await supabase
+          .from("loan_early_repayments")
+          .select("amount")
+          .eq("loan_id", loanId)
+          .gte("date", yearStart)
+          .lte("date", yearEnd)
+        const existingSum = (existingThisYear ?? []).reduce(
+          (sum, r) => sum + Number(r.amount),
+          0,
+        )
+
+        // Need balance for limit check
+        const { data: priorRepaysForLimit } = await supabase
+          .from("loan_repayments")
+          .select("amount, date")
+          .eq("loan_id", loanId)
+          .lt("date", date)
+          .order("date", { ascending: true })
+        const { data: priorEarlyForLimit } = await supabase
+          .from("loan_early_repayments")
+          .select("amount, date")
+          .eq("loan_id", loanId)
+          .lte("date", date)
+          .order("date", { ascending: true })
+        const currentBalance = estimateOutstandingPrincipal(
+          Number(loan.principal),
+          Number(loan.rate_pct),
+          priorRepaysForLimit ?? [],
+          priorEarlyForLimit ?? [],
+        )
+
+        const { allowed, maxRemaining } = checkAnnualPrepaymentLimit(
+          currentBalance,
+          existingSum,
+          amount,
+          loan.max_annual_prepayment_pct,
+        )
+        if (!allowed) {
+          return NextResponse.json(
+            {
+              error: `Exceeds annual prepayment limit. Max remaining: $${maxRemaining?.toFixed(2)}`,
+              maxRemaining,
+            },
+            { status: 400 },
+          )
+        }
+      }
+
+      // Calculate early repayment penalty
+      const penaltyAmount = calculateEarlyRepaymentPenalty(
+        amount,
+        {
+          property_type: loan.property_type,
+          lock_in_end_date: loan.lock_in_end_date,
+          early_repayment_penalty_pct: loan.early_repayment_penalty_pct != null
+            ? Number(loan.early_repayment_penalty_pct)
+            : null,
+        },
+        date,
+      )
+
       const { data: inserted, error: insErr } = await supabase
         .from("loan_early_repayments")
-        .insert({ loan_id: loanId, amount, date })
+        .insert({
+          loan_id: loanId,
+          amount,
+          date,
+          penalty_amount: penaltyAmount,
+          source: source ?? "cash",
+        })
         .select()
         .single()
 
@@ -182,7 +256,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return NextResponse.json(inserted, { status: 201 })
+      return NextResponse.json({ ...inserted, penaltyAmount }, { status: 201 })
     }
 
     // Regular repayment: split into interest and principal
