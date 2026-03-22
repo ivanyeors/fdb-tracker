@@ -11,11 +11,17 @@ const updatePolicySchema = z.object({
     .enum([
       "term_life",
       "whole_life",
+      "universal_life",
       "integrated_shield",
       "critical_illness",
+      "early_critical_illness",
+      "multi_pay_ci",
       "endowment",
       "ilp",
       "personal_accident",
+      "disability_income",
+      "long_term_care",
+      "tpd",
     ])
     .optional(),
   premiumAmount: z.number().min(0).optional(),
@@ -24,6 +30,14 @@ const updatePolicySchema = z.object({
   yearlyOutflowDate: z.number().int().min(1).max(12).nullable().optional(),
   currentAmount: z.number().min(0).nullable().optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  subType: z.string().nullable().optional(),
+  riderName: z.string().nullable().optional(),
+  riderPremium: z.number().min(0).nullable().optional(),
+  insurer: z.string().nullable().optional(),
+  policyNumber: z.string().nullable().optional(),
+  maturityValue: z.number().min(0).nullable().optional(),
+  cashValue: z.number().min(0).nullable().optional(),
+  coverageTillAge: z.number().int().min(1).nullable().optional(),
 })
 
 async function verifyPolicyOwnership(
@@ -90,6 +104,14 @@ export async function PATCH(
       updates.yearly_outflow_date = parsed.data.yearlyOutflowDate
     if (parsed.data.currentAmount !== undefined) updates.current_amount = parsed.data.currentAmount
     if (parsed.data.endDate !== undefined) updates.end_date = parsed.data.endDate
+    if (parsed.data.subType !== undefined) updates.sub_type = parsed.data.subType
+    if (parsed.data.riderName !== undefined) updates.rider_name = parsed.data.riderName
+    if (parsed.data.riderPremium !== undefined) updates.rider_premium = parsed.data.riderPremium
+    if (parsed.data.insurer !== undefined) updates.insurer = parsed.data.insurer
+    if (parsed.data.policyNumber !== undefined) updates.policy_number = parsed.data.policyNumber
+    if (parsed.data.maturityValue !== undefined) updates.maturity_value = parsed.data.maturityValue
+    if (parsed.data.cashValue !== undefined) updates.cash_value = parsed.data.cashValue
+    if (parsed.data.coverageTillAge !== undefined) updates.coverage_till_age = parsed.data.coverageTillAge
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })

@@ -1100,6 +1100,13 @@ export type Database = {
           lender: string | null
           use_cpf_oa: boolean
           valuation_limit: number | null
+          split_profile_id: string | null
+          split_pct: number
+          rate_increase_pct: number | null
+          property_type: string | null
+          lock_in_end_date: string | null
+          early_repayment_penalty_pct: number | null
+          max_annual_prepayment_pct: number | null
           created_at: string
         }
         Insert: {
@@ -1114,6 +1121,13 @@ export type Database = {
           lender?: string | null
           use_cpf_oa?: boolean
           valuation_limit?: number | null
+          split_profile_id?: string | null
+          split_pct?: number
+          rate_increase_pct?: number | null
+          property_type?: string | null
+          lock_in_end_date?: string | null
+          early_repayment_penalty_pct?: number | null
+          max_annual_prepayment_pct?: number | null
           created_at?: string
         }
         Update: {
@@ -1128,12 +1142,26 @@ export type Database = {
           lender?: string | null
           use_cpf_oa?: boolean
           valuation_limit?: number | null
+          split_profile_id?: string | null
+          split_pct?: number
+          rate_increase_pct?: number | null
+          property_type?: string | null
+          lock_in_end_date?: string | null
+          early_repayment_penalty_pct?: number | null
+          max_annual_prepayment_pct?: number | null
           created_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "loans_profile_id_fkey"
             columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loans_split_profile_id_fkey"
+            columns: ["split_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1187,6 +1215,8 @@ export type Database = {
           loan_id: string
           amount: number
           date: string
+          penalty_amount: number
+          source: string
           created_at: string
         }
         Insert: {
@@ -1194,6 +1224,8 @@ export type Database = {
           loan_id: string
           amount: number
           date: string
+          penalty_amount?: number
+          source?: string
           created_at?: string
         }
         Update: {
@@ -1201,6 +1233,8 @@ export type Database = {
           loan_id?: string
           amount?: number
           date?: string
+          penalty_amount?: number
+          source?: string
           created_at?: string
         }
         Relationships: [
@@ -1228,6 +1262,14 @@ export type Database = {
           end_date: string | null
           is_active: boolean
           deduct_from_outflow: boolean
+          sub_type: string | null
+          rider_name: string | null
+          rider_premium: number | null
+          insurer: string | null
+          policy_number: string | null
+          maturity_value: number | null
+          cash_value: number | null
+          coverage_till_age: number | null
           created_at: string
         }
         Insert: {
@@ -1244,6 +1286,14 @@ export type Database = {
           end_date?: string | null
           is_active?: boolean
           deduct_from_outflow?: boolean
+          sub_type?: string | null
+          rider_name?: string | null
+          rider_premium?: number | null
+          insurer?: string | null
+          policy_number?: string | null
+          maturity_value?: number | null
+          cash_value?: number | null
+          coverage_till_age?: number | null
           created_at?: string
         }
         Update: {
@@ -1260,6 +1310,14 @@ export type Database = {
           end_date?: string | null
           is_active?: boolean
           deduct_from_outflow?: boolean
+          sub_type?: string | null
+          rider_name?: string | null
+          rider_premium?: number | null
+          insurer?: string | null
+          policy_number?: string | null
+          maturity_value?: number | null
+          cash_value?: number | null
+          coverage_till_age?: number | null
           created_at?: string
         }
         Relationships: [
@@ -1279,6 +1337,8 @@ export type Database = {
           death_coverage_target: number
           ci_coverage_target: number
           hospitalization_coverage: string
+          tpd_coverage_target: number | null
+          long_term_care_monthly_target: number | null
           created_at: string
         }
         Insert: {
@@ -1287,6 +1347,8 @@ export type Database = {
           death_coverage_target: number
           ci_coverage_target: number
           hospitalization_coverage: string
+          tpd_coverage_target?: number | null
+          long_term_care_monthly_target?: number | null
           created_at?: string
         }
         Update: {
@@ -1295,6 +1357,8 @@ export type Database = {
           death_coverage_target?: number
           ci_coverage_target?: number
           hospitalization_coverage?: string
+          tpd_coverage_target?: number | null
+          long_term_care_monthly_target?: number | null
           created_at?: string
         }
         Relationships: [

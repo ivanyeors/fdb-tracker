@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
         supabase
           .from("insurance_coverage_benchmarks")
           .select(
-            "profile_id, death_coverage_target, ci_coverage_target, hospitalization_coverage",
+            "profile_id, death_coverage_target, ci_coverage_target, hospitalization_coverage, tpd_coverage_target, long_term_care_monthly_target",
           )
           .in("profile_id", profileIds),
         supabase
@@ -107,6 +107,9 @@ export async function GET(request: NextRequest) {
             ciTarget: bench.ci_coverage_target ?? undefined,
             hospitalizationCoverage:
               bench.hospitalization_coverage ?? undefined,
+            tpdTarget: bench.tpd_coverage_target ?? undefined,
+            longTermCareMonthlyTarget:
+              bench.long_term_care_monthly_target ?? undefined,
           }
         : undefined
 

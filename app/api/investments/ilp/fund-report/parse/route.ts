@@ -3,6 +3,8 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { parseIlpFundReportMhtml } from "@/lib/ilp-import/index"
 
+export const maxDuration = 60
+
 const MAX_BYTES = 12 * 1024 * 1024
 
 /**

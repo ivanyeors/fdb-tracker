@@ -7,16 +7,24 @@ import { ParentSize } from "@visx/responsive"
 import { scaleLinear } from "@visx/scale"
 import { AxisBottom } from "@visx/axis"
 import { AllocationChart } from "@/components/dashboard/investments/allocation-chart"
+import { TrailingReturnsChart } from "@/components/dashboard/investments/trailing-returns-chart"
+import { StockStyleGrid } from "@/components/dashboard/investments/stock-style-grid"
 import {
   annualPerformanceRawRows,
   annualPerformanceToSeries,
   assetAllocationToBarRows,
   assetAllocationToCategoryDonutRows,
   assetAllocationToDonutRows,
+  feesToEntries,
   hasAnyCategoryPct,
   parseFundReportSnapshot,
+  performanceTableToSeries,
+  riskMeasuresToEntries,
+  sectorBreakdownToDonutRows,
   snapshotHeaderEntries,
+  stockStatsToEntries,
   type AssetAllocationBarRow,
+  type KeyValueEntry,
 } from "@/lib/investments/ilp-snapshot-ui"
 
 const FUND_BAR = "var(--color-chart-1)"
@@ -40,7 +48,7 @@ function AssetAllocationGroupedBars({
 }) {
   const filtered = useMemo(
     () => rows.filter((r) => r.fundPct != null || r.categoryPct != null),
-    [rows]
+    [rows],
   )
   if (filtered.length === 0) return null
 
@@ -58,7 +66,7 @@ function AssetAllocationGroupedBars({
 
         const maxVal = Math.max(
           5,
-          ...filtered.flatMap((r) => [r.fundPct ?? 0, r.categoryPct ?? 0])
+          ...filtered.flatMap((r) => [r.fundPct ?? 0, r.categoryPct ?? 0]),
         )
         const xMax =
           Math.min(100, maxVal) < maxVal
@@ -249,6 +257,37 @@ function AnnualPerformanceBars({
   )
 }
 
+/** Reusable key-value grid for stats, fees, risk measures. */
+function KeyValueGrid({
+  title,
+  entries,
+}: {
+  title: string
+  entries: KeyValueEntry[]
+}) {
+  if (entries.length === 0) return null
+  return (
+    <div>
+      <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {title}
+      </p>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
+        {entries.map(({ label, value }) => (
+          <div
+            key={label}
+            className="flex flex-col gap-0.5 rounded-md border border-border/60 bg-muted/10 px-3 py-2"
+          >
+            <dt className="text-[11px] text-muted-foreground">{label}</dt>
+            <dd className="text-sm font-medium tabular-nums text-foreground">
+              {value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  )
+}
+
 export type IlpFundReportPanelProps = {
   snapshot: Record<string, unknown> | null | undefined
 }
@@ -257,34 +296,51 @@ export function IlpFundReportPanel({ snapshot }: IlpFundReportPanelProps) {
   const s = useMemo(() => parseFundReportSnapshot(snapshot ?? null), [snapshot])
   const headerRows = useMemo(
     () => (s?.header ? snapshotHeaderEntries(s.header) : []),
-    [s]
+    [s],
   )
   const barRows = useMemo(
     () =>
       s?.assetAllocation ? assetAllocationToBarRows(s.assetAllocation) : [],
-    [s]
+    [s],
   )
   const donutRows = useMemo(
     () =>
       s?.assetAllocation ? assetAllocationToDonutRows(s.assetAllocation) : [],
-    [s]
+    [s],
   )
   const categoryDonutRows = useMemo(
     () =>
       s?.assetAllocation
         ? assetAllocationToCategoryDonutRows(s.assetAllocation)
         : [],
-    [s]
+    [s],
   )
   const showGroupedBars = hasAnyCategoryPct(barRows)
   const annualSeries = useMemo(
     () => (s ? annualPerformanceToSeries(s.annualPerformance) : []),
-    [s]
+    [s],
   )
   const annualRaw = useMemo(
     () => (s ? annualPerformanceRawRows(s.annualPerformance) : []),
-    [s]
+    [s],
   )
+
+  // Version 2 data
+  const sectorDonutRows = useMemo(
+    () => sectorBreakdownToDonutRows(s?.sectorBreakdown),
+    [s],
+  )
+  const trailingSeries = useMemo(
+    () => performanceTableToSeries(s?.trailingReturns),
+    [s],
+  )
+  const calendarSeries = useMemo(
+    () => performanceTableToSeries(s?.calendarYearReturns),
+    [s],
+  )
+  const statsEntries = useMemo(() => stockStatsToEntries(s?.stockStats), [s])
+  const feeEntries = useMemo(() => feesToEntries(s?.fees), [s])
+  const riskEntries = useMemo(() => riskMeasuresToEntries(s?.riskMeasures), [s])
 
   if (!s) return null
 
@@ -298,6 +354,12 @@ export function IlpFundReportPanel({ snapshot }: IlpFundReportPanelProps) {
     annualSeries.length > 0 ||
     annualRaw.length > 0 ||
     topHoldings.length > 0 ||
+    sectorDonutRows.length > 0 ||
+    trailingSeries.length > 0 ||
+    calendarSeries.length > 0 ||
+    statsEntries.length > 0 ||
+    feeEntries.length > 0 ||
+    riskEntries.length > 0 ||
     s.warnings.length > 0
 
   if (!hasContent) return null
@@ -336,7 +398,14 @@ export function IlpFundReportPanel({ snapshot }: IlpFundReportPanelProps) {
         </div>
       ) : null}
 
-      {barRows.length > 0 || donutRows.length > 0 || categoryDonutRows.length > 0 ? (
+      {/* Stats, fees, risk — compact key-value grids */}
+      <KeyValueGrid title="Fund statistics" entries={statsEntries} />
+      <KeyValueGrid title="Fees" entries={feeEntries} />
+      <KeyValueGrid title="Risk measures" entries={riskEntries} />
+
+      {barRows.length > 0 ||
+      donutRows.length > 0 ||
+      categoryDonutRows.length > 0 ? (
         <div className="space-y-4">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Asset allocation
@@ -405,6 +474,33 @@ export function IlpFundReportPanel({ snapshot }: IlpFundReportPanelProps) {
               </div>
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {/* Sector breakdown donut */}
+      {sectorDonutRows.length > 0 ? (
+        <div>
+          <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Sector breakdown
+          </p>
+          <div className={ALLOCATION_MIX_CARD}>
+            <div className="overflow-visible pt-0.5">
+              <AllocationChart
+                data={sectorDonutRows}
+                {...ALLOCATION_CHART_PROPS}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Stock style box */}
+      {s.stockStyle ? (
+        <div>
+          <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Investment style
+          </p>
+          <StockStyleGrid style={s.stockStyle} />
         </div>
       ) : null}
 
@@ -512,19 +608,30 @@ export function IlpFundReportPanel({ snapshot }: IlpFundReportPanelProps) {
         </div>
       ) : null}
 
-      {(s.growthChartPresent ||
-        s.trailingReturnsTablePresent ||
-        s.calendarYearReturnsPresent) && (
+      {/* Trailing returns */}
+      {trailingSeries.length > 0 ? (
+        <div>
+          <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Trailing returns
+          </p>
+          <TrailingReturnsChart data={trailingSeries} />
+        </div>
+      ) : null}
+
+      {/* Calendar year returns */}
+      {calendarSeries.length > 0 ? (
+        <div>
+          <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Calendar year returns
+          </p>
+          <TrailingReturnsChart data={calendarSeries} />
+        </div>
+      ) : null}
+
+      {s.growthChartPresent && (
         <p className="text-[11px] text-muted-foreground">
-          {[
-            s.growthChartPresent ? "Growth chart" : null,
-            s.trailingReturnsTablePresent ? "Trailing returns" : null,
-            s.calendarYearReturnsPresent ? "Calendar year returns" : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}{" "}
-          present in source report; detailed figures are not stored in this
-          snapshot.
+          Growth chart present in source report; interactive chart data is not
+          stored in this snapshot.
         </p>
       )}
 
@@ -539,5 +646,5 @@ export function IlpFundReportPanel({ snapshot }: IlpFundReportPanelProps) {
   )
 }
 
-/** Alias for apps that prefer a “visualization” name (same as `IlpFundReportPanel`). */
+/** Alias for apps that prefer a "visualization" name (same as `IlpFundReportPanel`). */
 export const IlpFundReportVisualization = IlpFundReportPanel

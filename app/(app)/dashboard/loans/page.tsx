@@ -8,7 +8,13 @@ import { formatCurrency } from "@/lib/utils"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { estimateOutstandingPrincipal } from "@/lib/calculations/loans"
+import {
+  effectiveRate,
+  estimateOutstandingPrincipal,
+  loanMonthlyPayment,
+  prepaymentSavingsEstimate,
+  splitLoanAmount,
+} from "@/lib/calculations/loans"
 
 interface Loan {
   id: string
@@ -21,6 +27,14 @@ interface Loan {
   lender: string | null
   use_cpf_oa: boolean
   valuation_limit?: number | null
+  profile_id: string
+  split_profile_id?: string | null
+  split_pct?: number | null
+  rate_increase_pct?: number | null
+  property_type?: string | null
+  lock_in_end_date?: string | null
+  early_repayment_penalty_pct?: number | null
+  max_annual_prepayment_pct?: number | null
   created_at: string
 }
 
@@ -33,19 +47,40 @@ type HousingData = {
 
 type RepaymentRow = { loan_id: string; amount: number; date: string }
 
-function calculateMonthlyPayment(principal: number, annualRate: number, tenureMonths: number) {
-  if (annualRate === 0) return principal / tenureMonths
-  const r = annualRate / 100 / 12
-  return (principal * r * Math.pow(1 + r, tenureMonths)) / (Math.pow(1 + r, tenureMonths) - 1)
+function calculateMonthlyPayment(
+  principal: number,
+  annualRate: number,
+  tenureMonths: number,
+) {
+  return loanMonthlyPayment(principal, annualRate, tenureMonths)
 }
 
-function getRemainingMonths(startDate: string, tenureMonths: number): number {
+function getRemainingMonths(
+  startDate: string,
+  tenureMonths: number,
+): number {
   const start = new Date(startDate)
   const end = new Date(start)
   end.setMonth(end.getMonth() + tenureMonths)
   const now = new Date()
-  const diff = (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth())
+  const diff =
+    (end.getFullYear() - now.getFullYear()) * 12 +
+    (end.getMonth() - now.getMonth())
   return Math.max(0, diff)
+}
+
+function getMonthsElapsed(startDate: string): number {
+  const start = new Date(startDate)
+  const now = new Date()
+  return (
+    (now.getFullYear() - start.getFullYear()) * 12 +
+    (now.getMonth() - start.getMonth())
+  )
+}
+
+function isInLockIn(lockInEndDate: string | null | undefined): boolean {
+  if (!lockInEndDate) return false
+  return new Date().toISOString().slice(0, 10) <= lockInEndDate
 }
 
 export default function LoansPage() {
@@ -55,6 +90,7 @@ export default function LoansPage() {
   const [repaymentRows, setRepaymentRows] = useState<RepaymentRow[]>([])
   const [earlyRows, setEarlyRows] = useState<RepaymentRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [expandedPrepay, setExpandedPrepay] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchData() {
@@ -101,13 +137,25 @@ export default function LoansPage() {
     fetchData()
   }, [activeProfileId, activeFamilyId])
 
-  const totalPrincipal = useMemo(() => loans.reduce((sum, l) => sum + l.principal, 0), [loans])
+  const totalPrincipal = useMemo(
+    () => loans.reduce((sum, l) => sum + l.principal, 0),
+    [loans],
+  )
   const totalMonthly = useMemo(
-    () => loans.reduce((sum, l) => sum + calculateMonthlyPayment(l.principal, l.rate_pct, l.tenure_months), 0),
+    () =>
+      loans.reduce(
+        (sum, l) =>
+          sum +
+          calculateMonthlyPayment(l.principal, l.rate_pct, l.tenure_months),
+        0,
+      ),
     [loans],
   )
 
-  const hasCpfLoans = useMemo(() => loans.some((l) => l.use_cpf_oa), [loans])
+  const hasCpfLoans = useMemo(
+    () => loans.some((l) => l.use_cpf_oa),
+    [loans],
+  )
 
   const { scheduledByLoan, earlyByLoan } = useMemo(() => {
     const sMap = new Map<string, RepaymentRow[]>()
@@ -122,8 +170,10 @@ export default function LoansPage() {
       arr.push(r)
       eMap.set(r.loan_id, arr)
     }
-    for (const arr of sMap.values()) arr.sort((a, b) => a.date.localeCompare(b.date))
-    for (const arr of eMap.values()) arr.sort((a, b) => a.date.localeCompare(b.date))
+    for (const arr of sMap.values())
+      arr.sort((a, b) => a.date.localeCompare(b.date))
+    for (const arr of eMap.values())
+      arr.sort((a, b) => a.date.localeCompare(b.date))
     return { scheduledByLoan: sMap, earlyByLoan: eMap }
   }, [repaymentRows, earlyRows])
 
@@ -141,7 +191,7 @@ export default function LoansPage() {
             <MetricCard label="" value={0} loading />
             <MetricCard label="" value={0} loading />
           </div>
-          <div className="rounded-xl border overflow-hidden">
+          <div className="overflow-hidden rounded-xl border">
             <div className="space-y-3 p-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-12 w-full" />
@@ -150,7 +200,7 @@ export default function LoansPage() {
           </div>
         </>
       ) : loans.length === 0 ? (
-        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
           No loans found for this profile.
         </div>
       ) : (
@@ -166,10 +216,7 @@ export default function LoansPage() {
               value={totalMonthly}
               prefix="$"
             />
-            <MetricCard
-              label="Active Loans"
-              value={`${loans.length}`}
-            />
+            <MetricCard label="Active Loans" value={`${loans.length}`} />
           </div>
 
           {hasCpfLoans && (
@@ -180,7 +227,10 @@ export default function LoansPage() {
               />
               <p className="text-sm text-muted-foreground">
                 Tranches, accrued interest, and 120% VL are on the{" "}
-                <Link href="/dashboard/cpf?tab=housing" className="font-medium text-foreground underline underline-offset-4">
+                <Link
+                  href="/dashboard/cpf?tab=housing"
+                  className="font-medium text-foreground underline underline-offset-4"
+                >
                   CPF Housing tab
                 </Link>
                 .
@@ -211,62 +261,159 @@ export default function LoansPage() {
                       ? housingData.vlRemaining
                       : "Add VL on loan"
                   }
-                  prefix={housingData?.vlRemaining != null ? "$" : undefined}
+                  prefix={
+                    housingData?.vlRemaining != null ? "$" : undefined
+                  }
                   tooltipId="CPF_HOUSING_REFUND"
                 />
               </div>
             </div>
           )}
 
-          <div className="rounded-xl border overflow-hidden">
+          <div className="overflow-hidden rounded-xl border">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
                     <th className="px-4 py-3 text-left font-medium">Loan</th>
                     <th className="px-4 py-3 text-left font-medium">Type</th>
-                    <th className="px-4 py-3 text-right font-medium">Principal</th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      Principal
+                    </th>
                     <th className="px-4 py-3 text-right font-medium">Rate</th>
-                    <th className="px-4 py-3 text-right font-medium">Monthly</th>
-                    <th className="px-4 py-3 text-right font-medium">Est. balance</th>
-                    <th className="px-4 py-3 text-center font-medium">CPF OA</th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      Monthly
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      Est. balance
+                    </th>
+                    <th className="px-4 py-3 text-center font-medium">
+                      CPF OA
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {loans.map((loan) => {
-                    const monthly = calculateMonthlyPayment(loan.principal, loan.rate_pct, loan.tenure_months)
-                    const remaining = getRemainingMonths(loan.start_date, loan.tenure_months)
+                    const isSplit =
+                      loan.split_profile_id != null &&
+                      (loan.split_pct ?? 100) < 100
+                    const isPrimary =
+                      !activeProfileId ||
+                      loan.profile_id === activeProfileId
+                    const splitPct = loan.split_pct ?? 100
+
+                    // Effective principal for this profile
+                    const displayPrincipal =
+                      isSplit && activeProfileId
+                        ? splitLoanAmount(
+                            loan.principal,
+                            splitPct,
+                            isPrimary,
+                          )
+                        : loan.principal
+
+                    // Current effective rate (with annual increase)
+                    const monthsElapsed = getMonthsElapsed(loan.start_date)
+                    const currentRate = effectiveRate(
+                      loan.rate_pct,
+                      loan.rate_increase_pct,
+                      monthsElapsed,
+                    )
+
+                    const monthly = calculateMonthlyPayment(
+                      displayPrincipal,
+                      currentRate,
+                      loan.tenure_months,
+                    )
+                    const remaining = getRemainingMonths(
+                      loan.start_date,
+                      loan.tenure_months,
+                    )
                     const years = Math.floor(remaining / 12)
                     const months = remaining % 12
-                    const outstanding = estimateOutstandingPrincipal(
+
+                    const fullOutstanding = estimateOutstandingPrincipal(
                       loan.principal,
                       loan.rate_pct,
                       scheduledByLoan.get(loan.id) ?? [],
                       earlyByLoan.get(loan.id) ?? [],
                     )
+                    const outstanding =
+                      isSplit && activeProfileId
+                        ? splitLoanAmount(
+                            fullOutstanding,
+                            splitPct,
+                            isPrimary,
+                          )
+                        : fullOutstanding
+
+                    const inLockIn = isInLockIn(loan.lock_in_end_date)
 
                     return (
                       <tr key={loan.id} className="border-b last:border-0">
                         <td className="px-4 py-3">
-                          <div className="font-medium">{loan.name}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{loan.name}</span>
+                            {isSplit && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px]"
+                              >
+                                Split{" "}
+                                {isPrimary
+                                  ? `${splitPct}%`
+                                  : `${100 - splitPct}%`}
+                              </Badge>
+                            )}
+                            {loan.property_type && (
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] uppercase"
+                              >
+                                {loan.property_type}
+                              </Badge>
+                            )}
+                            {inLockIn && (
+                              <Badge
+                                variant="destructive"
+                                className="text-[10px]"
+                              >
+                                Lock-in until{" "}
+                                {loan.lock_in_end_date}
+                              </Badge>
+                            )}
+                          </div>
                           {loan.lender && (
-                            <div className="text-xs text-muted-foreground">{loan.lender}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {loan.lender}
+                            </div>
+                          )}
+                          {isSplit && (
+                            <div className="text-[10px] text-muted-foreground">
+                              {splitPct}% / {100 - splitPct}% split
+                            </div>
                           )}
                         </td>
                         <td className="px-4 py-3 capitalize text-muted-foreground">
                           {loan.type}
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums">
-                          ${formatCurrency(loan.principal)}
+                          ${formatCurrency(displayPrincipal)}
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums">
-                          {loan.rate_pct}%
+                          <div>{currentRate.toFixed(2)}%</div>
+                          {loan.rate_increase_pct != null &&
+                            loan.rate_increase_pct > 0 && (
+                              <div className="text-[10px] text-muted-foreground">
+                                +{loan.rate_increase_pct}%/yr
+                              </div>
+                            )}
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums">
                           ${formatCurrency(monthly)}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="tabular-nums font-medium">
+                          <div className="font-medium tabular-nums">
                             ${formatCurrency(outstanding)}
                           </div>
                           <div className="mt-0.5 text-xs text-muted-foreground">
@@ -283,6 +430,22 @@ export default function LoansPage() {
                               `${years > 0 ? `${years}y ` : ""}${months}m left on tenure`
                             )}
                           </div>
+                          {outstanding > 0 && (
+                            <button
+                              onClick={() =>
+                                setExpandedPrepay(
+                                  expandedPrepay === loan.id
+                                    ? null
+                                    : loan.id,
+                                )
+                              }
+                              className="mt-1 text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                            >
+                              {expandedPrepay === loan.id
+                                ? "Hide"
+                                : "Prepayment calc"}
+                            </button>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-center">
                           {loan.use_cpf_oa ? "✓" : "—"}
@@ -294,6 +457,123 @@ export default function LoansPage() {
               </table>
             </div>
           </div>
+
+          {/* Prepayment Calculator (expandable per loan) */}
+          {expandedPrepay && (() => {
+            const loan = loans.find((l) => l.id === expandedPrepay)
+            if (!loan) return null
+            const fullOutstanding = estimateOutstandingPrincipal(
+              loan.principal,
+              loan.rate_pct,
+              scheduledByLoan.get(loan.id) ?? [],
+              earlyByLoan.get(loan.id) ?? [],
+            )
+            const remaining = getRemainingMonths(
+              loan.start_date,
+              loan.tenure_months,
+            )
+            if (fullOutstanding <= 0 || remaining <= 0) return null
+
+            const sampleAmounts = [10000, 25000, 50000, 100000].filter(
+              (a) => a <= fullOutstanding,
+            )
+            const inLockIn = isInLockIn(loan.lock_in_end_date)
+            const penaltyPct =
+              inLockIn && loan.early_repayment_penalty_pct != null
+                ? Number(loan.early_repayment_penalty_pct)
+                : 0
+
+            return (
+              <div className="rounded-xl border bg-card p-4">
+                <h4 className="mb-3 text-sm font-medium">
+                  Prepayment Calculator — {loan.name}
+                </h4>
+                {loan.property_type === "private" && inLockIn && (
+                  <p className="mb-3 text-xs text-amber-600 dark:text-amber-400">
+                    Lock-in penalty: {penaltyPct}% on prepayment amount
+                    until {loan.lock_in_end_date}
+                  </p>
+                )}
+                {loan.max_annual_prepayment_pct != null && (
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Annual prepayment limit:{" "}
+                    {loan.max_annual_prepayment_pct}% of outstanding (
+                    $
+                    {formatCurrency(
+                      fullOutstanding *
+                        (loan.max_annual_prepayment_pct / 100),
+                    )}
+                    )
+                  </p>
+                )}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                          Prepay
+                        </th>
+                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                          Interest saved
+                        </th>
+                        {penaltyPct > 0 && (
+                          <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                            Penalty
+                          </th>
+                        )}
+                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                          Net savings
+                        </th>
+                        <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                          Months saved
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sampleAmounts.map((amt) => {
+                        const penalty = Math.round(
+                          amt * (penaltyPct / 100) * 100,
+                        ) / 100
+                        const est = prepaymentSavingsEstimate(
+                          fullOutstanding,
+                          loan.rate_pct,
+                          remaining,
+                          amt,
+                          penalty,
+                        )
+                        return (
+                          <tr
+                            key={amt}
+                            className="border-b last:border-0"
+                          >
+                            <td className="px-3 py-2 tabular-nums">
+                              ${formatCurrency(amt)}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums text-green-600 dark:text-green-400">
+                              ${formatCurrency(est.interestSaved)}
+                            </td>
+                            {penaltyPct > 0 && (
+                              <td className="px-3 py-2 text-right tabular-nums text-red-600 dark:text-red-400">
+                                ${formatCurrency(penalty)}
+                              </td>
+                            )}
+                            <td className="px-3 py-2 text-right tabular-nums font-medium">
+                              ${formatCurrency(est.netSavings)}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums">
+                              {est.monthsSaved === Infinity
+                                ? "—"
+                                : est.monthsSaved}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
+          })()}
         </>
       )}
     </div>

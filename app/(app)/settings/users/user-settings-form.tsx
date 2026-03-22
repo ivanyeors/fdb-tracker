@@ -74,6 +74,8 @@ import { Badge } from "@/components/ui/badge"
 import { cn, formatCurrency } from "@/lib/utils"
 import {
   getFieldsForInsurancePolicyRow,
+  ISP_SUB_TYPES,
+  INSURANCE_TYPE_LABELS,
   type InsuranceType,
 } from "@/lib/insurance/coverage-config"
 import {
@@ -114,12 +116,18 @@ const LOAN_TYPES = [
 ] as const
 
 const INSURANCE_TYPES_FOR_NEW = [
-  { value: "term_life" satisfies InsuranceType, label: "Term Life" },
-  { value: "whole_life" satisfies InsuranceType, label: "Whole Life" },
-  { value: "integrated_shield" satisfies InsuranceType, label: "Integrated Shield" },
-  { value: "critical_illness" satisfies InsuranceType, label: "Critical Illness" },
-  { value: "endowment" satisfies InsuranceType, label: "Endowment" },
-  { value: "personal_accident" satisfies InsuranceType, label: "Personal Accident" },
+  { value: "term_life" satisfies InsuranceType, label: INSURANCE_TYPE_LABELS.term_life },
+  { value: "whole_life" satisfies InsuranceType, label: INSURANCE_TYPE_LABELS.whole_life },
+  { value: "universal_life" satisfies InsuranceType, label: INSURANCE_TYPE_LABELS.universal_life },
+  { value: "integrated_shield" satisfies InsuranceType, label: INSURANCE_TYPE_LABELS.integrated_shield },
+  { value: "critical_illness" satisfies InsuranceType, label: INSURANCE_TYPE_LABELS.critical_illness },
+  { value: "early_critical_illness" satisfies InsuranceType, label: INSURANCE_TYPE_LABELS.early_critical_illness },
+  { value: "multi_pay_ci" satisfies InsuranceType, label: INSURANCE_TYPE_LABELS.multi_pay_ci },
+  { value: "endowment" satisfies InsuranceType, label: INSURANCE_TYPE_LABELS.endowment },
+  { value: "personal_accident" satisfies InsuranceType, label: INSURANCE_TYPE_LABELS.personal_accident },
+  { value: "disability_income" satisfies InsuranceType, label: INSURANCE_TYPE_LABELS.disability_income },
+  { value: "long_term_care" satisfies InsuranceType, label: INSURANCE_TYPE_LABELS.long_term_care },
+  { value: "tpd" satisfies InsuranceType, label: INSURANCE_TYPE_LABELS.tpd },
 ] as const
 
 const INSURANCE_TYPE_LEGACY_ILP = {
@@ -190,6 +198,14 @@ export type FinancialDataByFamily = {
     current_amount: number | null
     end_date: string | null
     profile_id: string
+    sub_type: string | null
+    rider_name: string | null
+    rider_premium: number | null
+    insurer: string | null
+    policy_number: string | null
+    maturity_value: number | null
+    cash_value: number | null
+    coverage_till_age: number | null
   }>
   cpfBalances: Array<{
     id: string
@@ -345,11 +361,9 @@ function loanRowDirty(
 }
 
 function insuranceRowDirty(
-  e: FinancialDataByFamily["insurancePolicies"][0] & { current_amount?: number | null; end_date?: string | null },
-  p: FinancialDataByFamily["insurancePolicies"][0]
+  e: FinancialDataByFamily["insurancePolicies"][0],
+  p: FinancialDataByFamily["insurancePolicies"][0],
 ): boolean {
-  const pCa = (p as { current_amount?: number | null }).current_amount ?? null
-  const pEd = (p as { end_date?: string | null }).end_date ?? null
   return (
     e.name !== p.name ||
     e.type !== p.type ||
@@ -357,8 +371,16 @@ function insuranceRowDirty(
     e.frequency !== p.frequency ||
     (e.coverage_amount ?? null) !== (p.coverage_amount ?? null) ||
     (e.yearly_outflow_date ?? null) !== (p.yearly_outflow_date ?? null) ||
-    (e.current_amount ?? null) !== pCa ||
-    (e.end_date ?? null) !== pEd
+    (e.current_amount ?? null) !== (p.current_amount ?? null) ||
+    (e.end_date ?? null) !== (p.end_date ?? null) ||
+    (e.sub_type ?? null) !== (p.sub_type ?? null) ||
+    (e.rider_name ?? null) !== (p.rider_name ?? null) ||
+    (e.rider_premium ?? null) !== (p.rider_premium ?? null) ||
+    (e.insurer ?? null) !== (p.insurer ?? null) ||
+    (e.policy_number ?? null) !== (p.policy_number ?? null) ||
+    (e.maturity_value ?? null) !== (p.maturity_value ?? null) ||
+    (e.cash_value ?? null) !== (p.cash_value ?? null) ||
+    (e.coverage_till_age ?? null) !== (p.coverage_till_age ?? null)
   )
 }
 
@@ -2882,6 +2904,14 @@ function InsuranceSection({
     yearly_outflow_date: number | null
     current_amount: number | null
     end_date: string | null
+    sub_type: string | null
+    rider_name: string | null
+    rider_premium: number | null
+    insurer: string | null
+    policy_number: string | null
+    maturity_value: number | null
+    cash_value: number | null
+    coverage_till_age: number | null
   }>({
     name: "",
     type: "term_life",
@@ -2891,6 +2921,14 @@ function InsuranceSection({
     yearly_outflow_date: null,
     current_amount: null,
     end_date: null,
+    sub_type: null,
+    rider_name: null,
+    rider_premium: null,
+    insurer: null,
+    policy_number: null,
+    maturity_value: null,
+    cash_value: null,
+    coverage_till_age: null,
   })
 
   const newPolicyFields = getFieldsForInsurancePolicyRow(newPolicy.type, newPolicy.frequency)
@@ -2903,6 +2941,12 @@ function InsuranceSection({
         type,
         current_amount: fields.showCurrentAmount ? prev.current_amount : null,
         end_date: fields.showEndDate ? prev.end_date : null,
+        sub_type: fields.showSubType ? prev.sub_type : null,
+        rider_name: fields.showRider ? prev.rider_name : null,
+        rider_premium: fields.showRider ? prev.rider_premium : null,
+        maturity_value: fields.showMaturityValue ? prev.maturity_value : null,
+        cash_value: fields.showCashValue ? prev.cash_value : null,
+        coverage_till_age: fields.showCoverageTillAge ? prev.coverage_till_age : null,
       }
     })
   }
@@ -2947,6 +2991,14 @@ function InsuranceSection({
           yearlyOutflowDate: newPolicy.yearly_outflow_date ?? undefined,
           currentAmount: newPolicy.current_amount ?? undefined,
           endDate: newPolicy.end_date ?? undefined,
+          subType: newPolicy.sub_type ?? undefined,
+          riderName: newPolicy.rider_name ?? undefined,
+          riderPremium: newPolicy.rider_premium ?? undefined,
+          insurer: newPolicy.insurer ?? undefined,
+          policyNumber: newPolicy.policy_number ?? undefined,
+          maturityValue: newPolicy.maturity_value ?? undefined,
+          cashValue: newPolicy.cash_value ?? undefined,
+          coverageTillAge: newPolicy.coverage_till_age ?? undefined,
         }),
       })
       if (!res.ok) {
@@ -2963,6 +3015,14 @@ function InsuranceSection({
         yearly_outflow_date: null,
         current_amount: null,
         end_date: null,
+        sub_type: null,
+        rider_name: null,
+        rider_premium: null,
+        insurer: null,
+        policy_number: null,
+        maturity_value: null,
+        cash_value: null,
+        coverage_till_age: null,
       })
       onMutate()
       router.refresh()
@@ -2974,16 +3034,12 @@ function InsuranceSection({
   }
 
   const [editing, setEditing] = useState<
-    Record<string, (typeof policies)[0] & { current_amount?: number | null; end_date?: string | null }>
+    Record<string, (typeof policies)[0]>
   >({})
   useEffect(() => {
-    const map: Record<string, (typeof policies)[0] & { current_amount?: number | null; end_date?: string | null }> = {}
+    const map: Record<string, (typeof policies)[0]> = {}
     for (const p of policies) {
-      map[p.id] = {
-        ...p,
-        current_amount: (p as { current_amount?: number | null }).current_amount ?? null,
-        end_date: (p as { end_date?: string | null }).end_date ?? null,
-      }
+      map[p.id] = { ...p }
     }
     setEditing(map)
   }, [policies])
@@ -2991,27 +3047,14 @@ function InsuranceSection({
   const insuranceDirty = useMemo(
     () =>
       policies.some((p) =>
-        insuranceRowDirty(
-          editing[p.id] ?? {
-            ...p,
-            current_amount: (p as { current_amount?: number | null }).current_amount ?? null,
-            end_date: (p as { end_date?: string | null }).end_date ?? null,
-          },
-          p
-        )
+        insuranceRowDirty(editing[p.id] ?? { ...p }, p),
       ),
-    [policies, editing]
+    [policies, editing],
   )
 
   const persistInsurance = useCallback(async () => {
     for (const p of policies) {
-      const e =
-        editing[p.id] ??
-        ({
-          ...p,
-          current_amount: (p as { current_amount?: number | null }).current_amount ?? null,
-          end_date: (p as { end_date?: string | null }).end_date ?? null,
-        } as (typeof policies)[0] & { current_amount?: number | null; end_date?: string | null })
+      const e = editing[p.id] ?? { ...p }
       if (!insuranceRowDirty(e, p)) continue
       const res = await fetch(`/api/insurance/${e.id}`, {
         method: "PATCH",
@@ -3025,6 +3068,14 @@ function InsuranceSection({
           yearlyOutflowDate: e.yearly_outflow_date ?? undefined,
           currentAmount: e.current_amount ?? undefined,
           endDate: e.end_date ?? undefined,
+          subType: e.sub_type,
+          riderName: e.rider_name,
+          riderPremium: e.rider_premium,
+          insurer: e.insurer,
+          policyNumber: e.policy_number,
+          maturityValue: e.maturity_value,
+          cashValue: e.cash_value,
+          coverageTillAge: e.coverage_till_age,
         }),
       })
       if (!res.ok) {
@@ -3056,7 +3107,7 @@ function InsuranceSection({
               value={newPolicy.type}
               onValueChange={(v) => setNewPolicyType(v as InsuranceType)}
             >
-              <SelectTrigger className="h-8 w-36">
+              <SelectTrigger className="h-8 w-44">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -3065,6 +3116,15 @@ function InsuranceSection({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Insurer</Label>
+            <Input
+              placeholder="Insurer"
+              value={newPolicy.insurer ?? ""}
+              onChange={(e) => setNewPolicy((p) => ({ ...p, insurer: e.target.value || null }))}
+              className="h-8 w-28"
+            />
           </div>
           <div className="space-y-1">
             <Label>Premium</Label>
@@ -3123,6 +3183,64 @@ function InsuranceSection({
               </Select>
             </div>
           )}
+          {newPolicyFields.showSubType && (
+            <div className="space-y-1">
+              <Label>Ward class</Label>
+              <Select
+                value={newPolicy.sub_type ?? ""}
+                onValueChange={(v) => setNewPolicy((p) => ({ ...p, sub_type: v || null }))}
+              >
+                <SelectTrigger className="h-8 w-28">
+                  <SelectValue placeholder="Ward" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ISP_SUB_TYPES.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {newPolicyFields.showRider && (
+            <>
+              <div className="space-y-1">
+                <Label>Rider name</Label>
+                <Input
+                  placeholder="Rider"
+                  value={newPolicy.rider_name ?? ""}
+                  onChange={(e) => setNewPolicy((p) => ({ ...p, rider_name: e.target.value || null }))}
+                  className="h-8 w-24"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Rider premium</Label>
+                <CurrencyInput
+                  placeholder="0"
+                  value={newPolicy.rider_premium}
+                  onChange={(v) => setNewPolicy((p) => ({ ...p, rider_premium: v ?? null }))}
+                  className="h-8 w-20"
+                />
+              </div>
+            </>
+          )}
+          {newPolicyFields.showCoverageTillAge && (
+            <div className="space-y-1">
+              <Label>Coverage till age</Label>
+              <Input
+                type="number"
+                placeholder="Age"
+                value={newPolicy.coverage_till_age ?? ""}
+                onChange={(e) =>
+                  setNewPolicy((p) => ({
+                    ...p,
+                    coverage_till_age: e.target.value ? parseInt(e.target.value, 10) : null,
+                  }))
+                }
+                className="h-8 w-20"
+                min={1}
+              />
+            </div>
+          )}
           {newPolicyFields.showCurrentAmount && (
             <div className="space-y-1">
               <Label>{newPolicyFields.currentAmountLabel}</Label>
@@ -3130,6 +3248,28 @@ function InsuranceSection({
                 placeholder="0"
                 value={newPolicy.current_amount}
                 onChange={(v) => setNewPolicy((p) => ({ ...p, current_amount: v ?? null }))}
+                className="h-8 w-24"
+              />
+            </div>
+          )}
+          {newPolicyFields.showCashValue && (
+            <div className="space-y-1">
+              <Label>Cash value</Label>
+              <CurrencyInput
+                placeholder="0"
+                value={newPolicy.cash_value}
+                onChange={(v) => setNewPolicy((p) => ({ ...p, cash_value: v ?? null }))}
+                className="h-8 w-24"
+              />
+            </div>
+          )}
+          {newPolicyFields.showMaturityValue && (
+            <div className="space-y-1">
+              <Label>Maturity value</Label>
+              <CurrencyInput
+                placeholder="0"
+                value={newPolicy.maturity_value}
+                onChange={(v) => setNewPolicy((p) => ({ ...p, maturity_value: v ?? null }))}
                 className="h-8 w-24"
               />
             </div>
@@ -3145,6 +3285,15 @@ function InsuranceSection({
               />
             </div>
           )}
+          <div className="space-y-1">
+            <Label>Policy #</Label>
+            <Input
+              placeholder="Policy #"
+              value={newPolicy.policy_number ?? ""}
+              onChange={(e) => setNewPolicy((p) => ({ ...p, policy_number: e.target.value || null }))}
+              className="h-8 w-24"
+            />
+          </div>
           <div className="flex items-end">
             <Button size="sm" onClick={handleAdd} disabled={adding}>
               {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -3158,17 +3307,17 @@ function InsuranceSection({
 
   return (
     <>
-      <ScrollableTableWrapper minWidth="850px">
+      <ScrollableTableWrapper minWidth="1050px">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Insurance - Name</TableHead>
             <TableHead>Type</TableHead>
+            <TableHead>Insurer</TableHead>
             <TableHead>Premium</TableHead>
             <TableHead>Frequency</TableHead>
             <TableHead>Coverage</TableHead>
-            <TableHead>Yearly due</TableHead>
-            <TableHead>Current / End</TableHead>
+            <TableHead>Details</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -3195,13 +3344,20 @@ function InsuranceSection({
                     value={e.type}
                     onValueChange={(v) => {
                       const fields = getFieldsForInsurancePolicyRow(v, e.frequency as "monthly" | "yearly")
+                      const prev_e = editing[p.id] ?? p
                       setEditing((prev) => ({
                         ...prev,
                         [p.id]: {
                           ...(prev[p.id] ?? p),
                           type: v,
-                          current_amount: fields.showCurrentAmount ? (prev[p.id] ?? p).current_amount : null,
-                          end_date: fields.showEndDate ? (prev[p.id] ?? p).end_date : null,
+                          current_amount: fields.showCurrentAmount ? prev_e.current_amount : null,
+                          end_date: fields.showEndDate ? prev_e.end_date : null,
+                          sub_type: fields.showSubType ? prev_e.sub_type : null,
+                          rider_name: fields.showRider ? prev_e.rider_name : null,
+                          rider_premium: fields.showRider ? prev_e.rider_premium : null,
+                          maturity_value: fields.showMaturityValue ? prev_e.maturity_value : null,
+                          cash_value: fields.showCashValue ? prev_e.cash_value : null,
+                          coverage_till_age: fields.showCoverageTillAge ? prev_e.coverage_till_age : null,
                         },
                       }))
                     }}
@@ -3215,6 +3371,19 @@ function InsuranceSection({
                       ))}
                     </SelectContent>
                   </Select>
+                </TableCell>
+                <TableCell>
+                  <Input
+                    value={e.insurer ?? ""}
+                    onChange={(ev) =>
+                      setEditing((prev) => ({
+                        ...prev,
+                        [p.id]: { ...(prev[p.id] ?? p), insurer: ev.target.value || null },
+                      }))
+                    }
+                    placeholder="Insurer"
+                    className="h-8 w-28"
+                  />
                 </TableCell>
                 <TableCell>
                   <CurrencyInput
@@ -3257,67 +3426,160 @@ function InsuranceSection({
                   />
                 </TableCell>
                 <TableCell>
-                  {rowFields.showYearlyOutflowDate ? (
-                    <Select
-                      value={e.yearly_outflow_date?.toString() ?? ""}
-                      onValueChange={(val) =>
-                        setEditing((prev) => ({
-                          ...prev,
-                          [p.id]: {
-                            ...(prev[p.id] ?? p),
-                            yearly_outflow_date: val ? parseInt(val, 10) : null,
-                          },
-                        }))
-                      }
-                    >
-                      <SelectTrigger className="h-8 w-16">
-                        <SelectValue placeholder="—" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                          <SelectItem key={m} value={m.toString()}>
-                            {m}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">—</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {rowFields.showCurrentAmount || rowFields.showEndDate ? (
-                    <div className="flex flex-wrap gap-1">
-                      {rowFields.showCurrentAmount && (
+                  <div className="flex flex-wrap gap-1">
+                    {rowFields.showYearlyOutflowDate && (
+                      <Select
+                        value={e.yearly_outflow_date?.toString() ?? ""}
+                        onValueChange={(val) =>
+                          setEditing((prev) => ({
+                            ...prev,
+                            [p.id]: {
+                              ...(prev[p.id] ?? p),
+                              yearly_outflow_date: val ? parseInt(val, 10) : null,
+                            },
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="h-8 w-16">
+                          <SelectValue placeholder="Due" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                            <SelectItem key={m} value={m.toString()}>
+                              {m}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {rowFields.showSubType && (
+                      <Select
+                        value={e.sub_type ?? ""}
+                        onValueChange={(v) =>
+                          setEditing((prev) => ({
+                            ...prev,
+                            [p.id]: { ...(prev[p.id] ?? p), sub_type: v || null },
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="h-8 w-24">
+                          <SelectValue placeholder="Ward" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ISP_SUB_TYPES.map((s) => (
+                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {rowFields.showRider && (
+                      <>
+                        <Input
+                          value={e.rider_name ?? ""}
+                          onChange={(ev) =>
+                            setEditing((prev) => ({
+                              ...prev,
+                              [p.id]: { ...(prev[p.id] ?? p), rider_name: ev.target.value || null },
+                            }))
+                          }
+                          placeholder="Rider"
+                          className="h-8 w-24"
+                        />
                         <CurrencyInput
-                          value={e.current_amount ?? undefined}
+                          value={e.rider_premium ?? undefined}
                           onChange={(v) =>
                             setEditing((prev) => ({
                               ...prev,
-                              [p.id]: { ...(prev[p.id] ?? p), current_amount: v ?? null },
+                              [p.id]: { ...(prev[p.id] ?? p), rider_premium: v ?? null },
                             }))
                           }
+                          placeholder="Rider $"
                           className="h-8 w-20"
-                          placeholder="0"
                         />
-                      )}
-                      {rowFields.showEndDate && (
-                        <DatePicker
-                          value={e.end_date ?? null}
-                          onChange={(d) =>
-                            setEditing((prev) => ({
-                              ...prev,
-                              [p.id]: { ...(prev[p.id] ?? p), end_date: d },
-                            }))
-                          }
-                          placeholder="End date"
-                          className="h-8 w-28"
-                        />
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">—</span>
-                  )}
+                      </>
+                    )}
+                    {rowFields.showCoverageTillAge && (
+                      <Input
+                        type="number"
+                        value={e.coverage_till_age ?? ""}
+                        onChange={(ev) =>
+                          setEditing((prev) => ({
+                            ...prev,
+                            [p.id]: {
+                              ...(prev[p.id] ?? p),
+                              coverage_till_age: ev.target.value ? parseInt(ev.target.value, 10) : null,
+                            },
+                          }))
+                        }
+                        placeholder="Till age"
+                        className="h-8 w-20"
+                        min={1}
+                      />
+                    )}
+                    {rowFields.showCurrentAmount && (
+                      <CurrencyInput
+                        value={e.current_amount ?? undefined}
+                        onChange={(v) =>
+                          setEditing((prev) => ({
+                            ...prev,
+                            [p.id]: { ...(prev[p.id] ?? p), current_amount: v ?? null },
+                          }))
+                        }
+                        className="h-8 w-20"
+                        placeholder={rowFields.currentAmountLabel}
+                      />
+                    )}
+                    {rowFields.showCashValue && (
+                      <CurrencyInput
+                        value={e.cash_value ?? undefined}
+                        onChange={(v) =>
+                          setEditing((prev) => ({
+                            ...prev,
+                            [p.id]: { ...(prev[p.id] ?? p), cash_value: v ?? null },
+                          }))
+                        }
+                        className="h-8 w-20"
+                        placeholder="Cash val"
+                      />
+                    )}
+                    {rowFields.showMaturityValue && (
+                      <CurrencyInput
+                        value={e.maturity_value ?? undefined}
+                        onChange={(v) =>
+                          setEditing((prev) => ({
+                            ...prev,
+                            [p.id]: { ...(prev[p.id] ?? p), maturity_value: v ?? null },
+                          }))
+                        }
+                        className="h-8 w-20"
+                        placeholder="Maturity"
+                      />
+                    )}
+                    {rowFields.showEndDate && (
+                      <DatePicker
+                        value={e.end_date ?? null}
+                        onChange={(d) =>
+                          setEditing((prev) => ({
+                            ...prev,
+                            [p.id]: { ...(prev[p.id] ?? p), end_date: d },
+                          }))
+                        }
+                        placeholder={rowFields.endDateLabel}
+                        className="h-8 w-28"
+                      />
+                    )}
+                    <Input
+                      value={e.policy_number ?? ""}
+                      onChange={(ev) =>
+                        setEditing((prev) => ({
+                          ...prev,
+                          [p.id]: { ...(prev[p.id] ?? p), policy_number: ev.target.value || null },
+                        }))
+                      }
+                      placeholder="Policy #"
+                      className="h-8 w-24"
+                    />
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <Button size="sm" variant="ghost" onClick={() => handleDelete(p.id)}>
@@ -3345,7 +3607,7 @@ function InsuranceSection({
                     value={newPolicy.type}
                     onValueChange={(v) => setNewPolicyType(v as InsuranceType)}
                   >
-                    <SelectTrigger className="h-8 w-36">
+                    <SelectTrigger className="h-8 w-44">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -3354,6 +3616,15 @@ function InsuranceSection({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Insurer</Label>
+                  <Input
+                    placeholder="Insurer"
+                    value={newPolicy.insurer ?? ""}
+                    onChange={(e) => setNewPolicy((prev) => ({ ...prev, insurer: e.target.value || null }))}
+                    className="h-8 w-28"
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label>Premium</Label>
@@ -3412,6 +3683,64 @@ function InsuranceSection({
                     </Select>
                   </div>
                 )}
+                {newPolicyFields.showSubType && (
+                  <div className="space-y-1">
+                    <Label>Ward class</Label>
+                    <Select
+                      value={newPolicy.sub_type ?? ""}
+                      onValueChange={(v) => setNewPolicy((prev) => ({ ...prev, sub_type: v || null }))}
+                    >
+                      <SelectTrigger className="h-8 w-28">
+                        <SelectValue placeholder="Ward" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ISP_SUB_TYPES.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {newPolicyFields.showRider && (
+                  <>
+                    <div className="space-y-1">
+                      <Label>Rider name</Label>
+                      <Input
+                        placeholder="Rider"
+                        value={newPolicy.rider_name ?? ""}
+                        onChange={(e) => setNewPolicy((prev) => ({ ...prev, rider_name: e.target.value || null }))}
+                        className="h-8 w-24"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Rider premium</Label>
+                      <CurrencyInput
+                        placeholder="0"
+                        value={newPolicy.rider_premium}
+                        onChange={(v) => setNewPolicy((prev) => ({ ...prev, rider_premium: v ?? null }))}
+                        className="h-8 w-20"
+                      />
+                    </div>
+                  </>
+                )}
+                {newPolicyFields.showCoverageTillAge && (
+                  <div className="space-y-1">
+                    <Label>Coverage till age</Label>
+                    <Input
+                      type="number"
+                      placeholder="Age"
+                      value={newPolicy.coverage_till_age ?? ""}
+                      onChange={(e) =>
+                        setNewPolicy((prev) => ({
+                          ...prev,
+                          coverage_till_age: e.target.value ? parseInt(e.target.value, 10) : null,
+                        }))
+                      }
+                      className="h-8 w-20"
+                      min={1}
+                    />
+                  </div>
+                )}
                 {newPolicyFields.showCurrentAmount && (
                   <div className="space-y-1">
                     <Label>{newPolicyFields.currentAmountLabel}</Label>
@@ -3419,6 +3748,28 @@ function InsuranceSection({
                       placeholder="0"
                       value={newPolicy.current_amount}
                       onChange={(v) => setNewPolicy((prev) => ({ ...prev, current_amount: v ?? null }))}
+                      className="h-8 w-24"
+                    />
+                  </div>
+                )}
+                {newPolicyFields.showCashValue && (
+                  <div className="space-y-1">
+                    <Label>Cash value</Label>
+                    <CurrencyInput
+                      placeholder="0"
+                      value={newPolicy.cash_value}
+                      onChange={(v) => setNewPolicy((prev) => ({ ...prev, cash_value: v ?? null }))}
+                      className="h-8 w-24"
+                    />
+                  </div>
+                )}
+                {newPolicyFields.showMaturityValue && (
+                  <div className="space-y-1">
+                    <Label>Maturity value</Label>
+                    <CurrencyInput
+                      placeholder="0"
+                      value={newPolicy.maturity_value}
+                      onChange={(v) => setNewPolicy((prev) => ({ ...prev, maturity_value: v ?? null }))}
                       className="h-8 w-24"
                     />
                   </div>
@@ -3434,6 +3785,15 @@ function InsuranceSection({
                     />
                   </div>
                 )}
+                <div className="space-y-1">
+                  <Label>Policy #</Label>
+                  <Input
+                    placeholder="Policy #"
+                    value={newPolicy.policy_number ?? ""}
+                    onChange={(e) => setNewPolicy((prev) => ({ ...prev, policy_number: e.target.value || null }))}
+                    className="h-8 w-24"
+                  />
+                </div>
                 <div className="flex items-end">
                   <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding}>
                     {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}

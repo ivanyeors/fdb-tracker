@@ -14,6 +14,13 @@ const updateLoanSchema = z.object({
   lender: z.string().nullable().optional(),
   useCpfOa: z.boolean().optional(),
   valuationLimit: z.number().positive().nullable().optional(),
+  splitProfileId: z.string().uuid().nullable().optional(),
+  splitPct: z.number().min(0).max(100).optional(),
+  rateIncreasePct: z.number().min(0).nullable().optional(),
+  propertyType: z.enum(["hdb", "private"]).nullable().optional(),
+  lockInEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  earlyRepaymentPenaltyPct: z.number().min(0).nullable().optional(),
+  maxAnnualPrepaymentPct: z.number().min(0).max(100).nullable().optional(),
 })
 
 async function verifyLoanOwnership(
@@ -77,6 +84,13 @@ export async function PATCH(
     if (parsed.data.lender !== undefined) updates.lender = parsed.data.lender
     if (parsed.data.useCpfOa !== undefined) updates.use_cpf_oa = parsed.data.useCpfOa
     if (parsed.data.valuationLimit !== undefined) updates.valuation_limit = parsed.data.valuationLimit
+    if (parsed.data.splitProfileId !== undefined) updates.split_profile_id = parsed.data.splitProfileId
+    if (parsed.data.splitPct !== undefined) updates.split_pct = parsed.data.splitPct
+    if (parsed.data.rateIncreasePct !== undefined) updates.rate_increase_pct = parsed.data.rateIncreasePct
+    if (parsed.data.propertyType !== undefined) updates.property_type = parsed.data.propertyType
+    if (parsed.data.lockInEndDate !== undefined) updates.lock_in_end_date = parsed.data.lockInEndDate
+    if (parsed.data.earlyRepaymentPenaltyPct !== undefined) updates.early_repayment_penalty_pct = parsed.data.earlyRepaymentPenaltyPct
+    if (parsed.data.maxAnnualPrepaymentPct !== undefined) updates.max_annual_prepayment_pct = parsed.data.maxAnnualPrepaymentPct
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })

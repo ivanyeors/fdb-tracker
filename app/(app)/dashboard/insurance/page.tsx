@@ -18,6 +18,8 @@ import { RadarChart } from "@/components/dashboard/insurance/radar-chart"
 import { GapBars } from "@/components/dashboard/insurance/gap-bars"
 import { CoverageTable } from "@/components/dashboard/insurance/coverage-table"
 import { PremiumCalendar } from "@/components/dashboard/insurance/premium-calendar"
+import { INSURANCE_TYPE_LABELS } from "@/lib/insurance/coverage-config"
+import type { InsuranceType } from "@/lib/insurance/coverage-config"
 import type {
   HouseholdCoverageAnalysis,
   ProfileCoverageAnalysis,
@@ -37,12 +39,35 @@ interface Policy {
   is_active: boolean
   deduct_from_outflow: boolean
   created_at: string
+  insurer: string | null
+  sub_type: string | null
+  rider_name: string | null
+  rider_premium: number | null
+  policy_number: string | null
+  maturity_value: number | null
+  cash_value: number | null
+  coverage_till_age: number | null
+  end_date: string | null
+  current_amount: number | null
 }
 
 const TAB_SET = new Set(["overview", "coverage", "policies", "premiums"])
 
-const RADAR_AXES = ["Death", "Critical Illness", "Hospitalization", "Disability"]
-const RADAR_COVERAGE_TYPES = ["death", "critical_illness", "hospitalization", "disability"]
+const RADAR_AXES = [
+  "Death/TPD",
+  "Critical Illness",
+  "Hospitalization",
+  "Disability/Income",
+  "Long-term Care",
+]
+/** Each axis maps to one or more coverage types; grouped axes average their values. */
+const RADAR_AXIS_TYPES: string[][] = [
+  ["death", "tpd"],
+  ["critical_illness"],
+  ["hospitalization"],
+  ["disability"],
+  ["long_term_care"],
+]
 const PROFILE_COLORS = ["var(--color-chart-1)", "var(--color-chart-2)"]
 
 function radarValueFromItem(item: CoverageGapItem): number {
@@ -64,11 +89,18 @@ function buildRadarSeries(
   return filtered.map((profile, i) => ({
     profileName: profile.profileName,
     color: PROFILE_COLORS[i % PROFILE_COLORS.length],
-    data: RADAR_COVERAGE_TYPES.map((ct, idx) => {
-      const item = profile.items.find((it) => it.coverageType === ct)
+    data: RADAR_AXIS_TYPES.map((types, idx) => {
+      const values = types
+        .map((ct) => profile.items.find((it) => it.coverageType === ct))
+        .filter((it): it is CoverageGapItem => it != null)
+        .map(radarValueFromItem)
+      const avg =
+        values.length > 0
+          ? values.reduce((s, v) => s + v, 0) / values.length
+          : 0
       return {
         axis: RADAR_AXES[idx],
-        value: item ? radarValueFromItem(item) : 0,
+        value: avg,
         profileName: profile.profileName,
       }
     }),
@@ -450,6 +482,9 @@ export default function InsurancePage() {
                           Policy
                         </th>
                         <th className="px-4 py-3 text-left font-medium">
+                          Insurer
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium">
                           Type
                         </th>
                         <th className="px-4 py-3 text-left font-medium">
@@ -479,7 +514,12 @@ export default function InsurancePage() {
                             {policy.name}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
-                            {policy.type.replace(/_/g, " ")}
+                            {policy.insurer ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {INSURANCE_TYPE_LABELS[
+                              policy.type as InsuranceType
+                            ] ?? policy.type.replace(/_/g, " ")}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
                             {policy.coverage_type?.replace(/_/g, " ") ??
@@ -487,6 +527,13 @@ export default function InsurancePage() {
                           </td>
                           <td className="px-4 py-3 text-right tabular-nums">
                             ${formatCurrency(policy.premium_amount)}
+                            {policy.rider_premium != null &&
+                              policy.rider_premium > 0 && (
+                                <span className="block text-xs text-muted-foreground">
+                                  +${formatCurrency(policy.rider_premium)}{" "}
+                                  rider
+                                </span>
+                              )}
                           </td>
                           <td className="px-4 py-3 capitalize text-muted-foreground">
                             {policy.frequency}

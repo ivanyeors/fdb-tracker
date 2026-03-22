@@ -66,10 +66,16 @@ const createPolicySchema = z.object({
   type: z.enum([
     "term_life",
     "whole_life",
+    "universal_life",
     "integrated_shield",
     "critical_illness",
+    "early_critical_illness",
+    "multi_pay_ci",
     "endowment",
     "personal_accident",
+    "disability_income",
+    "long_term_care",
+    "tpd",
   ]),
   premiumAmount: z.number().min(0),
   frequency: z.enum(["monthly", "yearly"]).optional(),
@@ -77,6 +83,15 @@ const createPolicySchema = z.object({
   yearlyOutflowDate: z.number().int().min(1).max(12).nullable().optional(),
   currentAmount: z.number().min(0).nullable().optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  // New fields for expanded types
+  subType: z.string().nullable().optional(),
+  riderName: z.string().nullable().optional(),
+  riderPremium: z.number().min(0).nullable().optional(),
+  insurer: z.string().nullable().optional(),
+  policyNumber: z.string().nullable().optional(),
+  maturityValue: z.number().min(0).nullable().optional(),
+  cashValue: z.number().min(0).nullable().optional(),
+  coverageTillAge: z.number().int().min(1).nullable().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -120,6 +135,14 @@ export async function POST(request: NextRequest) {
         yearly_outflow_date: parsed.data.yearlyOutflowDate ?? null,
         current_amount: parsed.data.currentAmount ?? null,
         end_date: parsed.data.endDate ?? null,
+        sub_type: parsed.data.subType ?? null,
+        rider_name: parsed.data.riderName ?? null,
+        rider_premium: parsed.data.riderPremium ?? null,
+        insurer: parsed.data.insurer ?? null,
+        policy_number: parsed.data.policyNumber ?? null,
+        maturity_value: parsed.data.maturityValue ?? null,
+        cash_value: parsed.data.cashValue ?? null,
+        coverage_till_age: parsed.data.coverageTillAge ?? null,
       })
       .select()
       .single()
