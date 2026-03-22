@@ -1,4 +1,4 @@
-import { Geist_Mono, DM_Sans } from "next/font/google"
+import localFont from "next/font/local"
 
 import "./globals.css"
 
@@ -12,10 +12,22 @@ import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
-const dmSans = DM_Sans({subsets:['latin'],variable:'--font-sans'})
+const dmSans = localFont({
+  src: [
+    {
+      path: "../public/fonts/DM_Sans/DMSans-VariableFont_opsz,wght.ttf",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/DM_Sans/DMSans-Italic-VariableFont_opsz,wght.ttf",
+      style: "italic",
+    },
+  ],
+  variable: "--font-sans",
+})
 
-const fontMono = Geist_Mono({
-  subsets: ["latin"],
+const fontMono = localFont({
+  src: "../public/fonts/Geist_Mono/GeistMono-VariableFont_wght.ttf",
   variable: "--font-mono",
 })
 
