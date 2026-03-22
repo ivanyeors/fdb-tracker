@@ -32,11 +32,17 @@ export type CoverageBenchmarks = {
   longTermCareMonthlyTarget?: number
 }
 
+export type PolicyCoverageEntry = {
+  coverage_type: string
+  coverage_amount: number
+}
+
 type PolicyForGap = {
   coverage_type: string | null
   coverage_amount: number | null
   is_active: boolean
   type: string
+  coverages?: PolicyCoverageEntry[]
 }
 
 const COVERAGE_LABELS: Record<CoverageType, string> = {
@@ -64,8 +70,17 @@ function sumCoverageByType(
   coverageType: CoverageType,
 ): number {
   return policies
-    .filter((p) => p.is_active && p.coverage_type === coverageType)
-    .reduce((sum, p) => sum + (p.coverage_amount || 0), 0)
+    .filter((p) => p.is_active)
+    .reduce((sum, p) => {
+      if (p.coverages && p.coverages.length > 0) {
+        const match = p.coverages.find((c) => c.coverage_type === coverageType)
+        return sum + (match?.coverage_amount ?? 0)
+      }
+      if (p.coverage_type === coverageType) {
+        return sum + (p.coverage_amount || 0)
+      }
+      return sum
+    }, 0)
 }
 
 function hasActiveISP(policies: PolicyForGap[]): boolean {

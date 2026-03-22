@@ -36,6 +36,7 @@ export const COVERAGE_TYPES = [
 
 export type CoverageType = (typeof COVERAGE_TYPES)[number]
 
+/** @deprecated Use DEFAULT_COVERAGES_BY_POLICY for multi-coverage support. */
 export const COVERAGE_TYPE_BY_POLICY: Record<InsuranceType, CoverageType | null> = {
   term_life: "death",
   whole_life: "death",
@@ -51,13 +52,55 @@ export const COVERAGE_TYPE_BY_POLICY: Record<InsuranceType, CoverageType | null>
   tpd: "tpd",
 }
 
-/** Resolves coverage_type for inserts/updates, including legacy `insurance_policies.type = ilp`. */
+/** @deprecated Use DEFAULT_COVERAGES_BY_POLICY. Kept for legacy ILP rows. */
 export function getCoverageType(type: string): CoverageType | null {
   if (type === "ilp") return "death"
   if (type in COVERAGE_TYPE_BY_POLICY) {
     return COVERAGE_TYPE_BY_POLICY[type as InsuranceType]
   }
   return null
+}
+
+/** Default coverages pre-selected when creating a new policy of each type. */
+export const DEFAULT_COVERAGES_BY_POLICY: Record<InsuranceType, CoverageType[]> = {
+  term_life: ["death"],
+  whole_life: ["death"],
+  universal_life: ["death"],
+  integrated_shield: ["hospitalization"],
+  critical_illness: ["critical_illness"],
+  early_critical_illness: ["critical_illness"],
+  multi_pay_ci: ["critical_illness"],
+  endowment: [],
+  personal_accident: ["personal_accident"],
+  disability_income: ["disability"],
+  long_term_care: ["long_term_care"],
+  tpd: ["tpd"],
+}
+
+/** All valid coverage types that can be toggled on per policy type (superset of defaults). */
+export const ALLOWED_COVERAGES_BY_POLICY: Record<InsuranceType, CoverageType[]> = {
+  term_life: ["death", "tpd", "critical_illness"],
+  whole_life: ["death", "tpd", "critical_illness"],
+  universal_life: ["death", "tpd", "critical_illness"],
+  integrated_shield: ["hospitalization"],
+  critical_illness: ["critical_illness"],
+  early_critical_illness: ["critical_illness"],
+  multi_pay_ci: ["critical_illness"],
+  endowment: [],
+  personal_accident: ["personal_accident", "death"],
+  disability_income: ["disability"],
+  long_term_care: ["long_term_care"],
+  tpd: ["tpd", "death"],
+}
+
+export const COVERAGE_TYPE_LABELS: Record<CoverageType, string> = {
+  death: "Death / Life",
+  critical_illness: "Critical Illness",
+  hospitalization: "Hospitalization",
+  disability: "Disability Income",
+  personal_accident: "Personal Accident",
+  long_term_care: "Long-term Care",
+  tpd: "Total Permanent Disability",
 }
 
 export const INSURANCE_TYPE_LABELS: Record<InsuranceType, string> = {

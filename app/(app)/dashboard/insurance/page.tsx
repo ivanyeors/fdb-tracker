@@ -18,13 +18,19 @@ import { RadarChart } from "@/components/dashboard/insurance/radar-chart"
 import { GapBars } from "@/components/dashboard/insurance/gap-bars"
 import { CoverageTable } from "@/components/dashboard/insurance/coverage-table"
 import { PremiumCalendar } from "@/components/dashboard/insurance/premium-calendar"
-import { INSURANCE_TYPE_LABELS } from "@/lib/insurance/coverage-config"
-import type { InsuranceType } from "@/lib/insurance/coverage-config"
+import { INSURANCE_TYPE_LABELS, COVERAGE_TYPE_LABELS } from "@/lib/insurance/coverage-config"
+import type { InsuranceType, CoverageType } from "@/lib/insurance/coverage-config"
 import type {
   HouseholdCoverageAnalysis,
   ProfileCoverageAnalysis,
   CoverageGapItem,
 } from "@/lib/calculations/insurance"
+
+interface PolicyCoverage {
+  id: string
+  coverage_type: string
+  coverage_amount: number
+}
 
 interface Policy {
   id: string
@@ -49,6 +55,7 @@ interface Policy {
   coverage_till_age: number | null
   end_date: string | null
   current_amount: number | null
+  coverages: PolicyCoverage[]
 }
 
 const TAB_SET = new Set(["overview", "coverage", "policies", "premiums"])
@@ -163,7 +170,13 @@ export default function InsurancePage() {
   }, [activePolicies])
 
   const totalCoverage = useMemo(
-    () => activePolicies.reduce((sum, p) => sum + (p.coverage_amount || 0), 0),
+    () =>
+      activePolicies.reduce((sum, p) => {
+        if (p.coverages && p.coverages.length > 0) {
+          return sum + p.coverages.reduce((cs, c) => cs + c.coverage_amount, 0)
+        }
+        return sum + (p.coverage_amount || 0)
+      }, 0),
     [activePolicies],
   )
 
@@ -431,6 +444,7 @@ export default function InsurancePage() {
                   coverage_amount: p.coverage_amount,
                   is_active: p.is_active,
                   profile_id: p.profile_id,
+                  coverages: p.coverages ?? [],
                 }))}
               />
             )}
@@ -488,16 +502,13 @@ export default function InsurancePage() {
                           Type
                         </th>
                         <th className="px-4 py-3 text-left font-medium">
-                          Coverage
+                          Coverages
                         </th>
                         <th className="px-4 py-3 text-right font-medium">
                           Premium
                         </th>
                         <th className="px-4 py-3 text-left font-medium">
                           Freq
-                        </th>
-                        <th className="px-4 py-3 text-right font-medium">
-                          Coverage Amt
                         </th>
                         <th className="px-4 py-3 text-center font-medium">
                           Status
@@ -521,9 +532,26 @@ export default function InsurancePage() {
                               policy.type as InsuranceType
                             ] ?? policy.type.replace(/_/g, " ")}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            {policy.coverage_type?.replace(/_/g, " ") ??
-                              "—"}
+                          <td className="px-4 py-3">
+                            {policy.coverages && policy.coverages.length > 0 ? (
+                              <div className="space-y-1">
+                                {policy.coverages.map((c) => (
+                                  <div key={c.coverage_type} className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-[10px] shrink-0">
+                                      {COVERAGE_TYPE_LABELS[c.coverage_type as CoverageType] ?? c.coverage_type.replace(/_/g, " ")}
+                                    </Badge>
+                                    <span className="text-xs tabular-nums text-muted-foreground">
+                                      {c.coverage_amount > 0 ? `$${formatCurrency(c.coverage_amount)}` : "—"}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                {policy.coverage_type?.replace(/_/g, " ") ?? "—"}
+                                {policy.coverage_amount ? ` ($${formatCurrency(policy.coverage_amount)})` : ""}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-right tabular-nums">
                             ${formatCurrency(policy.premium_amount)}
@@ -537,11 +565,6 @@ export default function InsurancePage() {
                           </td>
                           <td className="px-4 py-3 capitalize text-muted-foreground">
                             {policy.frequency}
-                          </td>
-                          <td className="px-4 py-3 text-right tabular-nums">
-                            {policy.coverage_amount
-                              ? `$${formatCurrency(policy.coverage_amount)}`
-                              : "—"}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <Badge

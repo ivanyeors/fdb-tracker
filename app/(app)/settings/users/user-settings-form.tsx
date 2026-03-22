@@ -76,7 +76,11 @@ import {
   getFieldsForInsurancePolicyRow,
   ISP_SUB_TYPES,
   INSURANCE_TYPE_LABELS,
+  COVERAGE_TYPE_LABELS,
+  DEFAULT_COVERAGES_BY_POLICY,
+  ALLOWED_COVERAGES_BY_POLICY,
   type InsuranceType,
+  type CoverageType,
 } from "@/lib/insurance/coverage-config"
 import {
   updateUserProfile,
@@ -206,6 +210,11 @@ export type FinancialDataByFamily = {
     maturity_value: number | null
     cash_value: number | null
     coverage_till_age: number | null
+    coverages: Array<{
+      id: string
+      coverage_type: string
+      coverage_amount: number
+    }>
   }>
   cpfBalances: Array<{
     id: string
@@ -360,6 +369,18 @@ function loanRowDirty(
   )
 }
 
+function coveragesDirty(
+  a: FinancialDataByFamily["insurancePolicies"][0]["coverages"],
+  b: FinancialDataByFamily["insurancePolicies"][0]["coverages"],
+): boolean {
+  if (a.length !== b.length) return true
+  const sortedA = [...a].sort((x, y) => x.coverage_type.localeCompare(y.coverage_type))
+  const sortedB = [...b].sort((x, y) => x.coverage_type.localeCompare(y.coverage_type))
+  return sortedA.some(
+    (ac, i) => ac.coverage_type !== sortedB[i].coverage_type || ac.coverage_amount !== sortedB[i].coverage_amount,
+  )
+}
+
 function insuranceRowDirty(
   e: FinancialDataByFamily["insurancePolicies"][0],
   p: FinancialDataByFamily["insurancePolicies"][0],
@@ -380,7 +401,8 @@ function insuranceRowDirty(
     (e.policy_number ?? null) !== (p.policy_number ?? null) ||
     (e.maturity_value ?? null) !== (p.maturity_value ?? null) ||
     (e.cash_value ?? null) !== (p.cash_value ?? null) ||
-    (e.coverage_till_age ?? null) !== (p.coverage_till_age ?? null)
+    (e.coverage_till_age ?? null) !== (p.coverage_till_age ?? null) ||
+    coveragesDirty(e.coverages, p.coverages)
   )
 }
 
@@ -2901,6 +2923,7 @@ function InsuranceSection({
     premium_amount: number
     frequency: "monthly" | "yearly"
     coverage_amount: number | null
+    coverages: Array<{ coverage_type: CoverageType; coverage_amount: number | null }>
     yearly_outflow_date: number | null
     current_amount: number | null
     end_date: string | null
@@ -2918,6 +2941,7 @@ function InsuranceSection({
     premium_amount: 0,
     frequency: "yearly",
     coverage_amount: null,
+    coverages: DEFAULT_COVERAGES_BY_POLICY.term_life.map((ct) => ({ coverage_type: ct, coverage_amount: null })),
     yearly_outflow_date: null,
     current_amount: null,
     end_date: null,
@@ -2939,6 +2963,7 @@ function InsuranceSection({
       return {
         ...prev,
         type,
+        coverages: DEFAULT_COVERAGES_BY_POLICY[type].map((ct) => ({ coverage_type: ct, coverage_amount: null })),
         current_amount: fields.showCurrentAmount ? prev.current_amount : null,
         end_date: fields.showEndDate ? prev.end_date : null,
         sub_type: fields.showSubType ? prev.sub_type : null,
@@ -2987,7 +3012,9 @@ function InsuranceSection({
           type: newPolicy.type,
           premiumAmount: newPolicy.premium_amount,
           frequency: newPolicy.frequency,
-          coverageAmount: newPolicy.coverage_amount ?? undefined,
+          coverages: newPolicy.coverages
+            .filter((c) => c.coverage_amount != null && c.coverage_amount > 0)
+            .map((c) => ({ coverageType: c.coverage_type, coverageAmount: c.coverage_amount })),
           yearlyOutflowDate: newPolicy.yearly_outflow_date ?? undefined,
           currentAmount: newPolicy.current_amount ?? undefined,
           endDate: newPolicy.end_date ?? undefined,
@@ -3012,6 +3039,7 @@ function InsuranceSection({
         premium_amount: 0,
         frequency: "yearly",
         coverage_amount: null,
+        coverages: DEFAULT_COVERAGES_BY_POLICY.term_life.map((ct) => ({ coverage_type: ct, coverage_amount: null })),
         yearly_outflow_date: null,
         current_amount: null,
         end_date: null,
@@ -3064,7 +3092,10 @@ function InsuranceSection({
           type: e.type,
           premiumAmount: e.premium_amount,
           frequency: e.frequency,
-          coverageAmount: e.coverage_amount ?? undefined,
+          coverages: e.coverages.map((c) => ({
+            coverageType: c.coverage_type,
+            coverageAmount: c.coverage_amount,
+          })),
           yearlyOutflowDate: e.yearly_outflow_date ?? undefined,
           currentAmount: e.current_amount ?? undefined,
           endDate: e.end_date ?? undefined,
@@ -3150,15 +3181,46 @@ function InsuranceSection({
               </SelectContent>
             </Select>
           </div>
-          {newPolicyFields.showCoverageAmount && (
-            <div className="space-y-1">
-              <Label>{newPolicyFields.coverageAmountLabel}</Label>
-              <CurrencyInput
-                placeholder="0"
-                value={newPolicy.coverage_amount}
-                onChange={(v) => setNewPolicy((p) => ({ ...p, coverage_amount: v ?? null }))}
-                className="h-8 w-24"
-              />
+          {ALLOWED_COVERAGES_BY_POLICY[newPolicy.type].length > 0 && (
+            <div className="basis-full space-y-2">
+              <Label>Coverages</Label>
+              <div className="flex flex-wrap gap-3">
+                {ALLOWED_COVERAGES_BY_POLICY[newPolicy.type].map((ct) => {
+                  const entry = newPolicy.coverages.find((c) => c.coverage_type === ct)
+                  const isChecked = !!entry
+                  return (
+                    <div key={ct} className="flex items-center gap-2">
+                      <Switch
+                        checked={isChecked}
+                        onCheckedChange={(checked) => {
+                          setNewPolicy((prev) => ({
+                            ...prev,
+                            coverages: checked
+                              ? [...prev.coverages, { coverage_type: ct, coverage_amount: null }]
+                              : prev.coverages.filter((c) => c.coverage_type !== ct),
+                          }))
+                        }}
+                      />
+                      <span className="text-sm whitespace-nowrap">{COVERAGE_TYPE_LABELS[ct]}</span>
+                      {isChecked && (
+                        <CurrencyInput
+                          placeholder="0"
+                          value={entry?.coverage_amount}
+                          onChange={(v) =>
+                            setNewPolicy((prev) => ({
+                              ...prev,
+                              coverages: prev.coverages.map((c) =>
+                                c.coverage_type === ct ? { ...c, coverage_amount: v ?? null } : c,
+                              ),
+                            }))
+                          }
+                          className="h-8 w-28"
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
           {newPolicyFields.showYearlyOutflowDate && (
@@ -3316,7 +3378,7 @@ function InsuranceSection({
             <TableHead>Insurer</TableHead>
             <TableHead>Premium</TableHead>
             <TableHead>Frequency</TableHead>
-            <TableHead>Coverage</TableHead>
+            <TableHead>Coverages</TableHead>
             <TableHead>Details</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -3345,11 +3407,19 @@ function InsuranceSection({
                     onValueChange={(v) => {
                       const fields = getFieldsForInsurancePolicyRow(v, e.frequency as "monthly" | "yearly")
                       const prev_e = editing[p.id] ?? p
+                      const newType = v as InsuranceType
+                      const allowed = ALLOWED_COVERAGES_BY_POLICY[newType] ?? []
+                      const keptCoverages = prev_e.coverages.filter((c) => allowed.includes(c.coverage_type as CoverageType))
+                      const defaults = DEFAULT_COVERAGES_BY_POLICY[newType] ?? []
+                      const missingDefaults = defaults
+                        .filter((ct) => !keptCoverages.some((c) => c.coverage_type === ct))
+                        .map((ct) => ({ id: "", coverage_type: ct, coverage_amount: 0 }))
                       setEditing((prev) => ({
                         ...prev,
                         [p.id]: {
                           ...(prev[p.id] ?? p),
                           type: v,
+                          coverages: [...keptCoverages, ...missingDefaults],
                           current_amount: fields.showCurrentAmount ? prev_e.current_amount : null,
                           end_date: fields.showEndDate ? prev_e.end_date : null,
                           sub_type: fields.showSubType ? prev_e.sub_type : null,
@@ -3414,16 +3484,54 @@ function InsuranceSection({
                   </Select>
                 </TableCell>
                 <TableCell>
-                  <CurrencyInput
-                    value={e.coverage_amount ?? undefined}
-                    onChange={(v) =>
-                      setEditing((prev) => ({
-                        ...prev,
-                        [p.id]: { ...(prev[p.id] ?? p), coverage_amount: v ?? null },
-                      }))
-                    }
-                    className="h-8 w-24"
-                  />
+                  {ALLOWED_COVERAGES_BY_POLICY[e.type as InsuranceType]?.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {ALLOWED_COVERAGES_BY_POLICY[e.type as InsuranceType].map((ct) => {
+                        const cov = e.coverages.find((c) => c.coverage_type === ct)
+                        const isChecked = !!cov
+                        return (
+                          <div key={ct} className="flex items-center gap-1.5">
+                            <Switch
+                              checked={isChecked}
+                              onCheckedChange={(checked) => {
+                                const prev_e = editing[p.id] ?? p
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: {
+                                    ...prev_e,
+                                    coverages: checked
+                                      ? [...prev_e.coverages, { id: "", coverage_type: ct, coverage_amount: 0 }]
+                                      : prev_e.coverages.filter((c) => c.coverage_type !== ct),
+                                  },
+                                }))
+                              }}
+                            />
+                            <span className="text-xs whitespace-nowrap">{COVERAGE_TYPE_LABELS[ct]}</span>
+                            {isChecked && (
+                              <CurrencyInput
+                                value={cov.coverage_amount}
+                                onChange={(v) => {
+                                  const prev_e = editing[p.id] ?? p
+                                  setEditing((prev) => ({
+                                    ...prev,
+                                    [p.id]: {
+                                      ...prev_e,
+                                      coverages: prev_e.coverages.map((c) =>
+                                        c.coverage_type === ct ? { ...c, coverage_amount: v ?? 0 } : c,
+                                      ),
+                                    },
+                                  }))
+                                }}
+                                className="h-7 w-24"
+                              />
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">N/A</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
@@ -3650,15 +3758,46 @@ function InsuranceSection({
                     </SelectContent>
                   </Select>
                 </div>
-                {newPolicyFields.showCoverageAmount && (
-                  <div className="space-y-1">
-                    <Label>{newPolicyFields.coverageAmountLabel}</Label>
-                    <CurrencyInput
-                      placeholder="0"
-                      value={newPolicy.coverage_amount}
-                      onChange={(v) => setNewPolicy((prev) => ({ ...prev, coverage_amount: v ?? null }))}
-                      className="h-8 w-24"
-                    />
+                {ALLOWED_COVERAGES_BY_POLICY[newPolicy.type].length > 0 && (
+                  <div className="basis-full space-y-2">
+                    <Label>Coverages</Label>
+                    <div className="flex flex-wrap gap-3">
+                      {ALLOWED_COVERAGES_BY_POLICY[newPolicy.type].map((ct) => {
+                        const entry = newPolicy.coverages.find((c) => c.coverage_type === ct)
+                        const isChecked = !!entry
+                        return (
+                          <div key={ct} className="flex items-center gap-2">
+                            <Switch
+                              checked={isChecked}
+                              onCheckedChange={(checked) => {
+                                setNewPolicy((prev) => ({
+                                  ...prev,
+                                  coverages: checked
+                                    ? [...prev.coverages, { coverage_type: ct, coverage_amount: null }]
+                                    : prev.coverages.filter((c) => c.coverage_type !== ct),
+                                }))
+                              }}
+                            />
+                            <span className="text-sm whitespace-nowrap">{COVERAGE_TYPE_LABELS[ct]}</span>
+                            {isChecked && (
+                              <CurrencyInput
+                                placeholder="0"
+                                value={entry?.coverage_amount}
+                                onChange={(v) =>
+                                  setNewPolicy((prev) => ({
+                                    ...prev,
+                                    coverages: prev.coverages.map((c) =>
+                                      c.coverage_type === ct ? { ...c, coverage_amount: v ?? null } : c,
+                                    ),
+                                  }))
+                                }
+                                className="h-8 w-28"
+                              />
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
                 {newPolicyFields.showYearlyOutflowDate && (

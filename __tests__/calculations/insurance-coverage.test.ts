@@ -17,6 +17,7 @@ const makePolicy = (
     coverage_amount: number | null
     is_active: boolean
     type: string
+    coverages?: { coverage_type: string; coverage_amount: number }[]
   }> = {},
 ) => ({
   coverage_type: "death" as string | null,
@@ -132,6 +133,94 @@ describe("calculateCoverageGap", () => {
   })
 })
 
+describe("multi-coverage support", () => {
+  it("sums from coverages array when present", () => {
+    const policies = [
+      makePolicy({
+        type: "whole_life",
+        coverage_type: "death",
+        coverage_amount: 500_000,
+        coverages: [
+          { coverage_type: "death", coverage_amount: 500_000 },
+          { coverage_type: "critical_illness", coverage_amount: 200_000 },
+        ],
+      }),
+    ]
+    const items = calculateCoverageGap(policies, 100_000)
+
+    const death = items.find((i) => i.coverageType === "death")!
+    expect(death.held).toBe(500_000)
+
+    const ci = items.find((i) => i.coverageType === "critical_illness")!
+    expect(ci.held).toBe(200_000)
+  })
+
+  it("one policy contributes to multiple gap items via coverages", () => {
+    const policies = [
+      makePolicy({
+        type: "whole_life",
+        coverages: [
+          { coverage_type: "death", coverage_amount: 300_000 },
+          { coverage_type: "tpd", coverage_amount: 300_000 },
+        ],
+      }),
+    ]
+    const items = calculateCoverageGap(policies, 100_000)
+
+    expect(items.find((i) => i.coverageType === "death")!.held).toBe(300_000)
+    expect(items.find((i) => i.coverageType === "tpd")!.held).toBe(300_000)
+  })
+
+  it("mixed policies: some with coverages array, some legacy", () => {
+    const policies = [
+      makePolicy({
+        coverage_type: "death",
+        coverage_amount: 200_000,
+      }),
+      makePolicy({
+        type: "whole_life",
+        coverages: [
+          { coverage_type: "death", coverage_amount: 300_000 },
+          { coverage_type: "critical_illness", coverage_amount: 100_000 },
+        ],
+      }),
+    ]
+    const items = calculateCoverageGap(policies, 100_000)
+
+    expect(items.find((i) => i.coverageType === "death")!.held).toBe(500_000)
+    expect(items.find((i) => i.coverageType === "critical_illness")!.held).toBe(100_000)
+  })
+
+  it("empty coverages array falls back to legacy fields", () => {
+    const policies = [
+      makePolicy({
+        coverage_type: "death",
+        coverage_amount: 400_000,
+        coverages: [],
+      }),
+    ]
+    const items = calculateCoverageGap(policies, 100_000)
+
+    expect(items.find((i) => i.coverageType === "death")!.held).toBe(400_000)
+  })
+
+  it("coverages array takes precedence over legacy fields", () => {
+    const policies = [
+      makePolicy({
+        coverage_type: "death",
+        coverage_amount: 100_000,
+        coverages: [
+          { coverage_type: "death", coverage_amount: 500_000 },
+        ],
+      }),
+    ]
+    const items = calculateCoverageGap(policies, 100_000)
+
+    // coverages array should win — 500k, not 100k
+    expect(items.find((i) => i.coverageType === "death")!.held).toBe(500_000)
+  })
+})
+
 describe("calculateOverallScore", () => {
   it("returns 100 for full coverage", () => {
     const items = calculateCoverageGap(
@@ -140,6 +229,8 @@ describe("calculateOverallScore", () => {
         makePolicy({ coverage_type: "critical_illness", coverage_amount: 400_000, type: "critical_illness" }),
         makePolicy({ type: "integrated_shield", coverage_type: "hospitalization" }),
         makePolicy({ coverage_type: "disability", coverage_amount: 375_000 }),
+        makePolicy({ coverage_type: "tpd", coverage_amount: 900_000, type: "tpd" }),
+        makePolicy({ coverage_type: "long_term_care", coverage_amount: 3_000, type: "long_term_care" }),
         makePolicy({ coverage_type: "personal_accident", coverage_amount: 100_000, type: "personal_accident" }),
       ],
       100_000,

@@ -54,7 +54,7 @@ async function fetchFinancialDataForFamily(
     profileIds.length > 0
       ? supabase
           .from("insurance_policies")
-          .select("*")
+          .select("*, insurance_policy_coverages(id, coverage_type, coverage_amount)")
           .in("profile_id", profileIds)
           .order("created_at", { ascending: true })
       : Promise.resolve({ data: [] }),
@@ -102,7 +102,15 @@ async function fetchFinancialDataForFamily(
     savingsGoals: savingsGoalsRes.data ?? [],
     investments,
     loans: loansRes.data ?? [],
-    insurancePolicies: insuranceRes.data ?? [],
+    insurancePolicies: (insuranceRes.data ?? []).map((p) => {
+      const { insurance_policy_coverages, ...rest } = p as typeof p & {
+        insurance_policy_coverages?: Array<{ id: string; coverage_type: string; coverage_amount: number }>
+      }
+      return {
+        ...rest,
+        coverages: insurance_policy_coverages ?? [],
+      }
+    }),
     cpfBalances: cpfRes.data ?? [],
     monthlyCashflow: cashflowRes.data ?? [],
   } satisfies FinancialDataByFamily

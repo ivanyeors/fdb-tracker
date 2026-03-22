@@ -89,20 +89,32 @@ export async function POST(request: Request) {
       const profileId = profiles[pol.profileIndex]?.id
       if (profileId && pol.name.trim() && pol.premium_amount > 0) {
         const coverageType = getCoverageType(pol.type)
-        await supabase.from("insurance_policies").insert({
-          profile_id: profileId,
-          name: pol.name.trim(),
-          type: pol.type,
-          premium_amount: pol.premium_amount,
-          frequency: pol.frequency,
-          coverage_amount: pol.coverage_amount ?? null,
-          coverage_type: coverageType,
-          yearly_outflow_date: pol.yearly_outflow_date ?? null,
-          current_amount: pol.current_amount ?? null,
-          end_date: pol.end_date ?? null,
-          is_active: true,
-          deduct_from_outflow: true,
-        })
+        const { data: policy } = await supabase
+          .from("insurance_policies")
+          .insert({
+            profile_id: profileId,
+            name: pol.name.trim(),
+            type: pol.type,
+            premium_amount: pol.premium_amount,
+            frequency: pol.frequency,
+            coverage_amount: pol.coverage_amount ?? null,
+            coverage_type: coverageType,
+            yearly_outflow_date: pol.yearly_outflow_date ?? null,
+            current_amount: pol.current_amount ?? null,
+            end_date: pol.end_date ?? null,
+            is_active: true,
+            deduct_from_outflow: true,
+          })
+          .select("id")
+          .single()
+
+        if (policy && coverageType) {
+          await supabase.from("insurance_policy_coverages").insert({
+            policy_id: policy.id,
+            coverage_type: coverageType,
+            coverage_amount: pol.coverage_amount ?? 0,
+          })
+        }
       }
     }
 

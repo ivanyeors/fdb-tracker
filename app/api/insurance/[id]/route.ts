@@ -3,7 +3,12 @@ import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-import { getCoverageType } from "@/lib/insurance/coverage-config"
+import { getCoverageType, COVERAGE_TYPES } from "@/lib/insurance/coverage-config"
+
+const coverageEntrySchema = z.object({
+  coverageType: z.enum(COVERAGE_TYPES),
+  coverageAmount: z.number().min(0),
+})
 
 const updatePolicySchema = z.object({
   name: z.string().min(1).optional(),
@@ -27,6 +32,7 @@ const updatePolicySchema = z.object({
   premiumAmount: z.number().min(0).optional(),
   frequency: z.enum(["monthly", "yearly"]).optional(),
   coverageAmount: z.number().min(0).nullable().optional(),
+  coverages: z.array(coverageEntrySchema).optional(),
   yearlyOutflowDate: z.number().int().min(1).max(12).nullable().optional(),
   currentAmount: z.number().min(0).nullable().optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
@@ -113,19 +119,67 @@ export async function PATCH(
     if (parsed.data.cashValue !== undefined) updates.cash_value = parsed.data.cashValue
     if (parsed.data.coverageTillAge !== undefined) updates.coverage_till_age = parsed.data.coverageTillAge
 
-    if (Object.keys(updates).length === 0) {
+    const coverages = parsed.data.coverages
+
+    if (coverages !== undefined) {
+      if (coverages.length > 0) {
+        updates.coverage_type = coverages[0].coverageType
+        updates.coverage_amount = coverages[0].coverageAmount
+      } else {
+        updates.coverage_type = null
+        updates.coverage_amount = null
+      }
+    }
+
+    if (Object.keys(updates).length === 0 && coverages === undefined) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })
     }
 
-    const { data, error } = await supabase
+    if (Object.keys(updates).length > 0) {
+      const { error } = await supabase
+        .from("insurance_policies")
+        .update(updates)
+        .eq("id", id)
+
+      if (error) return NextResponse.json({ error: "Failed to update insurance policy" }, { status: 500 })
+    }
+
+    if (coverages !== undefined) {
+      await supabase
+        .from("insurance_policy_coverages")
+        .delete()
+        .eq("policy_id", id)
+
+      if (coverages.length > 0) {
+        const { error: covError } = await supabase
+          .from("insurance_policy_coverages")
+          .insert(
+            coverages.map((c) => ({
+              policy_id: id,
+              coverage_type: c.coverageType,
+              coverage_amount: c.coverageAmount,
+            }))
+          )
+        if (covError) {
+          console.error("[api/insurance] Failed to update coverages:", covError)
+        }
+      }
+    }
+
+    const { data, error: fetchError } = await supabase
       .from("insurance_policies")
-      .update(updates)
+      .select("*, insurance_policy_coverages(id, coverage_type, coverage_amount)")
       .eq("id", id)
-      .select()
       .single()
 
-    if (error) return NextResponse.json({ error: "Failed to update insurance policy" }, { status: 500 })
-    return NextResponse.json(data)
+    if (fetchError) return NextResponse.json({ error: "Failed to fetch updated policy" }, { status: 500 })
+
+    const result = {
+      ...data,
+      coverages: data.insurance_policy_coverages ?? [],
+      insurance_policy_coverages: undefined,
+    }
+    return NextResponse.json(result)
   } catch (err) {
     console.error("[api/insurance] PATCH Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

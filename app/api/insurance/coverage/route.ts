@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
         supabase
           .from("insurance_policies")
           .select(
-            "id, profile_id, name, type, coverage_type, coverage_amount, is_active, premium_amount, frequency, yearly_outflow_date",
+            "id, profile_id, name, type, coverage_type, coverage_amount, is_active, premium_amount, frequency, yearly_outflow_date, insurance_policy_coverages(coverage_type, coverage_amount)",
           )
           .in("profile_id", profileIds)
           .eq("is_active", true),
@@ -84,7 +84,12 @@ export async function GET(request: NextRequest) {
           .in("id", profileIds),
       ])
 
-    const policies = policiesRes.data ?? []
+    const policies = (policiesRes.data ?? []).map((p) => ({
+      ...p,
+      coverages: (p as Record<string, unknown>).insurance_policy_coverages as
+        | { coverage_type: string; coverage_amount: number }[]
+        | undefined,
+    }))
     const incomeByProfile = new Map(
       (incomeRes.data ?? []).map((r) => [r.profile_id, r.annual_salary ?? 0]),
     )

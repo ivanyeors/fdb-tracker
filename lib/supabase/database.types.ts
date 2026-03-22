@@ -1330,6 +1330,38 @@ export type Database = {
           },
         ]
       }
+      insurance_policy_coverages: {
+        Row: {
+          id: string
+          policy_id: string
+          coverage_type: string
+          coverage_amount: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          policy_id: string
+          coverage_type: string
+          coverage_amount?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          policy_id?: string
+          coverage_type?: string
+          coverage_amount?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_policy_coverages_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insurance_coverage_benchmarks: {
         Row: {
           id: string
