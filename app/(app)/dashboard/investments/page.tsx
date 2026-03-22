@@ -56,6 +56,10 @@ import {
   ilpEntryMonthKey,
 } from "@/lib/investments/ilp-chart"
 import { valuateGold, valuateSilver } from "@/lib/calculations/precious-metals"
+import { calculateRebalancing, type RebalanceSuggestion } from "@/lib/calculations/rebalancing"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { formatCurrency } from "@/lib/utils"
 import {
   allocationByIlpGroupOrStandalone,
 } from "@/lib/investments/ilp-allocation-aggregate"
@@ -152,6 +156,7 @@ export default function InvestmentsDetailPage() {
   const [ilpSelectedIds, setIlpSelectedIds] = useState<string[]>([])
   const [ilpBulkDeleteOpen, setIlpBulkDeleteOpen] = useState(false)
   const [ilpBulkDeleting, setIlpBulkDeleting] = useState(false)
+  const [rebalanceSuggestions, setRebalanceSuggestions] = useState<RebalanceSuggestion[]>([])
   const ilpSelectAllRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -278,6 +283,21 @@ export default function InvestmentsDetailPage() {
           portfolioPct: 0,
         }))
         setHoldings(finalHoldings)
+
+        // Compute rebalancing suggestions from raw data with target allocations
+        const rebalanceEntries = list.map((inv) => {
+          const rate = rateFromInv != null && rateFromInv > 0 ? rateFromInv : 1
+          const mv = inv.marketValue
+          const hasLive = inv.pricingSource === "live" && mv != null && Number.isFinite(mv) && mv > 0
+          const currentValue = hasLive && mv != null ? mv * rate : inv.cost_basis * inv.units
+          return {
+            id: inv.id,
+            symbol: inv.symbol,
+            currentValue,
+            targetPct: (inv as Record<string, unknown>).target_allocation_pct as number | null ?? null,
+          }
+        })
+        setRebalanceSuggestions(calculateRebalancing(rebalanceEntries))
       }
 
       if (ilpRes.ok) {
@@ -770,6 +790,56 @@ export default function InvestmentsDetailPage() {
           )}
         </div>
       </div>
+
+      {rebalanceSuggestions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">Rebalancing Alerts</CardTitle>
+              <Badge variant="outline" className="text-xs">
+                {rebalanceSuggestions.length} drift{rebalanceSuggestions.length !== 1 ? "s" : ""}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {rebalanceSuggestions.map((s) => (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{s.symbol}</span>
+                    <span className="text-muted-foreground">
+                      {s.currentPct.toFixed(1)}% → {s.targetPct.toFixed(1)}%
+                    </span>
+                    <Badge
+                      variant={s.action === "buy" ? "default" : "destructive"}
+                      className="text-xs"
+                    >
+                      {s.action === "buy" ? "Buy" : "Sell"} ${formatCurrency(Math.abs(s.adjustmentAmount))}
+                    </Badge>
+                  </div>
+                  <span
+                    className={
+                      s.driftPct > 0
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-blue-600 dark:text-blue-400"
+                    }
+                  >
+                    {s.driftPct > 0 ? "+" : ""}
+                    {s.driftPct.toFixed(1)}% drift
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Set target allocation per holding in Settings → User Settings → Investments.
+              Alerts show when drift exceeds 5%.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs key={defaultTab} defaultValue={defaultTab}>
         <div className="-mx-1 min-w-0 overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">

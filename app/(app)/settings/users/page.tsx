@@ -90,6 +90,7 @@ async function fetchFinancialDataForFamily(
       type: r.type,
       units: r.units,
       cost_basis: r.cost_basis,
+      target_allocation_pct: (r as Record<string, unknown>).target_allocation_pct as number | null ?? null,
       profile_id: r.profile_id,
       current_price: r.currentPrice,
       market_value: r.marketValue,
@@ -129,6 +130,8 @@ function normalizeProfile(profile: Record<string, unknown>): ProfileWithIncome {
     telegram_chat_id: (profile.telegram_chat_id as string | null) ?? null,
     telegram_link_token: (profile.telegram_link_token as string | null) ?? null,
     telegram_last_used: (profile.telegram_last_used as string | null) ?? null,
+    marital_status: (profile.marital_status as string | null) ?? null,
+    num_dependents: (profile.num_dependents as number | undefined) ?? 0,
     income_config: (income as ProfileWithIncome["income_config"]) ?? null,
   }
 }
@@ -167,6 +170,8 @@ export default async function UserSettingsPage() {
             id,
             name,
             birth_year,
+            marital_status,
+            num_dependents,
             dps_include_in_projection,
             family_id,
             telegram_user_id,

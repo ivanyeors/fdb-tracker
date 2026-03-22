@@ -64,6 +64,7 @@ export function stripMhtmlToHtmlOnly(raw: string): string {
     return [
       topHeaders,
       "", // blank line separating headers from body
+      "", // empty preamble — ensures body starts with \n before --boundary
       `--${boundary}`,
       partHeaders,
       "", // blank line separating part headers from part body

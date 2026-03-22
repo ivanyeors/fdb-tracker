@@ -29,6 +29,8 @@ import { MonthlyTaxDialog } from "@/components/dashboard/tax/monthly-tax-dialog"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import type { TaxSnapshot } from "@/lib/tax/tax-snapshot"
 import { ReliefsBracketSummaryCard } from "@/components/dashboard/tax/reliefs-bracket-summary-card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
 interface TaxEntry {
   id: string
@@ -54,6 +56,13 @@ interface TaxProfile {
   name: string
 }
 
+interface SuggestedRelief {
+  profile_id: string
+  relief_type: string
+  amount: number
+  label: string
+}
+
 interface TaxData {
   entries: TaxEntry[]
   reliefs: TaxRelief[]
@@ -61,6 +70,7 @@ interface TaxData {
   profileDetails?: Record<string, { employmentIncome: number }>
   taxSnapshots?: Record<string, TaxSnapshot>
   taxSnapshotsNextYa?: Record<string, TaxSnapshot>
+  suggestedReliefs?: SuggestedRelief[]
 }
 
 const currentYear = new Date().getFullYear()
@@ -195,6 +205,27 @@ export default function TaxPage() {
     const json = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(json.error ?? "Failed to save")
     fetchTax()
+  }
+
+  async function handleApplySuggestion(suggestion: SuggestedRelief) {
+    await handleSaveManualReliefs([
+      // Preserve existing manual reliefs
+      ...reliefsForYear
+        .filter((r) => r.source === "manual")
+        .map((r) => ({
+          profile_id: r.profile_id,
+          year: r.year,
+          relief_type: r.relief_type,
+          amount: r.amount,
+        })),
+      // Add the suggested one
+      {
+        profile_id: suggestion.profile_id,
+        year: selectedYear,
+        relief_type: suggestion.relief_type,
+        amount: suggestion.amount,
+      },
+    ])
   }
 
   function openActualDialog(profileId: string, amount: number | null) {
@@ -386,6 +417,37 @@ export default function TaxPage() {
                     data.profiles.length > 0 &&
                     entryIndex === entriesForYear.length - 1 ? (
                       <div className="space-y-3 rounded-xl border bg-muted/10 px-4 py-4">
+                        {(data.suggestedReliefs ?? []).length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium">Suggested Reliefs</h4>
+                            {(data.suggestedReliefs ?? []).map((s, i) => (
+                              <div
+                                key={i}
+                                className="flex items-center justify-between rounded-md border bg-blue-50/50 px-3 py-2 dark:bg-blue-950/20"
+                              >
+                                <div className="text-sm">
+                                  <span className="font-medium capitalize">
+                                    {s.relief_type.replace(/_/g, " ")}
+                                  </span>
+                                  {" "}
+                                  <span className="text-muted-foreground">
+                                    — {s.label}
+                                  </span>
+                                  <Badge variant="outline" className="ml-2 text-xs">
+                                    ${formatCurrency(s.amount)}
+                                  </Badge>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleApplySuggestion(s)}
+                                >
+                                  Apply
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <div>
                           <h3 className="text-base font-medium leading-none">
                             Manual Reliefs
@@ -425,7 +487,38 @@ export default function TaxPage() {
                   Add or edit SRS, donations, CPF top-up, course fees, etc.
                 </p>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {(data.suggestedReliefs ?? []).length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Suggested Reliefs</h4>
+                    {(data.suggestedReliefs ?? []).map((s, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between rounded-md border bg-blue-50/50 px-3 py-2 dark:bg-blue-950/20"
+                      >
+                        <div className="text-sm">
+                          <span className="font-medium capitalize">
+                            {s.relief_type.replace(/_/g, " ")}
+                          </span>
+                          {" "}
+                          <span className="text-muted-foreground">
+                            — {s.label}
+                          </span>
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            ${formatCurrency(s.amount)}
+                          </Badge>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleApplySuggestion(s)}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <ManualReliefForm
                   year={selectedYear}
                   profiles={data.profiles}

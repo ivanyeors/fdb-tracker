@@ -9,7 +9,10 @@ import {
   calculateOverallScore,
   type CoverageBenchmarks,
   type HouseholdCoverageAnalysis,
+  type LifeStageParams,
+  getLifeStageMultipliers,
 } from "@/lib/calculations/insurance"
+import { getAge } from "@/lib/calculations/cpf"
 
 const querySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -80,7 +83,7 @@ export async function GET(request: NextRequest) {
           .in("profile_id", profileIds),
         supabase
           .from("profiles")
-          .select("id, name, birth_year")
+          .select("id, name, birth_year, marital_status, num_dependents")
           .in("id", profileIds),
       ])
 
@@ -118,11 +121,20 @@ export async function GET(request: NextRequest) {
           }
         : undefined
 
+      const lifeStage: LifeStageParams = {
+        maritalStatus: (profile as Record<string, unknown>)?.marital_status as string | null ?? null,
+        numDependents: (profile as Record<string, unknown>)?.num_dependents as number | null ?? null,
+        age: profile?.birth_year ? getAge(profile.birth_year, new Date().getFullYear()) : null,
+      }
+
       const items = calculateCoverageGap(
         profilePolicies,
         annualSalary,
         customBenchmarks,
+        lifeStage,
       )
+
+      const multipliers = getLifeStageMultipliers(lifeStage)
 
       return {
         profileId: pid,
@@ -130,6 +142,7 @@ export async function GET(request: NextRequest) {
         annualSalary,
         items,
         overallScore: calculateOverallScore(items),
+        lifeStageLabel: multipliers.label,
       }
     })
 

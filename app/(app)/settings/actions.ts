@@ -34,6 +34,9 @@ export async function updateUserProfile(
     }
 
     const dpsIncludeInProjection = formData.get("dpsIncludeInProjection") !== "false"
+    const rawMaritalStatus = formData.get("maritalStatus") as string | null
+    const maritalStatus = rawMaritalStatus && rawMaritalStatus !== "" ? rawMaritalStatus : null
+    const numDependents = Math.max(0, Math.min(20, Number(formData.get("numDependents")) || 0))
 
     const data = {
       profileId: formData.get("profileId"),
@@ -86,7 +89,13 @@ export async function updateUserProfile(
     // Update profile
     const { error: profileError } = await supabase
       .from("profiles")
-      .update({ name, birth_year: birthYear, dps_include_in_projection: dpsIncludeInProjection })
+      .update({
+        name,
+        birth_year: birthYear,
+        dps_include_in_projection: dpsIncludeInProjection,
+        marital_status: maritalStatus,
+        num_dependents: numDependents,
+      })
       .eq("id", profileId)
 
     if (profileError) {

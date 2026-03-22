@@ -32,6 +32,43 @@ export type CoverageBenchmarks = {
   longTermCareMonthlyTarget?: number
 }
 
+export type LifeStageParams = {
+  maritalStatus?: string | null
+  numDependents?: number | null
+  age?: number | null
+}
+
+/**
+ * Adjust coverage multipliers based on life stage.
+ * - Single, no dependents: lower death (3x), maintain CI (4x)
+ * - Married, no dependents: moderate death (6x), CI (4x)
+ * - Married, with children: full death (9x), higher CI (5x)
+ * - Nearing retirement (55+): reduce death (3x), increase hospitalization awareness
+ */
+export function getLifeStageMultipliers(params: LifeStageParams): {
+  deathMultiplier: number
+  ciMultiplier: number
+  label: string
+} {
+  const age = params.age ?? 30
+  const dependents = params.numDependents ?? 0
+  const married = params.maritalStatus === "married"
+
+  if (age >= 55) {
+    return { deathMultiplier: 3, ciMultiplier: 4, label: "Pre-retirement" }
+  }
+  if (!married && dependents === 0) {
+    return { deathMultiplier: 3, ciMultiplier: 4, label: "Single, no dependents" }
+  }
+  if (married && dependents === 0) {
+    return { deathMultiplier: 6, ciMultiplier: 4, label: "Married, no dependents" }
+  }
+  if (dependents > 0) {
+    return { deathMultiplier: 9, ciMultiplier: 5, label: `${dependents} dependent${dependents > 1 ? "s" : ""}` }
+  }
+  return { deathMultiplier: 9, ciMultiplier: 4, label: "Default" }
+}
+
 export type PolicyCoverageEntry = {
   coverage_type: string
   coverage_amount: number
@@ -93,11 +130,13 @@ export function calculateCoverageGap(
   policies: PolicyForGap[],
   annualSalary: number,
   customBenchmarks?: CoverageBenchmarks,
+  lifeStage?: LifeStageParams,
 ): CoverageGapItem[] {
   const monthlySalary = annualSalary / 12
+  const multipliers = lifeStage ? getLifeStageMultipliers(lifeStage) : null
 
-  const deathNeeded = customBenchmarks?.deathTarget ?? annualSalary * 9
-  const ciNeeded = customBenchmarks?.ciTarget ?? annualSalary * 4
+  const deathNeeded = customBenchmarks?.deathTarget ?? annualSalary * (multipliers?.deathMultiplier ?? 9)
+  const ciNeeded = customBenchmarks?.ciTarget ?? annualSalary * (multipliers?.ciMultiplier ?? 4)
   const disabilityNeeded =
     customBenchmarks?.disabilityTarget ?? monthlySalary * 0.75 * 60
   const tpdNeeded = customBenchmarks?.tpdTarget ?? annualSalary * 9
@@ -187,6 +226,7 @@ export function getHouseholdCoverage(
     annualSalary: number
     policies: PolicyForGap[]
     benchmarks?: CoverageBenchmarks
+    lifeStage?: LifeStageParams
   }>,
 ): HouseholdCoverageAnalysis {
   const profiles: ProfileCoverageAnalysis[] = profileData.map((pd) => {
@@ -194,6 +234,7 @@ export function getHouseholdCoverage(
       pd.policies,
       pd.annualSalary,
       pd.benchmarks,
+      pd.lifeStage,
     )
     return {
       profileId: pd.profileId,

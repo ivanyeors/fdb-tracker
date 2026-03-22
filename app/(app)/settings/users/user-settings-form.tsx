@@ -183,6 +183,7 @@ export type FinancialDataByFamily = {
     type: string
     units: number
     cost_basis: number
+    target_allocation_pct: number | null
     profile_id: string | null
     current_price: number | null
     market_value: number | null
@@ -361,6 +362,7 @@ function invRowDirty(
     e.type !== i.type ||
     e.units !== i.units ||
     e.cost_basis !== i.cost_basis ||
+    (e.target_allocation_pct ?? null) !== (i.target_allocation_pct ?? null) ||
     e.profile_id !== i.profile_id
   )
 }
@@ -445,6 +447,8 @@ function ProfileSection({
       : ""
   )
   const [dpsInclude, setDpsInclude] = useState(profile.dps_include_in_projection !== false)
+  const [maritalStatus, setMaritalStatus] = useState(profile.marital_status ?? "")
+  const [numDependents, setNumDependents] = useState(profile.num_dependents ?? 0)
 
   const isDirty = useMemo(() => {
     const baselineCpf = profileEmployeeCpfInputString(profile)
@@ -456,7 +460,9 @@ function ProfileSection({
       bonusEstimate !== (profile.income_config?.bonus_estimate ?? 0) ||
       payFrequency !== (profile.income_config?.pay_frequency ?? "monthly") ||
       employeeCpfRate !== baselineCpf ||
-      dpsInclude !== dpsBaseline
+      dpsInclude !== dpsBaseline ||
+      maritalStatus !== (profile.marital_status ?? "") ||
+      numDependents !== (profile.num_dependents ?? 0)
     )
   }, [
     name,
@@ -466,6 +472,8 @@ function ProfileSection({
     payFrequency,
     employeeCpfRate,
     dpsInclude,
+    maritalStatus,
+    numDependents,
     profile,
   ])
 
@@ -479,6 +487,8 @@ function ProfileSection({
     fd.set("payFrequency", payFrequency)
     fd.set("employeeCpfRate", employeeCpfRate || "")
     fd.set("dpsIncludeInProjection", dpsInclude ? "true" : "false")
+    fd.set("maritalStatus", maritalStatus)
+    fd.set("numDependents", String(numDependents))
     const result = await updateUserProfile({ success: false }, fd)
     if (result.error) throw new Error(result.error)
   }, [
@@ -490,6 +500,8 @@ function ProfileSection({
     payFrequency,
     employeeCpfRate,
     dpsInclude,
+    maritalStatus,
+    numDependents,
   ])
 
   useUserSettingsSaveRegistration(`user-settings-profile-${profile.id}`, isDirty, saveProfile)
@@ -519,7 +531,9 @@ function ProfileSection({
         : ""
     )
     setDpsInclude(profile.dps_include_in_projection !== false)
-  }, [profile.id, profile.name, profile.birth_year, profile.income_config, profile.dps_include_in_projection])
+    setMaritalStatus(profile.marital_status ?? "")
+    setNumDependents(profile.num_dependents ?? 0)
+  }, [profile.id, profile.name, profile.birth_year, profile.income_config, profile.dps_include_in_projection, profile.marital_status, profile.num_dependents])
 
   const canDelete = profileCount > 1
 
@@ -596,6 +610,36 @@ function ProfileSection({
               max={new Date().getFullYear()}
               value={birthYear}
               onChange={(e) => setBirthYear(Number(e.target.value) || 1990)}
+              className="h-8"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`marital-${profile.id}`}>Marital Status</Label>
+            <Select
+              value={maritalStatus || "none"}
+              onValueChange={(v) => setMaritalStatus(v === "none" ? "" : v)}
+            >
+              <SelectTrigger id={`marital-${profile.id}`} className="h-8">
+                <SelectValue placeholder="Not set" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Not set</SelectItem>
+                <SelectItem value="single">Single</SelectItem>
+                <SelectItem value="married">Married</SelectItem>
+                <SelectItem value="divorced">Divorced</SelectItem>
+                <SelectItem value="widowed">Widowed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`dependents-${profile.id}`}>Dependents</Label>
+            <Input
+              id={`dependents-${profile.id}`}
+              type="number"
+              min={0}
+              max={20}
+              value={numDependents}
+              onChange={(e) => setNumDependents(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
               className="h-8"
             />
           </div>
@@ -737,6 +781,7 @@ function BanksSection({
 }) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
   const [newBank, setNewBank] = useState({
     bank_name: "",
     account_type: "savings" as const,
@@ -783,6 +828,7 @@ function BanksSection({
       }
       toast.success("Bank account added")
       setNewBank({ bank_name: "", account_type: "savings", opening_balance: 0, interest_rate_pct: 0, locked_amount: 0 })
+      setAddOpen(false)
       onMutate()
       router.refresh()
     } catch (err) {
@@ -831,10 +877,70 @@ function BanksSection({
 
   useUserSettingsSaveRegistration(`user-settings-banks-${profileId}`, banksDirty, persistBanks)
 
-  if (banks.length === 0 && !adding) {
+  const addBankDialog = (
+    <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add bank account</DialogTitle>
+          <DialogDescription>Add a new bank account for this profile.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Bank name</Label>
+            <Input
+              placeholder="Bank name"
+              value={newBank.bank_name}
+              onChange={(e) => setNewBank((p) => ({ ...p, bank_name: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Account type</Label>
+            <Select
+              value={newBank.account_type}
+              onValueChange={(v) => setNewBank((p) => ({ ...p, account_type: v as typeof newBank.account_type }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ACCOUNT_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Opening balance</Label>
+            <CurrencyInput
+              placeholder="Balance"
+              value={newBank.opening_balance}
+              onChange={(v) => setNewBank((p) => ({ ...p, opening_balance: v ?? 0 }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Locked amount</Label>
+            <CurrencyInput
+              placeholder="Locked"
+              value={newBank.locked_amount}
+              onChange={(v) => setNewBank((p) => ({ ...p, locked_amount: v ?? 0 }))}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={handleAdd} disabled={adding}>
+            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Add bank account
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
+  if (banks.length === 0) {
     return (
       <>
-        <EmptyState noun="bank accounts" onAdd={() => setAdding(true)} />
+        <EmptyState noun="bank accounts" onAdd={() => setAddOpen(true)} />
+        {addBankDialog}
       </>
     )
   }
@@ -940,50 +1046,13 @@ function BanksSection({
               </TableRow>
             )
           })}
-          <TableRow>
-            <TableCell colSpan={6} className="border-t">
-              <div className="flex flex-wrap gap-2 pt-2">
-                <Input
-                  placeholder="Bank name"
-                  value={newBank.bank_name}
-                  onChange={(e) => setNewBank((p) => ({ ...p, bank_name: e.target.value }))}
-                  className="h-8 w-32"
-                />
-                <Select
-                  value={newBank.account_type}
-                  onValueChange={(v) => setNewBank((p) => ({ ...p, account_type: v as typeof newBank.account_type }))}
-                >
-                  <SelectTrigger className="h-8 w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ACCOUNT_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <CurrencyInput
-                  placeholder="Balance"
-                  value={newBank.opening_balance}
-                  onChange={(v) => setNewBank((p) => ({ ...p, opening_balance: v ?? 0 }))}
-                  className="h-8 w-24"
-                />
-                <CurrencyInput
-                  placeholder="Locked"
-                  value={newBank.locked_amount}
-                  onChange={(v) => setNewBank((p) => ({ ...p, locked_amount: v ?? 0 }))}
-                  className="h-8 w-24"
-                />
-                <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding}>
-                  {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Add bank
-                </Button>
-              </div>
-            </TableCell>
-          </TableRow>
         </TableBody>
       </Table>
       </ScrollableTableWrapper>
+      <Button size="sm" variant="outline" className="mt-3" onClick={() => setAddOpen(true)}>
+        <Plus className="h-4 w-4" /> Add bank account
+      </Button>
+      {addBankDialog}
     </>
   )
 }
@@ -1003,6 +1072,7 @@ function SavingsGoalsSection({
 }) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
   const [newGoal, setNewGoal] = useState({
     name: "",
     target_amount: 0,
@@ -1065,6 +1135,7 @@ function SavingsGoalsSection({
         category: "custom",
         linked_bank_account_id: null,
       })
+      setAddOpen(false)
       onMutate()
       router.refresh()
     } catch (err) {
@@ -1115,8 +1186,93 @@ function SavingsGoalsSection({
 
   useUserSettingsSaveRegistration(`user-settings-goals-${profileId}`, goalsDirty, persistGoals)
 
-  if (goals.length === 0 && !adding) {
-    return <EmptyState noun="savings goals" onAdd={() => setAdding(true)} />
+  const addGoalDialog = (
+    <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add savings goal</DialogTitle>
+          <DialogDescription>Create a new savings goal for this profile.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Goal name</Label>
+            <Input
+              placeholder="Goal name"
+              value={newGoal.name}
+              onChange={(e) => setNewGoal((p) => ({ ...p, name: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Target amount</Label>
+            <CurrencyInput
+              placeholder="Target"
+              value={newGoal.target_amount}
+              onChange={(v) => setNewGoal((p) => ({ ...p, target_amount: v ?? 0 }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Monthly auto amount</Label>
+            <CurrencyInput
+              placeholder="Monthly auto"
+              value={newGoal.monthly_auto_amount}
+              onChange={(v) => setNewGoal((p) => ({ ...p, monthly_auto_amount: v ?? 0 }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Category</Label>
+            <Select
+              value={newGoal.category}
+              onValueChange={(v) => setNewGoal((p) => ({ ...p, category: v }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {GOAL_CATEGORIES.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Linked bank account</Label>
+            <Select
+              value={newGoal.linked_bank_account_id ?? "none"}
+              onValueChange={(v) => setNewGoal((p) => ({ ...p, linked_bank_account_id: v === "none" ? null : v }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Link account" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No account</SelectItem>
+                {bankAccounts.map((ba) => (
+                  <SelectItem key={ba.id} value={ba.id}>
+                    {ba.bank_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={handleAdd} disabled={adding}>
+            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Add savings goal
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
+  if (goals.length === 0) {
+    return (
+      <>
+        <EmptyState noun="savings goals" onAdd={() => setAddOpen(true)} />
+        {addGoalDialog}
+      </>
+    )
   }
 
   return (
@@ -1165,6 +1321,7 @@ function SavingsGoalsSection({
                       setEditing((p) => ({ ...p, [g.id]: { ...(p[g.id] ?? g), current_amount: v ?? 0 } }))
                     }
                     className="h-8 w-24"
+                    disabled={!!e.linked_bank_account_id}
                   />
                 </TableCell>
                 <TableCell>
@@ -1261,68 +1418,13 @@ function SavingsGoalsSection({
               </TableRow>
             )
           })}
-          <TableRow>
-            <TableCell colSpan={8} className="border-t">
-              <div className="flex flex-wrap gap-2 pt-2">
-                <Input
-                  placeholder="Goal name"
-                  value={newGoal.name}
-                  onChange={(e) => setNewGoal((p) => ({ ...p, name: e.target.value }))}
-                  className="h-8 w-32"
-                />
-                <CurrencyInput
-                  placeholder="Target"
-                  value={newGoal.target_amount}
-                  onChange={(v) => setNewGoal((p) => ({ ...p, target_amount: v ?? 0 }))}
-                  className="h-8 w-24"
-                />
-                <CurrencyInput
-                  placeholder="Monthly auto"
-                  value={newGoal.monthly_auto_amount}
-                  onChange={(v) => setNewGoal((p) => ({ ...p, monthly_auto_amount: v ?? 0 }))}
-                  className="h-8 w-24"
-                />
-                <Select
-                  value={newGoal.category}
-                  onValueChange={(v) => setNewGoal((p) => ({ ...p, category: v }))}
-                >
-                  <SelectTrigger className="h-8 w-28">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GOAL_CATEGORIES.map((c) => (
-                      <SelectItem key={c.value} value={c.value}>
-                        {c.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={newGoal.linked_bank_account_id ?? "none"}
-                  onValueChange={(v) => setNewGoal((p) => ({ ...p, linked_bank_account_id: v === "none" ? null : v }))}
-                >
-                  <SelectTrigger className="h-8 w-32">
-                    <SelectValue placeholder="Link account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No account</SelectItem>
-                    {bankAccounts.map((ba) => (
-                      <SelectItem key={ba.id} value={ba.id}>
-                        {ba.bank_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding}>
-                  {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Add goal
-                </Button>
-              </div>
-            </TableCell>
-          </TableRow>
         </TableBody>
       </Table>
       </ScrollableTableWrapper>
+      <Button size="sm" variant="outline" className="mt-3" onClick={() => setAddOpen(true)}>
+        <Plus className="h-4 w-4" /> Add savings goal
+      </Button>
+      {addGoalDialog}
     </>
   )
 }
@@ -1828,6 +1930,7 @@ function InvestmentsSection({
 }) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
   const [newInv, setNewInv] = useState<{
     symbol: string
     type: InvestmentKind
@@ -1891,6 +1994,7 @@ function InvestmentsSection({
       toast.success("Investment added")
       setNewInv({ symbol: "", type: "stock", cost_basis: 0 })
       setNewUnitsInput("")
+      setAddOpen(false)
       onMutate()
       router.refresh()
     } catch (err) {
@@ -1928,6 +2032,7 @@ function InvestmentsSection({
           type: e.type,
           units: e.units,
           costBasis: e.cost_basis,
+          targetAllocationPct: e.target_allocation_pct,
           profileId: e.profile_id,
         }),
       })
@@ -1967,7 +2072,105 @@ function InvestmentsSection({
     })
   }
 
-  if (investments.length === 0 && !adding) {
+  const addInvestmentDialog = (
+    <>
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add investment</DialogTitle>
+            <DialogDescription>Add a new investment holding for this profile.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <Select
+                value={newInv.type}
+                onValueChange={(v) => onNewInvestmentTypeChange(v as InvestmentKind)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {INVESTMENT_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{newInv.type === "ilp" ? "Policy name" : "Symbol"}</Label>
+              {isGoldOrSilver(newInv.type) ? (
+                <Input value={effectiveNewSymbol} disabled className="bg-muted" />
+              ) : newInv.type === "ilp" ? (
+                <Input
+                  placeholder="e.g. Prudential ILP"
+                  value={newInv.symbol}
+                  onChange={(e) => setNewInv((p) => ({ ...p, symbol: e.target.value }))}
+                />
+              ) : effectiveNewSymbol ? (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-9 items-center gap-1 rounded-md border bg-muted px-3 text-sm font-medium">
+                    {effectiveNewSymbol}
+                    <button
+                      type="button"
+                      onClick={() => setNewInv((p) => ({ ...p, symbol: "" }))}
+                      className="rounded p-0.5 hover:bg-muted-foreground/20"
+                      aria-label="Clear symbol"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                  <Button size="sm" variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
+                    Change
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
+                  <Plus className="mr-2 size-3.5" />
+                  Search symbol
+                </Button>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Units</Label>
+              <Input
+                type="number"
+                step="any"
+                min={0}
+                placeholder="0"
+                value={newUnitsInput}
+                onChange={(ev) => setNewUnitsInput(ev.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Cost per unit</Label>
+              <CurrencyInput
+                placeholder="Avg. price per unit"
+              value={newInv.cost_basis}
+              onChange={(v) => setNewInv((p) => ({ ...p, cost_basis: v ?? 0 }))}
+            />
+          </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleAdd} disabled={adding || !effectiveNewSymbol.trim()}>
+              {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Add investment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <SymbolPickerDrawer
+        open={symbolDrawerOpen}
+        onOpenChange={setSymbolDrawerOpen}
+        onSelect={(s) => {
+          setNewInv((p) => ({ ...p, symbol: s }))
+          setSymbolDrawerOpen(false)
+        }}
+      />
+    </>
+  )
+
+  if (investments.length === 0) {
     return (
       <>
         <InvestmentCashBalanceSettings
@@ -1975,95 +2178,8 @@ function InvestmentsSection({
           familyId={familyId}
           onMutate={onMutate}
         />
-        <p className="text-sm text-muted-foreground">No investments. Add one below.</p>
-        <div className="flex flex-wrap gap-4 rounded-lg border p-3 mt-2">
-          <div className="space-y-1">
-            <Label>{newInv.type === "ilp" ? "Policy name" : "Symbol"}</Label>
-            {isGoldOrSilver(newInv.type) ? (
-              <Input value={effectiveNewSymbol} disabled className="h-8 w-24 bg-muted" />
-            ) : newInv.type === "ilp" ? (
-              <Input
-                placeholder="e.g. Prudential ILP"
-                value={newInv.symbol}
-                onChange={(e) => setNewInv((p) => ({ ...p, symbol: e.target.value }))}
-                className="h-8 w-32"
-              />
-            ) : effectiveNewSymbol ? (
-              <div className="flex items-center gap-1">
-                <span className="inline-flex h-8 items-center gap-1 rounded-md border bg-muted px-2 text-sm font-medium">
-                  {effectiveNewSymbol}
-                  <button
-                    type="button"
-                    onClick={() => setNewInv((p) => ({ ...p, symbol: "" }))}
-                    className="rounded p-0.5 hover:bg-muted-foreground/20"
-                    aria-label="Clear symbol"
-                  >
-                    <X className="size-3" />
-                  </button>
-                </span>
-                <Button size="sm" variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
-                  Change
-                </Button>
-              </div>
-            ) : (
-              <Button size="sm" variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
-                <Plus className="mr-2 size-3.5" />
-                Add symbol
-              </Button>
-            )}
-          </div>
-          <div className="space-y-1">
-            <Label>Type</Label>
-            <Select
-              value={newInv.type}
-              onValueChange={(v) => onNewInvestmentTypeChange(v as InvestmentKind)}
-            >
-              <SelectTrigger className="h-8 w-24">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {INVESTMENT_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Units</Label>
-            <Input
-              type="number"
-              step="any"
-              min={0}
-              placeholder="0"
-              value={newUnitsInput}
-              onChange={(ev) => setNewUnitsInput(ev.target.value)}
-              className="h-8 w-20"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Cost per unit</Label>
-            <CurrencyInput
-              placeholder="Avg. price per unit"
-              value={newInv.cost_basis}
-              onChange={(v) => setNewInv((p) => ({ ...p, cost_basis: v ?? 0 }))}
-              className="h-8 w-24"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button size="sm" onClick={handleAdd} disabled={adding || !effectiveNewSymbol.trim()}>
-              {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Add
-            </Button>
-          </div>
-        </div>
-        <SymbolPickerDrawer
-          open={symbolDrawerOpen}
-          onOpenChange={setSymbolDrawerOpen}
-          onSelect={(s) => {
-            setNewInv((p) => ({ ...p, symbol: s }))
-            setSymbolDrawerOpen(false)
-          }}
-        />
+        <EmptyState noun="investments" onAdd={() => setAddOpen(true)} />
+        {addInvestmentDialog}
       </>
     )
   }
@@ -2088,6 +2204,7 @@ function InvestmentsSection({
                 <InfoTooltip id="INVESTMENT_COST_PER_UNIT" />
               </span>
             </TableHead>
+            <TableHead>Target %</TableHead>
             <TableHead className="tabular-nums">Current price (US$)</TableHead>
             <TableHead className="tabular-nums">Current value (US$)</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -2193,6 +2310,29 @@ function InvestmentsSection({
                     className="h-8 w-24"
                   />
                 </TableCell>
+                <TableCell>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    max={100}
+                    value={e.target_allocation_pct ?? ""}
+                    placeholder="—"
+                    onChange={(ev) => {
+                      const raw = ev.target.value
+                      const n = raw === "" ? null : Number.parseFloat(raw)
+                      setEditing((p) => ({
+                        ...p,
+                        [inv.id]: {
+                          ...(p[inv.id] ?? inv),
+                          target_allocation_pct:
+                            n != null && Number.isFinite(n) && n >= 0 && n <= 100 ? n : null,
+                        },
+                      }))
+                    }}
+                    className="h-8 w-16"
+                  />
+                </TableCell>
                 <TableCell className="text-muted-foreground tabular-nums">
                   {inv.current_price != null &&
                   Number.isFinite(inv.current_price) &&
@@ -2215,98 +2355,17 @@ function InvestmentsSection({
               </TableRow>
             )
           })}
-          <TableRow>
-            <TableCell colSpan={7} className="border-t">
-              <div className="flex flex-wrap gap-4 pt-2">
-                <div className="space-y-1">
-                  <Label>{newInv.type === "ilp" ? "Policy name" : "Symbol"}</Label>
-                  {isGoldOrSilver(newInv.type) ? (
-                    <Input value={effectiveNewSymbol} disabled className="h-8 w-24 bg-muted" />
-                  ) : newInv.type === "ilp" ? (
-                    <Input
-                      placeholder="e.g. Prudential ILP"
-                      value={newInv.symbol}
-                      onChange={(e) => setNewInv((p) => ({ ...p, symbol: e.target.value }))}
-                      className="h-8 w-32"
-                    />
-                  ) : effectiveNewSymbol ? (
-                    <div className="flex items-center gap-1">
-                      <span className="inline-flex h-8 items-center gap-1 rounded-md border bg-muted px-2 text-sm font-medium">
-                        {effectiveNewSymbol}
-                        <button
-                          type="button"
-                          onClick={() => setNewInv((p) => ({ ...p, symbol: "" }))}
-                          className="rounded p-0.5 hover:bg-muted-foreground/20"
-                          aria-label="Clear symbol"
-                        >
-                          <X className="size-3" />
-                        </button>
-                      </span>
-                      <Button size="sm" variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
-                        Change
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button size="sm" variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
-                      <Plus className="mr-2 size-3.5" />
-                      Add symbol
-                    </Button>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <Label>Type</Label>
-                  <Select
-                    value={newInv.type}
-                    onValueChange={(v) => onNewInvestmentTypeChange(v as InvestmentKind)}
-                  >
-                    <SelectTrigger className="h-8 w-24">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {INVESTMENT_TYPES.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label>Units</Label>
-                  <Input
-                    type="number"
-                    step="any"
-                    min={0}
-                    placeholder="0"
-                    value={newUnitsInput}
-                    onChange={(ev) => setNewUnitsInput(ev.target.value)}
-                    className="h-8 w-20"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Cost per unit</Label>
-                  <CurrencyInput
-                    placeholder="Avg. price per unit"
-                    value={newInv.cost_basis}
-                    onChange={(v) => setNewInv((p) => ({ ...p, cost_basis: v ?? 0 }))}
-                    className="h-8 w-24"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding || !effectiveNewSymbol.trim()}>
-                    {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                    Add investment
-                  </Button>
-                </div>
-              </div>
-            </TableCell>
-          </TableRow>
         </TableBody>
       </Table>
       </ScrollableTableWrapper>
+      <Button size="sm" variant="outline" className="mt-3" onClick={() => setAddOpen(true)}>
+        <Plus className="h-4 w-4" /> Add investment
+      </Button>
+      {addInvestmentDialog}
       <SymbolPickerDrawer
-        open={symbolDrawerOpen || symbolDrawerEditId !== null}
+        open={symbolDrawerEditId !== null}
         onOpenChange={(open) => {
           if (!open) {
-            setSymbolDrawerOpen(false)
             setSymbolDrawerEditId(null)
           }
         }}
@@ -2318,9 +2377,6 @@ function InvestmentsSection({
               return { ...p, [symbolDrawerEditId]: { ...(p[symbolDrawerEditId] ?? inv), symbol: s } }
             })
             setSymbolDrawerEditId(null)
-          } else {
-            setNewInv((prev) => ({ ...prev, symbol: s }))
-            setSymbolDrawerOpen(false)
           }
         }}
       />
@@ -2339,6 +2395,7 @@ function LoansSection({
 }) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
   const [newLoan, setNewLoan] = useState({
     name: "",
     type: "housing" as const,
@@ -2410,6 +2467,7 @@ function LoansSection({
         use_cpf_oa: false,
         valuation_limit: null,
       })
+      setAddOpen(false)
       onMutate()
       router.refresh()
     } catch (err) {
@@ -2465,27 +2523,29 @@ function LoansSection({
 
   useUserSettingsSaveRegistration(`user-settings-loans-${profileId}`, loansDirty, persistLoans)
 
-  if (loans.length === 0 && !adding) {
-    return (
-      <>
-        <p className="text-sm text-muted-foreground">No loans. Add one below.</p>
-        <div className="flex flex-wrap gap-4 rounded-lg border p-3 mt-2">
-          <div className="space-y-1">
-            <Label>Name</Label>
+  const addLoanDialog = (
+    <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add loan</DialogTitle>
+          <DialogDescription>Add a new loan for this profile.</DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Loan name</Label>
             <Input
               placeholder="Loan name"
               value={newLoan.name}
               onChange={(e) => setNewLoan((p) => ({ ...p, name: e.target.value }))}
-              className="h-8 w-28"
             />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-2">
             <Label>Type</Label>
             <Select
               value={newLoan.type}
               onValueChange={(v) => setNewLoan((p) => ({ ...p, type: v as typeof newLoan.type }))}
             >
-              <SelectTrigger className="h-8 w-28">
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -2495,17 +2555,16 @@ function LoansSection({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-2">
             <Label>Principal</Label>
             <CurrencyInput
               placeholder="Principal"
               value={newLoan.principal}
               onChange={(v) => setNewLoan((p) => ({ ...p, principal: v ?? 0 }))}
-              className="h-8 w-24"
             />
           </div>
-          <div className="space-y-1">
-            <Label>Rate %</Label>
+          <div className="space-y-2">
+            <Label>Interest rate %</Label>
             <Input
               type="number"
               step={0.01}
@@ -2515,11 +2574,10 @@ function LoansSection({
               onChange={(e) =>
                 setNewLoan((p) => ({ ...p, rate_pct: Number(e.target.value) || 0 }))
               }
-              className="h-8 w-20"
             />
           </div>
-          <div className="space-y-1">
-            <Label>Tenure (mo)</Label>
+          <div className="space-y-2">
+            <Label>Tenure (months)</Label>
             <Input
               type="number"
               min={1}
@@ -2528,21 +2586,27 @@ function LoansSection({
               onChange={(e) =>
                 setNewLoan((p) => ({ ...p, tenure_months: Number(e.target.value) || 0 }))
               }
-              className="h-8 w-20"
             />
           </div>
-          <div className="space-y-1">
-            <Label>Start Date</Label>
+          <div className="space-y-2">
+            <Label>Start date</Label>
             <DatePicker
               value={newLoan.start_date || null}
               onChange={(d) => setNewLoan((p) => ({ ...p, start_date: d ?? "" }))}
               placeholder="Start date"
-              className="h-8 w-32"
             />
           </div>
-          <div className="flex items-center gap-2 pt-6">
+          <div className="space-y-2">
+            <Label>Valuation limit (120% cap)</Label>
+            <CurrencyInput
+              placeholder="Optional"
+              value={newLoan.valuation_limit ?? undefined}
+              onChange={(v) => setNewLoan((p) => ({ ...p, valuation_limit: v ?? null }))}
+            />
+          </div>
+          <div className="flex items-center gap-2 pt-7">
             <input
-              id="new-loan-cpf-empty"
+              id="new-loan-cpf-dialog"
               type="checkbox"
               className="h-4 w-4 rounded border border-input"
               checked={newLoan.use_cpf_oa}
@@ -2550,26 +2614,26 @@ function LoansSection({
                 setNewLoan((p) => ({ ...p, use_cpf_oa: ev.target.checked }))
               }
             />
-            <Label htmlFor="new-loan-cpf-empty" className="font-normal cursor-pointer">
-              CPF OA
+            <Label htmlFor="new-loan-cpf-dialog" className="font-normal cursor-pointer">
+              Uses CPF OA
             </Label>
           </div>
-          <div className="space-y-1">
-            <Label>VL (120% cap)</Label>
-            <CurrencyInput
-              placeholder="Optional"
-              value={newLoan.valuation_limit ?? undefined}
-              onChange={(v) => setNewLoan((p) => ({ ...p, valuation_limit: v ?? null }))}
-              className="h-8 w-24"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button size="sm" onClick={handleAdd} disabled={adding}>
-              {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Add loan
-            </Button>
-          </div>
         </div>
+        <DialogFooter>
+          <Button onClick={handleAdd} disabled={adding}>
+            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Add loan
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
+  if (loans.length === 0) {
+    return (
+      <>
+        <EmptyState noun="loans" onAdd={() => setAddOpen(true)} />
+        {addLoanDialog}
       </>
     )
   }
@@ -2703,114 +2767,13 @@ function LoansSection({
               </TableRow>
             )
           })}
-          <TableRow>
-            <TableCell colSpan={9} className="border-t">
-              <div className="flex flex-wrap gap-4 pt-2">
-                <div className="space-y-1">
-                  <Label>Name</Label>
-                  <Input
-                    placeholder="Loan name"
-                    value={newLoan.name}
-                    onChange={(e) => setNewLoan((p) => ({ ...p, name: e.target.value }))}
-                    className="h-8 w-28"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Type</Label>
-                  <Select
-                    value={newLoan.type}
-                    onValueChange={(v) => setNewLoan((p) => ({ ...p, type: v as typeof newLoan.type }))}
-                  >
-                    <SelectTrigger className="h-8 w-28">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {LOAN_TYPES.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label>Principal</Label>
-                  <CurrencyInput
-                    placeholder="Principal"
-                    value={newLoan.principal}
-                    onChange={(v) => setNewLoan((p) => ({ ...p, principal: v ?? 0 }))}
-                    className="h-8 w-24"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Rate %</Label>
-                  <Input
-                    type="number"
-                    step={0.01}
-                    min={0}
-                    placeholder="0"
-                    value={newLoan.rate_pct || ""}
-                    onChange={(e) =>
-                      setNewLoan((p) => ({ ...p, rate_pct: Number(e.target.value) || 0 }))
-                    }
-                    className="h-8 w-20"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Tenure (mo)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    placeholder="Months"
-                    value={newLoan.tenure_months || ""}
-                    onChange={(e) =>
-                      setNewLoan((p) => ({ ...p, tenure_months: Number(e.target.value) || 0 }))
-                    }
-                    className="h-8 w-20"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Start Date</Label>
-                  <DatePicker
-                    value={newLoan.start_date || null}
-                    onChange={(d) => setNewLoan((p) => ({ ...p, start_date: d ?? "" }))}
-                    placeholder="Start date"
-                    className="h-8 w-32"
-                  />
-                </div>
-                <div className="flex items-center gap-2 pt-6">
-                  <input
-                    id="new-loan-cpf-row"
-                    type="checkbox"
-                    className="h-4 w-4 rounded border border-input"
-                    checked={newLoan.use_cpf_oa}
-                    onChange={(ev) =>
-                      setNewLoan((p) => ({ ...p, use_cpf_oa: ev.target.checked }))
-                    }
-                  />
-                  <Label htmlFor="new-loan-cpf-row" className="font-normal cursor-pointer">
-                    CPF OA
-                  </Label>
-                </div>
-                <div className="space-y-1">
-                  <Label>VL</Label>
-                  <CurrencyInput
-                    placeholder="Optional"
-                    value={newLoan.valuation_limit ?? undefined}
-                    onChange={(v) => setNewLoan((p) => ({ ...p, valuation_limit: v ?? null }))}
-                    className="h-8 w-24"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding}>
-                    {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                    Add loan
-                  </Button>
-                </div>
-              </div>
-            </TableCell>
-          </TableRow>
         </TableBody>
       </Table>
       </ScrollableTableWrapper>
+      <Button size="sm" variant="outline" className="mt-3" onClick={() => setAddOpen(true)}>
+        <Plus className="h-4 w-4" /> Add loan
+      </Button>
+      {addLoanDialog}
     </>
   )
 }
@@ -2844,6 +2807,7 @@ function LoanRepaymentsSection({
   const [rows, setRows] = useState<RepaymentApiRow[]>([])
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
   const [form, setForm] = useState({
     loanId: "",
     date: new Date().toISOString().slice(0, 10),
@@ -2913,6 +2877,7 @@ function LoanRepaymentsSection({
         amount: 0,
         cpfOaAmount: null,
       }))
+      setAddOpen(false)
       await load()
       onMutate()
       router.refresh()
@@ -2932,56 +2897,67 @@ function LoanRepaymentsSection({
         housing tranche is created for the CPF dashboard.
       </p>
 
-      <div className="mt-3 flex flex-wrap items-end gap-3 rounded-lg border p-3">
-        <div className="space-y-1">
-          <Label>Loan</Label>
-          <Select value={form.loanId} onValueChange={(loanId) => setForm((f) => ({ ...f, loanId }))}>
-            <SelectTrigger className="h-8 w-48">
-              <SelectValue placeholder="Loan" />
-            </SelectTrigger>
-            <SelectContent>
-              {loans.map((l) => (
-                <SelectItem key={l.id} value={l.id}>
-                  {l.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label>Date</Label>
-          <DatePicker
-            value={form.date || null}
-            onChange={(d) => setForm((f) => ({ ...f, date: d ?? "" }))}
-            placeholder="Date"
-            className="h-8 w-36"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label>Amount</Label>
-          <CurrencyInput
-            className="h-8 w-28"
-            value={form.amount || undefined}
-            onChange={(v) => setForm((f) => ({ ...f, amount: v ?? 0 }))}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="flex items-center gap-1">
-            CPF OA
-            <InfoTooltip id="CPF_HOUSING_REFUND" />
-          </Label>
-          <CurrencyInput
-            placeholder="Optional"
-            className="h-8 w-28"
-            value={form.cpfOaAmount ?? undefined}
-            onChange={(v) => setForm((f) => ({ ...f, cpfOaAmount: v ?? null }))}
-          />
-        </div>
-        <Button size="sm" onClick={() => void handleSubmit()} disabled={submitting}>
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-          Add repayment
-        </Button>
-      </div>
+      <Button size="sm" variant="outline" className="mt-3" onClick={() => setAddOpen(true)}>
+        <Plus className="h-4 w-4" /> Add repayment
+      </Button>
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Log loan repayment</DialogTitle>
+            <DialogDescription>Record a loan instalment payment.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Loan</Label>
+              <Select value={form.loanId} onValueChange={(loanId) => setForm((f) => ({ ...f, loanId }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Loan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {loans.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <DatePicker
+                value={form.date || null}
+                onChange={(d) => setForm((f) => ({ ...f, date: d ?? "" }))}
+                placeholder="Date"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Amount</Label>
+              <CurrencyInput
+                value={form.amount || undefined}
+                onChange={(v) => setForm((f) => ({ ...f, amount: v ?? 0 }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                CPF OA
+                <InfoTooltip id="CPF_HOUSING_REFUND" />
+              </Label>
+              <CurrencyInput
+                placeholder="Optional"
+                value={form.cpfOaAmount ?? undefined}
+                onChange={(v) => setForm((f) => ({ ...f, cpfOaAmount: v ?? null }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => void handleSubmit()} disabled={submitting}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Add repayment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="mt-4 rounded-md border">
         <ScrollableTableWrapper minWidth="600px">
@@ -3053,6 +3029,7 @@ function InsuranceSection({
 }) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
   const [newPolicy, setNewPolicy] = useState<{
     name: string
     type: InsuranceType
@@ -3188,6 +3165,7 @@ function InsuranceSection({
         cash_value: null,
         coverage_till_age: null,
       })
+      setAddOpen(false)
       onMutate()
       router.refresh()
     } catch (err) {
@@ -3254,251 +3232,254 @@ function InsuranceSection({
 
   useUserSettingsSaveRegistration(`user-settings-insurance-${profileId}`, insuranceDirty, persistInsurance)
 
-  if (policies.length === 0 && !adding) {
-    return (
-      <>
-        <p className="text-sm text-muted-foreground">No insurance policies. Add one below.</p>
-        <div className="flex flex-wrap gap-4 rounded-lg border p-3 mt-2">
-          <div className="space-y-1">
-            <Label>Policy name</Label>
-            <Input
-              placeholder="Policy name"
-              value={newPolicy.name}
-              onChange={(e) => setNewPolicy((p) => ({ ...p, name: e.target.value }))}
-              className="h-8 w-32"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Type</Label>
-            <Select
-              value={newPolicy.type}
-              onValueChange={(v) => setNewPolicyType(v as InsuranceType)}
-            >
-              <SelectTrigger className="h-8 w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {INSURANCE_TYPES_FOR_NEW.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Insurer</Label>
-            <Input
-              placeholder="Insurer"
-              value={newPolicy.insurer ?? ""}
-              onChange={(e) => setNewPolicy((p) => ({ ...p, insurer: e.target.value || null }))}
-              className="h-8 w-28"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Premium</Label>
-            <CurrencyInput
-              placeholder="Premium"
-              value={newPolicy.premium_amount}
-              onChange={(v) => setNewPolicy((p) => ({ ...p, premium_amount: v ?? 0 }))}
-              className="h-8 w-24"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Frequency</Label>
-            <Select
-              value={newPolicy.frequency}
-              onValueChange={(v) => setNewPolicyFrequency(v as "monthly" | "yearly")}
-            >
-              <SelectTrigger className="h-8 w-24">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="yearly">Yearly</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {ALLOWED_COVERAGES_BY_POLICY[newPolicy.type].length > 0 && (
-            <div className="basis-full space-y-2">
-              <Label>Coverages</Label>
-              <div className="flex flex-wrap gap-3">
-                {ALLOWED_COVERAGES_BY_POLICY[newPolicy.type].map((ct) => {
-                  const entry = newPolicy.coverages.find((c) => c.coverage_type === ct)
-                  const isChecked = !!entry
-                  return (
-                    <div key={ct} className="flex items-center gap-2">
-                      <Switch
-                        checked={isChecked}
-                        onCheckedChange={(checked) => {
-                          setNewPolicy((prev) => ({
-                            ...prev,
-                            coverages: checked
-                              ? [...prev.coverages, { coverage_type: ct, coverage_amount: null }]
-                              : prev.coverages.filter((c) => c.coverage_type !== ct),
-                          }))
-                        }}
-                      />
-                      <span className="text-sm whitespace-nowrap">{COVERAGE_TYPE_LABELS[ct]}</span>
-                      {isChecked && (
-                        <CurrencyInput
-                          placeholder="0"
-                          value={entry?.coverage_amount}
-                          onChange={(v) =>
+  const addInsuranceDialog = (
+    <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add insurance policy</DialogTitle>
+          <DialogDescription>Add a new insurance policy for this profile.</DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[60vh] overflow-y-auto">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Policy name</Label>
+              <Input
+                placeholder="Policy name"
+                value={newPolicy.name}
+                onChange={(e) => setNewPolicy((p) => ({ ...p, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <Select
+                value={newPolicy.type}
+                onValueChange={(v) => setNewPolicyType(v as InsuranceType)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {INSURANCE_TYPES_FOR_NEW.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Insurer</Label>
+              <Input
+                placeholder="Insurer"
+                value={newPolicy.insurer ?? ""}
+                onChange={(e) => setNewPolicy((p) => ({ ...p, insurer: e.target.value || null }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Premium</Label>
+              <CurrencyInput
+                placeholder="Premium"
+                value={newPolicy.premium_amount}
+                onChange={(v) => setNewPolicy((p) => ({ ...p, premium_amount: v ?? 0 }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Frequency</Label>
+              <Select
+                value={newPolicy.frequency}
+                onValueChange={(v) => setNewPolicyFrequency(v as "monthly" | "yearly")}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="yearly">Yearly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Policy #</Label>
+              <Input
+                placeholder="Policy #"
+                value={newPolicy.policy_number ?? ""}
+                onChange={(e) => setNewPolicy((p) => ({ ...p, policy_number: e.target.value || null }))}
+              />
+            </div>
+            {ALLOWED_COVERAGES_BY_POLICY[newPolicy.type].length > 0 && (
+              <div className="col-span-full space-y-2">
+                <Label>Coverages</Label>
+                <div className="flex flex-wrap gap-3">
+                  {ALLOWED_COVERAGES_BY_POLICY[newPolicy.type].map((ct) => {
+                    const entry = newPolicy.coverages.find((c) => c.coverage_type === ct)
+                    const isChecked = !!entry
+                    return (
+                      <div key={ct} className="flex items-center gap-2">
+                        <Switch
+                          checked={isChecked}
+                          onCheckedChange={(checked) => {
                             setNewPolicy((prev) => ({
                               ...prev,
-                              coverages: prev.coverages.map((c) =>
-                                c.coverage_type === ct ? { ...c, coverage_amount: v ?? null } : c,
-                              ),
+                              coverages: checked
+                                ? [...prev.coverages, { coverage_type: ct, coverage_amount: null }]
+                                : prev.coverages.filter((c) => c.coverage_type !== ct),
                             }))
-                          }
-                          className="h-8 w-28"
+                          }}
                         />
-                      )}
-                    </div>
-                  )
-                })}
+                        <span className="text-sm whitespace-nowrap">{COVERAGE_TYPE_LABELS[ct]}</span>
+                        {isChecked && (
+                          <CurrencyInput
+                            placeholder="0"
+                            value={entry?.coverage_amount}
+                            onChange={(v) =>
+                              setNewPolicy((prev) => ({
+                                ...prev,
+                                coverages: prev.coverages.map((c) =>
+                                  c.coverage_type === ct ? { ...c, coverage_amount: v ?? null } : c,
+                                ),
+                              }))
+                            }
+                            className="h-8 w-28"
+                          />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          )}
-          {newPolicyFields.showYearlyOutflowDate && (
-            <div className="space-y-1">
-              <Label>Yearly due month</Label>
-              <Select
-                value={newPolicy.yearly_outflow_date?.toString() ?? ""}
-                onValueChange={(v) =>
-                  setNewPolicy((p) => ({ ...p, yearly_outflow_date: v ? parseInt(v, 10) : null }))
-                }
-              >
-                <SelectTrigger className="h-8 w-24">
-                  <SelectValue placeholder="Month" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                    <SelectItem key={m} value={m.toString()}>
-                      {m}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          {newPolicyFields.showSubType && (
-            <div className="space-y-1">
-              <Label>Ward class</Label>
-              <Select
-                value={newPolicy.sub_type ?? ""}
-                onValueChange={(v) => setNewPolicy((p) => ({ ...p, sub_type: v || null }))}
-              >
-                <SelectTrigger className="h-8 w-28">
-                  <SelectValue placeholder="Ward" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ISP_SUB_TYPES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          {newPolicyFields.showRider && (
-            <>
-              <div className="space-y-1">
-                <Label>Rider name</Label>
+            )}
+            {newPolicyFields.showYearlyOutflowDate && (
+              <div className="space-y-2">
+                <Label>Yearly due month</Label>
+                <Select
+                  value={newPolicy.yearly_outflow_date?.toString() ?? ""}
+                  onValueChange={(v) =>
+                    setNewPolicy((p) => ({ ...p, yearly_outflow_date: v ? parseInt(v, 10) : null }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                      <SelectItem key={m} value={m.toString()}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {newPolicyFields.showSubType && (
+              <div className="space-y-2">
+                <Label>Ward class</Label>
+                <Select
+                  value={newPolicy.sub_type ?? ""}
+                  onValueChange={(v) => setNewPolicy((p) => ({ ...p, sub_type: v || null }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Ward" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ISP_SUB_TYPES.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {newPolicyFields.showRider && (
+              <>
+                <div className="space-y-2">
+                  <Label>Rider name</Label>
+                  <Input
+                    placeholder="Rider"
+                    value={newPolicy.rider_name ?? ""}
+                    onChange={(e) => setNewPolicy((p) => ({ ...p, rider_name: e.target.value || null }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Rider premium</Label>
+                  <CurrencyInput
+                    placeholder="0"
+                    value={newPolicy.rider_premium}
+                    onChange={(v) => setNewPolicy((p) => ({ ...p, rider_premium: v ?? null }))}
+                  />
+                </div>
+              </>
+            )}
+            {newPolicyFields.showCoverageTillAge && (
+              <div className="space-y-2">
+                <Label>Coverage till age</Label>
                 <Input
-                  placeholder="Rider"
-                  value={newPolicy.rider_name ?? ""}
-                  onChange={(e) => setNewPolicy((p) => ({ ...p, rider_name: e.target.value || null }))}
-                  className="h-8 w-24"
+                  type="number"
+                  placeholder="Age"
+                  value={newPolicy.coverage_till_age ?? ""}
+                  onChange={(e) =>
+                    setNewPolicy((p) => ({
+                      ...p,
+                      coverage_till_age: e.target.value ? parseInt(e.target.value, 10) : null,
+                    }))
+                  }
+                  min={1}
                 />
               </div>
-              <div className="space-y-1">
-                <Label>Rider premium</Label>
+            )}
+            {newPolicyFields.showCurrentAmount && (
+              <div className="space-y-2">
+                <Label>{newPolicyFields.currentAmountLabel}</Label>
                 <CurrencyInput
                   placeholder="0"
-                  value={newPolicy.rider_premium}
-                  onChange={(v) => setNewPolicy((p) => ({ ...p, rider_premium: v ?? null }))}
-                  className="h-8 w-20"
+                  value={newPolicy.current_amount}
+                  onChange={(v) => setNewPolicy((p) => ({ ...p, current_amount: v ?? null }))}
                 />
               </div>
-            </>
-          )}
-          {newPolicyFields.showCoverageTillAge && (
-            <div className="space-y-1">
-              <Label>Coverage till age</Label>
-              <Input
-                type="number"
-                placeholder="Age"
-                value={newPolicy.coverage_till_age ?? ""}
-                onChange={(e) =>
-                  setNewPolicy((p) => ({
-                    ...p,
-                    coverage_till_age: e.target.value ? parseInt(e.target.value, 10) : null,
-                  }))
-                }
-                className="h-8 w-20"
-                min={1}
-              />
-            </div>
-          )}
-          {newPolicyFields.showCurrentAmount && (
-            <div className="space-y-1">
-              <Label>{newPolicyFields.currentAmountLabel}</Label>
-              <CurrencyInput
-                placeholder="0"
-                value={newPolicy.current_amount}
-                onChange={(v) => setNewPolicy((p) => ({ ...p, current_amount: v ?? null }))}
-                className="h-8 w-24"
-              />
-            </div>
-          )}
-          {newPolicyFields.showCashValue && (
-            <div className="space-y-1">
-              <Label>Cash value</Label>
-              <CurrencyInput
-                placeholder="0"
-                value={newPolicy.cash_value}
-                onChange={(v) => setNewPolicy((p) => ({ ...p, cash_value: v ?? null }))}
-                className="h-8 w-24"
-              />
-            </div>
-          )}
-          {newPolicyFields.showMaturityValue && (
-            <div className="space-y-1">
-              <Label>Maturity value</Label>
-              <CurrencyInput
-                placeholder="0"
-                value={newPolicy.maturity_value}
-                onChange={(v) => setNewPolicy((p) => ({ ...p, maturity_value: v ?? null }))}
-                className="h-8 w-24"
-              />
-            </div>
-          )}
-          {newPolicyFields.showEndDate && (
-            <div className="space-y-1">
-              <Label>{newPolicyFields.endDateLabel}</Label>
-              <DatePicker
-                value={newPolicy.end_date ?? null}
-                onChange={(d) => setNewPolicy((p) => ({ ...p, end_date: d }))}
-                placeholder="End date"
-                className="h-8 w-32"
-              />
-            </div>
-          )}
-          <div className="space-y-1">
-            <Label>Policy #</Label>
-            <Input
-              placeholder="Policy #"
-              value={newPolicy.policy_number ?? ""}
-              onChange={(e) => setNewPolicy((p) => ({ ...p, policy_number: e.target.value || null }))}
-              className="h-8 w-24"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button size="sm" onClick={handleAdd} disabled={adding}>
-              {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Add
-            </Button>
+            )}
+            {newPolicyFields.showCashValue && (
+              <div className="space-y-2">
+                <Label>Cash value</Label>
+                <CurrencyInput
+                  placeholder="0"
+                  value={newPolicy.cash_value}
+                  onChange={(v) => setNewPolicy((p) => ({ ...p, cash_value: v ?? null }))}
+                />
+              </div>
+            )}
+            {newPolicyFields.showMaturityValue && (
+              <div className="space-y-2">
+                <Label>Maturity value</Label>
+                <CurrencyInput
+                  placeholder="0"
+                  value={newPolicy.maturity_value}
+                  onChange={(v) => setNewPolicy((p) => ({ ...p, maturity_value: v ?? null }))}
+                />
+              </div>
+            )}
+            {newPolicyFields.showEndDate && (
+              <div className="space-y-2">
+                <Label>{newPolicyFields.endDateLabel}</Label>
+                <DatePicker
+                  value={newPolicy.end_date ?? null}
+                  onChange={(d) => setNewPolicy((p) => ({ ...p, end_date: d }))}
+                  placeholder="End date"
+                />
+              </div>
+            )}
           </div>
         </div>
+        <DialogFooter>
+          <Button onClick={handleAdd} disabled={adding}>
+            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Add insurance policy
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
+  if (policies.length === 0) {
+    return (
+      <>
+        <EmptyState noun="insurance policies" onAdd={() => setAddOpen(true)} />
+        {addInsuranceDialog}
       </>
     )
   }
@@ -3833,254 +3814,13 @@ function InsuranceSection({
               </TableRow>
             )
           })}
-          <TableRow>
-            <TableCell colSpan={8} className="border-t">
-              <div className="flex flex-wrap gap-4 pt-2">
-                <div className="space-y-1">
-                  <Label>Policy name</Label>
-                  <Input
-                    placeholder="Policy name"
-                    value={newPolicy.name}
-                    onChange={(e) => setNewPolicy((prev) => ({ ...prev, name: e.target.value }))}
-                    className="h-8 w-32"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Type</Label>
-                  <Select
-                    value={newPolicy.type}
-                    onValueChange={(v) => setNewPolicyType(v as InsuranceType)}
-                  >
-                    <SelectTrigger className="h-8 w-44">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {INSURANCE_TYPES_FOR_NEW.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label>Insurer</Label>
-                  <Input
-                    placeholder="Insurer"
-                    value={newPolicy.insurer ?? ""}
-                    onChange={(e) => setNewPolicy((prev) => ({ ...prev, insurer: e.target.value || null }))}
-                    className="h-8 w-28"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Premium</Label>
-                  <CurrencyInput
-                    placeholder="Premium"
-                    value={newPolicy.premium_amount}
-                    onChange={(v) => setNewPolicy((prev) => ({ ...prev, premium_amount: v ?? 0 }))}
-                    className="h-8 w-24"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Frequency</Label>
-                  <Select
-                    value={newPolicy.frequency}
-                    onValueChange={(v) => setNewPolicyFrequency(v as "monthly" | "yearly")}
-                  >
-                    <SelectTrigger className="h-8 w-24">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="yearly">Yearly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {ALLOWED_COVERAGES_BY_POLICY[newPolicy.type].length > 0 && (
-                  <div className="basis-full space-y-2">
-                    <Label>Coverages</Label>
-                    <div className="flex flex-wrap gap-3">
-                      {ALLOWED_COVERAGES_BY_POLICY[newPolicy.type].map((ct) => {
-                        const entry = newPolicy.coverages.find((c) => c.coverage_type === ct)
-                        const isChecked = !!entry
-                        return (
-                          <div key={ct} className="flex items-center gap-2">
-                            <Switch
-                              checked={isChecked}
-                              onCheckedChange={(checked) => {
-                                setNewPolicy((prev) => ({
-                                  ...prev,
-                                  coverages: checked
-                                    ? [...prev.coverages, { coverage_type: ct, coverage_amount: null }]
-                                    : prev.coverages.filter((c) => c.coverage_type !== ct),
-                                }))
-                              }}
-                            />
-                            <span className="text-sm whitespace-nowrap">{COVERAGE_TYPE_LABELS[ct]}</span>
-                            {isChecked && (
-                              <CurrencyInput
-                                placeholder="0"
-                                value={entry?.coverage_amount}
-                                onChange={(v) =>
-                                  setNewPolicy((prev) => ({
-                                    ...prev,
-                                    coverages: prev.coverages.map((c) =>
-                                      c.coverage_type === ct ? { ...c, coverage_amount: v ?? null } : c,
-                                    ),
-                                  }))
-                                }
-                                className="h-8 w-28"
-                              />
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-                {newPolicyFields.showYearlyOutflowDate && (
-                  <div className="space-y-1">
-                    <Label>Yearly due month</Label>
-                    <Select
-                      value={newPolicy.yearly_outflow_date?.toString() ?? ""}
-                      onValueChange={(v) =>
-                        setNewPolicy((prev) => ({ ...prev, yearly_outflow_date: v ? parseInt(v, 10) : null }))
-                      }
-                    >
-                      <SelectTrigger className="h-8 w-24">
-                        <SelectValue placeholder="Month" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                          <SelectItem key={m} value={m.toString()}>
-                            {m}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                {newPolicyFields.showSubType && (
-                  <div className="space-y-1">
-                    <Label>Ward class</Label>
-                    <Select
-                      value={newPolicy.sub_type ?? ""}
-                      onValueChange={(v) => setNewPolicy((prev) => ({ ...prev, sub_type: v || null }))}
-                    >
-                      <SelectTrigger className="h-8 w-28">
-                        <SelectValue placeholder="Ward" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ISP_SUB_TYPES.map((s) => (
-                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                {newPolicyFields.showRider && (
-                  <>
-                    <div className="space-y-1">
-                      <Label>Rider name</Label>
-                      <Input
-                        placeholder="Rider"
-                        value={newPolicy.rider_name ?? ""}
-                        onChange={(e) => setNewPolicy((prev) => ({ ...prev, rider_name: e.target.value || null }))}
-                        className="h-8 w-24"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Rider premium</Label>
-                      <CurrencyInput
-                        placeholder="0"
-                        value={newPolicy.rider_premium}
-                        onChange={(v) => setNewPolicy((prev) => ({ ...prev, rider_premium: v ?? null }))}
-                        className="h-8 w-20"
-                      />
-                    </div>
-                  </>
-                )}
-                {newPolicyFields.showCoverageTillAge && (
-                  <div className="space-y-1">
-                    <Label>Coverage till age</Label>
-                    <Input
-                      type="number"
-                      placeholder="Age"
-                      value={newPolicy.coverage_till_age ?? ""}
-                      onChange={(e) =>
-                        setNewPolicy((prev) => ({
-                          ...prev,
-                          coverage_till_age: e.target.value ? parseInt(e.target.value, 10) : null,
-                        }))
-                      }
-                      className="h-8 w-20"
-                      min={1}
-                    />
-                  </div>
-                )}
-                {newPolicyFields.showCurrentAmount && (
-                  <div className="space-y-1">
-                    <Label>{newPolicyFields.currentAmountLabel}</Label>
-                    <CurrencyInput
-                      placeholder="0"
-                      value={newPolicy.current_amount}
-                      onChange={(v) => setNewPolicy((prev) => ({ ...prev, current_amount: v ?? null }))}
-                      className="h-8 w-24"
-                    />
-                  </div>
-                )}
-                {newPolicyFields.showCashValue && (
-                  <div className="space-y-1">
-                    <Label>Cash value</Label>
-                    <CurrencyInput
-                      placeholder="0"
-                      value={newPolicy.cash_value}
-                      onChange={(v) => setNewPolicy((prev) => ({ ...prev, cash_value: v ?? null }))}
-                      className="h-8 w-24"
-                    />
-                  </div>
-                )}
-                {newPolicyFields.showMaturityValue && (
-                  <div className="space-y-1">
-                    <Label>Maturity value</Label>
-                    <CurrencyInput
-                      placeholder="0"
-                      value={newPolicy.maturity_value}
-                      onChange={(v) => setNewPolicy((prev) => ({ ...prev, maturity_value: v ?? null }))}
-                      className="h-8 w-24"
-                    />
-                  </div>
-                )}
-                {newPolicyFields.showEndDate && (
-                  <div className="space-y-1">
-                    <Label>{newPolicyFields.endDateLabel}</Label>
-                    <DatePicker
-                      value={newPolicy.end_date ?? null}
-                      onChange={(d) => setNewPolicy((prev) => ({ ...prev, end_date: d }))}
-                      placeholder="End date"
-                      className="h-8 w-32"
-                    />
-                  </div>
-                )}
-                <div className="space-y-1">
-                  <Label>Policy #</Label>
-                  <Input
-                    placeholder="Policy #"
-                    value={newPolicy.policy_number ?? ""}
-                    onChange={(e) => setNewPolicy((prev) => ({ ...prev, policy_number: e.target.value || null }))}
-                    className="h-8 w-24"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding}>
-                    {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                    Add insurance
-                  </Button>
-                </div>
-              </div>
-            </TableCell>
-          </TableRow>
         </TableBody>
       </Table>
       </ScrollableTableWrapper>
+      <Button size="sm" variant="outline" className="mt-3" onClick={() => setAddOpen(true)}>
+        <Plus className="h-4 w-4" /> Add insurance policy
+      </Button>
+      {addInsuranceDialog}
     </>
   )
 }
@@ -4354,6 +4094,7 @@ function FamilyMemberSettingsPanels({
           goals={profileGoals}
           profileId={p.id}
           familyId={family.id}
+          bankAccounts={profileBanks}
           onMutate={handleMutate}
         />
       </CollapsibleSection>
