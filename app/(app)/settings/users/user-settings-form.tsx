@@ -89,6 +89,7 @@ import {
   updateFamilyName,
   deleteFamily,
 } from "../actions"
+import { calculateMonthlyAuto } from "@/lib/calculations/savings-goals"
 import { toast } from "sonner"
 import { Loader2, Trash2, UserPlus, ExternalLink, Plus, FileText, X, Pencil, ChevronRight } from "lucide-react"
 import type { ProfileWithIncome } from "./types"
@@ -111,6 +112,15 @@ const INVESTMENT_TYPES = [
 ] as const
 
 type InvestmentKind = (typeof INVESTMENT_TYPES)[number]["value"]
+
+const GOAL_CATEGORIES = [
+  { value: "custom", label: "Custom" },
+  { value: "dream_home", label: "Dream Home" },
+  { value: "gadget", label: "Gadget" },
+  { value: "travel", label: "Travel" },
+  { value: "wardrobe", label: "Wardrobe" },
+  { value: "car", label: "Car" },
+] as const
 
 const LOAN_TYPES = [
   { value: "housing", label: "Housing" },
@@ -164,6 +174,7 @@ export type FinancialDataByFamily = {
     monthly_auto_amount: number
     deadline: string | null
     category: string
+    linked_bank_account_id: string | null
     profile_id: string | null
   }>
   investments: Array<{
@@ -333,8 +344,10 @@ function goalRowDirty(
     e.name !== g.name ||
     e.target_amount !== g.target_amount ||
     e.current_amount !== g.current_amount ||
+    e.monthly_auto_amount !== g.monthly_auto_amount ||
     (e.deadline ?? null) !== (g.deadline ?? null) ||
     e.category !== g.category ||
+    (e.linked_bank_account_id ?? null) !== (g.linked_bank_account_id ?? null) ||
     e.profile_id !== g.profile_id
   )
 }
@@ -979,11 +992,13 @@ function SavingsGoalsSection({
   goals,
   profileId,
   familyId,
+  bankAccounts,
   onMutate,
 }: {
   goals: FinancialDataByFamily["savingsGoals"]
   profileId: string
   familyId: string
+  bankAccounts: FinancialDataByFamily["bankAccounts"]
   onMutate: () => void
 }) {
   const router = useRouter()
@@ -992,8 +1007,10 @@ function SavingsGoalsSection({
     name: "",
     target_amount: 0,
     current_amount: 0,
+    monthly_auto_amount: 0,
     deadline: "" as string | null,
-    category: "custom" as const,
+    category: "custom" as string,
+    linked_bank_account_id: null as string | null,
   })
 
   async function handleDelete(id: string) {
@@ -1026,8 +1043,10 @@ function SavingsGoalsSection({
           name: newGoal.name,
           targetAmount: newGoal.target_amount,
           currentAmount: newGoal.current_amount,
+          monthlyAutoAmount: newGoal.monthly_auto_amount,
           deadline: newGoal.deadline || null,
           category: newGoal.category,
+          linkedBankAccountId: newGoal.linked_bank_account_id,
           profileId,
           familyId,
         }),
@@ -1041,8 +1060,10 @@ function SavingsGoalsSection({
         name: "",
         target_amount: 0,
         current_amount: 0,
+        monthly_auto_amount: 0,
         deadline: null,
         category: "custom",
+        linked_bank_account_id: null,
       })
       onMutate()
       router.refresh()
@@ -1078,8 +1099,10 @@ function SavingsGoalsSection({
           name: e.name,
           targetAmount: e.target_amount,
           currentAmount: e.current_amount,
+          monthlyAutoAmount: e.monthly_auto_amount,
           deadline: e.deadline,
           category: e.category,
+          linkedBankAccountId: e.linked_bank_account_id,
           profileId,
         }),
       })
@@ -1098,14 +1121,17 @@ function SavingsGoalsSection({
 
   return (
     <>
-      <ScrollableTableWrapper minWidth="560px">
+      <ScrollableTableWrapper minWidth="900px">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Goal - Name</TableHead>
             <TableHead>Target</TableHead>
             <TableHead>Current</TableHead>
+            <TableHead>Monthly Auto</TableHead>
             <TableHead>Deadline</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead>Linked Account</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -1142,6 +1168,37 @@ function SavingsGoalsSection({
                   />
                 </TableCell>
                 <TableCell>
+                  <div className="flex items-center gap-1">
+                    <CurrencyInput
+                      value={e.monthly_auto_amount}
+                      onChange={(v) =>
+                        setEditing((p) => ({ ...p, [g.id]: { ...(p[g.id] ?? g), monthly_auto_amount: v ?? 0 } }))
+                      }
+                      className="h-8 w-24"
+                    />
+                    {e.deadline && e.target_amount > e.current_amount && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 px-1.5 text-xs text-muted-foreground"
+                        title="Auto-calculate from target, current & deadline"
+                        onClick={() => {
+                          const auto = calculateMonthlyAuto(e.target_amount, e.current_amount, e.deadline)
+                          if (auto != null) {
+                            setEditing((p) => ({
+                              ...p,
+                              [g.id]: { ...(p[g.id] ?? g), monthly_auto_amount: Math.round(auto * 100) / 100 },
+                            }))
+                          }
+                        }}
+                      >
+                        Auto
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
                   <DatePicker
                     value={e.deadline ?? null}
                     onChange={(d) =>
@@ -1154,6 +1211,48 @@ function SavingsGoalsSection({
                     className="h-8 w-32"
                   />
                 </TableCell>
+                <TableCell>
+                  <Select
+                    value={e.category}
+                    onValueChange={(v) =>
+                      setEditing((p) => ({ ...p, [g.id]: { ...(p[g.id] ?? g), category: v } }))
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-28">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GOAL_CATEGORIES.map((c) => (
+                        <SelectItem key={c.value} value={c.value}>
+                          {c.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={e.linked_bank_account_id ?? "none"}
+                    onValueChange={(v) =>
+                      setEditing((p) => ({
+                        ...p,
+                        [g.id]: { ...(p[g.id] ?? g), linked_bank_account_id: v === "none" ? null : v },
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {bankAccounts.map((ba) => (
+                        <SelectItem key={ba.id} value={ba.id}>
+                          {ba.bank_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
                 <TableCell className="text-right">
                   <Button size="sm" variant="ghost" onClick={() => handleDelete(g.id)}>
                     <Trash2 className="h-4 w-4" />
@@ -1163,7 +1262,7 @@ function SavingsGoalsSection({
             )
           })}
           <TableRow>
-            <TableCell colSpan={5} className="border-t">
+            <TableCell colSpan={8} className="border-t">
               <div className="flex flex-wrap gap-2 pt-2">
                 <Input
                   placeholder="Goal name"
@@ -1177,6 +1276,43 @@ function SavingsGoalsSection({
                   onChange={(v) => setNewGoal((p) => ({ ...p, target_amount: v ?? 0 }))}
                   className="h-8 w-24"
                 />
+                <CurrencyInput
+                  placeholder="Monthly auto"
+                  value={newGoal.monthly_auto_amount}
+                  onChange={(v) => setNewGoal((p) => ({ ...p, monthly_auto_amount: v ?? 0 }))}
+                  className="h-8 w-24"
+                />
+                <Select
+                  value={newGoal.category}
+                  onValueChange={(v) => setNewGoal((p) => ({ ...p, category: v }))}
+                >
+                  <SelectTrigger className="h-8 w-28">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GOAL_CATEGORIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={newGoal.linked_bank_account_id ?? "none"}
+                  onValueChange={(v) => setNewGoal((p) => ({ ...p, linked_bank_account_id: v === "none" ? null : v }))}
+                >
+                  <SelectTrigger className="h-8 w-32">
+                    <SelectValue placeholder="Link account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No account</SelectItem>
+                    {bankAccounts.map((ba) => (
+                      <SelectItem key={ba.id} value={ba.id}>
+                        {ba.bank_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding}>
                   {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                   Add goal

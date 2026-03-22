@@ -135,8 +135,7 @@ export async function updateUserProfile(
 
     revalidatePath("/settings")
     revalidatePath("/settings/users")
-    revalidatePath("/dashboard")
-    revalidatePath("/dashboard/tax")
+    revalidatePath("/dashboard", "layout")
 
     return { success: true }
   } catch (err) {

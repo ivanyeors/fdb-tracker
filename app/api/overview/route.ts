@@ -12,6 +12,7 @@ import {
 import { getEffectiveInflowForProfile } from "@/lib/api/effective-inflow"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
 import { computeTotalInvestmentsValue } from "@/lib/api/net-liquid"
+import { estimateOutstandingPrincipal, loanMonthlyPayment } from "@/lib/calculations/loans"
 
 const overviewQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -226,19 +227,6 @@ export async function GET(request: NextRequest) {
     let loanMonthlyTotal = 0
     let loanRemainingMonths = 0
 
-    function calculateMonthlyPayment(
-      principal: number,
-      annualRate: number,
-      tenureMonths: number
-    ): number {
-      if (annualRate === 0) return principal / tenureMonths
-      const r = annualRate / 100 / 12
-      return (
-        (principal * r * Math.pow(1 + r, tenureMonths)) /
-        (Math.pow(1 + r, tenureMonths) - 1)
-      )
-    }
-
     function getRemainingMonths(startDate: string, tenureMonths: number): number {
       const start = new Date(startDate)
       const end = new Date(start)
@@ -258,48 +246,46 @@ export async function GET(request: NextRequest) {
 
       if (loans && loans.length > 0) {
         const loanIds = loans.map((l) => l.id)
-        let totalPrincipal = 0
+
+        const [{ data: repayments }, { data: earlyRepayments }] =
+          await Promise.all([
+            supabase
+              .from("loan_repayments")
+              .select("loan_id, amount, date")
+              .in("loan_id", loanIds)
+              .order("date", { ascending: true }),
+            supabase
+              .from("loan_early_repayments")
+              .select("loan_id, amount, date")
+              .in("loan_id", loanIds)
+              .order("date", { ascending: true }),
+          ])
+
         for (const loan of loans) {
-          totalPrincipal += loan.principal
-          loanMonthlyTotal += calculateMonthlyPayment(
+          loanMonthlyTotal += loanMonthlyPayment(
             loan.principal,
             loan.rate_pct,
-            loan.tenure_months
+            loan.tenure_months,
           )
-          const remaining = getRemainingMonths(
-            loan.start_date,
-            loan.tenure_months
-          )
+          const remaining = getRemainingMonths(loan.start_date, loan.tenure_months)
           if (remaining > loanRemainingMonths) {
             loanRemainingMonths = remaining
           }
+
+          const loanRepayments = (repayments ?? [])
+            .filter((r) => r.loan_id === loan.id)
+            .map((r) => ({ amount: r.amount, date: r.date }))
+          const loanEarlyRepayments = (earlyRepayments ?? [])
+            .filter((r) => r.loan_id === loan.id)
+            .map((r) => ({ amount: r.amount, date: r.date }))
+
+          loanTotal += estimateOutstandingPrincipal(
+            loan.principal,
+            loan.rate_pct,
+            loanRepayments,
+            loanEarlyRepayments,
+          )
         }
-
-        let totalRepayments = 0
-        const { data: repayments } = await supabase
-          .from("loan_repayments")
-          .select("amount")
-          .in("loan_id", loanIds)
-
-        if (repayments) {
-          for (const r of repayments) {
-            totalRepayments += r.amount
-          }
-        }
-
-        let totalEarlyRepayments = 0
-        const { data: earlyRepayments } = await supabase
-          .from("loan_early_repayments")
-          .select("amount")
-          .in("loan_id", loanIds)
-
-        if (earlyRepayments) {
-          for (const r of earlyRepayments) {
-            totalEarlyRepayments += r.amount
-          }
-        }
-
-        loanTotal = totalPrincipal - totalRepayments - totalEarlyRepayments
       }
     }
 

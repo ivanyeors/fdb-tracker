@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
         tenure_months: parsed.data.tenureMonths,
         start_date: parsed.data.startDate,
         lender: parsed.data.lender ?? null,
-        use_cpf_oa: parsed.data.useCpfOa ?? false,
+        use_cpf_oa: parsed.data.useCpfOa ?? parsed.data.type === "housing",
         valuation_limit: parsed.data.valuationLimit ?? null,
         split_profile_id: parsed.data.splitProfileId ?? null,
         split_pct: parsed.data.splitPct ?? 100,

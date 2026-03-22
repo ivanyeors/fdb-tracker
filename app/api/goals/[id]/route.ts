@@ -8,10 +8,12 @@ const updateGoalSchema = z.object({
   name: z.string().min(1).optional(),
   targetAmount: z.number().positive().optional(),
   currentAmount: z.number().min(0).optional(),
+  monthlyAutoAmount: z.number().min(0).optional(),
   deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   category: z
     .enum(["dream_home", "gadget", "travel", "wardrobe", "car", "custom"])
     .optional(),
+  linkedBankAccountId: z.string().uuid().nullable().optional(),
   profileId: z.string().uuid().nullable().optional(),
 })
 
@@ -64,8 +66,10 @@ export async function PATCH(
     if (parsed.data.name !== undefined) updates.name = parsed.data.name
     if (parsed.data.targetAmount !== undefined) updates.target_amount = parsed.data.targetAmount
     if (parsed.data.currentAmount !== undefined) updates.current_amount = parsed.data.currentAmount
+    if (parsed.data.monthlyAutoAmount !== undefined) updates.monthly_auto_amount = parsed.data.monthlyAutoAmount
     if (parsed.data.deadline !== undefined) updates.deadline = parsed.data.deadline
     if (parsed.data.category !== undefined) updates.category = parsed.data.category
+    if (parsed.data.linkedBankAccountId !== undefined) updates.linked_bank_account_id = parsed.data.linkedBankAccountId
     if (parsed.data.profileId !== undefined) updates.profile_id = parsed.data.profileId
 
     if (Object.keys(updates).length === 0) {
