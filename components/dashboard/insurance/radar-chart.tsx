@@ -295,7 +295,7 @@ function RadarChartInner({
 }
 
 export function RadarChart({ series, axes }: RadarChartProps) {
-  const chartSize = useChartHeight(320, 240)
+  const chartSize = useChartHeight(440, 320)
   return (
     <div className="flex w-full items-center justify-center">
       <div style={{ height: chartSize, width: chartSize }}>

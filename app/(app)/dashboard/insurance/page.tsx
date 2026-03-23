@@ -316,7 +316,7 @@ export default function InsurancePage() {
                   {radarSeries.length > 0 ? (
                     <RadarChart series={radarSeries} axes={RADAR_AXES} />
                   ) : (
-                    <div className="flex h-[320px] items-center justify-center text-sm text-muted-foreground">
+                    <div className="flex h-[440px] items-center justify-center text-sm text-muted-foreground">
                       No coverage data available.
                     </div>
                   )}

@@ -1,3 +1,4 @@
+import { ChartPaletteSelector } from "./chart-palette-selector"
 import { ThemeSelector } from "./theme-selector"
 
 export default function GeneralSettingsPage() {
@@ -6,11 +7,12 @@ export default function GeneralSettingsPage() {
       <div>
         <h1 className="text-2xl font-semibold">General Settings</h1>
         <p className="text-muted-foreground mt-1">
-          Theme, timezone, and data export.
+          Theme, chart colors, and data export.
         </p>
       </div>
 
       <ThemeSelector />
+      <ChartPaletteSelector />
     </div>
   )
 }
