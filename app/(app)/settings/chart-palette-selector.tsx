@@ -18,16 +18,37 @@ import {
 import { useChartPalette } from "@/hooks/use-chart-palette"
 import { cn } from "@/lib/utils"
 
-function SwatchRow({ colors }: { colors: string[] }) {
+function SwatchRow({ palette }: { palette: ChartPalette }) {
   return (
-    <div className="flex gap-1.5">
-      {colors.map((c, i) => (
+    <div className="flex flex-col gap-1">
+      {/* Category colors */}
+      <div className="flex gap-1.5">
+        {palette.colors.map((c, i) => (
+          <span
+            key={i}
+            className="size-4 rounded-full border border-border/50"
+            style={{ backgroundColor: c }}
+          />
+        ))}
+      </div>
+      {/* Semantic colors: positive / negative / neutral */}
+      <div className="flex gap-1.5">
         <span
-          key={i}
-          className="size-4 rounded-full border border-border/50"
-          style={{ backgroundColor: c }}
+          className="size-3 rounded-full border border-border/50"
+          style={{ backgroundColor: palette.positive }}
+          title="Positive"
         />
-      ))}
+        <span
+          className="size-3 rounded-full border border-border/50"
+          style={{ backgroundColor: palette.negative }}
+          title="Negative"
+        />
+        <span
+          className="size-3 rounded-full border border-border/50"
+          style={{ backgroundColor: palette.neutral }}
+          title="Neutral"
+        />
+      </div>
     </div>
   )
 }
@@ -35,11 +56,24 @@ function SwatchRow({ colors }: { colors: string[] }) {
 export function ChartPaletteSelector() {
   const { paletteId, randomColors, setPalette } = useChartPalette()
   const [mounted, setMounted] = useState(false)
+  const [lastRandom, setLastRandom] = useState<ChartPalette | null>(null)
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true)
-  }, [])
+
+    // Restore last random palette for swatch display
+    if (randomColors) {
+      const raw = localStorage.getItem("fdb-chart-palette-colors")
+      if (raw) {
+        try {
+          setLastRandom(JSON.parse(raw) as ChartPalette)
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, [randomColors])
 
   if (!mounted) {
     return (
@@ -58,10 +92,8 @@ export function ChartPaletteSelector() {
   }
 
   const handleRandom = () => {
-    setPalette(generateRandomPalette())
-  }
-
-  const handlePreset = (p: ChartPalette) => {
+    const p = generateRandomPalette()
+    setLastRandom(p)
     setPalette(p)
   }
 
@@ -79,15 +111,13 @@ export function ChartPaletteSelector() {
             <button
               key={p.id}
               type="button"
-              onClick={() => handlePreset(p)}
+              onClick={() => setPalette(p)}
               className={cn(
                 "flex flex-col items-start gap-2 rounded-md border-2 p-3 text-left text-sm transition-colors hover:bg-accent",
-                paletteId === p.id
-                  ? "border-primary"
-                  : "border-muted"
+                paletteId === p.id ? "border-primary" : "border-muted"
               )}
             >
-              <SwatchRow colors={[...p.colors]} />
+              <SwatchRow palette={p} />
               <span className="font-medium">{p.name}</span>
             </button>
           ))}
@@ -98,15 +128,13 @@ export function ChartPaletteSelector() {
             onClick={handleRandom}
             className={cn(
               "flex flex-col items-start gap-2 rounded-md border-2 p-3 text-left text-sm transition-colors hover:bg-accent",
-              paletteId === "random"
-                ? "border-primary"
-                : "border-muted"
+              paletteId === "random" ? "border-primary" : "border-muted"
             )}
           >
             <div className="flex items-center gap-1.5">
               <Dices className="size-4 text-muted-foreground" />
-              {randomColors ? (
-                <SwatchRow colors={[...randomColors]} />
+              {lastRandom ? (
+                <SwatchRow palette={lastRandom} />
               ) : (
                 <span className="text-xs text-muted-foreground">
                   click to generate

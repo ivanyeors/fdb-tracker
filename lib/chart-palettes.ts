@@ -1,9 +1,12 @@
 /**
  * Chart color palette definitions and smart-random generator.
  *
- * All colors are OKLCH strings applied as CSS variable overrides on :root.
- * The 5 category colors (chart-1…chart-5) are customizable; positive/negative/neutral
- * remain semantic and are NOT affected by palette selection.
+ * Each palette defines 8 colors in OKLCH, applied as CSS variable overrides:
+ *   - 5 category colors (--chart-1 … --chart-5): analogous lightness steps
+ *   - positive / negative / neutral: semantic colors blended toward the
+ *     palette's base hue for visual harmony
+ *
+ * Dark mode gets lighter semantic variants for readability on dark backgrounds.
  */
 
 export type ChartPalette = {
@@ -11,6 +14,48 @@ export type ChartPalette = {
   name: string
   /** Five OKLCH values for --chart-1 … --chart-5 */
   colors: [string, string, string, string, string]
+  /** Semantic colors (light mode) */
+  positive: string
+  negative: string
+  neutral: string
+  /** Semantic colors (dark mode — higher lightness for readability) */
+  positiveDark: string
+  negativeDark: string
+  neutralDark: string
+}
+
+// ---------------------------------------------------------------------------
+// Hue blending (shortest-arc lerp on the 0-360 wheel)
+// ---------------------------------------------------------------------------
+
+function lerpHue(from: number, to: number, t: number): number {
+  let diff = ((to - from + 540) % 360) - 180
+  return ((from + diff * t) % 360 + 360) % 360
+}
+
+function oklch(l: number, c: number, h: number): string {
+  return `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`
+}
+
+// ---------------------------------------------------------------------------
+// Derive semantic colors from a base hue
+// ---------------------------------------------------------------------------
+
+const POSITIVE_TARGET_HUE = 145
+const NEGATIVE_TARGET_HUE = 25
+
+function semanticColors(baseHue: number) {
+  const posHue = lerpHue(baseHue, POSITIVE_TARGET_HUE, 0.7)
+  const negHue = lerpHue(baseHue, NEGATIVE_TARGET_HUE, 0.7)
+
+  return {
+    positive: oklch(0.65, 0.19, posHue),
+    negative: oklch(0.58, 0.22, negHue),
+    neutral: oklch(0.55, 0.02, baseHue),
+    positiveDark: oklch(0.72, 0.17, posHue),
+    negativeDark: oklch(0.70, 0.19, negHue),
+    neutralDark: oklch(0.65, 0.02, baseHue),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -21,7 +66,6 @@ function sequential(
   hue: number,
   chroma: number = 0.2
 ): [string, string, string, string, string] {
-  // L steps from bright to dark, matching the existing green palette structure
   const steps: [number, number][] = [
     [0.897, 0.196],
     [0.768, 0.233],
@@ -49,26 +93,31 @@ export const PRESET_PALETTES: ChartPalette[] = [
       "oklch(0.532 0.157 131.589)",
       "oklch(0.453 0.124 130.933)",
     ],
+    ...semanticColors(129),
   },
   {
     id: "blue",
     name: "Blue Ocean",
     colors: sequential(240, 0.24),
+    ...semanticColors(240),
   },
   {
     id: "sunset",
     name: "Warm Sunset",
     colors: sequential(35, 0.22),
+    ...semanticColors(35),
   },
   {
     id: "purple",
     name: "Purple Violet",
     colors: sequential(300, 0.22),
+    ...semanticColors(300),
   },
   {
     id: "earth",
     name: "Earth Tones",
     colors: sequential(75, 0.14),
+    ...semanticColors(75),
   },
   {
     id: "rainbow",
@@ -80,6 +129,7 @@ export const PRESET_PALETTES: ChartPalette[] = [
       "oklch(0.65 0.22 246)",
       "oklch(0.65 0.22 318)",
     ],
+    ...semanticColors(174), // center hue of the spread
   },
   {
     id: "muted",
@@ -91,6 +141,7 @@ export const PRESET_PALETTES: ChartPalette[] = [
       "oklch(0.6 0.12 310)",
       "oklch(0.6 0.12 90)",
     ],
+    ...semanticColors(170),
   },
 ]
 
@@ -104,12 +155,20 @@ const GOLDEN_ANGLE = 137.508
 
 export function generateRandomPalette(): ChartPalette {
   const startHue = Math.random() * 360
-  const colors = Array.from(
+  const hues = Array.from(
     { length: 5 },
-    (_, i) => `oklch(0.55 0.22 ${((startHue + i * GOLDEN_ANGLE) % 360).toFixed(1)})`
+    (_, i) => (startHue + i * GOLDEN_ANGLE) % 360
+  )
+  const colors = hues.map(
+    (h) => `oklch(0.55 0.22 ${h.toFixed(1)})`
   ) as [string, string, string, string, string]
 
-  return { id: "random", name: "Random", colors }
+  // Average hue (circular mean) for deriving semantic colors
+  const sinSum = hues.reduce((s, h) => s + Math.sin((h * Math.PI) / 180), 0)
+  const cosSum = hues.reduce((s, h) => s + Math.cos((h * Math.PI) / 180), 0)
+  const avgHue = ((Math.atan2(sinSum, cosSum) * 180) / Math.PI + 360) % 360
+
+  return { id: "random", name: "Random", colors, ...semanticColors(avgHue) }
 }
 
 // ---------------------------------------------------------------------------
