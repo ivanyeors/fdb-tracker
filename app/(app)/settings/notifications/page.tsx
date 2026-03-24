@@ -21,7 +21,7 @@ export default async function NotificationsPage() {
 
   if (error || !household) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="p-2 sm:p-4">
         <h1 className="text-2xl font-semibold text-destructive">Error Loading Settings</h1>
         <p className="text-muted-foreground mt-1">
           {error?.message || "Could not retrieve household settings."}
@@ -31,7 +31,7 @@ export default async function NotificationsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-2 sm:p-4 max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Notifications</h1>
         <p className="text-muted-foreground mt-1">

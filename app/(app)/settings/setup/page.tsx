@@ -42,7 +42,7 @@ export default async function SetupPage() {
 
   if (householdError || !household) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="p-2 sm:p-4">
         <h1 className="text-2xl font-semibold text-destructive">
           Error Loading Setup Info
         </h1>
@@ -56,7 +56,7 @@ export default async function SetupPage() {
   const firstFamilyId = families?.[0]?.id ?? null
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-2 sm:p-4 max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Setup</h1>
         <p className="text-muted-foreground mt-1">

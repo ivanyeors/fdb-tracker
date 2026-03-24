@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Loader2, Plus } from "lucide-react"
+import { Loader2, Plus, Upload, X } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -31,13 +31,17 @@ import {
   ResponsiveSheetHeader as SheetHeader,
   ResponsiveSheetTitle as SheetTitle,
 } from "@/components/ui/responsive-sheet"
+import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import { stripMhtmlToHtmlOnly } from "@/lib/ilp-import/strip-mhtml-client"
+import type { IlpFundReportSnapshot } from "@/lib/ilp-import/types"
 import {
   allocationSumMessage,
   applySwitchOutZero,
   isValidIlpGroupAllocationSum,
   sumAllocationPcts,
 } from "@/lib/investments/ilp-group-allocation"
+import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
 export type IlpGroupProductForEdit = {
@@ -92,6 +96,19 @@ export function IlpGroupFundsEditSheet({
   const [addName, setAddName] = useState("")
   const [addEndDate, setAddEndDate] = useState("")
   const [addingFund, setAddingFund] = useState(false)
+
+  // Upload-from-report state
+  const [addMode, setAddMode] = useState<"manual" | "upload">("manual")
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadStep, setUploadStep] = useState<"idle" | "extracting" | "extracted">("idle")
+  const [uploadParse, setUploadParse] = useState<{
+    snapshot: IlpFundReportSnapshot
+    suggestedMonth: string | null
+    latestNavNumeric: number | null
+  } | null>(null)
+  const [uploadMonth, setUploadMonth] = useState("")
+  const [uploadFundValue, setUploadFundValue] = useState<number | null>(null)
+  const [uploadPremiumsPaid, setUploadPremiumsPaid] = useState<number | null>(null)
 
   const syncFromProps = useCallback(() => {
     setRows(
@@ -202,6 +219,66 @@ export function IlpGroupFundsEditSheet({
     }
   }
 
+  function resetUpload() {
+    setUploadFile(null)
+    setUploadStep("idle")
+    setUploadParse(null)
+    setUploadMonth("")
+    setUploadFundValue(null)
+    setUploadPremiumsPaid(null)
+  }
+
+  function onPickUploadFile(list: FileList | null) {
+    if (!list?.length) return
+    const f = Array.from(list).find((f) => {
+      const lower = f.name.toLowerCase()
+      return lower.endsWith(".mhtml") || lower.endsWith(".mht")
+    })
+    if (!f) {
+      toast.error("Please choose a .mhtml or .mht file.")
+      return
+    }
+    setUploadFile(f)
+    setUploadStep("idle")
+    setUploadParse(null)
+  }
+
+  async function handleExtractUpload() {
+    if (!uploadFile) {
+      toast.error("Choose a fund report file first.")
+      return
+    }
+    setUploadStep("extracting")
+    try {
+      const rawText = await uploadFile.text()
+      const stripped = stripMhtmlToHtmlOnly(rawText)
+      const slimFile = new File([stripped], uploadFile.name, { type: uploadFile.type })
+      const fd = new FormData()
+      fd.set("file", slimFile)
+      const res = await fetch("/api/investments/ilp/fund-report/parse", {
+        method: "POST",
+        body: fd,
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error ?? `Parse failed for ${uploadFile.name}`)
+      }
+      const data = (await res.json()) as {
+        suggestedMonth: string | null
+        latestNavNumeric: number | null
+        snapshot: IlpFundReportSnapshot
+      }
+      setUploadParse(data)
+      setUploadStep("extracted")
+      if (data.snapshot.investmentName) setAddName(data.snapshot.investmentName)
+      if (data.suggestedMonth) setUploadMonth(data.suggestedMonth)
+      toast.success("Fund report extracted — review and confirm below.")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Extract failed")
+      setUploadStep("idle")
+    }
+  }
+
   async function handleAddFundSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!activeFamilyId) {
@@ -236,17 +313,39 @@ export function IlpGroupFundsEditSheet({
         throw new Error(typeof err.error === "string" ? err.error : "Failed to add fund")
       }
       const created = (await res.json()) as { id: string; name: string }
+
+      // If added from upload, also commit the fund report entry
+      if (addMode === "upload" && uploadParse) {
+        const commitRes = await fetch("/api/investments/ilp/fund-report/commit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productId: created.id,
+            familyId: activeFamilyId,
+            month: uploadMonth || uploadParse.suggestedMonth || "",
+            fundValue: uploadFundValue ?? 0,
+            premiumsPaid: uploadPremiumsPaid,
+            snapshot: uploadParse.snapshot,
+          }),
+        })
+        if (!commitRes.ok) {
+          // Product was created but report commit failed — still add to list
+          toast.error("Fund created but report entry failed to save.")
+        }
+      }
+
       setRows((prev) => [
         ...prev,
         {
           productId: created.id,
           name: created.name,
-          fundValue: 0,
+          fundValue: addMode === "upload" ? (uploadFundValue ?? 0) : 0,
           allocationPct: 0,
         },
       ])
       setAddName("")
       setAddEndDate("")
+      resetUpload()
       toast.success("Fund added. Adjust allocations to total 100%, then save.")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong")
@@ -418,41 +517,280 @@ export function IlpGroupFundsEditSheet({
               </div>
             </div>
 
-            <form onSubmit={handleAddFundSubmit} className="space-y-3 rounded-lg border border-dashed border-border p-4">
-              <p className="text-sm font-medium text-foreground">Add fund to group</p>
-              <p className="text-xs text-muted-foreground">
-                Creates a new ILP product, then include it in the allocation list and save
-                when percentages total 100%.
-              </p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="ilp-add-fund-name">Name</Label>
-                  <Input
-                    id="ilp-add-fund-name"
-                    value={addName}
-                    onChange={(e) => setAddName(e.target.value)}
-                    placeholder="Fund name"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Premium end date</Label>
-                  <DatePicker
-                    value={addEndDate || null}
-                    onChange={(d) => setAddEndDate(d ?? "")}
-                    placeholder="End date"
-                  />
+            <div className="space-y-3 rounded-lg border border-dashed border-border p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground">Add fund to group</p>
+                <div className="flex gap-1 rounded-lg border bg-muted/50 p-0.5">
+                  <button
+                    type="button"
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                      addMode === "manual"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    onClick={() => setAddMode("manual")}
+                  >
+                    Manual
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                      addMode === "upload"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    onClick={() => setAddMode("upload")}
+                  >
+                    From report
+                  </button>
                 </div>
               </div>
-              <Button type="submit" variant="secondary" size="sm" disabled={addingFund}>
-                {addingFund ? (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                ) : (
-                  <Plus className="mr-2 size-4" />
-                )}
-                Add fund
-              </Button>
-            </form>
+
+              {addMode === "manual" ? (
+                <form onSubmit={handleAddFundSubmit} className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Creates a new ILP product, then include it in the allocation list and
+                    save when percentages total 100%.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label htmlFor="ilp-add-fund-name">Name</Label>
+                      <Input
+                        id="ilp-add-fund-name"
+                        value={addName}
+                        onChange={(e) => setAddName(e.target.value)}
+                        placeholder="Fund name"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label>Premium end date</Label>
+                      <DatePicker
+                        value={addEndDate || null}
+                        onChange={(d) => setAddEndDate(d ?? "")}
+                        placeholder="End date"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    size="sm"
+                    disabled={addingFund}
+                  >
+                    {addingFund ? (
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                    ) : (
+                      <Plus className="mr-2 size-4" />
+                    )}
+                    Add fund
+                  </Button>
+                </form>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Upload a Tokio Marine fund report (.mhtml) to extract fund details
+                    automatically.
+                  </p>
+
+                  {uploadStep !== "extracted" ? (
+                    <>
+                      <div
+                        className="flex min-h-[100px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30 px-4 py-4 text-center transition-colors hover:bg-muted/50"
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          onPickUploadFile(e.dataTransfer.files)
+                        }}
+                        onClick={() =>
+                          document
+                            .getElementById("ilp-group-mhtml-input")
+                            ?.click()
+                        }
+                      >
+                        <Upload className="size-6 text-muted-foreground" />
+                        <p className="text-xs text-muted-foreground">
+                          Drop .mhtml file or click to browse
+                        </p>
+                        {uploadFile ? (
+                          <p className="text-xs font-medium text-foreground">
+                            {uploadFile.name}
+                          </p>
+                        ) : null}
+                        <input
+                          id="ilp-group-mhtml-input"
+                          type="file"
+                          accept=".mhtml,.mht,text/html"
+                          className="hidden"
+                          onChange={(e) => onPickUploadFile(e.target.files)}
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={!uploadFile || uploadStep === "extracting"}
+                          onClick={() => void handleExtractUpload()}
+                        >
+                          {uploadStep === "extracting" ? (
+                            <>
+                              <Loader2 className="mr-2 size-4 animate-spin" />
+                              Extracting…
+                            </>
+                          ) : (
+                            "Extract"
+                          )}
+                        </Button>
+                        {uploadFile ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={resetUpload}
+                          >
+                            Clear
+                          </Button>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : null}
+
+                  {uploadStep === "extracted" && uploadParse ? (
+                    <form
+                      onSubmit={handleAddFundSubmit}
+                      className="space-y-3"
+                    >
+                      <div className="rounded-lg border bg-muted/20 p-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-medium">
+                            Parsed summary
+                          </h4>
+                          <button
+                            type="button"
+                            className="rounded-sm p-0.5 text-muted-foreground hover:text-destructive"
+                            title="Clear upload"
+                            onClick={resetUpload}
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        </div>
+                        <dl className="mt-1.5 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                          <div>
+                            <dt className="font-medium text-foreground">
+                              Fund
+                            </dt>
+                            <dd>
+                              {uploadParse.snapshot.investmentName ?? "—"}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="font-medium text-foreground">
+                              MS ID
+                            </dt>
+                            <dd>{uploadParse.snapshot.msId ?? "—"}</dd>
+                          </div>
+                          <div>
+                            <dt className="font-medium text-foreground">
+                              Currency
+                            </dt>
+                            <dd>
+                              {uploadParse.snapshot.currencyId ?? "—"}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="font-medium text-foreground">
+                              Latest NAV
+                            </dt>
+                            <dd>
+                              {uploadParse.latestNavNumeric != null
+                                ? String(uploadParse.latestNavNumeric)
+                                : "—"}
+                            </dd>
+                          </div>
+                        </dl>
+                        {uploadParse.snapshot.warnings.length > 0 ? (
+                          <ul className="mt-1.5 list-inside list-disc text-xs text-amber-600 dark:text-amber-400">
+                            {uploadParse.snapshot.warnings
+                              .slice(0, 4)
+                              .map((w) => (
+                                <li key={w}>{w}</li>
+                              ))}
+                          </ul>
+                        ) : null}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="ilp-upload-fund-name">Name</Label>
+                        <Input
+                          id="ilp-upload-fund-name"
+                          value={addName}
+                          onChange={(e) => setAddName(e.target.value)}
+                          placeholder="Fund name"
+                          autoComplete="off"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Premium end date</Label>
+                        <DatePicker
+                          value={addEndDate || null}
+                          onChange={(d) => setAddEndDate(d ?? "")}
+                          placeholder="End date"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Statement month</Label>
+                        <MonthYearPicker
+                          value={uploadMonth || null}
+                          onChange={(d) => setUploadMonth(d ?? "")}
+                          placeholder="YYYY-MM from report"
+                          className="w-full max-w-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Total fund value (SGD)</Label>
+                        <CurrencyInput
+                          placeholder="0.00"
+                          value={uploadFundValue}
+                          onChange={(v) => setUploadFundValue(v)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Use your policy total fund value for this month.
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Premiums paid to date (optional)</Label>
+                        <CurrencyInput
+                          placeholder="Optional"
+                          value={uploadPremiumsPaid}
+                          onChange={(v) => setUploadPremiumsPaid(v)}
+                        />
+                      </div>
+
+                      <Button
+                        type="submit"
+                        variant="secondary"
+                        size="sm"
+                        disabled={addingFund}
+                      >
+                        {addingFund ? (
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                        ) : (
+                          <Plus className="mr-2 size-4" />
+                        )}
+                        Add fund
+                      </Button>
+                    </form>
+                  ) : null}
+                </div>
+              )}
+            </div>
           </div>
 
           <SheetFooter className="mt-auto border-t p-4">
