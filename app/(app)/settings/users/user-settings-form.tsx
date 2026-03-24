@@ -1659,7 +1659,7 @@ function MonthlyLogSection({
       >
         <SheetContent
           side="right"
-          className="flex w-[50vw] max-w-[50vw] flex-col gap-0 p-0 data-[side=right]:w-[50vw] data-[side=right]:max-w-[50vw] sm:max-w-[50vw]"
+          className="flex flex-col gap-0 p-0 sm:max-w-[50vw]"
         >
           <SheetHeader className="shrink-0 px-6 pt-6 pb-4">
             <SheetTitle>Log inflow & outflow</SheetTitle>

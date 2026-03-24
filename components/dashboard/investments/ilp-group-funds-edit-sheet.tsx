@@ -285,7 +285,7 @@ export function IlpGroupFundsEditSheet({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="right"
-          className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-xl"
+          className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-4xl"
         >
           <SheetHeader className="border-b p-4 text-left">
             <SheetTitle>Edit group funds — {groupName}</SheetTitle>
