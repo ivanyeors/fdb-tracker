@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     if (tokenError || !otpToken) {
       return NextResponse.json(
         { error: "Invalid or expired OTP" },
-        { status: 401 },
+        { status: 401 }
       )
     }
 
@@ -50,7 +50,26 @@ export async function POST(request: NextRequest) {
       .update({ used: true })
       .eq("id", otpToken.id)
 
-    const sessionToken = await createSession(otpToken.household_id)
+    // Check onboarding status + first family in parallel
+    const [{ data: household }, { data: firstFamily }] = await Promise.all([
+      supabase
+        .from("households")
+        .select("onboarding_completed_at")
+        .eq("id", otpToken.household_id)
+        .single(),
+      supabase
+        .from("families")
+        .select("id")
+        .eq("household_id", otpToken.household_id)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ])
+
+    const onboardingComplete = !!household?.onboarding_completed_at
+    const sessionToken = await createSession(otpToken.household_id, {
+      onboardingComplete,
+    })
     const isProduction = process.env.NODE_ENV === "production"
 
     const response = NextResponse.json({ success: true })
@@ -61,14 +80,6 @@ export async function POST(request: NextRequest) {
       path: "/",
       maxAge: 60 * 60 * 24 * 7,
     })
-
-    const { data: firstFamily } = await supabase
-      .from("families")
-      .select("id")
-      .eq("household_id", otpToken.household_id)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle()
 
     if (firstFamily?.id) {
       response.cookies.set("fdb-active-family-id", firstFamily.id, {
@@ -84,7 +95,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

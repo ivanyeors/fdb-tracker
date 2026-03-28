@@ -8,8 +8,14 @@ function getSecret() {
   return new TextEncoder().encode(raw)
 }
 
-export async function createSession(accountId: string): Promise<string> {
-  return new SignJWT({ householdId: accountId })
+export async function createSession(
+  accountId: string,
+  claims?: { onboardingComplete?: boolean }
+): Promise<string> {
+  return new SignJWT({
+    householdId: accountId,
+    ...(claims?.onboardingComplete ? { obc: true } : {}),
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
@@ -17,13 +23,13 @@ export async function createSession(accountId: string): Promise<string> {
 }
 
 export async function validateSession(
-  token: string,
-): Promise<{ accountId: string } | null> {
+  token: string
+): Promise<{ accountId: string; onboardingComplete: boolean } | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret())
     const accountId = payload.householdId
     if (typeof accountId !== "string") return null
-    return { accountId }
+    return { accountId, onboardingComplete: payload.obc === true }
   } catch {
     return null
   }
@@ -34,7 +40,7 @@ interface CookieStore {
 }
 
 export async function getSessionFromCookies(
-  cookies: CookieStore,
+  cookies: CookieStore
 ): Promise<string | null> {
   const cookie = cookies.get(COOKIE_NAME)
   if (!cookie) return null

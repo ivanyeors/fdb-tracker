@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value
@@ -19,18 +18,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  const supabase = createSupabaseAdmin()
-
-  const { data: account } = await supabase
-    .from("households")
-    .select("onboarding_completed_at")
-    .eq("id", session.accountId)
-    .single()
-
-  const onboardingComplete = !!account?.onboarding_completed_at
+  const onboardingComplete = session.onboardingComplete
   const isOnboarding = pathname.startsWith("/onboarding")
   const isOptionalFlow = pathname.startsWith("/onboarding/optional")
-  const isAddFamilyMode = request.nextUrl.searchParams.get("mode") === "new-family"
+  const isAddFamilyMode =
+    request.nextUrl.searchParams.get("mode") === "new-family"
   const isResumeMode = request.nextUrl.searchParams.get("mode") === "resume"
 
   if (!onboardingComplete && !isOnboarding) {

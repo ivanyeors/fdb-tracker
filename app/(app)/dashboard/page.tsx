@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
 import {
   Card,
@@ -29,7 +29,7 @@ import {
 } from "@/components/dashboard/investments/journal-list"
 import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import { useActiveProfile } from "@/hooks/use-active-profile"
-import { useDataRefresh } from "@/hooks/use-data-refresh"
+import { useApi } from "@/hooks/use-api"
 import { currentMonthYm, ilpEntryMonthKey } from "@/lib/investments/ilp-chart"
 import { formatCurrency } from "@/lib/utils"
 import { Progress } from "@/components/ui/progress"
@@ -122,8 +122,66 @@ type IlpProductWithEntries = {
 
 export default function OverviewPage() {
   const { activeProfileId, activeFamilyId, families } = useActiveProfile()
-  const { dataVersion } = useDataRefresh()
-  const [data, setData] = useState<{
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null)
+
+  const qs = useMemo(() => {
+    const p = new URLSearchParams()
+    if (activeProfileId) p.set("profileId", activeProfileId)
+    if (activeFamilyId && !activeProfileId) p.set("familyId", activeFamilyId)
+    return p.toString()
+  }, [activeProfileId, activeFamilyId])
+
+  const { startMonth, endMonth } = useMemo(() => {
+    const now = new Date()
+    const end = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
+    const twelveMonthsAgo = new Date(now)
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11)
+    const twelveStr = `${twelveMonthsAgo.getFullYear()}-${String(twelveMonthsAgo.getMonth() + 1).padStart(2, "0")}-01`
+    const familyStart =
+      activeFamilyId && families?.length
+        ? (() => {
+            const family = families.find((f) => f.id === activeFamilyId)
+            if (!family?.created_at) return twelveStr
+            const d = new Date(family.created_at)
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`
+          })()
+        : twelveStr
+    return {
+      startMonth: familyStart > twelveStr ? familyStart : twelveStr,
+      endMonth: end,
+    }
+  }, [activeFamilyId, families])
+
+  // Derive effective month from overview + cashflow data
+  const cashflowRangeUrl = `/api/cashflow?startMonth=${startMonth}&endMonth=${endMonth}${qs ? `&${qs}` : ""}`
+  const { data: cashflowRangeRaw, isLoading: isCashflowLoading } =
+    useApi<Array<{ month: string; inflow: number; totalOutflow: number }>>(
+      cashflowRangeUrl
+    )
+  const cashflowRangeData = useMemo(
+    () => cashflowRangeRaw ?? [],
+    [cashflowRangeRaw]
+  )
+  const cashflowMonths = useMemo(
+    () => (cashflowRangeRaw ?? []).map((r) => r.month).reverse(),
+    [cashflowRangeRaw]
+  )
+
+  // Overview: fetch with month once effectiveMonth is known, else initial fetch
+  const effectiveMonth =
+    selectedMonth ??
+    (() => {
+      // Derive from cashflow months (first = latest)
+      if (cashflowMonths.length > 0) return cashflowMonths[0] ?? null
+      return null
+    })()
+
+  const overviewUrl = effectiveMonth
+    ? `/api/overview?${qs ? `${qs}&` : ""}month=${effectiveMonth}`
+    : qs
+      ? `/api/overview?${qs}`
+      : "/api/overview"
+  const { data, isLoading: isOverviewLoading } = useApi<{
     totalNetWorth?: number
     liquidNetWorth?: number
     savingsRate?: number
@@ -143,199 +201,66 @@ export default function OverviewPage() {
     previousMonthInflow?: number
     previousMonthOutflow?: number
     previousMonthSavings?: number
-  } | null>(null)
-  const [waterfallData, setWaterfallData] = useState<WaterfallData | null>(null)
-  const [cashflowMonths, setCashflowMonths] = useState<string[]>([])
-  const [cashflowRangeData, setCashflowRangeData] = useState<
-    Array<{ month: string; inflow: number; totalOutflow: number }>
-  >([])
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(null)
-  const [ilpProducts, setIlpProducts] = useState<IlpProductWithEntries[]>([])
-  const [goals, setGoals] = useState<Goal[]>([])
-  const [policies, setPolicies] = useState<Policy[]>([])
-  const [transactions, setTransactions] = useState<JournalEntry[]>([])
-  const [investmentHistory, setInvestmentHistory] = useState<
-    { date: string; value: number }[]
-  >([])
-  const [isOverviewLoading, setIsOverviewLoading] = useState(true)
-  const [isCashflowLoading, setIsCashflowLoading] = useState(true)
-  const [isIlpLoading, setIsIlpLoading] = useState(true)
-  const [isGoalsLoading, setIsGoalsLoading] = useState(true)
-  const [isInsuranceLoading, setIsInsuranceLoading] = useState(true)
-  const [isTxLoading, setIsTxLoading] = useState(true)
+  }>(overviewUrl)
 
-  const params = useMemo(() => {
-    const p = new URLSearchParams()
-    if (activeProfileId) p.set("profileId", activeProfileId)
-    if (activeFamilyId && !activeProfileId) p.set("familyId", activeFamilyId)
-    return p.toString()
-  }, [activeProfileId, activeFamilyId])
+  // Waterfall data for selected month
+  const waterfallUrl = effectiveMonth
+    ? `/api/cashflow?month=${effectiveMonth}${qs ? `&${qs}` : ""}`
+    : null
+  const { data: waterfallData } = useApi<WaterfallData>(waterfallUrl)
 
-  useEffect(() => {
-    function fetchAll() {
-      setIsOverviewLoading(true)
-      setIsCashflowLoading(true)
-      setIsIlpLoading(true)
-      setIsGoalsLoading(true)
-      setIsInsuranceLoading(true)
-      setIsTxLoading(true)
+  // ILP products
+  const ilpUrl = `/api/investments/ilp${qs ? `?${qs}` : ""}`
+  const { data: ilpRaw, isLoading: isIlpLoading } =
+    useApi<IlpProductWithEntries[]>(ilpUrl)
+  const ilpProducts = useMemo(
+    () => (ilpRaw ?? []).map((p) => ({ ...p, entries: p.entries ?? [] })),
+    [ilpRaw]
+  )
 
-      const qs = params ? `?${params}` : ""
-      const now = new Date()
-      const endMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-      const twelveMonthsAgo = new Date(now)
-      twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11)
-      const twelveMonthsAgoStr = `${twelveMonthsAgo.getFullYear()}-${String(twelveMonthsAgo.getMonth() + 1).padStart(2, "0")}-01`
-      const familyStartMonth =
-        activeFamilyId && families?.length
-          ? (() => {
-              const family = families.find((f) => f.id === activeFamilyId)
-              if (!family?.created_at) return twelveMonthsAgoStr
-              const d = new Date(family.created_at)
-              return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`
-            })()
-          : twelveMonthsAgoStr
-      const startMonth =
-        familyStartMonth > twelveMonthsAgoStr
-          ? familyStartMonth
-          : twelveMonthsAgoStr
+  // Goals
+  const goalsUrl = `/api/goals${qs ? `?${qs}` : ""}`
+  const { data: goals = [], isLoading: isGoalsLoading } =
+    useApi<Goal[]>(goalsUrl)
 
-      fetch(`/api/overview${qs}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => {
-          if (d) setData(d)
-          setIsOverviewLoading(false)
-        })
-        .catch(() => setIsOverviewLoading(false))
+  // Insurance
+  const insuranceUrl = `/api/insurance${qs ? `?${qs}` : ""}`
+  const { data: policies = [], isLoading: isInsuranceLoading } =
+    useApi<Policy[]>(insuranceUrl)
 
-      fetch(
-        `/api/cashflow?startMonth=${startMonth}&endMonth=${endMonth}${params ? `&${params}` : ""}`
-      )
-        .then((r) => (r.ok ? r.json() : null))
-        .then((cashflow) => {
-          if (cashflow && Array.isArray(cashflow)) {
-            setCashflowRangeData(cashflow)
-            const months = cashflow
-              .map((r: { month: string }) => r.month)
-              .reverse()
-            setCashflowMonths(months)
-          }
-          setIsCashflowLoading(false)
-        })
-        .catch(() => setIsCashflowLoading(false))
+  // Transactions
+  const txUrl = `/api/investments/transactions${qs ? `?${qs}&limit=100` : "?limit=100"}`
+  const { data: txRaw, isLoading: isTxLoading } = useApi<
+    Array<{
+      id: string
+      symbol: string
+      type: string
+      quantity: number
+      price: number
+      journal_text?: string
+      created_at: string
+    }>
+  >(txUrl)
+  const transactions: JournalEntry[] = useMemo(
+    () =>
+      (txRaw ?? []).map((t) => ({
+        id: t.id,
+        symbol: t.symbol,
+        type: t.type as "buy" | "sell",
+        quantity: t.quantity,
+        price: t.price,
+        journalText: t.journal_text,
+        date: t.created_at.slice(0, 10),
+      })),
+    [txRaw]
+  )
 
-      fetch(`/api/investments/ilp${qs}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((products) => {
-          if (products) {
-            setIlpProducts(
-              products.map((p: IlpProductWithEntries) => ({
-                ...p,
-                entries: p.entries ?? [],
-              }))
-            )
-          }
-          setIsIlpLoading(false)
-        })
-        .catch(() => setIsIlpLoading(false))
-
-      fetch(`/api/goals${qs}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((json) => {
-          if (json) setGoals(json)
-          setIsGoalsLoading(false)
-        })
-        .catch(() => setIsGoalsLoading(false))
-
-      fetch(`/api/insurance${qs}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((json) => {
-          if (json) setPolicies(json)
-          setIsInsuranceLoading(false)
-        })
-        .catch(() => setIsInsuranceLoading(false))
-
-      fetch(
-        `/api/investments/transactions${qs ? `${qs}&limit=100` : "?limit=100"}`
-      )
-        .then((r) => (r.ok ? r.json() : null))
-        .then((txs) => {
-          if (txs) {
-            setTransactions(
-              txs.map(
-                (t: {
-                  id: string
-                  symbol: string
-                  type: string
-                  quantity: number
-                  price: number
-                  journal_text?: string
-                  created_at: string
-                }) => ({
-                  id: t.id,
-                  symbol: t.symbol,
-                  type: t.type as "buy" | "sell",
-                  quantity: t.quantity,
-                  price: t.price,
-                  journalText: t.journal_text,
-                  date: t.created_at.slice(0, 10),
-                })
-              )
-            )
-          }
-          setIsTxLoading(false)
-        })
-        .catch(() => setIsTxLoading(false))
-
-      if (qs) {
-        fetch(`/api/investments/history?days=30${qs.replace("?", "&")}`)
-          .then((r) => (r.ok ? r.json() : null))
-          .then((json) => {
-            if (json?.data) setInvestmentHistory(json.data)
-          })
-          .catch(() => setInvestmentHistory([]))
-      } else {
-        setInvestmentHistory([])
-      }
-    }
-    fetchAll()
-  }, [params, activeFamilyId, families, dataVersion])
-
-  // Derive initial selectedMonth from overview + cashflow data
-  const derivedMonth = useMemo(() => {
-    const latestMonth = data?.latestMonth
-    if (latestMonth && cashflowMonths.includes(latestMonth)) return latestMonth
-    if (cashflowMonths.length > 0) return cashflowMonths[0] ?? null
-    return null
-  }, [data?.latestMonth, cashflowMonths])
-
-  // The effective selected month: user selection takes priority, else derived
-  const effectiveMonth = selectedMonth ?? derivedMonth
-
-  useEffect(() => {
-    if (!effectiveMonth || (!activeProfileId && !activeFamilyId)) return
-    const qs = params
-      ? `?${params}&month=${effectiveMonth}`
-      : `?month=${effectiveMonth}`
-    queueMicrotask(() => setIsOverviewLoading(true))
-    fetch(`/api/overview${qs}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d) setData(d)
-        setIsOverviewLoading(false)
-      })
-      .catch(() => setIsOverviewLoading(false))
-  }, [effectiveMonth, params, activeProfileId, activeFamilyId])
-
-  useEffect(() => {
-    if (!effectiveMonth || (!activeProfileId && !activeFamilyId)) return
-    fetch(`/api/cashflow?month=${effectiveMonth}${params ? `&${params}` : ""}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => {
-        if (json) setWaterfallData(json)
-      })
-      .catch(() => setWaterfallData(null))
-  }, [effectiveMonth, params, activeProfileId, activeFamilyId])
+  // Investment history
+  const historyUrl = qs ? `/api/investments/history?days=30&${qs}` : null
+  const { data: historyRaw } = useApi<{
+    data: { date: string; value: number }[]
+  }>(historyUrl)
+  const investmentHistory = useMemo(() => historyRaw?.data ?? [], [historyRaw])
 
   const savingsHistory = useMemo(() => {
     return cashflowRangeData.map((r) => ({

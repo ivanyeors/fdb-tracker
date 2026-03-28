@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { validateSession, createSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 import { z } from "zod"
@@ -31,7 +31,7 @@ const completeProfileSchema = z.object({
     .max(2010)
     .nullable()
     .optional()
-    .transform((v) => (v ?? 1990)),
+    .transform((v) => v ?? 1990),
 })
 
 const completeIncomeSchema = z.object({
@@ -79,7 +79,10 @@ const loanSchema = z.object({
   principal: z.number().min(0).optional().default(0),
   rate_pct: z.number().min(0).optional().default(0),
   tenure_months: z.number().int().min(0).optional().default(0),
-  start_date: z.string().optional().default(() => new Date().toISOString().slice(0, 10)),
+  start_date: z
+    .string()
+    .optional()
+    .default(() => new Date().toISOString().slice(0, 10)),
   lender: z.string().optional(),
   use_cpf_oa: z.boolean().optional().default(false),
   profileIndex: z.number().int().min(0),
@@ -101,18 +104,19 @@ const taxReliefSchema = z.object({
 })
 
 const completeSchema = z.object({
-  mode: z.enum(["first-time", "new-family", "resume"]).optional().default("first-time"),
+  mode: z
+    .enum(["first-time", "new-family", "resume"])
+    .optional()
+    .default("first-time"),
   userCount: z.number().int().min(1).max(6),
   profiles: z.array(completeProfileSchema).min(1).max(6),
   incomeConfigs: z.array(completeIncomeSchema),
   bankAccounts: z.array(
-    bankAccountSchema
-      .omit({ profile_id: true })
-      .extend({
-        profile_id: z.string().uuid().nullable().optional(),
-        opening_balance: z.number().min(0).optional(),
-        savings_goals: z.array(completeSavingsGoalSchema).optional().default([]),
-      }),
+    bankAccountSchema.omit({ profile_id: true }).extend({
+      profile_id: z.string().uuid().nullable().optional(),
+      opening_balance: z.number().min(0).optional(),
+      savings_goals: z.array(completeSavingsGoalSchema).optional().default([]),
+    })
   ),
   cpfBalances: z.array(cpfBalanceSchema).optional().default([]),
   telegramChatId: z.string().optional().default(""),
@@ -132,12 +136,15 @@ export async function POST(request: Request) {
     const session = await validateSession(token)
     if (!session)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-      
+
     const body = await request.json()
     const parsed = completeSchema.safeParse(body)
     if (!parsed.success) {
       const flattened = parsed.error.flatten()
-      const details = flattened.fieldErrors as Record<string, string[] | undefined>
+      const details = flattened.fieldErrors as Record<
+        string,
+        string[] | undefined
+      >
       const firstError = Object.entries(details)
         .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
         .join("; ")
@@ -147,10 +154,10 @@ export async function POST(request: Request) {
           details,
           message: firstError || parsed.error.message,
         },
-        { status: 400 },
+        { status: 400 }
       )
     }
-    
+
     const data = parsed.data
     const supabase = createSupabaseAdmin()
     const isNewFamily = data.mode === "new-family"
@@ -176,7 +183,7 @@ export async function POST(request: Request) {
         console.error("Onboarding family create error:", familyError)
         return NextResponse.json(
           { error: "Failed to create family" },
-          { status: 500 },
+          { status: 500 }
         )
       }
       familyId = newFamily.id
@@ -208,7 +215,7 @@ export async function POST(request: Request) {
           console.error("Onboarding family create error:", familyError)
           return NextResponse.json(
             { error: "Failed to create family" },
-            { status: 500 },
+            { status: 500 }
           )
         }
         familyId = newFamily.id
@@ -228,7 +235,7 @@ export async function POST(request: Request) {
         console.error("Onboarding household update error:", householdError)
         return NextResponse.json(
           { error: "Failed to update household" },
-          { status: 500 },
+          { status: 500 }
         )
       }
     } else {
@@ -260,7 +267,7 @@ export async function POST(request: Request) {
       insertedProfiles = existingProfiles.map((p) => ({ id: p.id }))
     } else {
       const existingNames = new Set(
-        (existingProfiles ?? []).map((p) => p.name.toLowerCase().trim()),
+        (existingProfiles ?? []).map((p) => p.name.toLowerCase().trim())
       )
       const resolvedProfiles = data.profiles.map((p) => {
         const baseName = p.name.trim()
@@ -286,7 +293,7 @@ export async function POST(request: Request) {
             family_id: familyId,
             name: p.name,
             birth_year: p.birth_year,
-          })),
+          }))
         )
         .select("id")
 
@@ -301,12 +308,12 @@ export async function POST(request: Request) {
               ? "Profiles table not found. Run the migration: Supabase Dashboard → SQL Editor → paste contents of supabase/migrations/004_ensure_profiles.sql"
               : "Failed to create profiles",
           },
-          { status: 500 },
+          { status: 500 }
         )
       }
       insertedProfiles = inserted
     }
-    
+
     // Insert or upsert Income Configs (upsert when reusing profiles)
     const incomeInserts = data.incomeConfigs
       .slice(0, insertedProfiles.length)
@@ -319,7 +326,7 @@ export async function POST(request: Request) {
     await supabase
       .from("income_config")
       .upsert(incomeInserts, { onConflict: "profile_id" })
-    
+
     const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`
 
     // Insert CPF Balances
@@ -335,7 +342,7 @@ export async function POST(request: Request) {
             ma: cb.ma,
             is_manual_override: true,
           },
-          { onConflict: "profile_id,month" },
+          { onConflict: "profile_id,month" }
         )
       }
     }
@@ -356,8 +363,7 @@ export async function POST(request: Request) {
 
       if (insertedAcc && acc.savings_goals.length > 0) {
         const validGoals = acc.savings_goals.filter(
-          (g) =>
-            (g.name?.trim() ?? "").length > 0 && (g.target_amount ?? 0) > 0,
+          (g) => (g.name?.trim() ?? "").length > 0 && (g.target_amount ?? 0) > 0
         )
         if (validGoals.length > 0) {
           await supabase.from("savings_goals").insert(
@@ -369,16 +375,16 @@ export async function POST(request: Request) {
               current_amount: g.current_amount ?? 0,
               deadline: g.deadline ?? null,
               category: "custom",
-            })),
+            }))
           )
         }
       }
     }
-    
+
     // Insert Prompt Schedule
     if (data.promptSchedule.length > 0) {
       await supabase.from("prompt_schedule").insert(
-        data.promptSchedule.map(s => ({
+        data.promptSchedule.map((s) => ({
           family_id: familyId,
           prompt_type: s.prompt_type,
           frequency: s.frequency,
@@ -408,7 +414,12 @@ export async function POST(request: Request) {
     // Insert Loans
     for (const loan of data.loans) {
       const profileId = insertedProfiles[loan.profileIndex]?.id
-      if (profileId && loan.name.trim() && loan.principal > 0 && loan.tenure_months > 0) {
+      if (
+        profileId &&
+        loan.name.trim() &&
+        loan.principal > 0 &&
+        loan.tenure_months > 0
+      ) {
         await supabase.from("loans").insert({
           profile_id: profileId,
           name: loan.name.trim(),
@@ -452,17 +463,30 @@ export async function POST(request: Request) {
             relief_type: rel.relief_type,
             amount: rel.amount,
           },
-          { onConflict: "profile_id,year,relief_type" },
+          { onConflict: "profile_id,year,relief_type" }
         )
       }
     }
 
-    return NextResponse.json({ success: true })
+    // Reissue JWT with onboarding complete claim
+    const newToken = await createSession(session.accountId, {
+      onboardingComplete: true,
+    })
+    const isProduction = process.env.NODE_ENV === "production"
+    const response = NextResponse.json({ success: true })
+    response.cookies.set(COOKIE_NAME, newToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    })
+    return response
   } catch (error) {
     console.error("Onboarding error:", error)
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
