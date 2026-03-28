@@ -1,20 +1,16 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useMemo } from "react"
 import Link from "next/link"
-import { AlertTriangle, TrendingUp, ChevronDown, ArrowRight } from "lucide-react"
+import { AlertTriangle, TrendingUp, ArrowRight, Calendar } from "lucide-react"
 
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from "@/components/ui/collapsible"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import {
   getActiveEvents,
   getUpcomingEvents,
+  getNextEvent,
   type SeasonalityEvent,
 } from "@/lib/investments/seasonality"
 
@@ -81,13 +77,32 @@ function EventCard({ event }: { event: SeasonalityEvent }) {
   )
 }
 
-function FullVariant() {
-  const [upcomingOpen, setUpcomingOpen] = useState(false)
+function QuietCard({ next }: { next: SeasonalityEvent | null }) {
+  return (
+    <Alert className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
+      <Calendar className="size-4 text-blue-500 dark:text-blue-400" />
+      <AlertTitle>Quiet Period</AlertTitle>
+      <AlertDescription>
+        No active seasonality events right now.
+        {next && (
+          <>
+            {" "}
+            Next up:{" "}
+            <span className="font-medium text-foreground">
+              {next.title}
+            </span>{" "}
+            ({formatDateRange(next)})
+          </>
+        )}
+      </AlertDescription>
+    </Alert>
+  )
+}
 
+function FullVariant() {
   const active = useMemo(() => getActiveEvents(), [])
   const upcoming = useMemo(() => getUpcomingEvents(), [])
-
-  if (active.length === 0 && upcoming.length === 0) return null
+  const next = useMemo(() => getNextEvent(), [])
 
   return (
     <div className="space-y-3">
@@ -96,39 +111,77 @@ function FullVariant() {
         <InfoTooltip id="SEASONALITY_PROMPTS" />
       </div>
 
-      {active.length > 0 && (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* Current */}
         <div className="space-y-2">
-          {active.map((e) => (
-            <EventCard key={e.id} event={e} />
-          ))}
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Current
+          </p>
+          {active.length > 0 ? (
+            active.map((e) => <EventCard key={e.id} event={e} />)
+          ) : (
+            <QuietCard next={null} />
+          )}
         </div>
-      )}
 
-      {upcoming.length > 0 && (
-        <Collapsible open={upcomingOpen} onOpenChange={setUpcomingOpen}>
-          <CollapsibleTrigger className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ChevronDown
-              className={`size-4 transition-transform ${upcomingOpen ? "rotate-180" : ""}`}
-            />
-            Upcoming ({upcoming.length})
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="mt-2 space-y-2">
-              {upcoming.map((e) => (
-                <EventCard key={e.id} event={e} />
-              ))}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      )}
+        {/* Upcoming */}
+        <div className="space-y-2">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Upcoming
+          </p>
+          {upcoming.length > 0 ? (
+            upcoming.map((e) => <EventCard key={e.id} event={e} />)
+          ) : next ? (
+            <Alert className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
+              <Calendar className="size-4 text-blue-500 dark:text-blue-400" />
+              <AlertTitle>
+                {next.title}{" "}
+                <span className="font-normal text-muted-foreground">
+                  ({formatDateRange(next)})
+                </span>
+              </AlertTitle>
+              <AlertDescription>{next.description}</AlertDescription>
+            </Alert>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No upcoming events in the next 7 days.
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
 
 function CompactVariant() {
   const active = useMemo(() => getActiveEvents(), [])
+  const next = useMemo(() => getNextEvent(), [])
 
-  if (active.length === 0) return null
+  // No active events — show quiet state with next upcoming
+  if (active.length === 0) {
+    return (
+      <Alert className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
+        <Calendar className="size-4 text-blue-500 dark:text-blue-400" />
+        <AlertTitle className="flex items-center justify-between">
+          <span>
+            Quiet Period
+            {next && (
+              <span className="font-normal text-muted-foreground">
+                {" "}
+                — Next: {next.title} ({formatDateRange(next)})
+              </span>
+            )}
+          </span>
+          <Link
+            href="/dashboard/investments"
+            className="ml-2 inline-flex shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            View <ArrowRight className="size-3" />
+          </Link>
+        </AlertTitle>
+      </Alert>
+    )
+  }
 
   // Prioritize risk over opportunity for the single banner
   const sorted = [...active].sort((a, b) => {

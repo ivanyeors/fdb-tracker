@@ -346,6 +346,24 @@ export function getActiveEvents(date: Date = new Date()): SeasonalityEvent[] {
   })
 }
 
+/** The single next event (by start date) that hasn't started yet. */
+export function getNextEvent(date: Date = new Date()): SeasonalityEvent | null {
+  const today = startOfDay(date)
+  let closest: SeasonalityEvent | null = null
+  let closestDiff = Infinity
+
+  for (const e of SEASONALITY_EVENTS) {
+    const start = toDateThisYear(e.startMonth, e.startDay, today)
+    const diff = start.getTime() - today.getTime()
+    if (diff > 0 && diff < closestDiff) {
+      closestDiff = diff
+      closest = e
+    }
+  }
+
+  return closest
+}
+
 /** Events whose start date falls within the next `daysAhead` days (not yet active). */
 export function getUpcomingEvents(
   date: Date = new Date(),
