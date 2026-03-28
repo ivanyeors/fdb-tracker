@@ -92,13 +92,9 @@ export function getUpcomingPremiums(
           entry.cpfTotal += cpfMonthly
         }
       }
-    } else if (
-      policy.frequency === "yearly" &&
-      policy.yearly_outflow_date
-    ) {
-      const target = months.find(
-        (m) => m.month === policy.yearly_outflow_date,
-      )
+    } else if (policy.frequency === "yearly") {
+      const targetMonth = policy.yearly_outflow_date ?? 1
+      const target = months.find((m) => m.month === targetMonth)
       if (target) {
         target.premiums.push({
           name: policy.name,

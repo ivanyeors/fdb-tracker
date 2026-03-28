@@ -3243,7 +3243,16 @@ function InsuranceSection({
   }
 
   function setNewPolicyFrequency(frequency: "monthly" | "yearly") {
-    setNewPolicy((prev) => ({ ...prev, frequency }))
+    setNewPolicy((prev) => ({
+      ...prev,
+      frequency,
+      yearly_outflow_date:
+        frequency === "yearly" && !prev.yearly_outflow_date
+          ? 1
+          : frequency === "monthly"
+            ? null
+            : prev.yearly_outflow_date,
+    }))
   }
 
   async function confirmDeletePolicy() {
@@ -3311,9 +3320,9 @@ function InsuranceSection({
                 sortOrder: newPolicy.coverages.length + i,
               })),
           ],
-          yearlyOutflowDate: newPolicy.yearly_outflow_date ?? undefined,
-          currentAmount: newPolicy.current_amount ?? undefined,
-          endDate: newPolicy.end_date ?? undefined,
+          yearlyOutflowDate: newPolicy.yearly_outflow_date,
+          currentAmount: newPolicy.current_amount,
+          endDate: newPolicy.end_date,
           subType: newPolicy.sub_type ?? undefined,
           riderName: newPolicy.rider_name ?? undefined,
           riderPremium: newPolicy.rider_premium ?? undefined,
@@ -3418,9 +3427,9 @@ function InsuranceSection({
             benefitUnit: c.benefit_unit ?? undefined,
             sortOrder: c.sort_order ?? i,
           })),
-          yearlyOutflowDate: e.yearly_outflow_date ?? undefined,
-          currentAmount: e.current_amount ?? undefined,
-          endDate: e.end_date ?? undefined,
+          yearlyOutflowDate: e.yearly_outflow_date,
+          currentAmount: e.current_amount,
+          endDate: e.end_date,
           subType: e.sub_type,
           riderName: e.rider_name,
           riderPremium: e.rider_premium,
@@ -3429,10 +3438,10 @@ function InsuranceSection({
           maturityValue: e.maturity_value,
           cashValue: e.cash_value,
           coverageTillAge: e.coverage_till_age,
-          inceptionDate: e.inception_date ?? undefined,
-          cpfPremium: e.cpf_premium ?? undefined,
-          premiumWaiver: e.premium_waiver ?? undefined,
-          remarks: e.remarks ?? undefined,
+          inceptionDate: e.inception_date,
+          cpfPremium: e.cpf_premium,
+          premiumWaiver: e.premium_waiver,
+          remarks: e.remarks,
         }),
       })
       if (!res.ok) {
@@ -3981,7 +3990,17 @@ function InsuranceSection({
                   <Select
                     value={e.frequency}
                     onValueChange={(v) =>
-                      setEditing((prev) => ({ ...prev, [p.id]: { ...(prev[p.id] ?? p), frequency: v } }))
+                      setEditing((prev) => {
+                        const current = prev[p.id] ?? p
+                        const updates: Record<string, unknown> = { frequency: v }
+                        if (v === "yearly" && !current.yearly_outflow_date) {
+                          updates.yearly_outflow_date = 1
+                        }
+                        if (v === "monthly") {
+                          updates.yearly_outflow_date = null
+                        }
+                        return { ...prev, [p.id]: { ...current, ...updates } }
+                      })
                     }
                   >
                     <SelectTrigger className="h-8 w-24">
