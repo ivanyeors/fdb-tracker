@@ -13,6 +13,7 @@ import { getEffectiveInflowForProfile } from "@/lib/api/effective-inflow"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
 import { computeTotalInvestmentsValue } from "@/lib/api/net-liquid"
 import { estimateOutstandingPrincipal, loanMonthlyPayment } from "@/lib/calculations/loans"
+import { computeBankTotal } from "@/lib/calculations/computed-bank-balance"
 
 const overviewQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -65,56 +66,13 @@ export async function GET(request: NextRequest) {
     const { familyId, profileIds } = resolved
     const profileId = parsed.data.profileId ?? null
 
-    // --- Bank Total ---
-    let bankAccountQuery = supabase
-      .from("bank_accounts")
-      .select("id, opening_balance, locked_amount")
-      .eq("family_id", familyId)
-
-    if (profileId) {
-      bankAccountQuery = bankAccountQuery.or(
-        `profile_id.eq.${profileId},profile_id.is.null`,
-      )
-    }
-
-    const { data: bankAccounts } = await bankAccountQuery
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const accounts = (bankAccounts as any[]) ?? []
-    const accountIds = accounts.map((a) => a.id)
-    const openingByAccount = new Map(
-      accounts.map((a) => [a.id, a.opening_balance ?? 0]),
+    // --- Bank Total (computed from cashflow) ---
+    const bankTotal = await computeBankTotal(
+      supabase,
+      familyId,
+      profileId,
+      monthFilter ?? undefined,
     )
-    const lockedByAccount = new Map(
-      accounts.map((a) => [a.id, a.locked_amount ?? 0]),
-    )
-
-    let bankTotal = 0
-
-    if (accountIds.length > 0) {
-      let snapshotsQuery = supabase
-        .from("bank_balance_snapshots")
-        .select("account_id, month, closing_balance")
-        .in("account_id", accountIds)
-        .order("month", { ascending: false })
-      if (monthFilter) {
-        snapshotsQuery = snapshotsQuery.lte("month", monthFilter)
-      }
-      const { data: snapshots } = await snapshotsQuery
-
-      const latestByAccount = new Map<string, number>()
-      if (snapshots) {
-        for (const s of snapshots) {
-          if (!latestByAccount.has(s.account_id)) {
-            latestByAccount.set(s.account_id, s.closing_balance)
-          }
-        }
-      }
-      for (const accId of accountIds) {
-        const bal = latestByAccount.get(accId) ?? openingByAccount.get(accId) ?? 0
-        const locked = lockedByAccount.get(accId) ?? 0
-        bankTotal += Math.max(0, bal - locked)
-      }
-    }
 
     // --- CPF Total ---
     const targetProfileIds = profileId ? [profileId] : profileIds

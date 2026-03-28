@@ -28,8 +28,14 @@ import type {
 
 interface PolicyCoverage {
   id: string
-  coverage_type: string
+  coverage_type: string | null
   coverage_amount: number
+  benefit_name: string | null
+  benefit_premium: number | null
+  renewal_bonus: number | null
+  benefit_expiry_date: string | null
+  benefit_unit: string | null
+  sort_order: number
 }
 
 interface Policy {
@@ -542,7 +548,8 @@ export default function InsurancePage() {
                     <tbody>
                       {policies.map((policy) => {
                         const isExpanded = expandedPolicies.has(policy.id)
-                        const hasExpandableContent = policy.remarks || policy.premium_waiver
+                        const customBenefits = policy.coverages.filter((c) => !c.coverage_type)
+                        const hasExpandableContent = policy.remarks || policy.premium_waiver || customBenefits.length > 0 || policy.coverages.some((c) => c.benefit_premium != null || c.renewal_bonus != null)
                         return (
                           <React.Fragment key={policy.id}>
                             <tr
@@ -584,16 +591,23 @@ export default function InsurancePage() {
                               <td className="px-4 py-3">
                                 {policy.coverages && policy.coverages.length > 0 ? (
                                   <div className="space-y-1">
-                                    {policy.coverages.map((c) => (
+                                    {policy.coverages
+                                      .filter((c) => c.coverage_type)
+                                      .map((c) => (
                                       <div key={c.coverage_type} className="flex items-center gap-2">
                                         <Badge variant="outline" className="text-[10px] shrink-0">
-                                          {COVERAGE_TYPE_LABELS[c.coverage_type as CoverageType] ?? c.coverage_type.replace(/_/g, " ")}
+                                          {COVERAGE_TYPE_LABELS[c.coverage_type as CoverageType] ?? c.coverage_type!.replace(/_/g, " ")}
                                         </Badge>
                                         <span className="text-xs tabular-nums text-muted-foreground">
                                           {c.coverage_amount > 0 ? `$${formatCurrency(c.coverage_amount)}` : "—"}
                                         </span>
                                       </div>
                                     ))}
+                                    {customBenefits.length > 0 && (
+                                      <span className="text-[10px] text-muted-foreground">
+                                        +{customBenefits.length} benefit{customBenefits.length > 1 ? "s" : ""}
+                                      </span>
+                                    )}
                                   </div>
                                 ) : (
                                   <span className="text-muted-foreground">
@@ -649,17 +663,60 @@ export default function InsurancePage() {
                             {isExpanded && (
                               <tr className="border-b last:border-0 bg-muted/20">
                                 <td colSpan={11} className="px-6 py-3">
-                                  <div className="flex flex-wrap items-start gap-4 text-xs text-muted-foreground">
-                                    {policy.premium_waiver && (
-                                      <div className="flex items-center gap-1">
-                                        <ShieldCheck className="size-3.5 text-green-600" />
-                                        <span className="font-medium text-green-700 dark:text-green-400">Premium Waiver</span>
-                                      </div>
-                                    )}
-                                    {policy.remarks && (
-                                      <div className="flex items-start gap-1">
-                                        <FileText className="mt-0.5 size-3.5 shrink-0" />
-                                        <span className="whitespace-pre-wrap">{policy.remarks}</span>
+                                  <div className="space-y-3 text-xs text-muted-foreground">
+                                    <div className="flex flex-wrap items-start gap-4">
+                                      {policy.premium_waiver && (
+                                        <div className="flex items-center gap-1">
+                                          <ShieldCheck className="size-3.5 text-green-600" />
+                                          <span className="font-medium text-green-700 dark:text-green-400">Premium Waiver</span>
+                                        </div>
+                                      )}
+                                      {policy.remarks && (
+                                        <div className="flex items-start gap-1">
+                                          <FileText className="mt-0.5 size-3.5 shrink-0" />
+                                          <span className="whitespace-pre-wrap">{policy.remarks}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {policy.coverages.some((c) => c.benefit_name) && (
+                                      <div className="overflow-x-auto">
+                                        <table className="w-full text-xs">
+                                          <thead>
+                                            <tr className="border-b text-muted-foreground/70">
+                                              <th className="py-1.5 pr-4 text-left font-medium">Benefit</th>
+                                              <th className="py-1.5 pr-4 text-right font-medium">Coverage</th>
+                                              <th className="py-1.5 pr-4 text-right font-medium">Premium</th>
+                                              <th className="py-1.5 pr-4 text-right font-medium">Renewal Bonus</th>
+                                              <th className="py-1.5 text-left font-medium">Expiry</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {[...policy.coverages]
+                                              .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+                                              .map((c, i) => (
+                                              <tr key={c.id || i} className="border-b border-dashed last:border-0">
+                                                <td className="py-1.5 pr-4">
+                                                  {c.benefit_name ?? (c.coverage_type ? COVERAGE_TYPE_LABELS[c.coverage_type as CoverageType] ?? c.coverage_type : "—")}
+                                                  {c.benefit_unit && <span className="ml-1 text-muted-foreground/60">{c.benefit_unit}</span>}
+                                                </td>
+                                                <td className="py-1.5 pr-4 text-right tabular-nums">
+                                                  {c.coverage_amount > 0 ? `$${formatCurrency(c.coverage_amount)}` : "—"}
+                                                </td>
+                                                <td className="py-1.5 pr-4 text-right tabular-nums">
+                                                  {c.benefit_premium != null ? `$${formatCurrency(c.benefit_premium)}` : "—"}
+                                                </td>
+                                                <td className="py-1.5 pr-4 text-right tabular-nums">
+                                                  {c.renewal_bonus != null && c.renewal_bonus > 0 ? `$${formatCurrency(c.renewal_bonus)}` : "—"}
+                                                </td>
+                                                <td className="py-1.5">
+                                                  {c.benefit_expiry_date
+                                                    ? new Intl.DateTimeFormat("en-SG", { month: "short", year: "numeric" }).format(new Date(c.benefit_expiry_date))
+                                                    : "—"}
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
                                       </div>
                                     )}
                                   </div>

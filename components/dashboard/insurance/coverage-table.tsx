@@ -18,7 +18,7 @@ type CoverageTableProps = {
     coverage_amount: number | null
     is_active: boolean
     profile_id: string
-    coverages: Array<{ coverage_type: string; coverage_amount: number }>
+    coverages: Array<{ coverage_type: string | null; coverage_amount: number }>
   }>
 }
 

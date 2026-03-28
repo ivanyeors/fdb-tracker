@@ -86,6 +86,7 @@ export type Database = {
           dps_include_in_projection: boolean
           marital_status: string | null
           num_dependents: number
+          primary_bank_account_id: string | null
           created_at: string
         }
         Insert: {
@@ -102,6 +103,7 @@ export type Database = {
           dps_include_in_projection?: boolean
           marital_status?: string | null
           num_dependents?: number
+          primary_bank_account_id?: string | null
           created_at?: string
         }
         Update: {
@@ -118,6 +120,7 @@ export type Database = {
           dps_include_in_projection?: boolean
           marital_status?: string | null
           num_dependents?: number
+          primary_bank_account_id?: string | null
           created_at?: string
         }
         Relationships: [
@@ -309,6 +312,8 @@ export type Database = {
           destination_type: string
           destination_bank_account_id: string | null
           is_active: boolean
+          linked_entity_type: string | null
+          linked_entity_id: string | null
           created_at: string
           updated_at: string
         }
@@ -321,6 +326,8 @@ export type Database = {
           destination_type: string
           destination_bank_account_id?: string | null
           is_active?: boolean
+          linked_entity_type?: string | null
+          linked_entity_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -333,6 +340,8 @@ export type Database = {
           destination_type?: string
           destination_bank_account_id?: string | null
           is_active?: boolean
+          linked_entity_type?: string | null
+          linked_entity_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -424,6 +433,7 @@ export type Database = {
           month: string
           opening_balance: number
           closing_balance: number
+          is_reconciliation: boolean
           created_at: string
         }
         Insert: {
@@ -432,6 +442,7 @@ export type Database = {
           month: string
           opening_balance: number
           closing_balance: number
+          is_reconciliation?: boolean
           created_at?: string
         }
         Update: {
@@ -440,6 +451,7 @@ export type Database = {
           month?: string
           opening_balance?: number
           closing_balance?: number
+          is_reconciliation?: boolean
           created_at?: string
         }
         Relationships: [
@@ -789,6 +801,7 @@ export type Database = {
           ilp_fund_group_id: string | null
           group_allocation_pct: number | null
           premium_payment_mode: string
+          deduction_bank_account_id: string | null
           created_at: string
         }
         Insert: {
@@ -801,6 +814,7 @@ export type Database = {
           ilp_fund_group_id?: string | null
           group_allocation_pct?: number | null
           premium_payment_mode?: string
+          deduction_bank_account_id?: string | null
           created_at?: string
         }
         Update: {
@@ -813,6 +827,7 @@ export type Database = {
           ilp_fund_group_id?: string | null
           group_allocation_pct?: number | null
           premium_payment_mode?: string
+          deduction_bank_account_id?: string | null
           created_at?: string
         }
         Relationships: [
@@ -1135,6 +1150,7 @@ export type Database = {
           lock_in_end_date: string | null
           early_repayment_penalty_pct: number | null
           max_annual_prepayment_pct: number | null
+          deduction_bank_account_id: string | null
           created_at: string
         }
         Insert: {
@@ -1156,6 +1172,7 @@ export type Database = {
           lock_in_end_date?: string | null
           early_repayment_penalty_pct?: number | null
           max_annual_prepayment_pct?: number | null
+          deduction_bank_account_id?: string | null
           created_at?: string
         }
         Update: {
@@ -1177,6 +1194,7 @@ export type Database = {
           lock_in_end_date?: string | null
           early_repayment_penalty_pct?: number | null
           max_annual_prepayment_pct?: number | null
+          deduction_bank_account_id?: string | null
           created_at?: string
         }
         Relationships: [
@@ -1305,6 +1323,7 @@ export type Database = {
           cpf_premium: number | null
           premium_waiver: boolean
           remarks: string | null
+          deduction_bank_account_id: string | null
           created_at: string
         }
         Insert: {
@@ -1333,6 +1352,7 @@ export type Database = {
           cpf_premium?: number | null
           premium_waiver?: boolean
           remarks?: string | null
+          deduction_bank_account_id?: string | null
           created_at?: string
         }
         Update: {
@@ -1361,6 +1381,7 @@ export type Database = {
           cpf_premium?: number | null
           premium_waiver?: boolean
           remarks?: string | null
+          deduction_bank_account_id?: string | null
           created_at?: string
         }
         Relationships: [
@@ -1377,22 +1398,40 @@ export type Database = {
         Row: {
           id: string
           policy_id: string
-          coverage_type: string
+          coverage_type: string | null
           coverage_amount: number
+          benefit_name: string | null
+          benefit_premium: number | null
+          renewal_bonus: number | null
+          benefit_expiry_date: string | null
+          benefit_unit: string | null
+          sort_order: number
           created_at: string
         }
         Insert: {
           id?: string
           policy_id: string
-          coverage_type: string
+          coverage_type?: string | null
           coverage_amount?: number
+          benefit_name?: string | null
+          benefit_premium?: number | null
+          renewal_bonus?: number | null
+          benefit_expiry_date?: string | null
+          benefit_unit?: string | null
+          sort_order?: number
           created_at?: string
         }
         Update: {
           id?: string
           policy_id?: string
-          coverage_type?: string
+          coverage_type?: string | null
           coverage_amount?: number
+          benefit_name?: string | null
+          benefit_premium?: number | null
+          renewal_bonus?: number | null
+          benefit_expiry_date?: string | null
+          benefit_unit?: string | null
+          sort_order?: number
           created_at?: string
         }
         Relationships: [
@@ -1743,6 +1782,92 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      outflow_categories: {
+        Row: {
+          id: string
+          household_id: string
+          name: string
+          icon: string | null
+          sort_order: number
+          is_system: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          household_id: string
+          name: string
+          icon?: string | null
+          sort_order?: number
+          is_system?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          household_id?: string
+          name?: string
+          icon?: string | null
+          sort_order?: number
+          is_system?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outflow_categories_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outflow_entries: {
+        Row: {
+          id: string
+          profile_id: string
+          month: string
+          category_id: string | null
+          amount: number
+          memo: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          month: string
+          category_id?: string | null
+          amount: number
+          memo?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          month?: string
+          category_id?: string | null
+          amount?: number
+          memo?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outflow_entries_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outflow_entries_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "outflow_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

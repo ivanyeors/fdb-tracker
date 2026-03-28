@@ -54,7 +54,7 @@ async function fetchFinancialDataForFamily(
     profileIds.length > 0
       ? supabase
           .from("insurance_policies")
-          .select("*, insurance_policy_coverages(id, coverage_type, coverage_amount)")
+          .select("*, insurance_policy_coverages(id, coverage_type, coverage_amount, benefit_name, benefit_premium, renewal_bonus, benefit_expiry_date, benefit_unit, sort_order)")
           .in("profile_id", profileIds)
           .order("created_at", { ascending: true })
       : Promise.resolve({ data: [] }),
@@ -105,7 +105,7 @@ async function fetchFinancialDataForFamily(
     loans: loansRes.data ?? [],
     insurancePolicies: (insuranceRes.data ?? []).map((p) => {
       const { insurance_policy_coverages, ...rest } = p as typeof p & {
-        insurance_policy_coverages?: Array<{ id: string; coverage_type: string; coverage_amount: number }>
+        insurance_policy_coverages?: Array<{ id: string; coverage_type: string | null; coverage_amount: number; benefit_name: string | null; benefit_premium: number | null; renewal_bonus: number | null; benefit_expiry_date: string | null; benefit_unit: string | null; sort_order: number }>
       }
       return {
         ...rest,
@@ -132,6 +132,7 @@ function normalizeProfile(profile: Record<string, unknown>): ProfileWithIncome {
     telegram_last_used: (profile.telegram_last_used as string | null) ?? null,
     marital_status: (profile.marital_status as string | null) ?? null,
     num_dependents: (profile.num_dependents as number | undefined) ?? 0,
+    primary_bank_account_id: (profile.primary_bank_account_id as string | null) ?? null,
     income_config: (income as ProfileWithIncome["income_config"]) ?? null,
   }
 }
@@ -178,6 +179,7 @@ export default async function UserSettingsPage() {
             telegram_chat_id,
             telegram_link_token,
             telegram_last_used,
+            primary_bank_account_id,
             income_config (
               annual_salary,
               bonus_estimate,

@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
 
     const { data: policies, error } = await supabase
       .from("insurance_policies")
-      .select("*, insurance_policy_coverages(id, coverage_type, coverage_amount)")
+      .select("*, insurance_policy_coverages(id, coverage_type, coverage_amount, benefit_name, benefit_premium, renewal_bonus, benefit_expiry_date, benefit_unit, sort_order)")
       .in("profile_id", profileIds)
       .order("created_at", { ascending: true })
 
@@ -67,8 +67,18 @@ export async function GET(request: NextRequest) {
 }
 
 const coverageEntrySchema = z.object({
-  coverageType: z.enum(COVERAGE_TYPES),
+  coverageType: z.enum(COVERAGE_TYPES).nullable().optional(),
+  benefitName: z.string().min(1).optional(),
   coverageAmount: z.number().min(0),
+  benefitPremium: z.number().min(0).nullable().optional(),
+  renewalBonus: z.number().min(0).nullable().optional(),
+  benefitExpiryDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
+  benefitUnit: z.string().nullable().optional(),
+  sortOrder: z.number().int().min(0).optional(),
 })
 
 const createPolicySchema = z.object({
@@ -136,12 +146,17 @@ export async function POST(request: NextRequest) {
     }
 
     const coverages = parsed.data.coverages
-    const legacyCoverageType = coverages && coverages.length > 0
-      ? coverages[0].coverageType
-      : getCoverageType(parsed.data.type)
-    const legacyCoverageAmount = coverages && coverages.length > 0
-      ? coverages[0].coverageAmount
-      : (parsed.data.coverageAmount ?? null)
+    const firstStandard = coverages?.find((c) => c.coverageType)
+    const legacyCoverageType = firstStandard
+      ? firstStandard.coverageType
+      : coverages && coverages.length > 0
+        ? null
+        : getCoverageType(parsed.data.type)
+    const legacyCoverageAmount = firstStandard
+      ? firstStandard.coverageAmount
+      : coverages && coverages.length > 0
+        ? coverages[0].coverageAmount
+        : (parsed.data.coverageAmount ?? null)
 
     const { data: policy, error } = await supabase
       .from("insurance_policies")
@@ -180,10 +195,16 @@ export async function POST(request: NextRequest) {
       const { error: covError } = await supabase
         .from("insurance_policy_coverages")
         .insert(
-          coverages.map((c) => ({
+          coverages.map((c, i) => ({
             policy_id: policy.id,
-            coverage_type: c.coverageType,
+            coverage_type: c.coverageType ?? null,
             coverage_amount: c.coverageAmount,
+            benefit_name: c.benefitName ?? null,
+            benefit_premium: c.benefitPremium ?? null,
+            renewal_bonus: c.renewalBonus ?? null,
+            benefit_expiry_date: c.benefitExpiryDate ?? null,
+            benefit_unit: c.benefitUnit ?? null,
+            sort_order: c.sortOrder ?? i,
           }))
         )
       if (covError) {

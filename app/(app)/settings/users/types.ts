@@ -6,6 +6,7 @@ export type ProfileWithIncome = {
   num_dependents: number
   dps_include_in_projection?: boolean
   family_id?: string
+  primary_bank_account_id?: string | null
   telegram_user_id?: string | null
   telegram_chat_id?: string | null
   telegram_link_token?: string | null

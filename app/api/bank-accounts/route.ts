@@ -4,6 +4,7 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { fetchOcbc360DerivedForAccount } from "@/lib/api/ocbc360-derived"
+import { computeAccountBalance } from "@/lib/calculations/computed-bank-balance"
 
 const createAccountSchema = z.object({
   bankName: z.string().min(1),
@@ -73,21 +74,17 @@ export async function GET(request: NextRequest) {
       .filter((a) => a.account_type === "ocbc_360")
       .map((a) => a.id)
 
-    // Fetch OCBC configs and latest balance snapshots in parallel
-    const [ocbcConfigResult, snapshotsResult] = await Promise.all([
+    // Fetch OCBC configs and computed balances in parallel
+    const [ocbcConfigResult, computedBalances] = await Promise.all([
       ocbcAccountIds.length > 0
         ? supabase
             .from("bank_account_ocbc360_config")
             .select("*")
             .in("account_id", ocbcAccountIds)
         : Promise.resolve({ data: null }),
-      accountIds.length > 0
-        ? supabase
-            .from("bank_balance_snapshots")
-            .select("account_id, month, closing_balance")
-            .in("account_id", accountIds)
-            .order("month", { ascending: false })
-        : Promise.resolve({ data: null }),
+      Promise.all(
+        accounts.map((a) => computeAccountBalance(supabase, a.id)),
+      ),
     ])
 
     const ocbcConfigs: Record<string, Record<string, unknown>> = {}
@@ -97,21 +94,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const latestBalances: Record<string, number> = {}
-    if (snapshotsResult.data) {
-      for (const s of snapshotsResult.data) {
-        if (!(s.account_id in latestBalances)) {
-          latestBalances[s.account_id] = s.closing_balance
-        }
-      }
-    }
+    const balanceByAccount = new Map(
+      computedBalances.map((b) => [b.accountId, b.balance]),
+    )
 
     const result = await Promise.all(
       accounts.map(async (account) => {
         const latest_balance =
-          account.id in latestBalances
-            ? latestBalances[account.id]
-            : Number(account.opening_balance)
+          balanceByAccount.get(account.id) ?? Number(account.opening_balance)
         if (account.account_type !== "ocbc_360") {
           return { ...account, latest_balance }
         }

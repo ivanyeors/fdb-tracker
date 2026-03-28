@@ -80,6 +80,9 @@ import {
   COVERAGE_TYPE_LABELS,
   DEFAULT_COVERAGES_BY_POLICY,
   ALLOWED_COVERAGES_BY_POLICY,
+  SUGGESTED_BENEFITS_BY_POLICY,
+  mapBenefitToStandardCoverage,
+  BENEFIT_UNITS,
   type InsuranceType,
   type CoverageType,
 } from "@/lib/insurance/coverage-config"
@@ -229,8 +232,14 @@ export type FinancialDataByFamily = {
     remarks: string | null
     coverages: Array<{
       id: string
-      coverage_type: string
+      coverage_type: string | null
       coverage_amount: number
+      benefit_name: string | null
+      benefit_premium: number | null
+      renewal_bonus: number | null
+      benefit_expiry_date: string | null
+      benefit_unit: string | null
+      sort_order: number
     }>
   }>
   cpfBalances: Array<{
@@ -394,10 +403,18 @@ function coveragesDirty(
   b: FinancialDataByFamily["insurancePolicies"][0]["coverages"],
 ): boolean {
   if (a.length !== b.length) return true
-  const sortedA = [...a].sort((x, y) => x.coverage_type.localeCompare(y.coverage_type))
-  const sortedB = [...b].sort((x, y) => x.coverage_type.localeCompare(y.coverage_type))
+  const key = (c: (typeof a)[0]) => `${c.coverage_type ?? ""}|${c.benefit_name ?? ""}|${c.sort_order}`
+  const sortedA = [...a].sort((x, y) => key(x).localeCompare(key(y)))
+  const sortedB = [...b].sort((x, y) => key(x).localeCompare(key(y)))
   return sortedA.some(
-    (ac, i) => ac.coverage_type !== sortedB[i].coverage_type || ac.coverage_amount !== sortedB[i].coverage_amount,
+    (ac, i) =>
+      ac.coverage_type !== sortedB[i].coverage_type ||
+      ac.coverage_amount !== sortedB[i].coverage_amount ||
+      (ac.benefit_name ?? null) !== (sortedB[i].benefit_name ?? null) ||
+      (ac.benefit_premium ?? null) !== (sortedB[i].benefit_premium ?? null) ||
+      (ac.renewal_bonus ?? null) !== (sortedB[i].renewal_bonus ?? null) ||
+      (ac.benefit_expiry_date ?? null) !== (sortedB[i].benefit_expiry_date ?? null) ||
+      (ac.benefit_unit ?? null) !== (sortedB[i].benefit_unit ?? null),
   )
 }
 
@@ -781,11 +798,13 @@ function BanksSection({
   banks,
   profileId,
   familyId,
+  primaryBankAccountId,
   onMutate,
 }: {
   banks: FinancialDataByFamily["bankAccounts"]
   profileId: string
   familyId: string
+  primaryBankAccountId: string | null
   onMutate: () => void
 }) {
   const router = useRouter()
@@ -945,6 +964,21 @@ function BanksSection({
     </Dialog>
   )
 
+  async function handlePrimaryChange(accountId: string | null) {
+    try {
+      const res = await fetch(`/api/profiles/${profileId}/primary-account`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bankAccountId: accountId }),
+      })
+      if (!res.ok) throw new Error("Failed to update")
+      toast.success("Primary account updated")
+      onMutate()
+    } catch {
+      toast.error("Failed to update primary account")
+    }
+  }
+
   if (banks.length === 0) {
     return (
       <>
@@ -956,6 +990,26 @@ function BanksSection({
 
   return (
     <>
+      <div className="mb-3 flex items-center gap-2">
+        <Label className="text-muted-foreground text-xs whitespace-nowrap">Primary account</Label>
+        <Select
+          value={primaryBankAccountId ?? "none"}
+          onValueChange={(v) => handlePrimaryChange(v === "none" ? null : v)}
+        >
+          <SelectTrigger className="h-8 w-48">
+            <SelectValue placeholder="Select primary account" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None</SelectItem>
+            {banks.map((b) => (
+              <SelectItem key={b.id} value={b.id}>
+                {b.bank_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <InfoTooltip id="PRIMARY_BANK_ACCOUNT" />
+      </div>
       <ScrollableTableWrapper minWidth="640px">
       <Table>
         <TableHeader>
@@ -3039,13 +3093,36 @@ function InsuranceSection({
   const router = useRouter()
   const [adding, setAdding] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  type CoverageEntry = {
+    coverage_type: CoverageType | null
+    coverage_amount: number | null
+    benefit_name: string | null
+    benefit_premium: number | null
+    renewal_bonus: number | null
+    benefit_expiry_date: string | null
+    benefit_unit: string | null
+    sort_order: number
+  }
+
+  const makeStandardCoverage = (ct: CoverageType, sortOrder: number): CoverageEntry => ({
+    coverage_type: ct,
+    coverage_amount: null,
+    benefit_name: COVERAGE_TYPE_LABELS[ct],
+    benefit_premium: null,
+    renewal_bonus: null,
+    benefit_expiry_date: null,
+    benefit_unit: null,
+    sort_order: sortOrder,
+  })
+
   const [newPolicy, setNewPolicy] = useState<{
     name: string
     type: InsuranceType
     premium_amount: number
     frequency: "monthly" | "yearly"
     coverage_amount: number | null
-    coverages: Array<{ coverage_type: CoverageType; coverage_amount: number | null }>
+    coverages: CoverageEntry[]
+    customBenefits: CoverageEntry[]
     yearly_outflow_date: number | null
     current_amount: number | null
     end_date: string | null
@@ -3067,7 +3144,8 @@ function InsuranceSection({
     premium_amount: 0,
     frequency: "yearly",
     coverage_amount: null,
-    coverages: DEFAULT_COVERAGES_BY_POLICY.term_life.map((ct) => ({ coverage_type: ct, coverage_amount: null })),
+    coverages: DEFAULT_COVERAGES_BY_POLICY.term_life.map((ct, i) => makeStandardCoverage(ct, i)),
+    customBenefits: [],
     yearly_outflow_date: null,
     current_amount: null,
     end_date: null,
@@ -3093,7 +3171,8 @@ function InsuranceSection({
       return {
         ...prev,
         type,
-        coverages: DEFAULT_COVERAGES_BY_POLICY[type].map((ct) => ({ coverage_type: ct, coverage_amount: null })),
+        coverages: DEFAULT_COVERAGES_BY_POLICY[type].map((ct, i) => makeStandardCoverage(ct, i)),
+        customBenefits: prev.customBenefits,
         current_amount: fields.showCurrentAmount ? prev.current_amount : null,
         end_date: fields.showEndDate ? prev.end_date : null,
         sub_type: fields.showSubType ? prev.sub_type : null,
@@ -3142,9 +3221,32 @@ function InsuranceSection({
           type: newPolicy.type,
           premiumAmount: newPolicy.premium_amount,
           frequency: newPolicy.frequency,
-          coverages: newPolicy.coverages
-            .filter((c) => c.coverage_amount != null && c.coverage_amount > 0)
-            .map((c) => ({ coverageType: c.coverage_type, coverageAmount: c.coverage_amount })),
+          coverages: [
+            ...newPolicy.coverages
+              .filter((c) => c.coverage_amount != null && c.coverage_amount > 0)
+              .map((c, i) => ({
+                coverageType: c.coverage_type,
+                coverageAmount: c.coverage_amount,
+                benefitName: c.benefit_name ?? COVERAGE_TYPE_LABELS[c.coverage_type!],
+                benefitPremium: c.benefit_premium ?? undefined,
+                renewalBonus: c.renewal_bonus ?? undefined,
+                benefitExpiryDate: c.benefit_expiry_date ?? undefined,
+                benefitUnit: c.benefit_unit ?? undefined,
+                sortOrder: i,
+              })),
+            ...newPolicy.customBenefits
+              .filter((b) => b.benefit_name && (b.coverage_amount ?? 0) > 0)
+              .map((b, i) => ({
+                coverageType: b.coverage_type ?? undefined,
+                coverageAmount: b.coverage_amount ?? 0,
+                benefitName: b.benefit_name!,
+                benefitPremium: b.benefit_premium ?? undefined,
+                renewalBonus: b.renewal_bonus ?? undefined,
+                benefitExpiryDate: b.benefit_expiry_date ?? undefined,
+                benefitUnit: b.benefit_unit ?? undefined,
+                sortOrder: newPolicy.coverages.length + i,
+              })),
+          ],
           yearlyOutflowDate: newPolicy.yearly_outflow_date ?? undefined,
           currentAmount: newPolicy.current_amount ?? undefined,
           endDate: newPolicy.end_date ?? undefined,
@@ -3173,7 +3275,8 @@ function InsuranceSection({
         premium_amount: 0,
         frequency: "yearly",
         coverage_amount: null,
-        coverages: DEFAULT_COVERAGES_BY_POLICY.term_life.map((ct) => ({ coverage_type: ct, coverage_amount: null })),
+        coverages: DEFAULT_COVERAGES_BY_POLICY.term_life.map((ct, i) => makeStandardCoverage(ct, i)),
+        customBenefits: [],
         yearly_outflow_date: null,
         current_amount: null,
         end_date: null,
@@ -3231,9 +3334,15 @@ function InsuranceSection({
           type: e.type,
           premiumAmount: e.premium_amount,
           frequency: e.frequency,
-          coverages: e.coverages.map((c) => ({
+          coverages: e.coverages.map((c, i) => ({
             coverageType: c.coverage_type,
             coverageAmount: c.coverage_amount,
+            benefitName: c.benefit_name ?? undefined,
+            benefitPremium: c.benefit_premium ?? undefined,
+            renewalBonus: c.renewal_bonus ?? undefined,
+            benefitExpiryDate: c.benefit_expiry_date ?? undefined,
+            benefitUnit: c.benefit_unit ?? undefined,
+            sortOrder: c.sort_order ?? i,
           })),
           yearlyOutflowDate: e.yearly_outflow_date ?? undefined,
           currentAmount: e.current_amount ?? undefined,
@@ -3348,7 +3457,7 @@ function InsuranceSection({
                             setNewPolicy((prev) => ({
                               ...prev,
                               coverages: checked
-                                ? [...prev.coverages, { coverage_type: ct, coverage_amount: null }]
+                                ? [...prev.coverages, makeStandardCoverage(ct, prev.coverages.length)]
                                 : prev.coverages.filter((c) => c.coverage_type !== ct),
                             }))
                           }}
@@ -3375,6 +3484,138 @@ function InsuranceSection({
                 </div>
               </div>
             )}
+            <div className="col-span-full space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Custom benefits</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setNewPolicy((prev) => ({
+                      ...prev,
+                      customBenefits: [
+                        ...prev.customBenefits,
+                        {
+                          coverage_type: null,
+                          coverage_amount: null,
+                          benefit_name: "",
+                          benefit_premium: null,
+                          renewal_bonus: null,
+                          benefit_expiry_date: null,
+                          benefit_unit: null,
+                          sort_order: prev.coverages.length + prev.customBenefits.length,
+                        },
+                      ],
+                    }))
+                  }
+                >
+                  <Plus className="mr-1 h-3 w-3" /> Add benefit
+                </Button>
+              </div>
+              {SUGGESTED_BENEFITS_BY_POLICY[newPolicy.type] && newPolicy.customBenefits.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Suggestions: {SUGGESTED_BENEFITS_BY_POLICY[newPolicy.type]!.slice(0, 3).join(", ")}...
+                </p>
+              )}
+              {newPolicy.customBenefits.map((b, idx) => (
+                <div key={idx} className="flex flex-wrap items-center gap-2 rounded-md border p-2">
+                  <Input
+                    placeholder="Benefit name"
+                    value={b.benefit_name ?? ""}
+                    onChange={(ev) =>
+                      setNewPolicy((prev) => ({
+                        ...prev,
+                        customBenefits: prev.customBenefits.map((cb, i) =>
+                          i === idx ? { ...cb, benefit_name: ev.target.value || null } : cb,
+                        ),
+                      }))
+                    }
+                    className="h-8 w-48"
+                    list={`benefit-suggestions-${idx}`}
+                  />
+                  {SUGGESTED_BENEFITS_BY_POLICY[newPolicy.type] && (
+                    <datalist id={`benefit-suggestions-${idx}`}>
+                      {SUGGESTED_BENEFITS_BY_POLICY[newPolicy.type]!.map((s) => (
+                        <option key={s} value={s} />
+                      ))}
+                    </datalist>
+                  )}
+                  <CurrencyInput
+                    placeholder="Coverage"
+                    value={b.coverage_amount}
+                    onChange={(v) =>
+                      setNewPolicy((prev) => ({
+                        ...prev,
+                        customBenefits: prev.customBenefits.map((cb, i) =>
+                          i === idx ? { ...cb, coverage_amount: v ?? null } : cb,
+                        ),
+                      }))
+                    }
+                    className="h-8 w-28"
+                  />
+                  <CurrencyInput
+                    placeholder="Premium"
+                    value={b.benefit_premium}
+                    onChange={(v) =>
+                      setNewPolicy((prev) => ({
+                        ...prev,
+                        customBenefits: prev.customBenefits.map((cb, i) =>
+                          i === idx ? { ...cb, benefit_premium: v ?? null } : cb,
+                        ),
+                      }))
+                    }
+                    className="h-8 w-24"
+                  />
+                  <CurrencyInput
+                    placeholder="Bonus"
+                    value={b.renewal_bonus}
+                    onChange={(v) =>
+                      setNewPolicy((prev) => ({
+                        ...prev,
+                        customBenefits: prev.customBenefits.map((cb, i) =>
+                          i === idx ? { ...cb, renewal_bonus: v ?? null } : cb,
+                        ),
+                      }))
+                    }
+                    className="h-8 w-24"
+                  />
+                  <Select
+                    value={b.benefit_unit ?? "lump_sum"}
+                    onValueChange={(v) =>
+                      setNewPolicy((prev) => ({
+                        ...prev,
+                        customBenefits: prev.customBenefits.map((cb, i) =>
+                          i === idx ? { ...cb, benefit_unit: v === "lump_sum" ? null : v } : cb,
+                        ),
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-24">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BENEFIT_UNITS.map((u) => (
+                        <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      setNewPolicy((prev) => ({
+                        ...prev,
+                        customBenefits: prev.customBenefits.filter((_, i) => i !== idx),
+                      }))
+                    }
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
             {newPolicyFields.showYearlyOutflowDate && (
               <div className="space-y-2">
                 <Label>Yearly due month</Label>
@@ -3589,17 +3830,18 @@ function InsuranceSection({
                       const prev_e = editing[p.id] ?? p
                       const newType = v as InsuranceType
                       const allowed = ALLOWED_COVERAGES_BY_POLICY[newType] ?? []
-                      const keptCoverages = prev_e.coverages.filter((c) => allowed.includes(c.coverage_type as CoverageType))
+                      const customBenefits = prev_e.coverages.filter((c) => !c.coverage_type)
+                      const keptCoverages = prev_e.coverages.filter((c) => c.coverage_type && allowed.includes(c.coverage_type as CoverageType))
                       const defaults = DEFAULT_COVERAGES_BY_POLICY[newType] ?? []
                       const missingDefaults = defaults
                         .filter((ct) => !keptCoverages.some((c) => c.coverage_type === ct))
-                        .map((ct) => ({ id: "", coverage_type: ct, coverage_amount: 0 }))
+                        .map((ct) => ({ id: "", coverage_type: ct as string | null, coverage_amount: 0, benefit_name: COVERAGE_TYPE_LABELS[ct], benefit_premium: null, renewal_bonus: null, benefit_expiry_date: null, benefit_unit: null, sort_order: 0 }))
                       setEditing((prev) => ({
                         ...prev,
                         [p.id]: {
                           ...(prev[p.id] ?? p),
                           type: v,
-                          coverages: [...keptCoverages, ...missingDefaults],
+                          coverages: [...keptCoverages, ...missingDefaults, ...customBenefits],
                           current_amount: fields.showCurrentAmount ? prev_e.current_amount : null,
                           end_date: fields.showEndDate ? prev_e.end_date : null,
                           sub_type: fields.showSubType ? prev_e.sub_type : null,
@@ -3664,9 +3906,9 @@ function InsuranceSection({
                   </Select>
                 </TableCell>
                 <TableCell>
-                  {ALLOWED_COVERAGES_BY_POLICY[e.type as InsuranceType]?.length > 0 ? (
-                    <div className="space-y-1.5">
-                      {ALLOWED_COVERAGES_BY_POLICY[e.type as InsuranceType].map((ct) => {
+                  <div className="space-y-1.5">
+                    {ALLOWED_COVERAGES_BY_POLICY[e.type as InsuranceType]?.length > 0 && (
+                      ALLOWED_COVERAGES_BY_POLICY[e.type as InsuranceType].map((ct) => {
                         const cov = e.coverages.find((c) => c.coverage_type === ct)
                         const isChecked = !!cov
                         return (
@@ -3680,7 +3922,7 @@ function InsuranceSection({
                                   [p.id]: {
                                     ...prev_e,
                                     coverages: checked
-                                      ? [...prev_e.coverages, { id: "", coverage_type: ct, coverage_amount: 0 }]
+                                      ? [...prev_e.coverages, { id: "", coverage_type: ct as string | null, coverage_amount: 0, benefit_name: COVERAGE_TYPE_LABELS[ct], benefit_premium: null, renewal_bonus: null, benefit_expiry_date: null, benefit_unit: null, sort_order: prev_e.coverages.length }]
                                       : prev_e.coverages.filter((c) => c.coverage_type !== ct),
                                   },
                                 }))
@@ -3707,11 +3949,118 @@ function InsuranceSection({
                             )}
                           </div>
                         )
-                      })}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">N/A</span>
-                  )}
+                      })
+                    )}
+                    {e.coverages.filter((c) => !c.coverage_type).map((cb, idx) => (
+                      <div key={`custom-${idx}`} className="flex items-center gap-1.5 rounded border border-dashed p-1">
+                        <Input
+                          value={cb.benefit_name ?? ""}
+                          onChange={(ev) => {
+                            const prev_e = editing[p.id] ?? p
+                            const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
+                            let ci = 0
+                            setEditing((prev) => ({
+                              ...prev,
+                              [p.id]: {
+                                ...prev_e,
+                                coverages: prev_e.coverages.map((c) => {
+                                  if (c.coverage_type) return c
+                                  if (ci++ === customIdx) return { ...c, benefit_name: ev.target.value || null }
+                                  return c
+                                }),
+                              },
+                            }))
+                          }}
+                          placeholder="Benefit"
+                          className="h-7 w-32"
+                        />
+                        <CurrencyInput
+                          value={cb.coverage_amount}
+                          onChange={(v) => {
+                            const prev_e = editing[p.id] ?? p
+                            const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
+                            let ci = 0
+                            setEditing((prev) => ({
+                              ...prev,
+                              [p.id]: {
+                                ...prev_e,
+                                coverages: prev_e.coverages.map((c) => {
+                                  if (c.coverage_type) return c
+                                  if (ci++ === customIdx) return { ...c, coverage_amount: v ?? 0 }
+                                  return c
+                                }),
+                              },
+                            }))
+                          }}
+                          className="h-7 w-20"
+                        />
+                        <CurrencyInput
+                          value={cb.benefit_premium}
+                          onChange={(v) => {
+                            const prev_e = editing[p.id] ?? p
+                            const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
+                            let ci = 0
+                            setEditing((prev) => ({
+                              ...prev,
+                              [p.id]: {
+                                ...prev_e,
+                                coverages: prev_e.coverages.map((c) => {
+                                  if (c.coverage_type) return c
+                                  if (ci++ === customIdx) return { ...c, benefit_premium: v ?? null }
+                                  return c
+                                }),
+                              },
+                            }))
+                          }}
+                          placeholder="Prem"
+                          className="h-7 w-20"
+                        />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            const prev_e = editing[p.id] ?? p
+                            const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
+                            let ci = 0
+                            setEditing((prev) => ({
+                              ...prev,
+                              [p.id]: {
+                                ...prev_e,
+                                coverages: prev_e.coverages.filter((c) => {
+                                  if (c.coverage_type) return true
+                                  return ci++ !== customIdx
+                                }),
+                              },
+                            }))
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 text-xs"
+                      onClick={() => {
+                        const prev_e = editing[p.id] ?? p
+                        setEditing((prev) => ({
+                          ...prev,
+                          [p.id]: {
+                            ...prev_e,
+                            coverages: [
+                              ...prev_e.coverages,
+                              { id: "", coverage_type: null, coverage_amount: 0, benefit_name: "", benefit_premium: null, renewal_bonus: null, benefit_expiry_date: null, benefit_unit: null, sort_order: prev_e.coverages.length },
+                            ],
+                          },
+                        }))
+                      }}
+                    >
+                      <Plus className="mr-1 h-3 w-3" /> Benefit
+                    </Button>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
@@ -4174,6 +4523,7 @@ function FamilyMemberSettingsPanels({
           banks={profileBanks}
           profileId={p.id}
           familyId={family.id}
+          primaryBankAccountId={p.primary_bank_account_id ?? null}
           onMutate={handleMutate}
         />
       </CollapsibleSection>

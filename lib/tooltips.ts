@@ -245,4 +245,13 @@ export const TOOLTIPS = {
     details:
       "Each category scored as min(held/needed, 1) × 100. Hospitalization and PA scored as 0 or 100 based on active policy.",
   },
+  PRIMARY_BANK_ACCOUNT: {
+    label: "Primary Bank Account",
+    logic:
+      "Inflow is deposited here. Discretionary outflow and fixed costs are deducted from this account unless assigned elsewhere.",
+    explanation:
+      "Select the bank account that receives your salary. Other accounts only receive GIRO transfers.",
+    details:
+      "When you record inflow via Telegram /in or the dashboard, the amount is attributed to this account for balance computation. Insurance, loan, and ILP deductions default to this account unless a specific deduction account is set.",
+  },
 } as const satisfies Record<string, TooltipEntry>

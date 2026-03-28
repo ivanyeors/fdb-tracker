@@ -6,8 +6,18 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { getCoverageType, COVERAGE_TYPES } from "@/lib/insurance/coverage-config"
 
 const coverageEntrySchema = z.object({
-  coverageType: z.enum(COVERAGE_TYPES),
+  coverageType: z.enum(COVERAGE_TYPES).nullable().optional(),
+  benefitName: z.string().min(1).optional(),
   coverageAmount: z.number().min(0),
+  benefitPremium: z.number().min(0).nullable().optional(),
+  renewalBonus: z.number().min(0).nullable().optional(),
+  benefitExpiryDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
+  benefitUnit: z.string().nullable().optional(),
+  sortOrder: z.number().int().min(0).optional(),
 })
 
 const updatePolicySchema = z.object({
@@ -130,8 +140,12 @@ export async function PATCH(
     const coverages = parsed.data.coverages
 
     if (coverages !== undefined) {
-      if (coverages.length > 0) {
-        updates.coverage_type = coverages[0].coverageType
+      const firstStandard = coverages.find((c) => c.coverageType)
+      if (firstStandard) {
+        updates.coverage_type = firstStandard.coverageType
+        updates.coverage_amount = firstStandard.coverageAmount
+      } else if (coverages.length > 0) {
+        updates.coverage_type = null
         updates.coverage_amount = coverages[0].coverageAmount
       } else {
         updates.coverage_type = null
@@ -162,10 +176,16 @@ export async function PATCH(
         const { error: covError } = await supabase
           .from("insurance_policy_coverages")
           .insert(
-            coverages.map((c) => ({
+            coverages.map((c, i) => ({
               policy_id: id,
-              coverage_type: c.coverageType,
+              coverage_type: c.coverageType ?? null,
               coverage_amount: c.coverageAmount,
+              benefit_name: c.benefitName ?? null,
+              benefit_premium: c.benefitPremium ?? null,
+              renewal_bonus: c.renewalBonus ?? null,
+              benefit_expiry_date: c.benefitExpiryDate ?? null,
+              benefit_unit: c.benefitUnit ?? null,
+              sort_order: c.sortOrder ?? i,
             }))
           )
         if (covError) {
@@ -176,7 +196,7 @@ export async function PATCH(
 
     const { data, error: fetchError } = await supabase
       .from("insurance_policies")
-      .select("*, insurance_policy_coverages(id, coverage_type, coverage_amount)")
+      .select("*, insurance_policy_coverages(id, coverage_type, coverage_amount, benefit_name, benefit_premium, renewal_bonus, benefit_expiry_date, benefit_unit, sort_order)")
       .eq("id", id)
       .single()
 

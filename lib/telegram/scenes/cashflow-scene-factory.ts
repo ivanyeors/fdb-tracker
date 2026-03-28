@@ -334,6 +334,28 @@ export function createCashflowScene(type: CashflowType) {
 
           let msg = `✅ Added ${label(type)} of ${fmtAmt(s.amount!)} for ${s.profileName} (${s.monthLabel}).`
           if (s.memo) msg += "\n📝 Note saved."
+
+          // Show updated primary account balance
+          try {
+            const { computeAccountBalance } = await import(
+              "@/lib/calculations/computed-bank-balance"
+            )
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("primary_bank_account_id")
+              .eq("id", s.profileId!)
+              .single()
+            if (profile?.primary_bank_account_id) {
+              const computed = await computeAccountBalance(
+                supabase,
+                profile.primary_bank_account_id,
+              )
+              msg += `\n💰 Primary account balance: ${fmtAmt(computed.balance)}`
+            }
+          } catch {
+            // Balance display is best-effort — don't block on errors
+          }
+
           await ctx.reply(msg)
           return ctx.scene.leave()
         }

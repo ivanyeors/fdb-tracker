@@ -154,9 +154,31 @@ export async function GET(request: NextRequest) {
       }),
     )
 
-    const timeline = buildBalanceTimeline({
+    // Use most recent reconciliation snapshot as baseline, or fall back to opening_balance
+    let openingBalance: number
+    const { data: reconciliation } = await supabase
+      .from("bank_balance_snapshots")
+      .select("month, closing_balance")
+      .eq("account_id", bankAccountId)
+      .eq("is_reconciliation", true)
+      .order("month", { ascending: false })
+      .limit(1)
+
+    if (reconciliation?.[0]) {
+      openingBalance = reconciliation[0].closing_balance
+      // Only use months after the reconciliation point
+      const reconMonth = reconciliation[0].month
+      const firstAfterRecon = monthlyData.findIndex((d) => d.month > reconMonth)
+      if (firstAfterRecon > 0) {
+        monthlyData.splice(0, firstAfterRecon)
+      }
+    } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      openingBalance: account.opening_balance - ((account as any).locked_amount ?? 0),
+      openingBalance = account.opening_balance - ((account as any).locked_amount ?? 0)
+    }
+
+    const timeline = buildBalanceTimeline({
+      openingBalance,
       monthlyData,
     })
 

@@ -70,8 +70,11 @@ export function getLifeStageMultipliers(params: LifeStageParams): {
 }
 
 export type PolicyCoverageEntry = {
-  coverage_type: string
+  coverage_type: string | null
   coverage_amount: number
+  benefit_name?: string | null
+  benefit_premium?: number | null
+  renewal_bonus?: number | null
 }
 
 type PolicyForGap = {

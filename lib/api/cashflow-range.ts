@@ -54,7 +54,14 @@ function yearsInMonths(months: string[]): number[] {
 }
 
 function buildGiroOutflowByProfile(
-  rules: Array<{ amount: number; source_bank_account_id: string }> | null | undefined,
+  rules:
+    | Array<{
+        amount: number
+        source_bank_account_id: string
+        linked_entity_type: string | null
+      }>
+    | null
+    | undefined,
   accounts: Array<{ id: string; profile_id: string | null }> | null | undefined,
   profileIds: string[],
 ): Map<string, number> {
@@ -73,6 +80,9 @@ function buildGiroOutflowByProfile(
   }
 
   for (const r of rules) {
+    // Exclude linked GIRO rules — they are already counted in their respective
+    // buckets (insurance, loans, ilp) and would cause double-counting
+    if (r.linked_entity_type != null) continue
     for (const pid of profileIds) {
       const set = profileAccountIds.get(pid)
       if (set?.has(r.source_bank_account_id)) {
@@ -287,7 +297,7 @@ export async function fetchCashflowRangeSeries(
       .in("profile_id", profileIds),
     supabase
       .from("giro_rules")
-      .select("id, amount, source_bank_account_id")
+      .select("id, amount, source_bank_account_id, linked_entity_type")
       .eq("is_active", true)
       .in("destination_type", [...GIRO_OUTFLOW_DESTINATIONS]),
     supabase

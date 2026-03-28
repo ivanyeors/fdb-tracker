@@ -21,8 +21,9 @@ export async function getGiroOutflowForProfile(
 ): Promise<number> {
   const { data: rules } = await supabase
     .from("giro_rules")
-    .select("id, amount, source_bank_account_id")
+    .select("id, amount, source_bank_account_id, linked_entity_type")
     .eq("is_active", true)
+    .is("linked_entity_type", null)
     .in("destination_type", [...GIRO_OUTFLOW_DESTINATIONS])
 
   if (!rules || rules.length === 0) return 0

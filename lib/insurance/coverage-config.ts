@@ -214,6 +214,95 @@ export function getFieldsForType(
 }
 
 /** Includes legacy `type === "ilp"` rows still stored on insurance_policies. */
+/** A single benefit/coverage line within a policy (enriched from insurance_policy_coverages). */
+export type PolicyBenefit = {
+  id?: string
+  coverageType: CoverageType | null
+  benefitName: string
+  coverageAmount: number
+  benefitPremium: number | null
+  renewalBonus: number | null
+  benefitExpiryDate: string | null
+  benefitUnit: string | null
+  sortOrder: number
+}
+
+/** Suggested benefit names for autocomplete when adding custom benefits. */
+export const SUGGESTED_BENEFITS_BY_POLICY: Partial<
+  Record<InsuranceType, string[]>
+> = {
+  personal_accident: [
+    "Accidental Death Benefit",
+    "Accidental Dismemberment and Burns",
+    "Permanent Total Disablement",
+    "Double Indemnity on Accidental Death",
+    "Accidental Medical Reimbursement",
+    "TCM/Chiropractic Reimbursement",
+    "Weekly Income Benefit",
+    "Mobility Aids Reimbursement",
+    "Home Modification Reimbursement",
+    "Family Support Fund Benefit",
+  ],
+  term_life: [
+    "Death Benefit",
+    "Terminal Illness Benefit",
+    "Total Permanent Disability",
+    "Retrenchment Benefit",
+  ],
+  whole_life: [
+    "Death Benefit",
+    "Terminal Illness Benefit",
+    "Total Permanent Disability",
+    "Critical Illness Rider",
+    "Accidental Death Rider",
+  ],
+  integrated_shield: [
+    "Hospitalization Benefit",
+    "Pre-hospitalization",
+    "Post-hospitalization",
+    "Outpatient Surgery",
+    "Emergency Accident Outpatient",
+  ],
+}
+
+/**
+ * Maps common benefit names to standard coverage types for gap analysis.
+ * Case-insensitive partial match — checks if the benefit name contains the key.
+ */
+const BENEFIT_NAME_PATTERNS: [RegExp, CoverageType][] = [
+  [/\baccidental\s+death\b/i, "death"],
+  [/\bdeath\s+benefit\b/i, "death"],
+  [/\bdouble\s+indemnity.*death\b/i, "death"],
+  [/\bterminal\s+illness\b/i, "death"],
+  [/\bdismemberment\b/i, "personal_accident"],
+  [/\bpermanent\s+total\s+disablement\b/i, "tpd"],
+  [/\bcritical\s+illness\b/i, "critical_illness"],
+  [/\bearly\s+critical\b/i, "early_critical_illness"],
+  [/\bmedical\s+reimburse/i, "medical_reimbursement"],
+  [/\bhospitali[sz]ation\b/i, "hospitalization"],
+  [/\bweekly\s+income\b/i, "disability"],
+  [/\bdisability\s+income\b/i, "disability"],
+  [/\blong.term\s+care\b/i, "long_term_care"],
+]
+
+/** Attempt to auto-map a benefit name to a standard coverage type. Returns null if no match. */
+export function mapBenefitToStandardCoverage(
+  benefitName: string,
+): CoverageType | null {
+  for (const [pattern, coverageType] of BENEFIT_NAME_PATTERNS) {
+    if (pattern.test(benefitName)) return coverageType
+  }
+  return null
+}
+
+/** Benefit unit options for income-style benefits. */
+export const BENEFIT_UNITS = [
+  { value: "/week", label: "Per week" },
+  { value: "/month", label: "Per month" },
+  { value: "/year", label: "Per year" },
+  { value: "lump_sum", label: "Lump sum" },
+] as const
+
 export function getFieldsForInsurancePolicyRow(
   type: string,
   frequency: "monthly" | "yearly" = "yearly",
