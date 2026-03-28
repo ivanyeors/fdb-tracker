@@ -1,4 +1,4 @@
-import { PDFParse } from "pdf-parse"
+import { extractText } from "unpdf"
 
 export interface PdfParseResult {
   text: string
@@ -7,13 +7,13 @@ export interface PdfParseResult {
 
 /**
  * Extract text content from a PDF buffer.
- * Returns the full text and page count.
+ * Uses unpdf which bundles a serverless-compatible PDF.js build
+ * (no DOMMatrix or browser APIs required).
  */
 export async function parsePdf(buffer: Buffer): Promise<PdfParseResult> {
-  const parser = new PDFParse({ data: new Uint8Array(buffer) })
-  const textResult = await parser.getText()
+  const result = await extractText(new Uint8Array(buffer), { mergePages: true })
   return {
-    text: textResult.text,
-    pageCount: textResult.total,
+    text: result.text,
+    pageCount: result.totalPages,
   }
 }
