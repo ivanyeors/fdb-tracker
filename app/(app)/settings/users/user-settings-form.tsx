@@ -1342,7 +1342,6 @@ function SavingsGoalsSection({
               placeholder="Current amount"
               value={newGoal.current_amount}
               onChange={(v) => setNewGoal((p) => ({ ...p, current_amount: v ?? 0 }))}
-              disabled={!!newGoal.linked_bank_account_id}
             />
           </div>
           <div className="space-y-2">
@@ -1386,16 +1385,12 @@ function SavingsGoalsSection({
             <Label>Linked bank account</Label>
             <Select
               value={newGoal.linked_bank_account_id ?? "none"}
-              onValueChange={(v) => {
-                const bankId = v === "none" ? null : v
-                const bank = bankId ? bankAccounts.find((ba) => ba.id === bankId) : null
+              onValueChange={(v) =>
                 setNewGoal((p) => ({
                   ...p,
-                  linked_bank_account_id: bankId,
-                  current_amount: bank ? bank.opening_balance : 0,
+                  linked_bank_account_id: v === "none" ? null : v,
                 }))
-                setMonthlyAutoManualOverride(false)
-              }}
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Link account" />
@@ -1476,7 +1471,6 @@ function SavingsGoalsSection({
                       setEditing((p) => ({ ...p, [g.id]: { ...(p[g.id] ?? g), current_amount: v ?? 0 } }))
                     }
                     className="h-8 w-24"
-                    disabled={!!e.linked_bank_account_id}
                   />
                 </TableCell>
                 <TableCell>

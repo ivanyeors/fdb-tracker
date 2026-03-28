@@ -57,26 +57,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch goals" }, { status: 500 })
     }
 
-    // Override current_amount with linked bank account balance where applicable
-    if (goals && goals.length > 0) {
-      const linked = goals.filter((g) => g.linked_bank_account_id)
-      if (linked.length > 0) {
-        const accountIds = linked.map((g) => g.linked_bank_account_id!)
-        const { data: accounts } = await supabase
-          .from("bank_accounts")
-          .select("id, opening_balance")
-          .in("id", accountIds)
-        if (accounts) {
-          const balanceMap = new Map(accounts.map((a) => [a.id, a.opening_balance]))
-          for (const g of goals) {
-            if (g.linked_bank_account_id && balanceMap.has(g.linked_bank_account_id)) {
-              g.current_amount = balanceMap.get(g.linked_bank_account_id)!
-            }
-          }
-        }
-      }
-    }
-
     return NextResponse.json(goals || [])
   } catch (err) {
     console.error("[api/goals] Error:", err)
