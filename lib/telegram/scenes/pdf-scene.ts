@@ -9,7 +9,7 @@ import {
   errorMsg,
   fmtAmt,
 } from "@/lib/telegram/scene-helpers"
-import { parsePdf } from "@/lib/pdf-import/parse-pdf"
+
 import { classifyDocument } from "@/lib/pdf-import/classify"
 import { extractDocument } from "@/lib/pdf-import/extract"
 import { formatExtractionSummary } from "@/lib/pdf-import/format-summary"
@@ -81,7 +81,8 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
       const arrayBuffer = await response.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
 
-      // Parse PDF
+      // Parse PDF (dynamic import to avoid loading pdfjs-dist at module level)
+      const { parsePdf } = await import("@/lib/pdf-import/parse-pdf")
       const { text, pageCount } = await parsePdf(buffer)
 
       if (!text || text.trim().length < 50) {
