@@ -175,6 +175,37 @@ function ensureHandlers() {
     console.error("[telegram/webhook] Bot error:", err)
   })
 
+  // Cross-prompt handlers: after /in completes, offer /out (and vice versa)
+  bot.action(/^cross_(in|out)_(.+)_(\d{4}-\d{2}-\d{2})_(.+)$/, async (ctx) => {
+    await ctx.answerCbQuery()
+    const [, direction, profileId, month, profileName] = ctx.match
+    const st = botState(ctx)
+    st.profileId = profileId
+    st.familyId = undefined
+    const scene = direction === "in" ? "inflow_wizard" : "outflow_wizard"
+    await ctx.scene.enter(scene)
+    // Pre-fill profile and month so user skips to amount entry
+    ctx.scene.session.profileId = profileId
+    ctx.scene.session.profileName = profileName
+    ctx.scene.session.month = month
+    const d = new Date(month)
+    ctx.scene.session.monthLabel = d.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    ctx.wizard.selectStep(3) // STEP_AMOUNT
+    const { progressHeader } = await import("@/lib/telegram/scene-helpers")
+    const label = direction === "in" ? "inflow" : "outflow"
+    const header = progressHeader(3, 4, `Recording ${label} for ${profileName}`)
+    await ctx.reply(`${header}\n\nMonth: ${ctx.scene.session.monthLabel}\n\nEnter the ${label} amount:`)
+  })
+
+  bot.action("cross_skip", async (ctx) => {
+    await ctx.answerCbQuery()
+    try {
+      await ctx.editMessageReplyMarkup(undefined)
+    } catch {
+      // Message may already be edited or too old
+    }
+  })
+
   bot.on("message", async (ctx) => {
     const msg = ctx.message
     console.log(

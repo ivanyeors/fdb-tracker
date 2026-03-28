@@ -357,6 +357,19 @@ export function createCashflowScene(type: CashflowType) {
           }
 
           await ctx.reply(msg)
+
+          // Cross-prompt: suggest logging the opposite direction
+          const oppLabel = type === "inflow" ? "outflow" : "inflow"
+          const oppScene = type === "inflow" ? "out" : "in"
+          await ctx.reply(`💡 Log ${oppLabel} for ${s.monthLabel} too?`, {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: `Yes, log ${oppLabel}`, callback_data: `cross_${oppScene}_${s.profileId}_${s.month}_${s.profileName}` }],
+                [{ text: "Done", callback_data: "cross_skip" }],
+              ],
+            },
+          })
+
           return ctx.scene.leave()
         }
 

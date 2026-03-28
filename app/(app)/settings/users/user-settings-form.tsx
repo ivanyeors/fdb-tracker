@@ -6,14 +6,12 @@ import {
   useActionState,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react"
 import {
   useOptionalUserSettingsSave,
-  useUserSettingsSave,
   useUserSettingsSaveRegistration,
 } from "@/components/layout/user-settings-save-context"
 import { useActiveProfile } from "@/hooks/use-active-profile"
@@ -42,22 +40,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Textarea } from "@/components/ui/textarea"
-import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
-import { Separator } from "@/components/ui/separator"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Table,
   TableBody,
@@ -97,7 +84,7 @@ import {
 import { calculateMonthlyAuto } from "@/lib/calculations/savings-goals"
 import { DependentsSection } from "@/components/settings/dependents-section"
 import { toast } from "sonner"
-import { Loader2, Trash2, UserPlus, ExternalLink, Plus, FileText, X, Pencil, ChevronRight } from "lucide-react"
+import { Loader2, Trash2, UserPlus, ExternalLink, Plus, X, Pencil, ChevronRight } from "lucide-react"
 import type { ProfileWithIncome } from "./types"
 
 const ACCOUNT_TYPES = [
@@ -1200,6 +1187,20 @@ function SavingsGoalsSection({
     category: "custom" as string,
     linked_bank_account_id: null as string | null,
   })
+  const [monthlyAutoManualOverride, setMonthlyAutoManualOverride] = useState(false)
+
+  useEffect(() => {
+    if (monthlyAutoManualOverride) return
+    const auto = calculateMonthlyAuto(
+      newGoal.target_amount,
+      newGoal.current_amount,
+      newGoal.deadline,
+    )
+    setNewGoal((p) => ({
+      ...p,
+      monthly_auto_amount: auto != null ? Math.round(auto * 100) / 100 : 0,
+    }))
+  }, [newGoal.target_amount, newGoal.current_amount, newGoal.deadline, monthlyAutoManualOverride])
 
   async function handleDelete(id: string) {
     try {
@@ -1254,6 +1255,7 @@ function SavingsGoalsSection({
         linked_bank_account_id: null,
       })
       setAddOpen(false)
+      setMonthlyAutoManualOverride(false)
       onMutate()
       router.refresh()
     } catch (err) {
@@ -1305,7 +1307,13 @@ function SavingsGoalsSection({
   useUserSettingsSaveRegistration(`user-settings-goals-${profileId}`, goalsDirty, persistGoals)
 
   const addGoalDialog = (
-    <Dialog open={addOpen} onOpenChange={setAddOpen}>
+    <Dialog
+      open={addOpen}
+      onOpenChange={(open) => {
+        setAddOpen(open)
+        if (!open) setMonthlyAutoManualOverride(false)
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add savings goal</DialogTitle>
@@ -1329,11 +1337,31 @@ function SavingsGoalsSection({
             />
           </div>
           <div className="space-y-2">
+            <Label>Current amount</Label>
+            <CurrencyInput
+              placeholder="Current amount"
+              value={newGoal.current_amount}
+              onChange={(v) => setNewGoal((p) => ({ ...p, current_amount: v ?? 0 }))}
+              disabled={!!newGoal.linked_bank_account_id}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Deadline</Label>
+            <DatePicker
+              value={newGoal.deadline ?? null}
+              onChange={(d) => setNewGoal((p) => ({ ...p, deadline: d }))}
+              placeholder="Deadline"
+            />
+          </div>
+          <div className="space-y-2">
             <Label>Monthly auto amount</Label>
             <CurrencyInput
               placeholder="Monthly auto"
               value={newGoal.monthly_auto_amount}
-              onChange={(v) => setNewGoal((p) => ({ ...p, monthly_auto_amount: v ?? 0 }))}
+              onChange={(v) => {
+                setMonthlyAutoManualOverride(true)
+                setNewGoal((p) => ({ ...p, monthly_auto_amount: v ?? 0 }))
+              }}
             />
           </div>
           <div className="space-y-2">
@@ -1358,7 +1386,16 @@ function SavingsGoalsSection({
             <Label>Linked bank account</Label>
             <Select
               value={newGoal.linked_bank_account_id ?? "none"}
-              onValueChange={(v) => setNewGoal((p) => ({ ...p, linked_bank_account_id: v === "none" ? null : v }))}
+              onValueChange={(v) => {
+                const bankId = v === "none" ? null : v
+                const bank = bankId ? bankAccounts.find((ba) => ba.id === bankId) : null
+                setNewGoal((p) => ({
+                  ...p,
+                  linked_bank_account_id: bankId,
+                  current_amount: bank ? bank.opening_balance : 0,
+                }))
+                setMonthlyAutoManualOverride(false)
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Link account" />
@@ -1626,6 +1663,8 @@ function CPFSection({
   )
 }
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
 function MonthlyLogSection({
   profileId,
   profileName,
@@ -1639,84 +1678,69 @@ function MonthlyLogSection({
   familyId: string
   onMutate: () => void
 }) {
-  const [drawerOpen, setDrawerOpen] = useState(false)
   const now = new Date()
-  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-  const [month, setMonth] = useState(defaultMonth)
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null)
   const [inflow, setInflow] = useState(0)
   const [outflow, setOutflow] = useState(0)
-  const [logBaseline, setLogBaseline] = useState<{
-    month: string
-    inflow: number
-    outflow: number
-  } | null>(null)
+  const [savingMonth, setSavingMonth] = useState<string | null>(null)
   const [entryToDelete, setEntryToDelete] = useState<
     FinancialDataByFamily["monthlyCashflow"][0] | null
   >(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const { aggregateDirty, saveAll, isSaving } = useUserSettingsSave()
-
   const profileLogs = logs.filter((l) => l.profile_id === profileId)
 
-  const normalizeMonthKey = (m: string) => m.slice(0, 10)
+  const logsByMonth = useMemo(() => {
+    const map = new Map<string, (typeof profileLogs)[0]>()
+    for (const entry of profileLogs) {
+      map.set(entry.month.slice(0, 7), entry)
+    }
+    return map
+  }, [profileLogs])
 
-  const applyMonthSelection = useCallback(
-    (nextMonth: string) => {
-      const key = normalizeMonthKey(nextMonth)
-      const entry = profileLogs.find((l) => normalizeMonthKey(l.month) === key)
-      const inf = entry ? Number(entry.inflow ?? 0) : 0
-      const outf = entry ? Number(entry.outflow ?? 0) : 0
-      setMonth(nextMonth)
-      setInflow(inf)
-      setOutflow(outf)
-      setLogBaseline({ month: nextMonth, inflow: inf, outflow: outf })
-    },
-    [profileLogs]
+  const yearsWithData = profileLogs.map((l) => Number(l.month.slice(0, 4)))
+  const minYear = Math.min(now.getFullYear() - 3, ...yearsWithData)
+  const maxYear = Math.max(now.getFullYear(), ...yearsWithData)
+  const yearOptions = Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i)
+
+  const monthKeys = MONTH_NAMES.map((_, i) =>
+    `${selectedYear}-${String(i + 1).padStart(2, "0")}-01`
   )
 
-  const prevDrawerOpen = useRef(false)
-  useLayoutEffect(() => {
-    if (drawerOpen && !prevDrawerOpen.current) {
-      applyMonthSelection(defaultMonth)
+  function toggleMonth(monthKey: string) {
+    if (expandedMonth === monthKey) {
+      setExpandedMonth(null)
+      return
     }
-    prevDrawerOpen.current = drawerOpen
-  }, [drawerOpen, defaultMonth, applyMonthSelection])
+    const entry = logsByMonth.get(monthKey.slice(0, 7))
+    setInflow(entry ? Number(entry.inflow ?? 0) : 0)
+    setOutflow(entry ? Number(entry.outflow ?? 0) : 0)
+    setExpandedMonth(monthKey)
+  }
 
-  const effectiveBaseline =
-    logBaseline ?? (drawerOpen ? { month: defaultMonth, inflow: 0, outflow: 0 } : null)
-
-  const logFormDirty =
-    drawerOpen &&
-    effectiveBaseline != null &&
-    (normalizeMonthKey(month) !== normalizeMonthKey(effectiveBaseline.month) ||
-      inflow !== effectiveBaseline.inflow ||
-      outflow !== effectiveBaseline.outflow)
-
-  const persistMonthlyLog = useCallback(async () => {
-    const res = await fetch("/api/cashflow", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        profileId,
-        familyId,
-        month,
-        inflow,
-        outflow,
-      }),
-    })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      throw new Error((data as { error?: string }).error ?? "Failed to save cashflow")
+  async function saveMonth() {
+    if (!expandedMonth) return
+    setSavingMonth(expandedMonth)
+    try {
+      const res = await fetch("/api/cashflow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId, familyId, month: expandedMonth, inflow, outflow }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error((data as { error?: string }).error ?? "Failed to save cashflow")
+      }
+      toast.success("Monthly entry saved")
+      setExpandedMonth(null)
+      onMutate()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed")
+    } finally {
+      setSavingMonth(null)
     }
-    setInflow(0)
-    setOutflow(0)
-    setMonth(defaultMonth)
-    setLogBaseline({ month: defaultMonth, inflow: 0, outflow: 0 })
-    onMutate()
-  }, [profileId, familyId, month, inflow, outflow, defaultMonth, onMutate])
-
-  useUserSettingsSaveRegistration(`user-settings-cashflow-${profileId}`, logFormDirty, persistMonthlyLog)
+  }
 
   function formatMonth(m: string) {
     const [y, mo] = m.slice(0, 10).split("-")
@@ -1738,10 +1762,9 @@ function MonthlyLogSection({
         throw new Error((data as { error?: string }).error ?? "Failed to delete entry")
       }
       toast.success("Monthly entry removed")
-      if (normalizeMonthKey(entryToDelete.month) === normalizeMonthKey(month)) {
+      if (expandedMonth && entryToDelete.month.slice(0, 7) === expandedMonth.slice(0, 7)) {
         setInflow(0)
         setOutflow(0)
-        setLogBaseline({ month, inflow: 0, outflow: 0 })
       }
       setEntryToDelete(null)
       onMutate()
@@ -1752,127 +1775,114 @@ function MonthlyLogSection({
     }
   }
 
+  // Split 12 months into 2 rows of 6 (desktop) — on mobile grid-cols-2 wraps naturally
+  const rowChunks = [monthKeys.slice(0, 6), monthKeys.slice(6, 12)]
+
   return (
     <>
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => setDrawerOpen(true)}>
-          <FileText className="h-4 w-4" />
-          Log
-        </Button>
-        {profileLogs.length > 0 && (
-          <span className="text-sm text-muted-foreground">
-            {profileLogs.length} logged
-          </span>
-        )}
+      <div className="mb-4 flex items-center gap-2">
+        <Label className="text-sm font-medium">Year</Label>
+        <Select
+          value={String(selectedYear)}
+          onValueChange={(v) => {
+            setSelectedYear(Number(v))
+            setExpandedMonth(null)
+          }}
+        >
+          <SelectTrigger className="w-[100px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {yearOptions.map((y) => (
+              <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <Sheet
-        open={drawerOpen}
-        onOpenChange={(open) => {
-          setDrawerOpen(open)
-          if (!open) {
-            setLogBaseline(null)
-          }
-        }}
-      >
-        <SheetContent
-          side="right"
-          className="flex flex-col gap-0 p-0 sm:max-w-[50vw]"
-        >
-          <SheetHeader className="shrink-0 px-6 pt-6 pb-4">
-            <SheetTitle>Log inflow & outflow</SheetTitle>
-            <SheetDescription>
-              Record total inflow (income + bonus - CPF) and total outflow (inclusive of tax, insurance, ILP, loans) for {profileName}.
-            </SheetDescription>
-          </SheetHeader>
+      <div className="space-y-2">
+        {rowChunks.map((rowMonths, rowIdx) => {
+          const expandedInRow = expandedMonth != null && rowMonths.includes(expandedMonth)
 
-          <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pb-4">
-            <div className="space-y-2">
-              <Label htmlFor="log-month">Month</Label>
-              <MonthYearPicker
-                id="log-month"
-                value={month}
-                onChange={(d) => {
-                  applyMonthSelection(d ?? defaultMonth)
-                }}
-                placeholder="Select month"
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="log-inflow">Inflow (income + bonus - CPF)</Label>
-                <CurrencyInput
-                  id="log-inflow"
-                  value={inflow}
-                  onChange={(v) => setInflow(v ?? 0)}
-                  className="w-full"
-                />
+          return (
+            <Fragment key={rowIdx}>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
+                {rowMonths.map((mk) => {
+                  const ym = mk.slice(0, 7)
+                  const monthIndex = Number(mk.slice(5, 7)) - 1
+                  const entry = logsByMonth.get(ym)
+                  const hasData = !!entry
+                  const isExpanded = expandedMonth === mk
+
+                  return (
+                    <button
+                      key={mk}
+                      type="button"
+                      onClick={() => toggleMonth(mk)}
+                      className={cn(
+                        "rounded-lg border p-3 text-left text-sm transition-colors",
+                        isExpanded
+                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          : hasData
+                            ? "border-border bg-muted/30 hover:bg-muted/60"
+                            : "border-dashed border-border/50 hover:bg-muted/30"
+                      )}
+                    >
+                      <div className="font-medium">{MONTH_NAMES[monthIndex]}</div>
+                      {hasData ? (
+                        <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                          <div>In: {formatCurrency(Number(entry.inflow ?? 0))}</div>
+                          <div>Out: {formatCurrency(Number(entry.outflow ?? 0))}</div>
+                        </div>
+                      ) : (
+                        <div className="mt-1 text-xs text-muted-foreground/50">--</div>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="log-outflow">Outflow (total, incl. tax, insurance, loans)</Label>
-                <CurrencyInput
-                  id="log-outflow"
-                  value={outflow}
-                  onChange={(v) => setOutflow(v ?? 0)}
-                  className="w-full"
-                />
-              </div>
-            </div>
 
-            <Separator />
-
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium">Logged entries</h4>
-              {profileLogs.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No entries yet.</p>
-              ) : (
-                <ScrollArea className="h-[280px] rounded-lg border">
-                  <div className="space-y-1 p-2">
-                    {profileLogs.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted/50"
-                      >
-                        <span className="min-w-0 flex-1 font-medium">{formatMonth(entry.month)}</span>
-                        <span className="shrink-0 text-right text-muted-foreground">
-                          In: ${Number(entry.inflow ?? 0).toLocaleString()} · Out: ${Number(entry.outflow ?? 0).toLocaleString()}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          className="shrink-0 text-muted-foreground hover:text-destructive"
-                          disabled={deletingId === entry.id}
-                          aria-label={`Delete ${formatMonth(entry.month)} entry`}
-                          onClick={() => setEntryToDelete(entry)}
-                        >
-                          {deletingId === entry.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                    ))}
+              {expandedInRow && expandedMonth && (
+                <div className="rounded-lg border border-primary/20 bg-muted/20 p-4">
+                  <div className="mb-3 text-sm font-medium">
+                    {formatMonth(expandedMonth)}
                   </div>
-                </ScrollArea>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Inflow (income + bonus - CPF)</Label>
+                      <CurrencyInput value={inflow} onChange={(v) => setInflow(v ?? 0)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Outflow (total, incl. tax, insurance, loans)</Label>
+                      <CurrencyInput value={outflow} onChange={(v) => setOutflow(v ?? 0)} />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      disabled={savingMonth != null}
+                      onClick={() => void saveMonth()}
+                    >
+                      {savingMonth === expandedMonth && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                      Save
+                    </Button>
+                    {logsByMonth.get(expandedMonth.slice(0, 7)) && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={deletingId != null}
+                        onClick={() => setEntryToDelete(logsByMonth.get(expandedMonth.slice(0, 7))!)}
+                      >
+                        Delete
+                      </Button>
+                    )}
+                  </div>
+                </div>
               )}
-            </div>
-          </div>
-
-          <SheetFooter className="shrink-0 flex-row justify-end gap-2 border-t bg-background px-6 py-4">
-            <Button
-              type="button"
-              size="sm"
-              disabled={isSaving || (!logFormDirty && !aggregateDirty)}
-              onClick={() => void saveAll()}
-            >
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Save
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+            </Fragment>
+          )
+        })}
+      </div>
 
       <AlertDialog
         open={entryToDelete != null}
