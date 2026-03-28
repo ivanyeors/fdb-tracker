@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { DatePicker } from "@/components/ui/date-picker"
 import { SymbolPickerDrawer } from "@/components/dashboard/investments/symbol-picker-drawer"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Loader2, Plus, X } from "lucide-react"
@@ -39,6 +40,7 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
   )
   const [units, setUnits] = useState("")
   const [costPerUnit, setCostPerUnit] = useState<number | null>(null)
+  const [dateAdded, setDateAdded] = useState("")
   const [note, setNote] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -79,6 +81,7 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
           type,
           units: unitsNum,
           costBasis: cost,
+          ...(dateAdded && { dateAdded }),
           ...(note.trim() && { journalText: note.trim() }),
           ...(activeProfileId && { profileId: activeProfileId }),
           ...(activeFamilyId && !activeProfileId && { familyId: activeFamilyId }),
@@ -94,6 +97,7 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
       setSymbol("")
       setUnits("")
       setCostPerUnit(null)
+      setDateAdded("")
       setNote("")
       setType("stock")
       onSuccess?.()
@@ -208,6 +212,17 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
             required
           />
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="holding-date-added">Start date (optional)</Label>
+        <DatePicker
+          id="holding-date-added"
+          value={dateAdded || null}
+          onChange={(d) => setDateAdded(d ?? "")}
+          placeholder="Select start date"
+          className="w-full"
+        />
       </div>
 
       <div className="space-y-1.5">

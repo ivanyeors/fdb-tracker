@@ -802,6 +802,7 @@ export type Database = {
           group_allocation_pct: number | null
           premium_payment_mode: string
           deduction_bank_account_id: string | null
+          start_date: string | null
           created_at: string
         }
         Insert: {
@@ -815,6 +816,7 @@ export type Database = {
           group_allocation_pct?: number | null
           premium_payment_mode?: string
           deduction_bank_account_id?: string | null
+          start_date?: string | null
           created_at?: string
         }
         Update: {
@@ -828,6 +830,7 @@ export type Database = {
           group_allocation_pct?: number | null
           premium_payment_mode?: string
           deduction_bank_account_id?: string | null
+          start_date?: string | null
           created_at?: string
         }
         Relationships: [

@@ -21,6 +21,8 @@ const createInvestmentSchema = z.object({
   familyId: z.string().uuid().optional(),
   /** Optional note stored on the linked buy transaction (same flow as Telegram /buy). */
   journalText: z.string().max(2000).optional(),
+  /** Optional date when the investment actually started (YYYY-MM-DD). */
+  dateAdded: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -100,7 +102,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { symbol, type, units, costBasis, profileId, familyId, journalText } =
+    const { symbol, type, units, costBasis, profileId, familyId, journalText, dateAdded } =
       parsed.data
     const supabase = createSupabaseAdmin()
     const resolved = await resolveFamilyAndProfiles(
@@ -125,6 +127,7 @@ export async function POST(request: NextRequest) {
         units,
         cost_basis: costBasis,
         ...(profileId && { profile_id: profileId }),
+        ...(dateAdded && { date_added: dateAdded }),
       })
       .select()
       .single()

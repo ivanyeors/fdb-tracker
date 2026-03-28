@@ -32,6 +32,7 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
   const [initialFundValue, setInitialFundValue] = useState<number | null>(null)
   /** Cumulative premiums through the current month (optional; stored on the first entry). */
   const [initialPremiumsPaid, setInitialPremiumsPaid] = useState<number | null>(null)
+  const [startDate, setStartDate] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -65,6 +66,7 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
           name: name.trim(),
           monthlyPremium: premium,
           endDate,
+          ...(startDate && { startDate }),
           ...(activeProfileId && { profileId: activeProfileId }),
           ...(activeFamilyId && !activeProfileId && { familyId: activeFamilyId }),
         }),
@@ -106,6 +108,7 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
       setName("")
       setMonthlyPremium(null)
       setPremiumPaymentMode("monthly")
+      setStartDate("")
       setEndDate("")
       setInitialFundValue(null)
       setInitialPremiumsPaid(null)
@@ -166,7 +169,17 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
             </p>
           ) : null}
         </div>
-        <div className="space-y-1.5 sm:col-span-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="ilp-start-date">Start date (optional)</Label>
+          <DatePicker
+            id="ilp-start-date"
+            value={startDate || null}
+            onChange={(d) => setStartDate(d ?? "")}
+            placeholder="Select start date"
+            className="w-full"
+          />
+        </div>
+        <div className="space-y-1.5">
           <Label htmlFor="ilp-end-date">Premium end date</Label>
           <DatePicker
             id="ilp-end-date"

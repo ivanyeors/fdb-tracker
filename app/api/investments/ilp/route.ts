@@ -23,6 +23,7 @@ const createIlpSchema = z
     /** Required when assigning to a group; first member must be 100%. Use bulk allocations if the group already has products. */
     groupAllocationPct: z.number().min(0).max(100).nullable().optional(),
     premiumPaymentMode: z.enum(["monthly", "one_time"]).optional(),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   })
   .superRefine((data, ctx) => {
     const mode = data.premiumPaymentMode ?? "monthly"
@@ -162,6 +163,7 @@ export async function POST(request: NextRequest) {
       ilpFundGroupId,
       groupAllocationPct,
       premiumPaymentMode,
+      startDate,
     } = parsed.data
     const supabase = createSupabaseAdmin()
     const resolved = await resolveFamilyAndProfiles(
@@ -240,6 +242,7 @@ export async function POST(request: NextRequest) {
         end_date: endDate,
         premium_payment_mode: premiumPaymentMode ?? "monthly",
         ...(profileId && { profile_id: profileId }),
+        ...(startDate && { start_date: startDate }),
         ...(ilpFundGroupId && {
           ilp_fund_group_id: ilpFundGroupId,
           group_allocation_pct: groupAllocationPct ?? null,

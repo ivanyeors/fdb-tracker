@@ -67,6 +67,7 @@ type IlpImportDraft = {
   newProductName: string
   newMonthlyPremium: number | null
   singlePremiumPaymentMode: "monthly" | "one_time"
+  newStartDate: string
   newEndDate: string
   fundGroupChoice: string
   newFundGroupName: string
@@ -81,6 +82,7 @@ type IlpImportDraft = {
     productId: string
     newProductName: string
     newMonthlyPremium: number | null
+    newStartDate: string
     newEndDate: string
     fundGroupChoice: string
     newFundGroupName: string
@@ -148,6 +150,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
   const [singleGroupPremiumMode, setSingleGroupPremiumMode] = useState<
     "monthly" | "one_time"
   >("monthly")
+  const [newStartDate, setNewStartDate] = useState("")
   const [newEndDate, setNewEndDate] = useState("")
   const [fundGroupChoice, setFundGroupChoice] = useState<string>(NO_FUND_GROUP)
   const [newFundGroupName, setNewFundGroupName] = useState("")
@@ -166,6 +169,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
       productId: string
       newProductName: string
       newMonthlyPremium: number | null
+      newStartDate: string
       newEndDate: string
       fundGroupChoice: string
       newFundGroupName: string
@@ -236,6 +240,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
     setNewProductName(draft.newProductName)
     setNewMonthlyPremium(draft.newMonthlyPremium)
     setSinglePremiumPaymentMode(draft.singlePremiumPaymentMode)
+    setNewStartDate(draft.newStartDate ?? "")
     setNewEndDate(draft.newEndDate)
     setFundGroupChoice(draft.fundGroupChoice)
     setNewFundGroupName(draft.newFundGroupName)
@@ -254,6 +259,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
         productId: CREATE_NEW_ILP,
         newProductName: meta.snapshot.investmentName ?? "",
         newMonthlyPremium: null,
+        newStartDate: "",
         newEndDate: "2060-01-01",
         fundGroupChoice: NO_FUND_GROUP,
         newFundGroupName: "",
@@ -287,6 +293,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
         productId: CREATE_NEW_ILP,
         newProductName: b.parse.snapshot.investmentName ?? "",
         newMonthlyPremium: null,
+        newStartDate: "",
         newEndDate: "2060-01-01",
         fundGroupChoice: NO_FUND_GROUP,
         newFundGroupName: "",
@@ -418,6 +425,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
         newProductName,
         newMonthlyPremium,
         singlePremiumPaymentMode,
+        newStartDate,
         newEndDate,
         fundGroupChoice,
         newFundGroupName,
@@ -452,6 +460,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
     newProductName,
     newMonthlyPremium,
     singlePremiumPaymentMode,
+    newStartDate,
     newEndDate,
     fundGroupChoice,
     newFundGroupName,
@@ -527,6 +536,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
             productId: CREATE_NEW_ILP,
             newProductName: b.parse.snapshot.investmentName ?? "",
             newMonthlyPremium: null,
+            newStartDate: "",
             newEndDate: "2060-01-01",
             fundGroupChoice: NO_FUND_GROUP,
             newFundGroupName: "",
@@ -678,6 +688,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
         ? "one_time"
         : singlePremiumPaymentMode,
       endDate: newEndDate,
+      ...(newStartDate && { startDate: newStartDate }),
     }
     if (activeProfileId) baseBody.profileId = activeProfileId
     else if (familyId) baseBody.familyId = familyId
@@ -801,6 +812,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
         monthlyPremium: 0,
         premiumPaymentMode: "one_time",
         endDate: row.newEndDate,
+        ...(row.newStartDate && { startDate: row.newStartDate }),
       }
       if (activeProfileId) body.profileId = activeProfileId
       else if (familyId) body.familyId = familyId
@@ -822,6 +834,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
       monthlyPremium: premium,
       premiumPaymentMode: "monthly",
       endDate: row.newEndDate,
+      ...(row.newStartDate && { startDate: row.newStartDate }),
     }
     if (activeProfileId) body.profileId = activeProfileId
     else if (familyId) body.familyId = familyId
@@ -1362,7 +1375,17 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                         onChange={(v) => setNewMonthlyPremium(v)}
                       />
                     </div>
-                    <div className="space-y-1.5 sm:col-span-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ilp-import-start">Start date (optional)</Label>
+                      <DatePicker
+                        id="ilp-import-start"
+                        value={newStartDate || null}
+                        onChange={(d) => setNewStartDate(d ?? "")}
+                        placeholder="Select start date"
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
                       <Label htmlFor="ilp-import-end">Premium end date</Label>
                       <DatePicker
                         id="ilp-import-end"
@@ -1375,16 +1398,28 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="ilp-import-end-solo">Premium end date</Label>
-                    <DatePicker
-                      id="ilp-import-end-solo"
-                      value={newEndDate || null}
-                      onChange={(d) => setNewEndDate(d ?? "")}
-                      placeholder="Select end date"
-                      showIsoInput
-                      className="w-full"
-                    />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ilp-import-start-solo">Start date (optional)</Label>
+                      <DatePicker
+                        id="ilp-import-start-solo"
+                        value={newStartDate || null}
+                        onChange={(d) => setNewStartDate(d ?? "")}
+                        placeholder="Select start date"
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ilp-import-end-solo">Premium end date</Label>
+                      <DatePicker
+                        id="ilp-import-end-solo"
+                        value={newEndDate || null}
+                        onChange={(d) => setNewEndDate(d ?? "")}
+                        placeholder="Select end date"
+                        showIsoInput
+                        className="w-full"
+                      />
+                    </div>
                   </div>
                 )}
                 <div className="space-y-2">
@@ -1656,6 +1691,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                                   ? {
                                       newProductName: "",
                                       newMonthlyPremium: null,
+                                      newStartDate: "",
                                       newEndDate: "",
                                       fundGroupChoice: NO_FUND_GROUP,
                                       newFundGroupName: "",
@@ -1712,7 +1748,23 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                               }}
                             />
                           </div>
-                          <div className="space-y-1 sm:col-span-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Start date (optional)</Label>
+                            <DatePicker
+                              value={row.newStartDate || null}
+                              onChange={(d) => {
+                                setMultiRows((prev) => {
+                                  const next = [...prev]
+                                  const c = next[i]
+                                  if (!c) return prev
+                                  next[i] = { ...c, newStartDate: d ?? "" }
+                                  return next
+                                })
+                              }}
+                              className="w-full"
+                            />
+                          </div>
+                          <div className="space-y-1">
                             <Label className="text-xs">Premium end date</Label>
                             <DatePicker
                               value={row.newEndDate || null}
@@ -1968,6 +2020,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                                   ? {
                                       newProductName: "",
                                       newMonthlyPremium: null,
+                                      newStartDate: "",
                                       newEndDate: "",
                                       fundGroupChoice: NO_FUND_GROUP,
                                       newFundGroupName: "",
@@ -2009,7 +2062,23 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                               }}
                             />
                           </div>
-                          <div className="space-y-1 sm:col-span-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Start date (optional)</Label>
+                            <DatePicker
+                              value={row.newStartDate || null}
+                              onChange={(d) => {
+                                setMultiRows((prev) => {
+                                  const next = [...prev]
+                                  const c = next[i]
+                                  if (!c) return prev
+                                  next[i] = { ...c, newStartDate: d ?? "" }
+                                  return next
+                                })
+                              }}
+                              className="w-full"
+                            />
+                          </div>
+                          <div className="space-y-1">
                             <Label className="text-xs">Premium end date</Label>
                             <DatePicker
                               value={row.newEndDate || null}
