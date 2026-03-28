@@ -266,6 +266,7 @@ export async function fetchCashflowRangeSeries(
       ilp: sharedIlp,
       loans: 0,
       tax: 0,
+      savingsGoals: 0,
       totalOutflow: sharedIlp,
       inflowMemo: undefined,
       outflowMemo: undefined,
