@@ -20,10 +20,11 @@ import { CoverageTable } from "@/components/dashboard/insurance/coverage-table"
 import { PremiumCalendar } from "@/components/dashboard/insurance/premium-calendar"
 import { INSURANCE_TYPE_LABELS, COVERAGE_TYPE_LABELS } from "@/lib/insurance/coverage-config"
 import type { InsuranceType, CoverageType } from "@/lib/insurance/coverage-config"
-import type {
-  HouseholdCoverageAnalysis,
-  ProfileCoverageAnalysis,
-  CoverageGapItem,
+import {
+  getCoverageRecommendation,
+  type HouseholdCoverageAnalysis,
+  type ProfileCoverageAnalysis,
+  type CoverageGapItem,
 } from "@/lib/calculations/insurance"
 
 interface PolicyCoverage {
@@ -68,7 +69,7 @@ interface Policy {
   coverages: PolicyCoverage[]
 }
 
-const TAB_SET = new Set(["overview", "coverage", "policies", "premiums"])
+const TAB_SET = new Set(["overview", "coverage", "policies"])
 
 const RADAR_AXES = [
   "Death/TPD",
@@ -243,6 +244,17 @@ export default function InsurancePage() {
     return buildRadarSeries(coverageData.profiles, activeProfileId)
   }, [coverageData, activeProfileId])
 
+  const activeAnalysis = useMemo(() => {
+    if (!coverageData) return null
+    if (activeProfileId) {
+      return (
+        coverageData.profiles.find((p) => p.profileId === activeProfileId) ??
+        null
+      )
+    }
+    return coverageData.profiles[0] ?? null
+  }, [coverageData, activeProfileId])
+
   const hasNoIncome = useMemo(() => {
     if (!coverageData) return false
     if (activeProfileId) {
@@ -285,7 +297,6 @@ export default function InsurancePage() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="coverage">Coverage</TabsTrigger>
             <TabsTrigger value="policies">Policies</TabsTrigger>
-            <TabsTrigger value="premiums">Premiums</TabsTrigger>
           </TabsList>
 
           {/* ── Overview Tab ── */}
@@ -344,50 +355,83 @@ export default function InsurancePage() {
               {/* Quick status */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">
-                    Coverage Status
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">
+                      Coverage Status
+                    </CardTitle>
+                    {activeAnalysis?.lifeStageLabel && (
+                      <Badge variant="outline" className="text-xs font-normal">
+                        {activeAnalysis.lifeStageLabel}
+                      </Badge>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {currentItems.map((item) => {
                       const covered =
                         item.coverageType === "personal_accident"
                           ? item.hasCoverage
                           : item.gapPct === 0
+                      const pct =
+                        item.needed > 0
+                          ? Math.round(
+                              Math.min(item.held / item.needed, 1) * 100,
+                            )
+                          : null
+                      const recommendation = getCoverageRecommendation(item)
 
                       return (
                         <div
                           key={item.coverageType}
-                          className="flex items-center justify-between rounded-lg border px-4 py-3"
+                          className="rounded-lg border px-4 py-3"
                         >
-                          <div className="flex items-center gap-3">
-                            {covered ? (
-                              <div className="flex size-7 items-center justify-center rounded-full bg-green-600/20">
-                                <Check className="size-4 text-green-600" />
-                              </div>
-                            ) : (
-                              <div className="flex size-7 items-center justify-center rounded-full bg-destructive/20">
-                                <X className="size-4 text-destructive" />
-                              </div>
-                            )}
-                            <span className="text-sm font-medium">
-                              {item.label}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              {covered ? (
+                                <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-green-600/20">
+                                  <Check className="size-4 text-green-600" />
+                                </div>
+                              ) : (
+                                <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-destructive/20">
+                                  <X className="size-4 text-destructive" />
+                                </div>
+                              )}
+                              <span className="text-sm font-medium">
+                                {item.label}
+                              </span>
+                            </div>
+                            <span className="text-sm tabular-nums text-muted-foreground">
+                              {item.coverageType === "hospitalization"
+                                ? item.hasCoverage
+                                  ? "Active ISP"
+                                  : "No ISP"
+                                : item.coverageType === "personal_accident"
+                                  ? item.hasCoverage
+                                    ? `$${formatCurrency(item.held)}`
+                                    : "None"
+                                  : pct != null
+                                    ? `${pct}%`
+                                    : "—"}
                             </span>
                           </div>
-                          <span className="text-sm tabular-nums text-muted-foreground">
-                            {item.coverageType === "hospitalization"
-                              ? item.hasCoverage
-                                ? "Active ISP"
-                                : "No ISP"
-                              : item.coverageType === "personal_accident"
-                                ? item.hasCoverage
-                                  ? `$${formatCurrency(item.held)}`
-                                  : "None"
-                                : item.needed > 0
-                                  ? `${Math.round(Math.min(item.held / item.needed, 1) * 100)}%`
-                                  : "—"}
-                          </span>
+                          {item.coverageType !== "hospitalization" &&
+                            item.coverageType !== "personal_accident" &&
+                            item.coverageType !== "medical_reimbursement" &&
+                            item.coverageType !== "accident_death_tpd" &&
+                            item.needed > 0 && (
+                              <div className="mt-1.5 pl-10">
+                                <div className="text-xs tabular-nums text-muted-foreground">
+                                  ${formatCurrency(item.held)} of $
+                                  {formatCurrency(item.needed)} needed
+                                </div>
+                                {recommendation && (
+                                  <div className="mt-1 text-xs text-muted-foreground/70">
+                                    {recommendation}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                         </div>
                       )
                     })}
@@ -395,6 +439,15 @@ export default function InsurancePage() {
                 </CardContent>
               </Card>
             </div>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Premium Schedule</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PremiumCalendar policies={policies} />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* ── Coverage Tab ── */}
@@ -761,10 +814,6 @@ export default function InsurancePage() {
             )}
           </TabsContent>
 
-          {/* ── Premiums Tab ── */}
-          <TabsContent value="premiums" className="space-y-4">
-            <PremiumCalendar policies={policies} />
-          </TabsContent>
         </Tabs>
       )}
     </div>

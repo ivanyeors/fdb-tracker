@@ -29,6 +29,17 @@ type RadarChartProps = {
 
 const RING_LEVELS = [25, 50, 75, 100]
 
+function splitLabel(label: string): string[] {
+  if (label.length <= 14) return [label]
+  if (label.includes("/"))
+    return label
+      .split("/")
+      .map((s, i, a) => (i < a.length - 1 ? s + "/" : s))
+  const spaceIdx = label.indexOf(" ")
+  if (spaceIdx > 0) return [label.slice(0, spaceIdx), label.slice(spaceIdx + 1)]
+  return [label]
+}
+
 function genAngles(length: number) {
   return [...Array(length + 1)].map((_, i) => ({
     angle: i * (360 / length) + (length % 2 === 0 ? 0 : -90),
@@ -74,7 +85,7 @@ function RadarChartInner({
   const size = Math.min(width, height)
   if (size < 60) return null
 
-  const margin = 40
+  const margin = 56
   const radius = (size - margin * 2) / 2
 
   const radialScale = scaleLinear<number>({
@@ -181,10 +192,11 @@ function RadarChartInner({
 
           {/* Axis labels */}
           {axes.map((axis, i) => {
-            const labelRadius = radius + 16
+            const labelRadius = radius + 20
             const point = genPoint(numAxes, i, labelRadius)
             const isBottom = point.y > 5
             const isTop = point.y < -5
+            const lines = splitLabel(axis)
             return (
               <text
                 key={axis}
@@ -192,13 +204,25 @@ function RadarChartInner({
                 y={point.y}
                 textAnchor="middle"
                 dominantBaseline={isBottom ? "hanging" : isTop ? "auto" : "central"}
-                className={`text-[11px] font-medium ${
+                className={`text-[12px] font-medium ${
                   hoveredAxis === i
                     ? "fill-foreground"
                     : "fill-muted-foreground"
                 }`}
               >
-                {axis}
+                {lines.length === 1 ? (
+                  axis
+                ) : (
+                  lines.map((line, li) => (
+                    <tspan
+                      key={li}
+                      x={point.x}
+                      dy={li === 0 ? (isTop ? `-${(lines.length - 1) * 0.6}em` : "0") : "1.2em"}
+                    >
+                      {line}
+                    </tspan>
+                  ))
+                )}
               </text>
             )
           })}
@@ -295,7 +319,7 @@ function RadarChartInner({
 }
 
 export function RadarChart({ series, axes }: RadarChartProps) {
-  const chartSize = useChartHeight(440, 320)
+  const chartSize = useChartHeight(480, 360)
   return (
     <div className="flex w-full items-center justify-center">
       <div style={{ height: chartSize, width: chartSize }}>

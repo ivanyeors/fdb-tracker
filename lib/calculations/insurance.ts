@@ -14,6 +14,7 @@ export type ProfileCoverageAnalysis = {
   profileId: string
   profileName: string
   annualSalary: number
+  lifeStageLabel?: string
   items: CoverageGapItem[]
   overallScore: number
 }
