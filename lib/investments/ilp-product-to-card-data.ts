@@ -4,6 +4,7 @@ import { fundValueForAllocation as fundValueForAllocationFromEntries } from "@/l
 export type IlpProductWithEntries = {
   id: string
   name: string
+  profile_id?: string | null
   monthly_premium: number
   premium_payment_mode?: string | null
   end_date: string
@@ -32,6 +33,7 @@ export type IlpProductWithEntries = {
 export type IlpCardRowData = {
   productId: string
   name: string
+  profileId: string | null
   groupId: string | null
   groupName: string | null
   groupAllocationPct: number | null
@@ -101,6 +103,7 @@ export function buildIlpCardDataFromProduct(
   return {
     productId: p.id,
     name: p.name,
+    profileId: p.profile_id ?? null,
     groupId: p.ilp_fund_groups?.id ?? null,
     groupName: p.ilp_fund_groups?.name ?? null,
     groupAllocationPct:

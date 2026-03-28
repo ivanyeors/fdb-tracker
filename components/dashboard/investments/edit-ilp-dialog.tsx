@@ -51,8 +51,9 @@ interface EditIlpDialogProps {
   latestEntryMonth: string | null
   latestEntryFundValue: number
   latestEntryPremiumsPaid: number | null
+  profileId?: string | null
   onSuccess?: () => void
-  /** Controlled dialog (e.g. “Update fund value” on the card). */
+  /** Controlled dialog (e.g. "Update fund value" on the card). */
   open?: boolean
   onOpenChange?: (open: boolean) => void
 }
@@ -66,11 +67,12 @@ export function EditIlpDialog({
   latestEntryMonth,
   latestEntryFundValue,
   latestEntryPremiumsPaid,
+  profileId: initialProfileId,
   onSuccess,
   open: controlledOpen,
   onOpenChange: onOpenChangeProp,
 }: EditIlpDialogProps) {
-  const { activeFamilyId } = useActiveProfile()
+  const { activeFamilyId, profiles } = useActiveProfile()
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled =
     controlledOpen !== undefined && onOpenChangeProp !== undefined
@@ -88,6 +90,9 @@ export function EditIlpDialog({
   const [entryMonth, setEntryMonth] = useState("")
   const [fundValue, setFundValue] = useState<number | null>(0)
   const [premiumsPaid, setPremiumsPaid] = useState<number | null>(null)
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
+    initialProfileId ?? null,
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
@@ -96,6 +101,7 @@ export function EditIlpDialog({
     setPremium(monthlyPremium)
     setPaymentMode(premiumPaymentMode)
     setEnd(normalizeDateForInput(endDate))
+    setSelectedProfileId(initialProfileId ?? null)
     setEntryMonth(normalizeStatementMonth(latestEntryMonth))
     setFundValue(latestEntryFundValue)
     setPremiumsPaid(
@@ -109,6 +115,7 @@ export function EditIlpDialog({
     monthlyPremium,
     premiumPaymentMode,
     endDate,
+    initialProfileId,
     latestEntryMonth,
     latestEntryFundValue,
     latestEntryPremiumsPaid,
@@ -151,6 +158,7 @@ export function EditIlpDialog({
           premiumPaymentMode: paymentMode,
           endDate: end,
           familyId: activeFamilyId,
+          profileId: selectedProfileId,
         }),
       })
 
@@ -210,6 +218,26 @@ export function EditIlpDialog({
               required
             />
           </div>
+          {profiles.length > 1 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-ilp-profile">Assign to</Label>
+              <Select
+                value={selectedProfileId ?? ""}
+                onValueChange={(v) => setSelectedProfileId(v || null)}
+              >
+                <SelectTrigger id="edit-ilp-profile" className="w-full">
+                  <SelectValue placeholder="Select profile" />
+                </SelectTrigger>
+                <SelectContent>
+                  {profiles.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="edit-ilp-premium-mode">Premium payment</Label>

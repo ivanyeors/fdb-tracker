@@ -27,7 +27,7 @@ const banksRouteSchema = z.object({
     bankAccountSchema
       .omit({ profile_id: true })
       .extend({
-        profile_id: z.string().uuid().nullable().optional(),
+        profileIndex: z.number().int().min(0).optional().default(0),
         opening_balance: z.number().min(0).optional(),
         savings_goals: z.array(savingsGoalSchema).optional().default([]),
       }),
@@ -78,19 +78,29 @@ export async function POST(request: Request) {
       (acc) => (acc.bank_name?.trim() ?? "").length > 0,
     )
 
+    const { data: profileRows } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("family_id", familyId)
+      .order("created_at", { ascending: true })
+
+    const profiles = profileRows ?? []
+
     await supabase
       .from("bank_accounts")
       .delete()
       .eq("family_id", familyId)
 
     for (const acc of validAccounts) {
+      const profileId = profiles[acc.profileIndex ?? 0]?.id ?? null
+
       const { data: insertedAcc, error: accError } = await supabase
         .from("bank_accounts")
         .insert({
           family_id: familyId,
           bank_name: acc.bank_name,
           account_type: acc.account_type,
-          profile_id: acc.profile_id ?? null,
+          profile_id: profileId,
           opening_balance: acc.opening_balance ?? 0,
         })
         .select("id")
@@ -112,7 +122,7 @@ export async function POST(request: Request) {
         await supabase.from("savings_goals").insert(
           validGoals.map((g) => ({
             family_id: familyId,
-            profile_id: acc.profile_id ?? null,
+            profile_id: profileId,
             name: g.name ?? "",
             target_amount: g.target_amount ?? 0,
             current_amount: g.current_amount ?? 0,

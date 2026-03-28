@@ -43,6 +43,7 @@ interface IlpCardProps {
   latestEntryMonth: string | null
   latestEntryFundValue: number
   latestEntryPremiumsPaid: number | null
+  profileId?: string | null
   monthlyData: MonthlyData[]
   onAddEntry?: () => void
   onEditSuccess?: () => void
@@ -478,6 +479,7 @@ export function IlpCard({
   latestEntryMonth,
   latestEntryFundValue,
   latestEntryPremiumsPaid,
+  profileId,
   monthlyData,
   onAddEntry,
   onEditSuccess,
@@ -618,6 +620,7 @@ export function IlpCard({
               latestEntryMonth={latestEntryMonth}
               latestEntryFundValue={latestEntryFundValue}
               latestEntryPremiumsPaid={latestEntryPremiumsPaid}
+              profileId={profileId}
               onSuccess={onEditSuccess ?? onAddEntry}
               open={editOpen}
               onOpenChange={setEditOpen}

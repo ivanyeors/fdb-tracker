@@ -61,7 +61,7 @@ function isOcbcAccount(account: BankAccount) {
 
 export default function BanksPage() {
   const router = useRouter()
-  const { mode, bankAccounts, setBankAccounts, familyId, skipOnboarding } = useOnboarding()
+  const { mode, profiles, userCount, bankAccounts, setBankAccounts, familyId, skipOnboarding } = useOnboarding()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [accounts, setAccounts] = useState<BankAccount[]>(
@@ -74,7 +74,7 @@ export default function BanksPage() {
             deadline: g.deadline ?? null,
           })),
         }))
-      : [{ bank_name: "", account_type: "savings", opening_balance: 0, savings_goals: [] }],
+      : [{ bank_name: "", account_type: "savings", opening_balance: 0, savings_goals: [], profileIndex: 0 }],
   )
   const [showGoals, setShowGoals] = useState<Record<number, boolean>>({})
 
@@ -96,6 +96,11 @@ export default function BanksPage() {
         ...updated[index],
         opening_balance: typeof value === "number" ? value : Number(value) || 0,
       }
+    } else if (field === "profileIndex") {
+      updated[index] = {
+        ...updated[index],
+        profileIndex: typeof value === "number" ? value : Number(value) || 0,
+      }
     }
     setAccounts(updated)
   }
@@ -103,7 +108,7 @@ export default function BanksPage() {
   function addAccount() {
     setAccounts([
       ...accounts,
-      { bank_name: "", account_type: "savings", opening_balance: 0, savings_goals: [] },
+      { bank_name: "", account_type: "savings", opening_balance: 0, savings_goals: [], profileIndex: 0 },
     ])
   }
 
@@ -205,6 +210,7 @@ export default function BanksPage() {
             account_type: a.account_type,
             opening_balance: a.opening_balance ?? 0,
             savings_goals: a.savings_goals ?? [],
+            profileIndex: a.profileIndex ?? 0,
           })),
         }),
       })
@@ -242,6 +248,27 @@ export default function BanksPage() {
                 </Button>
               )}
             </div>
+
+            {userCount > 1 && (
+              <div className="space-y-1.5">
+                <Label>Profile</Label>
+                <Select
+                  value={String(account.profileIndex)}
+                  onValueChange={(v) => updateAccount(i, "profileIndex", Number(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {profiles.slice(0, userCount).map((p, idx) => (
+                      <SelectItem key={idx} value={String(idx)}>
+                        {p.name || `Person ${idx + 1}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">

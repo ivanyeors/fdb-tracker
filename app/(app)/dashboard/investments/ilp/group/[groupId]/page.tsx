@@ -240,6 +240,7 @@ export default function IlpFundGroupDetailPage() {
                 latestEntryMonth={card.latestEntryMonth}
                 latestEntryFundValue={card.latestEntryFundValue}
                 latestEntryPremiumsPaid={card.latestEntryPremiumsPaid}
+                profileId={card.profileId}
                 monthlyData={card.monthlyData}
                 fundReportSnapshot={card.fundReportSnapshot}
                 groupAllocationPct={card.groupAllocationPct}

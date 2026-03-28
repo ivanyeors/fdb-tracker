@@ -19,6 +19,7 @@ const updateIlpSchema = z.object({
   ilpFundGroupId: z.string().uuid().nullable().optional(),
   groupAllocationPct: z.number().min(0).max(100).nullable().optional(),
   premiumPaymentMode: z.enum(["monthly", "one_time"]).optional(),
+  profileId: z.string().uuid().nullable().optional(),
 })
 
 async function verifyIlpOwnership(
@@ -230,6 +231,7 @@ export async function PATCH(
     if (p.premiumPaymentMode !== undefined) {
       updates.premium_payment_mode = p.premiumPaymentMode
     }
+    if (p.profileId !== undefined) updates.profile_id = p.profileId
 
     if (p.ilpFundGroupId !== undefined) {
       if (p.ilpFundGroupId === null) {

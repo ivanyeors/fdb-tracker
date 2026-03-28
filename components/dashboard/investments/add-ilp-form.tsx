@@ -22,7 +22,8 @@ interface AddIlpFormProps {
 }
 
 export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
-  const { activeProfileId, activeFamilyId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId, profiles } = useActiveProfile()
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [name, setName] = useState("")
   const [monthlyPremium, setMonthlyPremium] = useState<number | null>(null)
   const [premiumPaymentMode, setPremiumPaymentMode] = useState<
@@ -67,8 +68,8 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
           monthlyPremium: premium,
           endDate,
           ...(startDate && { startDate }),
-          ...(activeProfileId && { profileId: activeProfileId }),
-          ...(activeFamilyId && !activeProfileId && { familyId: activeFamilyId }),
+          profileId: selectedProfileId ?? activeProfileId ?? null,
+          ...(activeFamilyId && { familyId: activeFamilyId }),
         }),
       })
 
@@ -122,6 +123,26 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {profiles.length > 1 && (
+        <div className="space-y-1.5">
+          <Label htmlFor="ilp-profile">Assign to</Label>
+          <Select
+            value={selectedProfileId ?? activeProfileId ?? ""}
+            onValueChange={(v) => setSelectedProfileId(v || null)}
+          >
+            <SelectTrigger id="ilp-profile" className="w-full">
+              <SelectValue placeholder="Select profile" />
+            </SelectTrigger>
+            <SelectContent>
+              {profiles.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="space-y-1.5">
         <Label htmlFor="ilp-name">Product name</Label>
         <Input

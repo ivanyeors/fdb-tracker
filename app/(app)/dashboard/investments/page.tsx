@@ -74,6 +74,7 @@ import { AllocationTab } from "@/components/dashboard/investments/allocation-tab
 type IlpProductWithEntries = {
   id: string
   name: string
+  profile_id?: string | null
   monthly_premium: number
   premium_payment_mode?: string | null
   end_date: string
@@ -553,6 +554,7 @@ export default function InvestmentsDetailPage() {
       return {
         productId: p.id,
         name: p.name,
+        profileId: p.profile_id ?? null,
         groupId: p.ilp_fund_groups?.id ?? null,
         groupName: p.ilp_fund_groups?.name ?? null,
         groupAllocationPct:
@@ -1118,6 +1120,7 @@ export default function InvestmentsDetailPage() {
                           latestEntryMonth={card.latestEntryMonth}
                           latestEntryFundValue={card.latestEntryFundValue}
                           latestEntryPremiumsPaid={card.latestEntryPremiumsPaid}
+                          profileId={card.profileId}
                           monthlyData={card.monthlyData}
                           fundReportSnapshot={card.fundReportSnapshot}
                           groupAllocationPct={card.groupAllocationPct}
@@ -1151,6 +1154,7 @@ export default function InvestmentsDetailPage() {
                   latestEntryMonth={card.latestEntryMonth}
                   latestEntryFundValue={card.latestEntryFundValue}
                   latestEntryPremiumsPaid={card.latestEntryPremiumsPaid}
+                  profileId={card.profileId}
                   monthlyData={card.monthlyData}
                   fundReportSnapshot={card.fundReportSnapshot}
                   groupAllocationPct={card.groupAllocationPct}
