@@ -4,7 +4,7 @@ import type {
 } from "@/lib/pdf-import/types"
 
 function parseAmount(str: string): number | null {
-  const cleaned = str.replace(/[$,\s]/g, "")
+  const cleaned = str.replace(/[S$,\s]/g, "")
   const num = parseFloat(cleaned)
   return isNaN(num) ? null : num
 }
@@ -72,9 +72,9 @@ function extractPolicyNumber(text: string): string | null {
 }
 
 function extractPremium(text: string): { amount: number | null; frequency: string | null } {
-  // "Premium: $123.45" or "Annual Premium $1,234.00" or "Total Premium Payable ... $500.00"
+  // "Premium: $123.45" or "Annual Premium $1,234.00" or "Total Premium Payable (with GST): S$500.00"
   const premiumMatch = text.match(
-    /(?:total\s+)?(?:annual|yearly|monthly|quarterly)?\s*premium\s*(?:payable|amount)?\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i
+    /(?:total\s+)?(?:annual|yearly|monthly|quarterly)?\s*premium\s*(?:payable|amount)?(?:\s*\([^)]*\))?\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i
   )
   const amount = premiumMatch ? parseAmount(premiumMatch[1]) : null
 
@@ -84,6 +84,17 @@ function extractPremium(text: string): { amount: number | null; frequency: strin
     if (prefix.includes("annual") || prefix.includes("yearly")) frequency = "yearly"
     else if (prefix.includes("monthly")) frequency = "monthly"
     else if (prefix.includes("quarterly")) frequency = "quarterly"
+  }
+
+  // Check "Payment Mode" field (e.g., "Payment Mode : Annual")
+  if (!frequency) {
+    const modeMatch = text.match(/payment\s+mode\s*:?\s*(annual|yearly|monthly|quarterly)/i)
+    if (modeMatch) {
+      const mode = modeMatch[1].toLowerCase()
+      if (mode === "annual" || mode === "yearly") frequency = "yearly"
+      else if (mode === "monthly") frequency = "monthly"
+      else if (mode === "quarterly") frequency = "quarterly"
+    }
   }
 
   // If no frequency detected, look near premium mentions
@@ -97,10 +108,10 @@ function extractPremium(text: string): { amount: number | null; frequency: strin
 
 function extractCoverageAmount(text: string): number | null {
   const patterns = [
-    /sum\s+(?:assured|insured)\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
-    /coverage\s+amount\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
-    /benefit\s+amount\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
-    /accidental\s+death\s*.*?\$?\s*([\d,]+\.?\d{0,2})/i,
+    /sum\s+(?:assured|insured)\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
+    /coverage\s+amount\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
+    /benefit\s+amount\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
+    /accidental\s+death\s*.*?(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
   ]
   for (const pat of patterns) {
     const match = text.match(pat)
@@ -112,45 +123,123 @@ function extractCoverageAmount(text: string): number | null {
   return null
 }
 
+const MONTH_MAP: Record<string, string> = {
+  jan: "01", january: "01", feb: "02", february: "02", mar: "03", march: "03",
+  apr: "04", april: "04", may: "05", jun: "06", june: "06", jul: "07", july: "07",
+  aug: "08", august: "08", sep: "09", september: "09", oct: "10", october: "10",
+  nov: "11", november: "11", dec: "12", december: "12",
+}
+
+const MONTH_NAMES_RE =
+  "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"
+
 function extractDate(text: string, pattern: RegExp): string | null {
   const match = text.match(pattern)
   if (!match) return null
-  // Try to parse the date portion after the label
   const dateArea = match[0]
-  // DD/MM/YYYY
+
+  // DD/MM/YYYY or DD-MM-YYYY
   const slashDate = dateArea.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
   if (slashDate) {
     const d = slashDate[1].padStart(2, "0")
     const m = slashDate[2].padStart(2, "0")
     return `${slashDate[3]}-${m}-${d}`
   }
-  // DD Mon YYYY
+
+  // DD Mon YYYY (e.g., "27 Dec 2025")
   const longDate = dateArea.match(
-    /(\d{1,2})\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i
+    new RegExp(`(\\d{1,2})\\s+(${MONTH_NAMES_RE})\\s+(\\d{4})`, "i")
   )
   if (longDate) {
-    const MONTH_MAP: Record<string, string> = {
-      jan: "01", january: "01", feb: "02", february: "02", mar: "03", march: "03",
-      apr: "04", april: "04", may: "05", jun: "06", june: "06", jul: "07", july: "07",
-      aug: "08", august: "08", sep: "09", september: "09", oct: "10", october: "10",
-      nov: "11", november: "11", dec: "12", december: "12",
-    }
     const mm = MONTH_MAP[longDate[2].toLowerCase()]
     if (mm) return `${longDate[3]}-${mm}-${longDate[1].padStart(2, "0")}`
   }
+
+  // Mon DD, YYYY (e.g., "Dec 27, 2025")
+  const monthFirstDate = dateArea.match(
+    new RegExp(`(${MONTH_NAMES_RE})\\s+(\\d{1,2}),?\\s+(\\d{4})`, "i")
+  )
+  if (monthFirstDate) {
+    const mm = MONTH_MAP[monthFirstDate[1].toLowerCase()]
+    if (mm) return `${monthFirstDate[3]}-${mm}-${monthFirstDate[2].padStart(2, "0")}`
+  }
+
   return null
 }
 
-function extractPolicyName(text: string): string | null {
-  // Try to find the plan/product name near "Plan Name", "Product", or insurer-specific patterns
-  const nameMatch = text.match(
-    /(?:plan\s+name|product\s+name|policy\s+name|plan\s+type)\s*:?\s*(.{5,80})/i
+/** Scan all dates in text and return the latest one that is after minDate. */
+function findLatestDate(text: string, minDate: string): string | null {
+  let latest: string | null = null
+
+  // Match Mon DD, YYYY
+  const monthFirstRe = new RegExp(
+    `(${MONTH_NAMES_RE})\\s+(\\d{1,2}),?\\s+(\\d{4})`,
+    "gi"
   )
-  if (nameMatch) return nameMatch[1].trim().split("\n")[0].trim()
+  let m
+  while ((m = monthFirstRe.exec(text)) !== null) {
+    const mm = MONTH_MAP[m[1].toLowerCase()]
+    if (mm) {
+      const d = `${m[3]}-${mm}-${m[2].padStart(2, "0")}`
+      if (d > minDate && (!latest || d > latest)) latest = d
+    }
+  }
+
+  // Match DD Mon YYYY
+  const dayFirstRe = new RegExp(
+    `(\\d{1,2})\\s+(${MONTH_NAMES_RE})\\s+(\\d{4})`,
+    "gi"
+  )
+  while ((m = dayFirstRe.exec(text)) !== null) {
+    const mm = MONTH_MAP[m[2].toLowerCase()]
+    if (mm) {
+      const d = `${m[3]}-${mm}-${m[1].padStart(2, "0")}`
+      if (d > minDate && (!latest || d > latest)) latest = d
+    }
+  }
+
+  // Match DD/MM/YYYY
+  const slashRe = /(\d{1,2})[/-](\d{1,2})[/-](\d{4})/g
+  while ((m = slashRe.exec(text)) !== null) {
+    const d = `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`
+    if (d > minDate && (!latest || d > latest)) latest = d
+  }
+
+  return latest
+}
+
+function extractPolicyName(text: string): string | null {
+  // Match "Plan Name:", "Product Name:", "Policy Name:", "Plan Type:", or bare "Plan:"
+  // Capture up to 2 lines to handle wrapped plan names
+  const nameMatch = text.match(
+    /(?:plan(?:\s+(?:name|type))?|product\s+name|policy\s+name)\s*:\s*([^\n]{3,80}(?:\n[^\n]{3,80})?)/i
+  )
+  if (nameMatch) {
+    let name = nameMatch[1]
+      .split(/\n/)
+      .slice(0, 2)
+      .map((s) => s.trim())
+      .join(" ")
+    // Trim at next field label
+    name = name.replace(
+      /\s*(?:Renewal|Sum|Payment|Premium|Coverage|Inception|Effective|Expiry|End)\s.*/i,
+      ""
+    )
+    return name.trim() || null
+  }
 
   // AIA-specific: look for "AIA <product name>" pattern
-  const aiaMatch = text.match(/\bAIA\s+([\w\s]+(?:Solitaire|Premier|Vitality|Pro|Plus|Elite)[\w\s]*)/i)
-  if (aiaMatch) return `AIA ${aiaMatch[1].trim()}`
+  const aiaMatch = text.match(
+    /\bAIA\s+([\w\s]*(?:Solitaire|Premier|Vitality|Pro|Plus|Elite)[\w\s]*)/i
+  )
+  if (aiaMatch) {
+    let name = `AIA ${aiaMatch[1].trim()}`
+    name = name.replace(
+      /\s*(?:Renewal|Sum|Payment|Premium|Coverage|Inception|Effective)\s.*/i,
+      ""
+    )
+    return name.trim()
+  }
 
   return null
 }
@@ -160,7 +249,7 @@ function extractRider(text: string): { name: string | null; premium: number | nu
     /rider\s*(?:name)?\s*:?\s*(.{3,60}?)(?:\n|rider\s+premium)/i
   )
   const riderPremiumMatch = text.match(
-    /rider\s+premium\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i
+    /rider\s+premium\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i
   )
   return {
     name: riderMatch ? riderMatch[1].trim() : null,
@@ -189,8 +278,17 @@ export function extractInsurance(text: string): InsuranceExtractionResult {
   const coverageAmount = extractCoverageAmount(text)
   const coverageType = detectCoverageType(text)
 
-  const inceptionDate = extractDate(text, /(?:inception|commencement|effective|start)\s+date\s*:?[^]*?(?:\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{1,2}\s+\w+\s+\d{4})/i)
-  const endDate = extractDate(text, /(?:expiry|end|maturity|termination)\s+date\s*:?[^]*?(?:\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{1,2}\s+\w+\s+\d{4})/i)
+  const DATE_PART = String.raw`\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{1,2}\s+\w+\s+\d{4}|\w+\s+\d{1,2},?\s+\d{4}`
+  const inceptionDate = extractDate(text, new RegExp(`(?:inception|commencement|effective|start|renewal)\\s+date\\s*:?[^]*?(?:${DATE_PART})`, "i"))
+
+  // For end date, try label-based extraction first
+  let endDate = extractDate(text, new RegExp(`(?:expiry|end|maturity|termination|coverage\\s+expiry)\\s+date\\s*:?[^]*?(?:${DATE_PART})`, "i"))
+
+  // If end date is missing or earlier than inception (table header grabbed wrong date),
+  // scan for the latest date in the document — far-future dates are typically coverage expiry
+  if (inceptionDate && (!endDate || endDate <= inceptionDate)) {
+    endDate = findLatestDate(text, inceptionDate)
+  }
 
   const rider = extractRider(text)
 

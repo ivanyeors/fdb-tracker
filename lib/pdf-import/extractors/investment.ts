@@ -50,7 +50,7 @@ function extractHoldings(text: string): Array<{
   for (const line of lines) {
     // Try: SYMBOL_CODE ... some_name ... quantity ... price
     const stockMatch = line.match(
-      /([A-Z][A-Z0-9]{1,5}(?:\.[A-Z]{2})?)\s+(.{3,40}?)\s+([\d,]+)\s+(?:\$?\s*)([\d,]+\.?\d{0,2})/
+      /([A-Z][A-Z0-9]{1,5}(?:\.[A-Z]{2})?)\s+(.{3,40}?)\s+([\d,]+)\s+(?:(?:S?\$)?\s*)([\d,]+\.?\d{0,2})/
     )
     if (stockMatch) {
       const units = parseAmount(stockMatch[3])

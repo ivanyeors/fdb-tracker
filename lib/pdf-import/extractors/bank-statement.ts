@@ -70,7 +70,7 @@ function extractBalance(text: string, patterns: RegExp[]): number | null {
         (match.index ?? 0),
         (match.index ?? 0) + match[0].length + 150
       )
-      const amountMatch = afterMatch.match(/\$?\s*([\d,]+\.\d{2})/)
+      const amountMatch = afterMatch.match(/(?:S?\$)?\s*([\d,]+\.\d{2})/)
       if (amountMatch) {
         const val = parseAmount(amountMatch[1])
         if (val !== null) return val

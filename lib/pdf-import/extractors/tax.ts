@@ -28,10 +28,10 @@ export function extractTax(text: string): TaxExtractionResult {
   // Tax payable
   let taxPayable: number | null = null
   const taxPatterns = [
-    /tax\s+payable\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
-    /net\s+tax\s+payable\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
-    /total\s+tax\s+payable\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
-    /amount\s+of\s+tax\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
+    /tax\s+payable\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
+    /net\s+tax\s+payable\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
+    /total\s+tax\s+payable\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
+    /amount\s+of\s+tax\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
   ]
   for (const pat of taxPatterns) {
     const match = text.match(pat)

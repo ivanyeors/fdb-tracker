@@ -63,6 +63,42 @@ describe("extractInsurance", () => {
     expect(result.coverageAmount).toBe(500000)
   })
 
+  it("extracts AIA renewal certificate with S$ amounts and Mon DD, YYYY dates", () => {
+    const text = `
+      AIA Singapore
+      1 Robinson Road, AIA Tower
+      Singapore 048542
+
+      RENEWAL CERTIFICATE
+
+      Policy No. : P561125547
+
+      Name of Insured : Yeo Rong Suan
+      Plan : AIA SOLITAIRE PERSONAL
+      ACCIDENT
+      Renewal Date : Dec 27, 2025
+      Sum Assured : S$100,000.00 Payment Mode : Annual
+      Premium Payable
+      (with GST)
+      : S$247.08
+
+      ACCIDENTAL DEATH BENEFIT
+      Dependant Name Coverage start date Coverage Renewal Bonus Premium Coverage expiry date
+      YEO RONG SUAN Dec 27, 2018 S$100,000.00 S$15,000.00 S$20.37 Dec 27, 2068
+    `
+    const result = extractInsurance(text)
+    expect(result.insurer).toBe("AIA")
+    expect(result.policyNumber).toBe("P561125547")
+    expect(result.name).toBe("AIA SOLITAIRE PERSONAL ACCIDENT")
+    expect(result.type).toBe("personal_accident")
+    expect(result.premiumAmount).toBe(247.08)
+    expect(result.frequency).toBe("yearly")
+    expect(result.coverageAmount).toBe(100000)
+    expect(result.inceptionDate).toBe("2025-12-27")
+    expect(result.endDate).toBe("2068-12-27")
+    expect(result.warnings).toHaveLength(0)
+  })
+
   it("detects Prudential insurer", () => {
     const text = "Prudential Assurance Company Singapore\nPolicy Schedule\nPremium: $200.00"
     const result = extractInsurance(text)

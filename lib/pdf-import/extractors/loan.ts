@@ -83,9 +83,9 @@ export function extractLoan(text: string): LoanExtractionResult {
   // Principal / Loan amount
   let principal: number | null = null
   const principalPatterns = [
-    /(?:loan|principal)\s+amount\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
-    /approved\s+(?:loan\s+)?amount\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
-    /facility\s+amount\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
+    /(?:loan|principal)\s+amount\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
+    /approved\s+(?:loan\s+)?amount\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
+    /facility\s+amount\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
   ]
   for (const pat of principalPatterns) {
     const match = text.match(pat)

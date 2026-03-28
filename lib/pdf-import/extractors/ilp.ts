@@ -65,10 +65,10 @@ export function extractIlp(text: string): IlpExtractionResult {
   // Fund value / Policy value
   let fundValue: number | null = null
   const valuePatterns = [
-    /(?:total\s+)?fund\s+value\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
-    /(?:total\s+)?policy\s+value\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
-    /(?:total\s+)?account\s+value\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
-    /surrender\s+value\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
+    /(?:total\s+)?fund\s+value\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
+    /(?:total\s+)?policy\s+value\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
+    /(?:total\s+)?account\s+value\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
+    /surrender\s+value\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
   ]
   for (const pat of valuePatterns) {
     const match = text.match(pat)
@@ -82,7 +82,7 @@ export function extractIlp(text: string): IlpExtractionResult {
   // Premiums paid
   let premiumsPaid: number | null = null
   const premiumMatch = text.match(
-    /(?:total\s+)?premiums?\s+paid\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i
+    /(?:total\s+)?premiums?\s+paid\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i
   )
   if (premiumMatch) {
     premiumsPaid = parseAmount(premiumMatch[1])
