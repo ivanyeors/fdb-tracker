@@ -3148,6 +3148,8 @@ function InsuranceSection({
   const router = useRouter()
   const [adding, setAdding] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  const [policyToDelete, setPolicyToDelete] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   type CoverageEntry = {
     coverage_type: CoverageType | null
     coverage_amount: number | null
@@ -3244,15 +3246,22 @@ function InsuranceSection({
     setNewPolicy((prev) => ({ ...prev, frequency }))
   }
 
-  async function handleDelete(id: string) {
+  async function confirmDeletePolicy() {
+    if (!policyToDelete) return
+    setIsDeleting(true)
     try {
-      const res = await fetch(`/api/insurance/${id}`, { method: "DELETE" })
+      const res = await fetch(`/api/insurance/${policyToDelete}`, {
+        method: "DELETE",
+      })
       if (!res.ok) throw new Error("Failed to delete")
       toast.success("Insurance policy deleted")
       onMutate()
       router.refresh()
     } catch {
       toast.error("Failed to delete")
+    } finally {
+      setIsDeleting(false)
+      setPolicyToDelete(null)
     }
   }
 
@@ -3985,7 +3994,7 @@ function InsuranceSection({
                   </Select>
                 </TableCell>
                 <TableCell className="text-right" onClick={(ev) => ev.stopPropagation()}>
-                  <Button size="sm" variant="ghost" onClick={() => handleDelete(p.id)}>
+                  <Button size="sm" variant="ghost" onClick={() => setPolicyToDelete(p.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </TableCell>
@@ -4413,6 +4422,37 @@ function InsuranceSection({
         <Plus className="h-4 w-4" /> Add insurance policy
       </Button>
       {addInsuranceDialog}
+
+      <AlertDialog
+        open={policyToDelete != null}
+        onOpenChange={(open) => {
+          if (!open) setPolicyToDelete(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete insurance policy?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this insurance policy and all its
+              coverage data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={() => void confirmDeletePolicy()}
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
