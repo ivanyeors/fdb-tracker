@@ -237,6 +237,8 @@ export async function GET(request: NextRequest) {
     const hasTelegram = !!(household.telegram_chat_id?.trim())
     const hasReminders = mappedPromptSchedule.length > 0
 
+    const canSkip = hasProfiles && hasIncome && hasBanks
+
     const lastCompletedStep = getLastCompletedStep({
       hasProfiles,
       hasIncome,
@@ -267,6 +269,7 @@ export async function GET(request: NextRequest) {
       familyId: targetFamilyId,
       profileIds,
       lastCompletedStep,
+      canSkip,
     })
   } catch (error) {
     console.error("Onboarding state error:", error)

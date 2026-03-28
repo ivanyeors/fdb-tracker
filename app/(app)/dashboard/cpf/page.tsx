@@ -61,9 +61,14 @@ type RetirementData = {
 function OverviewTab({
   data,
   dps,
+  housingDeduction,
 }: {
   data: CpfBalanceRow[]
   dps?: RetirementData["dps"]
+  housingDeduction?: {
+    total: number
+    loans: { monthly: number; loanName: string; remainingMonths: number }[]
+  } | null
 }) {
   const latest = data[data.length - 1] || { oa: 0, sa: 0, ma: 0 }
 
@@ -103,6 +108,30 @@ function OverviewTab({
           tooltipId="CPF_OA_SA_MA"
         />
       </div>
+
+      {housingDeduction && housingDeduction.total > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-base">Housing Loan Deduction</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold tabular-nums">
+              ~${formatCurrency(housingDeduction.total)}
+              <span className="text-sm font-normal text-muted-foreground">/mo from OA</span>
+            </p>
+            <div className="mt-1 space-y-0.5">
+              {housingDeduction.loans.map((h) => (
+                <p key={h.loanName} className="text-xs text-muted-foreground">
+                  {h.loanName} — ${formatCurrency(h.monthly)}/mo · {Math.ceil(h.remainingMonths / 12)}y remaining
+                </p>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              CPF OA is used to service these housing loans. This reduces your OA growth but is not a cash outflow.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {dps?.included && dps.estimatedAnnualPremium != null && (
         <Card>
@@ -479,7 +508,18 @@ export default function CpfPage() {
           </div>
 
           <TabsContent value="overview" className="mt-4">
-            <OverviewTab data={cpfData} dps={retirementData?.dps} />
+            <OverviewTab
+              data={cpfData}
+              dps={retirementData?.dps}
+              housingDeduction={
+                retirementData?.housingOaDeduction && retirementData.totalMonthlyHousingDeduction
+                  ? {
+                      total: retirementData.totalMonthlyHousingDeduction,
+                      loans: retirementData.housingOaDeduction,
+                    }
+                  : null
+              }
+            />
           </TabsContent>
           <TabsContent value="housing" className="mt-4">
             <CpfHousingTab

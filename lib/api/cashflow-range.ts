@@ -136,7 +136,7 @@ export async function fetchCashflowRangeSeries(
       .in("profile_id", profileIds),
     supabase
       .from("loans")
-      .select("profile_id, principal, rate_pct, tenure_months")
+      .select("profile_id, principal, rate_pct, tenure_months, use_cpf_oa")
       .in("profile_id", profileIds),
     supabase
       .from("tax_relief_inputs")
@@ -270,7 +270,7 @@ export async function fetchCashflowRangeSeries(
 
   const loansByProfile = new Map<
     string,
-    Array<{ principal: number; rate_pct: number; tenure_months: number }>
+    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean }>
   >()
   for (const row of loansRes.data ?? []) {
     const pid = row.profile_id as string
@@ -279,6 +279,7 @@ export async function fetchCashflowRangeSeries(
       principal: row.principal,
       rate_pct: row.rate_pct,
       tenure_months: row.tenure_months,
+      use_cpf_oa: !!row.use_cpf_oa,
     })
     loansByProfile.set(pid, list)
   }

@@ -347,8 +347,22 @@ export async function POST(request: Request) {
       }
     }
 
-    // Insert Bank Accounts & Goals
+    // Insert Bank Accounts & Goals (skip duplicates by bank_name + account_type)
+    const { data: existingBanks } = await supabase
+      .from("bank_accounts")
+      .select("bank_name, account_type")
+      .eq("family_id", familyId)
+
+    const existingBankKeys = new Set(
+      (existingBanks ?? []).map(
+        (b) => `${b.bank_name}|${b.account_type}`
+      )
+    )
+
     for (const acc of data.bankAccounts) {
+      const key = `${acc.bank_name}|${acc.account_type}`
+      if (existingBankKeys.has(key)) continue
+
       const { data: insertedAcc } = await supabase
         .from("bank_accounts")
         .insert({
@@ -381,8 +395,13 @@ export async function POST(request: Request) {
       }
     }
 
-    // Insert Prompt Schedule
+    // Insert Prompt Schedule (replace existing for this family)
     if (data.promptSchedule.length > 0) {
+      await supabase
+        .from("prompt_schedule")
+        .delete()
+        .eq("family_id", familyId)
+
       await supabase.from("prompt_schedule").insert(
         data.promptSchedule.map((s) => ({
           family_id: familyId,
@@ -396,10 +415,24 @@ export async function POST(request: Request) {
       )
     }
 
-    // Insert Investments
+    // Insert Investments (skip duplicates by symbol + type + profile_id)
+    const { data: existingInvestments } = await supabase
+      .from("investments")
+      .select("symbol, type, profile_id")
+      .eq("family_id", familyId)
+
+    const existingInvKeys = new Set(
+      (existingInvestments ?? []).map(
+        (i) => `${i.symbol}|${i.type}|${i.profile_id}`
+      )
+    )
+
     for (const inv of data.investments) {
       const profileId = insertedProfiles[inv.profileIndex]?.id
       if (profileId && inv.symbol.trim() && inv.units > 0) {
+        const key = `${inv.symbol.trim()}|${inv.type}|${profileId}`
+        if (existingInvKeys.has(key)) continue
+
         await supabase.from("investments").insert({
           family_id: familyId,
           profile_id: profileId,

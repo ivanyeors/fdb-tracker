@@ -1,13 +1,15 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import Link from "next/link"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { formatCurrency } from "@/lib/utils"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Plus, Receipt, Pencil, Trash2 } from "lucide-react"
 import {
   effectiveRate,
   estimateOutstandingPrincipal,
@@ -15,6 +17,12 @@ import {
   prepaymentSavingsEstimate,
   splitLoanAmount,
 } from "@/lib/calculations/loans"
+import {
+  LoanFormSheet,
+  type LoanFormData,
+} from "@/components/dashboard/loans/loan-form-sheet"
+import { RepaymentFormSheet } from "@/components/dashboard/loans/repayment-form-sheet"
+import { DeleteLoanDialog } from "@/components/dashboard/loans/delete-loan-dialog"
 
 interface Loan {
   id: string
@@ -84,7 +92,7 @@ function isInLockIn(lockInEndDate: string | null | undefined): boolean {
 }
 
 export default function LoansPage() {
-  const { activeProfileId, activeFamilyId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId, profiles } = useActiveProfile()
   const [loans, setLoans] = useState<Loan[]>([])
   const [housingData, setHousingData] = useState<HousingData | null>(null)
   const [repaymentRows, setRepaymentRows] = useState<RepaymentRow[]>([])
@@ -92,50 +100,59 @@ export default function LoansPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [expandedPrepay, setExpandedPrepay] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function fetchData() {
-      if (!activeProfileId && !activeFamilyId) {
-        setIsLoading(false)
-        return
-      }
+  // CRUD state
+  const [loanFormOpen, setLoanFormOpen] = useState(false)
+  const [editingLoan, setEditingLoan] = useState<LoanFormData | null>(null)
+  const [repaymentFormOpen, setRepaymentFormOpen] = useState(false)
+  const [repaymentLoanId, setRepaymentLoanId] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deletingLoan, setDeletingLoan] = useState<{ id: string; name: string } | null>(null)
 
-      setIsLoading(true)
-      try {
-        const params = new URLSearchParams()
-        if (activeProfileId) params.set("profileId", activeProfileId)
-        else if (activeFamilyId) params.set("familyId", activeFamilyId)
-        const qs = params.toString()
-
-        const [loansRes, housingRes, repayRes] = await Promise.all([
-          fetch(`/api/loans?${qs}`),
-          fetch(`/api/cpf/housing?${qs}`),
-          fetch(`/api/loans/repayments?${qs}`),
-        ])
-
-        if (loansRes.ok) {
-          const json = await loansRes.json()
-          setLoans(json ?? [])
-        }
-        if (housingRes.ok) {
-          const json = await housingRes.json()
-          setHousingData(json)
-        }
-        if (repayRes.ok) {
-          const json = (await repayRes.json()) as {
-            repayments?: RepaymentRow[]
-            earlyRepayments?: RepaymentRow[]
-          }
-          setRepaymentRows(json.repayments ?? [])
-          setEarlyRows(json.earlyRepayments ?? [])
-        }
-      } catch (error) {
-        console.error("Failed to fetch loans:", error)
-      } finally {
-        setIsLoading(false)
-      }
+  const fetchData = useCallback(async () => {
+    if (!activeProfileId && !activeFamilyId) {
+      setIsLoading(false)
+      return
     }
-    fetchData()
+
+    setIsLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (activeProfileId) params.set("profileId", activeProfileId)
+      else if (activeFamilyId) params.set("familyId", activeFamilyId)
+      const qs = params.toString()
+
+      const [loansRes, housingRes, repayRes] = await Promise.all([
+        fetch(`/api/loans?${qs}`),
+        fetch(`/api/cpf/housing?${qs}`),
+        fetch(`/api/loans/repayments?${qs}`),
+      ])
+
+      if (loansRes.ok) {
+        const json = await loansRes.json()
+        setLoans(json ?? [])
+      }
+      if (housingRes.ok) {
+        const json = await housingRes.json()
+        setHousingData(json)
+      }
+      if (repayRes.ok) {
+        const json = (await repayRes.json()) as {
+          repayments?: RepaymentRow[]
+          earlyRepayments?: RepaymentRow[]
+        }
+        setRepaymentRows(json.repayments ?? [])
+        setEarlyRows(json.earlyRepayments ?? [])
+      }
+    } catch (error) {
+      console.error("Failed to fetch loans:", error)
+    } finally {
+      setIsLoading(false)
+    }
   }, [activeProfileId, activeFamilyId])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   const totalPrincipal = useMemo(
     () => loans.reduce((sum, l) => sum + l.principal, 0),
@@ -177,12 +194,44 @@ export default function LoansPage() {
     return { scheduledByLoan: sMap, earlyByLoan: eMap }
   }, [repaymentRows, earlyRows])
 
+  function openEdit(loan: Loan) {
+    setEditingLoan(loan)
+    setLoanFormOpen(true)
+  }
+
+  function openAdd() {
+    setEditingLoan(null)
+    setLoanFormOpen(true)
+  }
+
+  function openRepayment(loanId?: string) {
+    setRepaymentLoanId(loanId ?? null)
+    setRepaymentFormOpen(true)
+  }
+
+  function openDelete(loan: Loan) {
+    setDeletingLoan({ id: loan.id, name: loan.name })
+    setDeleteDialogOpen(true)
+  }
+
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      <SectionHeader
-        title="Loans"
-        description="Loan tracking, repayments, and interest overview."
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionHeader
+          title="Loans"
+          description="Loan tracking, repayments, and interest overview."
+        />
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => openRepayment()}>
+            <Receipt className="mr-1.5 h-4 w-4" />
+            Log Repayment
+          </Button>
+          <Button size="sm" onClick={openAdd}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add Loan
+          </Button>
+        </div>
+      </div>
 
       {isLoading ? (
         <>
@@ -200,8 +249,12 @@ export default function LoansPage() {
           </div>
         </>
       ) : loans.length === 0 ? (
-        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
-          No loans found for this profile.
+        <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border bg-card text-sm text-muted-foreground">
+          <p>No loans found for this profile.</p>
+          <Button size="sm" variant="outline" onClick={openAdd}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add your first loan
+          </Button>
         </div>
       ) : (
         <>
@@ -289,6 +342,9 @@ export default function LoansPage() {
                     </th>
                     <th className="px-4 py-3 text-center font-medium">
                       CPF OA
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      <span className="sr-only">Actions</span>
                     </th>
                   </tr>
                 </thead>
@@ -450,6 +506,37 @@ export default function LoansPage() {
                         <td className="px-4 py-3 text-center">
                           {loan.use_cpf_oa ? "✓" : "—"}
                         </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              title="Log repayment"
+                              onClick={() => openRepayment(loan.id)}
+                            >
+                              <Receipt className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              title="Edit loan"
+                              onClick={() => openEdit(loan)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              title="Delete loan"
+                              onClick={() => openDelete(loan)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
                       </tr>
                     )
                   })}
@@ -575,6 +662,40 @@ export default function LoansPage() {
             )
           })()}
         </>
+      )}
+
+      {/* Loan Add/Edit Sheet */}
+      <LoanFormSheet
+        open={loanFormOpen}
+        onOpenChange={setLoanFormOpen}
+        onSuccess={fetchData}
+        profiles={profiles}
+        defaultProfileId={activeProfileId}
+        loan={editingLoan}
+      />
+
+      {/* Repayment Sheet */}
+      <RepaymentFormSheet
+        open={repaymentFormOpen}
+        onOpenChange={setRepaymentFormOpen}
+        onSuccess={fetchData}
+        loans={loans.map((l) => ({
+          id: l.id,
+          name: l.name,
+          use_cpf_oa: l.use_cpf_oa,
+        }))}
+        defaultLoanId={repaymentLoanId}
+      />
+
+      {/* Delete Dialog */}
+      {deletingLoan && (
+        <DeleteLoanDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          onSuccess={fetchData}
+          loanId={deletingLoan.id}
+          loanName={deletingLoan.name}
+        />
       )}
     </div>
   )

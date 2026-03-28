@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { createSession, COOKIE_NAME } from "@/lib/auth/session"
+import { checkOnboardingDataSufficiency } from "@/lib/onboarding/data-check"
 
 const verifyOtpSchema = z.object({
   otp: z.string().length(6),
@@ -66,7 +67,22 @@ export async function POST(request: NextRequest) {
         .maybeSingle(),
     ])
 
-    const onboardingComplete = !!household?.onboarding_completed_at
+    let onboardingComplete = !!household?.onboarding_completed_at
+
+    if (!onboardingComplete) {
+      const { canSkip } = await checkOnboardingDataSufficiency(
+        supabase,
+        otpToken.household_id
+      )
+      if (canSkip) {
+        await supabase
+          .from("households")
+          .update({ onboarding_completed_at: new Date().toISOString() })
+          .eq("id", otpToken.household_id)
+        onboardingComplete = true
+      }
+    }
+
     const sessionToken = await createSession(otpToken.household_id, {
       onboardingComplete,
     })

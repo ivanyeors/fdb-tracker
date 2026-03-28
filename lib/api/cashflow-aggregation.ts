@@ -33,6 +33,7 @@ export type LoanData = {
   principal: number
   rate_pct: number
   tenure_months: number
+  use_cpf_oa?: boolean
 }
 export type TaxRelief = { relief_type: string; amount: number }
 export type CashflowRow = {
@@ -88,12 +89,17 @@ export function buildGiroOutflowByProfile(
 /*  Loan monthly payments                                              */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Sum monthly payments for loans paid from cash (excludes CPF OA loans).
+ * CPF OA loans are deducted from CPF, not cash outflow.
+ */
 export function sumLoanMonthlyPayments(
   loansData: Array<LoanData> | null
 ): number {
   if (!loansData?.length) return 0
   let loans = 0
   for (const loan of loansData) {
+    if (loan.use_cpf_oa) continue
     const monthlyRate = loan.rate_pct / 100 / 12
     if (monthlyRate > 0 && loan.tenure_months > 0) {
       loans +=

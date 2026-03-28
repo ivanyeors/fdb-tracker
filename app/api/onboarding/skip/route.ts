@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { validateSession, createSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 export async function POST() {
@@ -28,7 +28,19 @@ export async function POST() {
       )
     }
 
-    return NextResponse.json({ success: true })
+    const newToken = await createSession(session.accountId, {
+      onboardingComplete: true,
+    })
+    const isProduction = process.env.NODE_ENV === "production"
+    const response = NextResponse.json({ success: true })
+    response.cookies.set(COOKIE_NAME, newToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    })
+    return response
   } catch (error) {
     console.error("Onboarding skip error:", error)
     return NextResponse.json(

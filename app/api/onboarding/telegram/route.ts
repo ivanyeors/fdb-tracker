@@ -2,10 +2,12 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { mergePublicHousehold } from "@/lib/onboarding/merge-public-household"
 import { z } from "zod"
 
 const telegramSchema = z.object({
   telegramChatId: z.string().optional().default(""),
+  mergePublicHouseholdId: z.string().uuid().optional(),
 })
 
 export async function POST(request: Request) {
@@ -27,12 +29,52 @@ export async function POST(request: Request) {
       )
     }
 
-    const { telegramChatId } = parsed.data
+    const { telegramChatId, mergePublicHouseholdId } = parsed.data
     const supabase = createSupabaseAdmin()
+    const trimmedChatId = telegramChatId.trim()
 
+    // If merge requested, execute it first
+    if (mergePublicHouseholdId) {
+      const result = await mergePublicHousehold(
+        supabase,
+        mergePublicHouseholdId,
+        session.accountId
+      )
+      if (!result.success) {
+        return NextResponse.json(
+          { error: result.error ?? "Merge failed" },
+          { status: 400 },
+        )
+      }
+      return NextResponse.json({
+        success: true,
+        merged: true,
+        migratedProfileIds: result.migratedProfileIds,
+      })
+    }
+
+    // Check for conflicting public household with this chat ID
+    if (trimmedChatId) {
+      const { data: publicHousehold } = await supabase
+        .from("households")
+        .select("id")
+        .eq("telegram_chat_id", trimmedChatId)
+        .neq("id", session.accountId)
+        .eq("account_type", "public")
+        .maybeSingle()
+
+      if (publicHousehold) {
+        return NextResponse.json({
+          conflict: true,
+          publicHouseholdId: publicHousehold.id,
+        })
+      }
+    }
+
+    // No conflict — save the chat ID
     const { error } = await supabase
       .from("households")
-      .update({ telegram_chat_id: telegramChatId?.trim() || null })
+      .update({ telegram_chat_id: trimmedChatId || null })
       .eq("id", session.accountId)
 
     if (error) {

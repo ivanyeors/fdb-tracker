@@ -110,7 +110,7 @@ function computeCashflowForMonth(
   >,
   loansByProfile: Map<
     string,
-    Array<{ principal: number; rate_pct: number; tenure_months: number }>
+    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean }>
   >,
   savingsGoalsByProfile: Map<string, number>,
   taxReliefByProfileYear: Map<
@@ -215,7 +215,7 @@ function computeBankTotalFromData(
   >,
   loansByProfile: Map<
     string,
-    Array<{ principal: number; rate_pct: number; tenure_months: number }>
+    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean }>
   >,
   savingsGoalsByProfile: Map<string, number>,
   taxReliefByProfileYear: Map<
@@ -413,7 +413,7 @@ export async function fetchOverviewData(
     // 7. Loans (with extra fields for outstanding principal)
     supabase
       .from("loans")
-      .select("id, profile_id, principal, rate_pct, tenure_months, start_date")
+      .select("id, profile_id, principal, rate_pct, tenure_months, start_date, use_cpf_oa")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     // 8. Tax relief inputs
     supabase
@@ -545,6 +545,7 @@ export async function fetchOverviewData(
       rate_pct: number
       tenure_months: number
       start_date: string
+      use_cpf_oa: boolean
     }>
   >()
   for (const row of loansRes.data ?? []) {
@@ -556,6 +557,7 @@ export async function fetchOverviewData(
       rate_pct: row.rate_pct,
       tenure_months: row.tenure_months,
       start_date: row.start_date,
+      use_cpf_oa: !!row.use_cpf_oa,
     })
     loansByProfile.set(pid, list)
   }
@@ -563,7 +565,7 @@ export async function fetchOverviewData(
   // For cashflow aggregation, we need loans without id/start_date
   const loansForCashflow = new Map<
     string,
-    Array<{ principal: number; rate_pct: number; tenure_months: number }>
+    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean }>
   >()
   for (const [pid, loans] of loansByProfile) {
     loansForCashflow.set(
@@ -572,6 +574,7 @@ export async function fetchOverviewData(
         principal: l.principal,
         rate_pct: l.rate_pct,
         tenure_months: l.tenure_months,
+        use_cpf_oa: l.use_cpf_oa,
       }))
     )
   }

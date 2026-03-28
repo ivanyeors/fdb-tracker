@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useOnboarding, pathWithMode } from "@/components/onboarding/onboarding-provider"
 import {
   ArrowLeft,
@@ -19,6 +20,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Loader2,
+  Merge,
   XCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -66,6 +68,10 @@ export default function TelegramPage() {
     "idle" | "loading" | "success" | "error"
   >("idle")
   const [testMessage, setTestMessage] = useState("")
+  const [mergeConflict, setMergeConflict] = useState<{
+    publicHouseholdId: string
+  } | null>(null)
+  const [isMerging, setIsMerging] = useState(false)
 
   async function testConnection() {
     if (!telegramChatId.trim()) return
@@ -96,6 +102,63 @@ export default function TelegramPage() {
     }
   }
 
+  async function handleNext() {
+    setError(null)
+    setMergeConflict(null)
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/onboarding/telegram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telegramChatId }),
+      })
+      const data = await res.json().catch(() => ({}))
+
+      if (data.conflict) {
+        setMergeConflict({ publicHouseholdId: data.publicHouseholdId })
+        setIsLoading(false)
+        return
+      }
+
+      if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
+      toast.success("Telegram settings saved")
+      router.push(pathWithMode("/onboarding/reminders", mode))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setError(msg)
+      toast.error(msg)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handleMerge() {
+    if (!mergeConflict) return
+    setIsMerging(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/onboarding/telegram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telegramChatId,
+          mergePublicHouseholdId: mergeConflict.publicHouseholdId,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? "Merge failed")
+      toast.success("Account merged successfully")
+      setMergeConflict(null)
+      router.push(pathWithMode("/onboarding/reminders", mode))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Merge failed"
+      setError(msg)
+      toast.error(msg)
+    } finally {
+      setIsMerging(false)
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -105,6 +168,68 @@ export default function TelegramPage() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {mergeConflict && (
+          <Alert>
+            <Merge className="size-4" />
+            <AlertDescription className="space-y-3">
+              <p>
+                This Telegram channel is already connected to an existing
+                account with data. Would you like to merge that account&apos;s
+                data (profiles, bank accounts, investments) into your current
+                setup?
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleMerge}
+                  disabled={isMerging}
+                >
+                  {isMerging ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : null}
+                  Merge & Continue
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setMergeConflict(null)
+                    setTelegramChatId("")
+                  }}
+                  disabled={isMerging}
+                >
+                  Use Different Chat ID
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={async () => {
+                    setMergeConflict(null)
+                    setIsLoading(true)
+                    try {
+                      const res = await fetch("/api/onboarding/telegram", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ telegramChatId: "" }),
+                      })
+                      if (!res.ok) throw new Error("Failed to save")
+                      toast.success("Telegram skipped for now")
+                      router.push(pathWithMode("/onboarding/reminders", mode))
+                    } catch {
+                      toast.error("Something went wrong")
+                    } finally {
+                      setIsLoading(false)
+                    }
+                  }}
+                  disabled={isMerging}
+                >
+                  Skip Telegram
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="space-y-3">
           <MethodSection
             title="Method A — @chatIDrobot (easiest)"
@@ -181,27 +306,7 @@ export default function TelegramPage() {
             Back
           </Button>
           <Button
-            onClick={async () => {
-              setError(null)
-              setIsLoading(true)
-              try {
-                const res = await fetch("/api/onboarding/telegram", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ telegramChatId }),
-                })
-                const data = await res.json().catch(() => ({}))
-                if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed to save")
-                toast.success("Telegram settings saved")
-                router.push(pathWithMode("/onboarding/reminders", mode))
-              } catch (err) {
-                const msg = err instanceof Error ? err.message : "Something went wrong"
-                setError(msg)
-                toast.error(msg)
-              } finally {
-                setIsLoading(false)
-              }
-            }}
+            onClick={handleNext}
             disabled={isLoading}
           >
             {isLoading ? <Loader2 className="size-4 animate-spin" /> : null}

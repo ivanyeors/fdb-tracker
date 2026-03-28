@@ -122,6 +122,7 @@ export interface OnboardingState {
 interface OnboardingContextValue extends OnboardingState {
   familyId: string | null
   isLoading: boolean
+  canSkip: boolean
   setUserCount: (count: number) => void
   setProfiles: (profiles: Profile[]) => void
   setIncomeConfigs: (configs: IncomeConfig[]) => void
@@ -232,6 +233,7 @@ export function OnboardingProvider({
   const [insurancePolicies, setInsurancePolicies] = useState<OnboardingInsurance[]>([])
   const [ilpProducts, setIlpProducts] = useState<OnboardingIlp[]>([])
   const [taxReliefInputs, setTaxReliefInputs] = useState<OnboardingTaxRelief[]>([])
+  const [canSkip, setCanSkip] = useState(false)
 
   // Restore from localStorage immediately (before API call)
   useEffect(() => {
@@ -286,6 +288,7 @@ export function OnboardingProvider({
         setInsurancePolicies(data.insurancePolicies ?? [])
         setTaxReliefInputs(data.taxReliefInputs ?? [])
         setFamilyId(data.familyId ?? null)
+        setCanSkip(data.canSkip ?? false)
       } catch {
         // Keep defaults on error (localStorage draft is already applied)
       } finally {
@@ -386,6 +389,7 @@ export function OnboardingProvider({
         taxReliefInputs,
         familyId,
         isLoading,
+        canSkip,
         setUserCount: handleSetUserCount,
         setProfiles,
         setIncomeConfigs,
