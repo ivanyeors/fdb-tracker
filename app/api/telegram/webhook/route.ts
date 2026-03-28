@@ -23,6 +23,7 @@ import { stockImgScene } from "@/lib/telegram/scenes/stockimg-scene"
 import { authScene } from "@/lib/telegram/scenes/auth-scene"
 import { linkApiScene } from "@/lib/telegram/scenes/link-api-scene"
 import { otpScene } from "@/lib/telegram/scenes/otp-scene"
+import { pdfScene } from "@/lib/telegram/scenes/pdf-scene"
 
 type CommandHandler = (accountId: string, text: string) => Promise<string>
 
@@ -163,6 +164,7 @@ function ensureHandlers() {
     authScene,
     linkApiScene,
     otpScene,
+    pdfScene,
   ])
 
   bot.use(session({ store: supabaseSessionStore }))
@@ -181,6 +183,28 @@ function ensureHandlers() {
       "chat.type:",
       msg.chat.type
     )
+
+    // Handle PDF document uploads
+    if ("document" in msg && msg.document?.mime_type === "application/pdf") {
+      console.log("[telegram/webhook] PDF document received, entering pdf scene")
+      const userContext = await resolveOrProvisionPublicUser(
+        String(msg.chat.id),
+        msg.from?.id != null ? String(msg.from.id) : null,
+        msg.from?.username ?? null,
+        msg.from?.first_name ?? null,
+      )
+      if (!userContext) {
+        await ctx.reply("❌ Could not resolve your account. Please try /start first.")
+        return
+      }
+      const st = botState(ctx)
+      st.accountId = userContext.householdId
+      st.profileId = userContext.profileId ?? undefined
+      st.familyId = userContext.familyId ?? undefined
+      st.accountType = userContext.accountType
+      await ctx.scene.enter("pdf_upload_wizard")
+      return
+    }
 
     if (!("text" in msg) || !msg.text) {
       console.log("[telegram/webhook] No text in message, ignoring")
@@ -329,6 +353,12 @@ function ensureHandlers() {
       setBotContext()
       botState(ctx).isEarlyRepayment = true
       await ctx.scene.enter("repay_wizard")
+      return
+    }
+
+    if (parsed.command === "pdf") {
+      setBotContext()
+      await ctx.scene.enter("pdf_upload_wizard")
       return
     }
 

@@ -19,6 +19,7 @@ export default function CashflowPage() {
       ilp: number
       loans: number
       tax: number
+      savingsGoals: number
       totalOutflow: number
       inflowMemo?: string
       outflowMemo?: string
@@ -77,6 +78,7 @@ export default function CashflowPage() {
         ilp: entry.ilp,
         loans: entry.loans,
         tax: entry.tax,
+        savingsGoals: entry.savingsGoals,
       }
     }).sort((a, b) => (a.sortKey ?? "").localeCompare(b.sortKey ?? ""))
   }, [cashflowData])

@@ -33,6 +33,7 @@ export type EffectiveOutflowResult = {
   ilp: number
   loans: number
   tax: number
+  savingsGoals: number
   total: number
 }
 
@@ -112,6 +113,18 @@ export async function getEffectiveOutflowForProfile(
     }
   }
 
+  // Savings goals: monthly_auto_amount contributions
+  let savingsGoals = 0
+  const { data: goals } = await supabase
+    .from("savings_goals")
+    .select("monthly_auto_amount")
+    .eq("profile_id", profileId)
+  if (goals) {
+    for (const g of goals) {
+      savingsGoals += g.monthly_auto_amount ?? 0
+    }
+  }
+
   let tax = 0
   const { data: profile } = await supabase
     .from("profiles")
@@ -164,7 +177,7 @@ export async function getEffectiveOutflowForProfile(
     tax = result.taxPayable / 12
   }
 
-  const total = discretionary + insurance + ilp + loans + tax
+  const total = discretionary + insurance + ilp + loans + tax + savingsGoals
 
   return {
     discretionary,
@@ -172,6 +185,7 @@ export async function getEffectiveOutflowForProfile(
     ilp,
     loans,
     tax,
+    savingsGoals,
     total,
   }
 }

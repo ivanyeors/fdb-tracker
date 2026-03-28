@@ -22,6 +22,7 @@ export const BOT_COMMANDS = [
   { command: "goaladd", description: "Add to savings goal" },
   { command: "repay", description: "Log loan repayment" },
   { command: "earlyrepay", description: "Log early loan repayment" },
+  { command: "pdf", description: "Upload a PDF to extract financial data" },
 ] as const
 
 const SCOPES = [

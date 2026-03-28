@@ -17,6 +17,7 @@ export type CashflowRangeRow = {
   ilp: number
   loans: number
   tax: number
+  savingsGoals: number
   totalOutflow: number
   /** Aggregated Telegram/dashboard notes for the month (per profile). */
   inflowMemo?: string
@@ -283,6 +284,7 @@ export async function fetchCashflowRangeSeries(
     loansRes,
     taxReliefRes,
     sharedIlpRes,
+    savingsGoalsRes,
   ] = await Promise.all([
     supabase
       .from("monthly_cashflow")
@@ -324,6 +326,10 @@ export async function fetchCashflowRangeSeries(
       .select("monthly_premium, premium_payment_mode")
       .eq("family_id", familyId)
       .is("profile_id", null),
+    supabase
+      .from("savings_goals")
+      .select("profile_id, monthly_auto_amount")
+      .in("profile_id", profileIds),
   ])
 
   if (cashflowRes.error) throw new Error(cashflowRes.error.message)
@@ -335,6 +341,7 @@ export async function fetchCashflowRangeSeries(
   if (loansRes.error) throw new Error(loansRes.error.message)
   if (taxReliefRes.error) throw new Error(taxReliefRes.error.message)
   if (sharedIlpRes.error) throw new Error(sharedIlpRes.error.message)
+  if (savingsGoalsRes.error) throw new Error(savingsGoalsRes.error.message)
 
   const accountIds = [
     ...new Set((giroRulesRes.data ?? []).map((r) => r.source_bank_account_id)),
@@ -458,6 +465,14 @@ export async function fetchCashflowRangeSeries(
     taxReliefByProfileYear.set(key, list)
   }
 
+  // Savings goals: sum monthly_auto_amount by profile
+  const savingsGoalsByProfile = new Map<string, number>()
+  for (const g of savingsGoalsRes.data ?? []) {
+    const pid = g.profile_id as string
+    const amt = (g.monthly_auto_amount as number) ?? 0
+    savingsGoalsByProfile.set(pid, (savingsGoalsByProfile.get(pid) ?? 0) + amt)
+  }
+
   const sharedIlp = sumIlpPremiums(sharedIlpRes.data)
 
   const result: CashflowRangeRow[] = []
@@ -471,6 +486,7 @@ export async function fetchCashflowRangeSeries(
     let ilp = 0
     let loans = 0
     let tax = 0
+    let savingsGoals = 0
 
     for (const pid of profileIds) {
       inflow += effectiveInflowFromContext(
@@ -498,6 +514,8 @@ export async function fetchCashflowRangeSeries(
 
       loans += sumLoanMonthlyPayments(loansByProfile.get(pid) ?? [])
 
+      savingsGoals += savingsGoalsByProfile.get(pid) ?? 0
+
       tax += monthlyTaxForProfile(
         pid,
         year,
@@ -509,7 +527,7 @@ export async function fetchCashflowRangeSeries(
     }
 
     ilp += sharedIlp
-    const totalOutflow = discretionary + insurance + ilp + loans + tax
+    const totalOutflow = discretionary + insurance + ilp + loans + tax + savingsGoals
 
     const inflowMemoParts: string[] = []
     const outflowMemoParts: string[] = []
@@ -530,6 +548,7 @@ export async function fetchCashflowRangeSeries(
       ilp,
       loans,
       tax,
+      savingsGoals,
       totalOutflow,
       ...(inflowMemoParts.length > 0
         ? { inflowMemo: inflowMemoParts.join(" · ") }

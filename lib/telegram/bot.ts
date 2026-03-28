@@ -32,6 +32,15 @@ export interface MySessionData extends Scenes.WizardSessionData {
   productName?: string
   /** Which field is being edited in the confirmation step. */
   editingField?: string
+  /** PDF import: classified document type. */
+  pdfDocType?: string
+  /** PDF import: extracted structured data (JSON-serializable). */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  pdfExtracted?: Record<string, any>
+  /** PDF import: classification confidence level. */
+  pdfConfidence?: string
+  /** PDF import: first 200 chars of raw text for debugging. */
+  pdfRawTextPreview?: string
 }
 
 /** Ephemeral keys on ctx.state (set before entering a scene). Telegraf types state as Record<string | symbol, any>. */

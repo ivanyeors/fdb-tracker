@@ -123,6 +123,7 @@ export async function GET(request: NextRequest) {
         let ilpPremiums = 0
         let loanRepayments = 0
         let taxProvision = 0
+        let savingsGoals = 0
 
         for (const pid of profileIds) {
           resolvedInflow += await getEffectiveInflowForProfile(
@@ -135,6 +136,7 @@ export async function GET(request: NextRequest) {
           ilpPremiums += eff.ilp
           loanRepayments += eff.loans
           taxProvision += eff.tax
+          savingsGoals += eff.savingsGoals
         }
 
         // If no profiles resolved (edge case), fall back to raw cashflow
@@ -145,7 +147,7 @@ export async function GET(request: NextRequest) {
         return {
           month,
           inflow: resolvedInflow + giroCredit,
-          discretionaryOutflow: cf.outflow + giroDebit,
+          discretionaryOutflow: cf.outflow + giroDebit + savingsGoals,
           insurancePremiums,
           ilpPremiums,
           loanRepayments,

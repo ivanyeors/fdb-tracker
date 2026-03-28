@@ -42,10 +42,12 @@ CREATE TABLE IF NOT EXISTS outflow_categories (
 );
 
 ALTER TABLE outflow_categories ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "outflow_categories_household" ON outflow_categories
-  FOR ALL USING (household_id IN (
-    SELECT id FROM households
-  ));
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'outflow_categories_household') THEN
+    CREATE POLICY "outflow_categories_household" ON outflow_categories
+      FOR ALL USING (household_id IN (SELECT id FROM households));
+  END IF;
+END $$;
 
 -- 6. Outflow entries — multiple per profile per month (one per category)
 CREATE TABLE IF NOT EXISTS outflow_entries (
@@ -60,10 +62,12 @@ CREATE TABLE IF NOT EXISTS outflow_entries (
 );
 
 ALTER TABLE outflow_entries ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "outflow_entries_profile" ON outflow_entries
-  FOR ALL USING (profile_id IN (
-    SELECT id FROM profiles
-  ));
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'outflow_entries_profile') THEN
+    CREATE POLICY "outflow_entries_profile" ON outflow_entries
+      FOR ALL USING (profile_id IN (SELECT id FROM profiles));
+  END IF;
+END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS outflow_entries_unique
   ON outflow_entries(profile_id, month, category_id);

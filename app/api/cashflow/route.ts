@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
       let ilp = 0
       let loans = 0
       let tax = 0
+      let savingsGoals = 0
 
       for (const pid of profileIds) {
         const inflow = await getEffectiveInflowWithBreakdown(supabase, pid, month)
@@ -100,13 +101,14 @@ export async function GET(request: NextRequest) {
         ilp += eff.ilp
         loans += eff.loans
         tax += eff.tax
+        savingsGoals += eff.savingsGoals
       }
 
       // Add shared ILP products (profile_id null) once to avoid double-counting
       const sharedIlp = await getSharedIlpTotalForFamily(supabase, resolvedFamilyId)
       ilp += sharedIlp
 
-      const outflowTotal = discretionary + insurance + ilp + loans + tax
+      const outflowTotal = discretionary + insurance + ilp + loans + tax + savingsGoals
       const netSavings = inflowTotal - outflowTotal
 
       const roundedInflowBreakdown =
@@ -130,6 +132,7 @@ export async function GET(request: NextRequest) {
           ilp: Math.round(ilp * 100) / 100,
           loans: Math.round(loans * 100) / 100,
           tax: Math.round(tax * 100) / 100,
+          savingsGoals: Math.round(savingsGoals * 100) / 100,
         },
         netSavings: Math.round(netSavings * 100) / 100,
       })
