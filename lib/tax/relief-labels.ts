@@ -17,9 +17,13 @@ const RELIEF_HELP: Record<string, string> = {
   cpf_topup_self: "Cash top-up to your own CPF SA/RA — up to $8k relief yearly if eligible.",
   cpf_topup_family:
     "Cash top-up to family members’ CPF SA/RA — up to $8k relief yearly if eligible.",
-  parent: "Dependent / parent relief where applicable (manual entry).",
-  spouse: "Spouse relief where applicable (manual entry).",
-  wmcr: "Working mother’s child relief where applicable (manual entry).",
+  parent:
+    "Parent/grandparent relief — $9,000 (living with) or $5,500 (not living with) per dependent parent. Auto-calculated from dependents.",
+  spouse:
+    "Spouse relief — $2,000 when spouse income is below $8,000. Auto-calculated from linked spouse.",
+  qcr: "Qualifying Child Relief — $4,000–$12,000 per child based on birth year and order. Auto-calculated from dependents.",
+  wmcr: "Working Mother’s Child Relief — percentage or fixed amount per child. Auto-calculated for female profiles with children.",
+  nsman: "NSman relief — varies by activity level. Self $1,500–$5,000, Wife $750, Parent $750–$3,500.",
   other: "Other reliefs you entered manually.",
 }
 

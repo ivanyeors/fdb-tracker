@@ -4,6 +4,8 @@ export type ProfileWithIncome = {
   birth_year: number
   marital_status: string | null
   num_dependents: number
+  gender: string | null
+  spouse_profile_id: string | null
   dps_include_in_projection?: boolean
   family_id?: string
   primary_bank_account_id?: string | null

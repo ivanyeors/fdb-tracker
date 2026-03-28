@@ -100,10 +100,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Always recalculate for profiles with income_config so reliefs stay in sync with profile/income changes
+    // Pre-fetch dependents for the family (shared across all profiles)
+    const { data: familyDependents } = await supabase
+      .from("dependents")
+      .select("*")
+      .eq("family_id", resolved.familyId)
+
     for (const profileId of profileIds) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("id, birth_year")
+        .select("id, birth_year, gender, spouse_profile_id, marital_status")
         .eq("id", profileId)
         .single()
       if (!profile) continue
@@ -126,8 +132,40 @@ export async function GET(request: NextRequest) {
         .eq("profile_id", profileId)
         .eq("year", currentYear)
 
-      const result = calculateTax({
-        profile: { birth_year: profile.birth_year },
+      // Fetch spouse income if linked
+      let spouseForTax: { annual_income: number } | null = null
+      if (profile.spouse_profile_id) {
+        const { data: spouseIncome } = await supabase
+          .from("income_config")
+          .select("annual_salary, bonus_estimate")
+          .eq("profile_id", profile.spouse_profile_id)
+          .single()
+        if (spouseIncome) {
+          spouseForTax = {
+            annual_income: (spouseIncome.annual_salary ?? 0) + (spouseIncome.bonus_estimate ?? 0),
+          }
+        }
+      }
+
+      const dependentsForTax = (familyDependents ?? []).map((d) => ({
+        name: d.name,
+        birth_year: d.birth_year,
+        relationship: d.relationship as "child" | "parent" | "grandparent",
+        annual_income: d.annual_income,
+        in_full_time_education: d.in_full_time_education,
+        living_with_claimant: d.living_with_claimant,
+        is_handicapped: d.is_handicapped,
+        claimed_by_profile_id: d.claimed_by_profile_id,
+      }))
+
+      const taxParams = {
+        profile: {
+          birth_year: profile.birth_year,
+          gender: profile.gender as "male" | "female" | null,
+          spouse_profile_id: profile.spouse_profile_id,
+          marital_status: profile.marital_status,
+        },
+        profileId,
         incomeConfig: {
           annual_salary: incomeConfig.annual_salary,
           bonus_estimate: incomeConfig.bonus_estimate ?? 0,
@@ -143,32 +181,16 @@ export async function GET(request: NextRequest) {
           relief_type: r.relief_type,
           amount: r.amount,
         })),
-        year: currentYear,
-      })
+        spouse: spouseForTax,
+        dependents: dependentsForTax,
+      }
 
+      const result = calculateTax({ ...taxParams, year: currentYear })
       taxSnapshots[profileId] = resultToTaxSnapshot(currentYear, result)
 
       const nextYa = currentYear + 1
       if (nextYa <= MAX_YA) {
-        const resultNext = calculateTax({
-          profile: { birth_year: profile.birth_year },
-          incomeConfig: {
-            annual_salary: incomeConfig.annual_salary,
-            bonus_estimate: incomeConfig.bonus_estimate ?? 0,
-          },
-          insurancePolicies: (insurancePolicies ?? []).map((p) => ({
-            type: p.type,
-            premium_amount: p.premium_amount,
-            frequency: p.frequency,
-            coverage_amount: p.coverage_amount ?? 0,
-            is_active: p.is_active,
-          })),
-          manualReliefs: (manualReliefs ?? []).map((r) => ({
-            relief_type: r.relief_type,
-            amount: r.amount,
-          })),
-          year: nextYa,
-        })
+        const resultNext = calculateTax({ ...taxParams, year: nextYa })
         taxSnapshotsNextYa[profileId] = resultToTaxSnapshot(nextYa, resultNext)
       }
 

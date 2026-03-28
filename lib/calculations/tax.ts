@@ -11,6 +11,12 @@ import {
   donationRelief,
   courseFeeRelief,
   srsRelief,
+  spouseRelief as calcSpouseRelief,
+  qualifyingChildRelief,
+  wmcrRelief as calcWmcrRelief,
+  parentRelief as calcParentRelief,
+  type ChildForRelief,
+  type ParentForRelief,
 } from "./tax-reliefs";
 
 /** Progressive tax brackets (YA 2024 onwards) — chargeable income thresholds and rates */
@@ -75,6 +81,24 @@ export type TaxResult = {
 
 export type ProfileForTax = {
   birth_year: number;
+  gender?: "male" | "female" | null;
+  spouse_profile_id?: string | null;
+  marital_status?: string | null;
+};
+
+export type SpouseForTax = {
+  annual_income: number;
+};
+
+export type DependentForTax = {
+  name: string;
+  birth_year: number;
+  relationship: "child" | "parent" | "grandparent";
+  annual_income: number;
+  in_full_time_education: boolean;
+  living_with_claimant: boolean;
+  is_handicapped: boolean;
+  claimed_by_profile_id: string | null;
 };
 
 export type IncomeConfigForTax = {
@@ -113,7 +137,14 @@ export function countedManualReliefForType(
       return srsRelief(amount);
     case "cpf_topup_self":
     case "cpf_topup_family":
-      return Math.max(0, amount); // $8k each, capped by user/validation
+      return Math.max(0, Math.min(amount, 8000));
+    case "spouse":
+      return Math.max(0, Math.min(amount, 2000));
+    case "qcr":
+    case "wmcr":
+    case "parent":
+    case "nsman":
+    case "other":
     default:
       return Math.max(0, amount);
   }
@@ -322,17 +353,25 @@ export function applyRebate(taxPayable: number, year: number): number {
 }
 
 /**
- * Get auto-derived reliefs from profile, income config, and insurance policies.
- * Implements: earned_income, cpf, life_insurance.
+ * Get auto-derived reliefs from profile, income config, insurance policies,
+ * spouse data, and dependents. Implements: earned_income, cpf, life_insurance,
+ * spouse, qcr, wmcr, parent.
  */
 export function getAutoReliefs(
   profile: ProfileForTax,
   incomeConfig: IncomeConfigForTax | null,
   insurancePolicies: InsurancePolicyForTax[],
-  year: number = 2026
+  year: number = 2026,
+  options?: {
+    profileId?: string;
+    spouse?: SpouseForTax | null;
+    dependents?: DependentForTax[];
+    manualReliefTypes?: Set<string>;
+  }
 ): { total: number; breakdown: ReliefBreakdownItem[] } {
   const breakdown: ReliefBreakdownItem[] = [];
   let total = 0;
+  const manualTypes = options?.manualReliefTypes ?? new Set();
 
   const age = getAge(profile.birth_year, year);
   const earnedIncome = earnedIncomeRelief(age);
@@ -370,6 +409,82 @@ export function getAutoReliefs(
     }
   }
 
+  // Spouse relief — auto-derive if married + spouse data + no manual override
+  if (
+    !manualTypes.has("spouse") &&
+    profile.marital_status === "married" &&
+    options?.spouse
+  ) {
+    const sr = calcSpouseRelief(options.spouse.annual_income);
+    if (sr > 0) {
+      total += sr;
+      breakdown.push({ type: "spouse", amount: sr, source: "auto" });
+    }
+  }
+
+  // Child reliefs — QCR and WMCR from dependents
+  const profileId = options?.profileId;
+  const dependents = options?.dependents ?? [];
+  const children = dependents
+    .filter((d) => d.relationship === "child" && d.claimed_by_profile_id === profileId)
+    .sort((a, b) => a.birth_year - b.birth_year);
+
+  if (children.length > 0 && profileId) {
+    const childrenForRelief: ChildForRelief[] = children.map((c, i) => ({
+      birthYear: c.birth_year,
+      birthOrder: i + 1,
+      annualIncome: c.annual_income,
+      inFullTimeEducation: c.in_full_time_education,
+      isHandicapped: c.is_handicapped,
+    }));
+
+    // QCR
+    if (!manualTypes.has("qcr")) {
+      const qcr = qualifyingChildRelief(childrenForRelief, year);
+      if (qcr.total > 0) {
+        total += qcr.total;
+        breakdown.push({ type: "qcr", amount: qcr.total, source: "auto" });
+      }
+
+      // WMCR — only for working mothers
+      if (
+        !manualTypes.has("wmcr") &&
+        profile.gender === "female" &&
+        incomeConfig
+      ) {
+        const motherIncome = incomeConfig.annual_salary + incomeConfig.bonus_estimate;
+        const wmcr = calcWmcrRelief(childrenForRelief, motherIncome, qcr.perChild, year);
+        if (wmcr.total > 0) {
+          total += wmcr.total;
+          breakdown.push({ type: "wmcr", amount: wmcr.total, source: "auto" });
+        }
+      }
+    }
+  }
+
+  // Parent relief — from parent/grandparent dependents claimed by this profile
+  if (!manualTypes.has("parent") && profileId) {
+    const parents: ParentForRelief[] = dependents
+      .filter(
+        (d) =>
+          (d.relationship === "parent" || d.relationship === "grandparent") &&
+          d.claimed_by_profile_id === profileId
+      )
+      .map((d) => ({
+        livingWithClaimant: d.living_with_claimant,
+        annualIncome: d.annual_income,
+        isHandicapped: d.is_handicapped,
+      }));
+
+    if (parents.length > 0) {
+      const pr = calcParentRelief(parents);
+      if (pr > 0) {
+        total += pr;
+        breakdown.push({ type: "parent", amount: pr, source: "auto" });
+      }
+    }
+  }
+
   return { total: roundToCent(total), breakdown };
 }
 
@@ -378,9 +493,12 @@ export function getAutoReliefs(
  */
 export function calculateTax(params: {
   profile: ProfileForTax;
+  profileId?: string;
   incomeConfig: IncomeConfigForTax | null;
   insurancePolicies: InsurancePolicyForTax[];
   manualReliefs: ManualReliefInput[];
+  spouse?: SpouseForTax | null;
+  dependents?: DependentForTax[];
   year?: number;
 }): TaxResult {
   const year = params.year ?? new Date().getFullYear();
@@ -388,11 +506,19 @@ export function calculateTax(params: {
     (params.incomeConfig?.annual_salary ?? 0) +
     (params.incomeConfig?.bonus_estimate ?? 0);
 
+  const manualReliefTypes = new Set(params.manualReliefs.map((r) => r.relief_type));
+
   const { total: autoTotal, breakdown: autoBreakdown } = getAutoReliefs(
     params.profile,
     params.incomeConfig,
     params.insurancePolicies,
-    year
+    year,
+    {
+      profileId: params.profileId,
+      spouse: params.spouse,
+      dependents: params.dependents,
+      manualReliefTypes,
+    }
   );
 
   const manualTotal = params.manualReliefs.reduce(

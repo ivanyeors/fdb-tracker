@@ -94,6 +94,7 @@ import {
   deleteFamily,
 } from "../actions"
 import { calculateMonthlyAuto } from "@/lib/calculations/savings-goals"
+import { DependentsSection } from "@/components/settings/dependents-section"
 import { toast } from "sonner"
 import { Loader2, Trash2, UserPlus, ExternalLink, Plus, FileText, X, Pencil, ChevronRight } from "lucide-react"
 import type { ProfileWithIncome } from "./types"
@@ -450,10 +451,12 @@ function insuranceRowDirty(
 function ProfileSection({
   profile,
   profileCount,
+  allProfiles,
   onDirtyChange,
 }: {
   profile: ProfileWithIncome
   profileCount: number
+  allProfiles?: ProfileWithIncome[]
   onDirtyChange?: (dirty: boolean) => void
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -475,6 +478,8 @@ function ProfileSection({
   const [dpsInclude, setDpsInclude] = useState(profile.dps_include_in_projection !== false)
   const [maritalStatus, setMaritalStatus] = useState(profile.marital_status ?? "")
   const [numDependents, setNumDependents] = useState(profile.num_dependents ?? 0)
+  const [gender, setGender] = useState(profile.gender ?? "")
+  const [spouseProfileId, setSpouseProfileId] = useState(profile.spouse_profile_id ?? "")
 
   const isDirty = useMemo(() => {
     const baselineCpf = profileEmployeeCpfInputString(profile)
@@ -488,7 +493,9 @@ function ProfileSection({
       employeeCpfRate !== baselineCpf ||
       dpsInclude !== dpsBaseline ||
       maritalStatus !== (profile.marital_status ?? "") ||
-      numDependents !== (profile.num_dependents ?? 0)
+      numDependents !== (profile.num_dependents ?? 0) ||
+      gender !== (profile.gender ?? "") ||
+      spouseProfileId !== (profile.spouse_profile_id ?? "")
     )
   }, [
     name,
@@ -500,6 +507,8 @@ function ProfileSection({
     dpsInclude,
     maritalStatus,
     numDependents,
+    gender,
+    spouseProfileId,
     profile,
   ])
 
@@ -515,6 +524,8 @@ function ProfileSection({
     fd.set("dpsIncludeInProjection", dpsInclude ? "true" : "false")
     fd.set("maritalStatus", maritalStatus)
     fd.set("numDependents", String(numDependents))
+    fd.set("gender", gender)
+    fd.set("spouseProfileId", spouseProfileId)
     const result = await updateUserProfile({ success: false }, fd)
     if (result.error) throw new Error(result.error)
   }, [
@@ -528,6 +539,8 @@ function ProfileSection({
     dpsInclude,
     maritalStatus,
     numDependents,
+    gender,
+    spouseProfileId,
   ])
 
   useUserSettingsSaveRegistration(`user-settings-profile-${profile.id}`, isDirty, saveProfile)
@@ -559,7 +572,9 @@ function ProfileSection({
     setDpsInclude(profile.dps_include_in_projection !== false)
     setMaritalStatus(profile.marital_status ?? "")
     setNumDependents(profile.num_dependents ?? 0)
-  }, [profile.id, profile.name, profile.birth_year, profile.income_config, profile.dps_include_in_projection, profile.marital_status, profile.num_dependents])
+    setGender(profile.gender ?? "")
+    setSpouseProfileId(profile.spouse_profile_id ?? "")
+  }, [profile.id, profile.name, profile.birth_year, profile.income_config, profile.dps_include_in_projection, profile.marital_status, profile.num_dependents, profile.gender, profile.spouse_profile_id])
 
   const canDelete = profileCount > 1
 
@@ -640,6 +655,22 @@ function ProfileSection({
             />
           </div>
           <div className="space-y-1.5">
+            <Label htmlFor={`gender-${profile.id}`}>Gender</Label>
+            <Select
+              value={gender || "none"}
+              onValueChange={(v) => setGender(v === "none" ? "" : v)}
+            >
+              <SelectTrigger id={`gender-${profile.id}`} className="h-8">
+                <SelectValue placeholder="Not set" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Not set</SelectItem>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
             <Label htmlFor={`marital-${profile.id}`}>Marital Status</Label>
             <Select
               value={maritalStatus || "none"}
@@ -657,6 +688,29 @@ function ProfileSection({
               </SelectContent>
             </Select>
           </div>
+          {maritalStatus === "married" && allProfiles && allProfiles.length > 1 && (
+            <div className="space-y-1.5">
+              <Label htmlFor={`spouse-${profile.id}`}>Spouse</Label>
+              <Select
+                value={spouseProfileId || "none"}
+                onValueChange={(v) => setSpouseProfileId(v === "none" ? "" : v)}
+              >
+                <SelectTrigger id={`spouse-${profile.id}`} className="h-8">
+                  <SelectValue placeholder="Select spouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Not set</SelectItem>
+                  {allProfiles
+                    .filter((p) => p.id !== profile.id)
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor={`dependents-${profile.id}`}>Dependents</Label>
             <Input
@@ -4468,6 +4522,50 @@ function profileInitials(name: string) {
   return (a + b).toUpperCase()
 }
 
+function DependentsSectionWrapper({
+  familyId,
+  profiles,
+}: {
+  familyId: string
+  profiles: ProfileWithIncome[]
+}) {
+  const [dependents, setDependents] = useState<
+    Array<{
+      id: string
+      family_id: string
+      name: string
+      birth_year: number
+      relationship: string
+      claimed_by_profile_id: string | null
+      in_full_time_education: boolean
+      annual_income: number
+      living_with_claimant: boolean
+      is_handicapped: boolean
+    }>
+  >([])
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/dependents?familyId=${familyId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setDependents(data.dependents ?? [])
+        setLoaded(true)
+      })
+      .catch(() => setLoaded(true))
+  }, [familyId])
+
+  if (!loaded) return <p className="text-sm text-muted-foreground">Loading…</p>
+
+  return (
+    <DependentsSection
+      familyId={familyId}
+      profiles={profiles.map((p) => ({ id: p.id, name: p.name }))}
+      initialDependents={dependents}
+    />
+  )
+}
+
 function FamilyMemberSettingsPanels({
   p,
   family,
@@ -4495,10 +4593,13 @@ function FamilyMemberSettingsPanels({
     <div className="space-y-3">
       <SectionGroupLabel>Personal</SectionGroupLabel>
       <CollapsibleSection title="Profile" badge="Edit" defaultOpen>
-        <ProfileSection profile={p} profileCount={profiles.length} />
+        <ProfileSection profile={p} profileCount={profiles.length} allProfiles={profiles} />
       </CollapsibleSection>
       <CollapsibleSection title="Telegram" badge={telegramBadge} defaultOpen>
         <TelegramSection profile={p} />
+      </CollapsibleSection>
+      <CollapsibleSection title="Dependents" badge="Tax Relief">
+        <DependentsSectionWrapper familyId={family.id} profiles={profiles} />
       </CollapsibleSection>
       <CollapsibleSection
         title="Monthly Log"

@@ -154,6 +154,11 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
           inline_keyboard: [confirmRow, ...typeRows, cancelRow],
         },
       })
+      // Persist bot state into session for subsequent steps (new webhook requests)
+      ctx.scene.session.householdId = botState(ctx).accountId
+      ctx.scene.session.familyId = botState(ctx).familyId
+      ctx.scene.session.profileId = botState(ctx).profileId
+
       return ctx.wizard.next()
     } catch (err) {
       console.error("[pdf-scene] PDF processing error:", err)
@@ -189,9 +194,9 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
       }
 
       // Move to profile selection
-      const accountId = botState(ctx).accountId as string
-      const preFamilyId = botState(ctx).familyId
-      const preProfileId = botState(ctx).profileId
+      const accountId = ctx.scene.session.householdId as string
+      const preFamilyId = ctx.scene.session.familyId
+      const preProfileId = ctx.scene.session.profileId
 
       if (!accountId) {
         await ctx.reply("❌ Session error: No account ID found.")
@@ -299,7 +304,7 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
     if (data === "cf") {
       const extracted = ctx.scene.session.pdfExtracted as unknown as ExtractionResult
       const profileId = ctx.scene.session.profileId
-      const familyId = botState(ctx).familyId
+      const familyId = ctx.scene.session.familyId
 
       if (!extracted || !profileId) {
         await ctx.reply("❌ Missing data. Please try again.")

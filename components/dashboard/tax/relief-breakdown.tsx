@@ -22,9 +22,11 @@ const MONEY_FLOW: Record<string, string> = {
   cpf_topup_family: "Family CPF SA/RA",
   donations: "Approved IPC charity",
   course_fees: "Education",
-  parent: "N/A",
-  spouse: "N/A",
-  wmcr: "N/A",
+  parent: "Dependent parent/grandparent",
+  spouse: "Linked spouse",
+  qcr: "Qualifying children",
+  wmcr: "Working mother",
+  nsman: "NSman service",
   other: "—",
 }
 

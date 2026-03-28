@@ -22,7 +22,9 @@ const RELIEF_TYPES = [
   { value: "cpf_topup_family", label: "CPF Top-up (Family)" },
   { value: "parent", label: "Parent Relief" },
   { value: "spouse", label: "Spouse Relief" },
+  { value: "qcr", label: "Qualifying Child Relief" },
   { value: "wmcr", label: "WMCR" },
+  { value: "nsman", label: "NSman Relief" },
   { value: "other", label: "Other" },
 ] as const
 

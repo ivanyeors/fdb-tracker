@@ -15,6 +15,7 @@ export interface MySessionData extends Scenes.WizardSessionData {
   fileId?: string
   apiKeyId?: string
   householdId?: string
+  familyId?: string
   expecting?: string
   /** Optional note after /buy or /sell (Telegraf wizard). */
   journalNote?: string

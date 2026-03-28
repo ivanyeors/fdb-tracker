@@ -37,6 +37,10 @@ export async function updateUserProfile(
     const rawMaritalStatus = formData.get("maritalStatus") as string | null
     const maritalStatus = rawMaritalStatus && rawMaritalStatus !== "" ? rawMaritalStatus : null
     const numDependents = Math.max(0, Math.min(20, Number(formData.get("numDependents")) || 0))
+    const rawGender = formData.get("gender") as string | null
+    const gender = rawGender && rawGender !== "" ? rawGender : null
+    const rawSpouseProfileId = formData.get("spouseProfileId") as string | null
+    const spouseProfileId = rawSpouseProfileId && rawSpouseProfileId !== "" ? rawSpouseProfileId : null
 
     const data = {
       profileId: formData.get("profileId"),
@@ -87,6 +91,12 @@ export async function updateUserProfile(
     }
 
     // Update profile
+    const { data: currentProfile } = await supabase
+      .from("profiles")
+      .select("spouse_profile_id")
+      .eq("id", profileId)
+      .single()
+
     const { error: profileError } = await supabase
       .from("profiles")
       .update({
@@ -95,12 +105,42 @@ export async function updateUserProfile(
         dps_include_in_projection: dpsIncludeInProjection,
         marital_status: maritalStatus,
         num_dependents: numDependents,
+        gender,
+        spouse_profile_id: spouseProfileId,
       })
       .eq("id", profileId)
 
     if (profileError) {
       console.error("Error updating profile:", profileError)
       return { error: "Failed to update profile details." }
+    }
+
+    // Bidirectional spouse linking
+    const oldSpouseId = currentProfile?.spouse_profile_id
+    if (oldSpouseId && oldSpouseId !== spouseProfileId) {
+      // Clear old spouse's link
+      await supabase
+        .from("profiles")
+        .update({ spouse_profile_id: null })
+        .eq("id", oldSpouseId)
+    }
+    if (spouseProfileId && spouseProfileId !== oldSpouseId) {
+      // Clear new spouse's old link if any, then set new link
+      const { data: newSpouse } = await supabase
+        .from("profiles")
+        .select("spouse_profile_id")
+        .eq("id", spouseProfileId)
+        .single()
+      if (newSpouse?.spouse_profile_id && newSpouse.spouse_profile_id !== profileId) {
+        await supabase
+          .from("profiles")
+          .update({ spouse_profile_id: null })
+          .eq("id", newSpouse.spouse_profile_id)
+      }
+      await supabase
+        .from("profiles")
+        .update({ spouse_profile_id: profileId })
+        .eq("id", spouseProfileId)
     }
 
     // Update or insert income config
@@ -466,6 +506,184 @@ export async function updateFamilyName(
     return { success: true }
   } catch (err) {
     console.error("Error in updateFamilyName:", err)
+    return { error: "An unexpected error occurred." }
+  }
+}
+
+// ── Dependent CRUD ──
+
+export type DependentState = {
+  success?: boolean
+  error?: string
+}
+
+const dependentSchema = z.object({
+  familyId: z.string().uuid(),
+  name: z.string().min(1).max(50),
+  birthYear: z.coerce.number().min(1920).max(2040),
+  relationship: z.enum(["child", "parent", "grandparent"]),
+  claimedByProfileId: z.string().uuid().optional().nullable(),
+  inFullTimeEducation: z.coerce.boolean().default(false),
+  annualIncome: z.coerce.number().min(0).default(0),
+  livingWithClaimant: z.coerce.boolean().default(true),
+  isHandicapped: z.coerce.boolean().default(false),
+})
+
+export async function createDependent(
+  prevState: DependentState,
+  formData: FormData
+): Promise<DependentState> {
+  try {
+    const cookieStore = await cookies()
+    const householdId = await getSessionFromCookies(cookieStore)
+    if (!householdId) return { error: "Unauthorized" }
+
+    const parsed = dependentSchema.safeParse({
+      familyId: formData.get("familyId"),
+      name: formData.get("name"),
+      birthYear: formData.get("birthYear"),
+      relationship: formData.get("relationship"),
+      claimedByProfileId: formData.get("claimedByProfileId") || null,
+      inFullTimeEducation: formData.get("inFullTimeEducation") === "true",
+      annualIncome: formData.get("annualIncome") || 0,
+      livingWithClaimant: formData.get("livingWithClaimant") !== "false",
+      isHandicapped: formData.get("isHandicapped") === "true",
+    })
+    if (!parsed.success) return { error: "Invalid form data." }
+
+    const supabase = createSupabaseAdmin()
+    const { data: family } = await supabase
+      .from("families")
+      .select("id")
+      .eq("id", parsed.data.familyId)
+      .eq("household_id", householdId)
+      .single()
+    if (!family) return { error: "Family not found or unauthorized." }
+
+    const { error } = await supabase.from("dependents").insert({
+      family_id: parsed.data.familyId,
+      name: parsed.data.name.trim(),
+      birth_year: parsed.data.birthYear,
+      relationship: parsed.data.relationship,
+      claimed_by_profile_id: parsed.data.claimedByProfileId ?? null,
+      in_full_time_education: parsed.data.inFullTimeEducation,
+      annual_income: parsed.data.annualIncome,
+      living_with_claimant: parsed.data.livingWithClaimant,
+      is_handicapped: parsed.data.isHandicapped,
+    })
+    if (error) {
+      console.error("Error creating dependent:", error)
+      return { error: "Failed to create dependent." }
+    }
+
+    revalidatePath("/settings/users")
+    revalidatePath("/dashboard")
+    return { success: true }
+  } catch (err) {
+    console.error("Error in createDependent:", err)
+    return { error: "An unexpected error occurred." }
+  }
+}
+
+export async function updateDependent(
+  prevState: DependentState,
+  formData: FormData
+): Promise<DependentState> {
+  try {
+    const cookieStore = await cookies()
+    const householdId = await getSessionFromCookies(cookieStore)
+    if (!householdId) return { error: "Unauthorized" }
+
+    const dependentId = formData.get("dependentId") as string
+    if (!dependentId) return { error: "Invalid dependent." }
+
+    const parsed = dependentSchema.safeParse({
+      familyId: formData.get("familyId"),
+      name: formData.get("name"),
+      birthYear: formData.get("birthYear"),
+      relationship: formData.get("relationship"),
+      claimedByProfileId: formData.get("claimedByProfileId") || null,
+      inFullTimeEducation: formData.get("inFullTimeEducation") === "true",
+      annualIncome: formData.get("annualIncome") || 0,
+      livingWithClaimant: formData.get("livingWithClaimant") !== "false",
+      isHandicapped: formData.get("isHandicapped") === "true",
+    })
+    if (!parsed.success) return { error: "Invalid form data." }
+
+    const supabase = createSupabaseAdmin()
+    const { data: family } = await supabase
+      .from("families")
+      .select("id")
+      .eq("id", parsed.data.familyId)
+      .eq("household_id", householdId)
+      .single()
+    if (!family) return { error: "Family not found or unauthorized." }
+
+    const { error } = await supabase
+      .from("dependents")
+      .update({
+        name: parsed.data.name.trim(),
+        birth_year: parsed.data.birthYear,
+        relationship: parsed.data.relationship,
+        claimed_by_profile_id: parsed.data.claimedByProfileId ?? null,
+        in_full_time_education: parsed.data.inFullTimeEducation,
+        annual_income: parsed.data.annualIncome,
+        living_with_claimant: parsed.data.livingWithClaimant,
+        is_handicapped: parsed.data.isHandicapped,
+      })
+      .eq("id", dependentId)
+      .eq("family_id", parsed.data.familyId)
+    if (error) {
+      console.error("Error updating dependent:", error)
+      return { error: "Failed to update dependent." }
+    }
+
+    revalidatePath("/settings/users")
+    revalidatePath("/dashboard")
+    return { success: true }
+  } catch (err) {
+    console.error("Error in updateDependent:", err)
+    return { error: "An unexpected error occurred." }
+  }
+}
+
+export async function deleteDependent(
+  prevState: DependentState,
+  formData: FormData
+): Promise<DependentState> {
+  try {
+    const cookieStore = await cookies()
+    const householdId = await getSessionFromCookies(cookieStore)
+    if (!householdId) return { error: "Unauthorized" }
+
+    const dependentId = formData.get("dependentId") as string
+    const familyId = formData.get("familyId") as string
+    if (!dependentId || !familyId) return { error: "Invalid dependent." }
+
+    const supabase = createSupabaseAdmin()
+    const { data: family } = await supabase
+      .from("families")
+      .select("id")
+      .eq("id", familyId)
+      .eq("household_id", householdId)
+      .single()
+    if (!family) return { error: "Family not found or unauthorized." }
+
+    const { error } = await supabase
+      .from("dependents")
+      .delete()
+      .eq("id", dependentId)
+      .eq("family_id", familyId)
+    if (error) {
+      console.error("Error deleting dependent:", error)
+      return { error: "Failed to delete dependent." }
+    }
+
+    revalidatePath("/settings/users")
+    revalidatePath("/dashboard")
+    return { success: true }
+  } catch (err) {
+    console.error("Error in deleteDependent:", err)
     return { error: "An unexpected error occurred." }
   }
 }

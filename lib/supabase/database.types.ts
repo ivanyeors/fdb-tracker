@@ -87,6 +87,8 @@ export type Database = {
           marital_status: string | null
           num_dependents: number
           primary_bank_account_id: string | null
+          gender: string | null
+          spouse_profile_id: string | null
           created_at: string
         }
         Insert: {
@@ -104,6 +106,8 @@ export type Database = {
           marital_status?: string | null
           num_dependents?: number
           primary_bank_account_id?: string | null
+          gender?: string | null
+          spouse_profile_id?: string | null
           created_at?: string
         }
         Update: {
@@ -121,6 +125,8 @@ export type Database = {
           marital_status?: string | null
           num_dependents?: number
           primary_bank_account_id?: string | null
+          gender?: string | null
+          spouse_profile_id?: string | null
           created_at?: string
         }
         Relationships: [
@@ -1868,6 +1874,63 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "outflow_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dependents: {
+        Row: {
+          id: string
+          family_id: string
+          name: string
+          birth_year: number
+          relationship: string
+          claimed_by_profile_id: string | null
+          in_full_time_education: boolean
+          annual_income: number
+          living_with_claimant: boolean
+          is_handicapped: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          name: string
+          birth_year: number
+          relationship: string
+          claimed_by_profile_id?: string | null
+          in_full_time_education?: boolean
+          annual_income?: number
+          living_with_claimant?: boolean
+          is_handicapped?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          name?: string
+          birth_year?: number
+          relationship?: string
+          claimed_by_profile_id?: string | null
+          in_full_time_education?: boolean
+          annual_income?: number
+          living_with_claimant?: boolean
+          is_handicapped?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dependents_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dependents_claimed_by_profile_id_fkey"
+            columns: ["claimed_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

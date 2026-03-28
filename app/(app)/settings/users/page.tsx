@@ -132,6 +132,8 @@ function normalizeProfile(profile: Record<string, unknown>): ProfileWithIncome {
     telegram_last_used: (profile.telegram_last_used as string | null) ?? null,
     marital_status: (profile.marital_status as string | null) ?? null,
     num_dependents: (profile.num_dependents as number | undefined) ?? 0,
+    gender: (profile.gender as string | null) ?? null,
+    spouse_profile_id: (profile.spouse_profile_id as string | null) ?? null,
     primary_bank_account_id: (profile.primary_bank_account_id as string | null) ?? null,
     income_config: (income as ProfileWithIncome["income_config"]) ?? null,
   }
@@ -173,6 +175,8 @@ export default async function UserSettingsPage() {
             birth_year,
             marital_status,
             num_dependents,
+            gender,
+            spouse_profile_id,
             dps_include_in_projection,
             family_id,
             telegram_user_id,
