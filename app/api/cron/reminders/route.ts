@@ -8,7 +8,12 @@ import {
   insuranceYearlyReminder,
   insuranceMonthlyReminder,
   taxYearlyReminder,
+  seasonalityReminder,
 } from "@/lib/reminders/templates"
+import {
+  getActiveEvents,
+  getUpcomingEvents,
+} from "@/lib/investments/seasonality"
 
 function nowInTimezone(timezone: string): { hour: number; day: number; month: number; year: number; monthLabel: string } {
   const fmt = new Intl.DateTimeFormat("en-US", {
@@ -298,6 +303,63 @@ export async function GET(request: NextRequest) {
           sent++
         } else {
           errors.push(`${schedule.id}: ${result.error}`)
+        }
+      }
+    }
+
+    // --- Weekly Monday seasonality digest ---
+    const today = new Date()
+    if (today.getUTCDay() === 1) {
+      const active = getActiveEvents(today)
+      const upcoming = getUpcomingEvents(today, 7)
+      const seasonalityMsg = seasonalityReminder(
+        active,
+        upcoming,
+        dashboardUrl,
+      )
+
+      if (seasonalityMsg) {
+        const { data: households } = await supabase
+          .from("households")
+          .select("id, telegram_chat_id, telegram_bot_token")
+          .not("telegram_chat_id", "is", null)
+          .not("telegram_bot_token", "is", null)
+
+        for (const hh of households ?? []) {
+          const { data: families } = await supabase
+            .from("families")
+            .select("id")
+            .eq("household_id", hh.id)
+
+          const familyIds = (families ?? []).map((f) => f.id)
+          const { data: hhProfiles } = familyIds.length > 0
+            ? await supabase
+                .from("profiles")
+                .select("telegram_chat_id")
+                .in("family_id", familyIds)
+            : { data: [] as { telegram_chat_id: string | null }[] }
+
+          const profileChats = (hhProfiles ?? [])
+            .filter((p) => p.telegram_chat_id)
+            .map((p) => p.telegram_chat_id as string)
+
+          const targets =
+            profileChats.length > 0
+              ? profileChats
+              : [hh.telegram_chat_id as string]
+
+          for (const chatTarget of targets) {
+            const result = await sendTelegramMessage(
+              hh.telegram_bot_token!,
+              chatTarget,
+              seasonalityMsg,
+            )
+            if (result.ok) {
+              sent++
+            } else {
+              errors.push(`seasonality:${hh.id}: ${result.error}`)
+            }
+          }
         }
       }
     }

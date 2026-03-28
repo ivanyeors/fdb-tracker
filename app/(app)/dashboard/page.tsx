@@ -13,6 +13,7 @@ import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { SavingsThisMonthCard } from "@/components/dashboard/savings-this-month-card"
 import { InvestmentCard } from "@/components/dashboard/investments/investment-card"
+import { SeasonalityPrompts } from "@/components/dashboard/investments/seasonality-prompts"
 import { CpfCard } from "@/components/dashboard/cpf/cpf-card"
 import { IlpCard } from "@/components/dashboard/investments/ilp-card"
 import { IlpGroupSummaryCard } from "@/components/dashboard/investments/ilp-group-summary-card"
@@ -682,6 +683,8 @@ export default function OverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      <SeasonalityPrompts variant="compact" />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <MetricCard

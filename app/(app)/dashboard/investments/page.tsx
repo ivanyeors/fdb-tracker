@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { SectionHeader } from "@/components/dashboard/section-header"
+import { SeasonalityPrompts } from "@/components/dashboard/investments/seasonality-prompts"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -790,6 +791,8 @@ export default function InvestmentsDetailPage() {
           )}
         </div>
       </div>
+
+      <SeasonalityPrompts variant="full" />
 
       {rebalanceSuggestions.length > 0 && (
         <Card>

@@ -1,3 +1,5 @@
+import type { SeasonalityEvent } from "@/lib/investments/seasonality"
+
 type ReminderContext = {
   profiles: Array<{ name: string }>
   dashboardUrl: string
@@ -71,6 +73,60 @@ export function insuranceMonthlyReminder(
   amount: number,
 ): string {
   return `🔔 Insurance premium of $${amount} for ${policyName} is due this month.`
+}
+
+function formatSeasonalityDateRange(e: SeasonalityEvent): string {
+  const months = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  ]
+  const start = `${months[e.startMonth - 1]} ${e.startDay}`
+  if (e.startMonth === e.endMonth && e.startDay === e.endDay) return start
+  return `${start} – ${months[e.endMonth - 1]} ${e.endDay}`
+}
+
+export function seasonalityReminder(
+  activeEvents: SeasonalityEvent[],
+  upcomingEvents: SeasonalityEvent[],
+  dashboardUrl: string,
+): string | null {
+  if (activeEvents.length === 0 && upcomingEvents.length === 0) return null
+
+  const lines: string[] = ["📊 Weekly Market Seasonality Digest", ""]
+
+  const risks = activeEvents.filter((e) => e.type === "risk")
+  const opps = activeEvents.filter((e) => e.type === "opportunity")
+
+  if (risks.length > 0) {
+    lines.push("⚠️ RISK / CAUTION:")
+    for (const e of risks) {
+      lines.push(`• ${e.title} (${formatSeasonalityDateRange(e)})`)
+      lines.push(`  ${e.description}`)
+    }
+    lines.push("")
+  }
+
+  if (opps.length > 0) {
+    lines.push("📈 OPPORTUNITY:")
+    for (const e of opps) {
+      lines.push(`• ${e.title} (${formatSeasonalityDateRange(e)})`)
+      lines.push(`  ${e.description}`)
+    }
+    lines.push("")
+  }
+
+  if (upcomingEvents.length > 0) {
+    lines.push("🔜 UPCOMING (next 7 days):")
+    for (const e of upcomingEvents) {
+      const icon = e.type === "risk" ? "⚠️" : "📈"
+      lines.push(`${icon} ${e.title} — ${formatSeasonalityDateRange(e)}`)
+    }
+    lines.push("")
+  }
+
+  lines.push(`Dashboard: ${dashboardUrl}/dashboard/investments`)
+
+  return lines.join("\n")
 }
 
 export function taxYearlyReminder(

@@ -245,6 +245,15 @@ export const TOOLTIPS = {
     details:
       "Each category scored as min(held/needed, 1) × 100. Hospitalization and PA scored as 0 or 100 based on active policy.",
   },
+  SEASONALITY_PROMPTS: {
+    label: "Market Seasonality",
+    logic:
+      "Date-matched events from an annual seasonality calendar (earnings, options expiry, macro windows, entry windows).",
+    explanation:
+      "Contextual market awareness prompts based on historical seasonal patterns that recur every year.",
+    details:
+      "Risk events highlight periods of historically elevated volatility. Opportunity windows indicate historically favorable entry points for long positions.",
+  },
   PRIMARY_BANK_ACCOUNT: {
     label: "Primary Bank Account",
     logic:
