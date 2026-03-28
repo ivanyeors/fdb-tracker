@@ -18,16 +18,19 @@ import { CpfCard } from "@/components/dashboard/cpf/cpf-card"
 import { IlpCard } from "@/components/dashboard/investments/ilp-card"
 import { IlpGroupSummaryCard } from "@/components/dashboard/investments/ilp-group-summary-card"
 import { fundValueForAllocation } from "@/lib/investments/ilp-fund-value-for-allocation"
-import { WaterfallChart, type WaterfallData } from "@/components/dashboard/cashflow/waterfall-chart"
+import {
+  WaterfallChart,
+  type WaterfallData,
+} from "@/components/dashboard/cashflow/waterfall-chart"
 import { CashflowSankey } from "@/components/dashboard/cashflow/cashflow-sankey"
-import { JournalList, type JournalEntry } from "@/components/dashboard/investments/journal-list"
+import {
+  JournalList,
+  type JournalEntry,
+} from "@/components/dashboard/investments/journal-list"
 import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { useDataRefresh } from "@/hooks/use-data-refresh"
-import {
-  currentMonthYm,
-  ilpEntryMonthKey,
-} from "@/lib/investments/ilp-chart"
+import { currentMonthYm, ilpEntryMonthKey } from "@/lib/investments/ilp-chart"
 import { formatCurrency } from "@/lib/utils"
 import { Progress } from "@/components/ui/progress"
 import { ChartSkeleton } from "@/components/loading"
@@ -55,7 +58,7 @@ function formatTrendMonth(monthStr: string): string {
 
 /** Last series value per calendar month from daily investment totals (NLV + ILP). */
 function aggregateDailyInvestmentToMonthly(
-  daily: { date: string; value: number }[],
+  daily: { date: string; value: number }[]
 ): { month: string; value: number }[] {
   const byYm = new Map<string, { date: string; value: number }>()
   for (const d of daily) {
@@ -110,7 +113,11 @@ type IlpProductWithEntries = {
     premiums_paid?: number | null
     fund_report_snapshot?: Record<string, unknown> | null
   } | null
-  entries: { month: string; fund_value: number; premiums_paid?: number | null }[]
+  entries: {
+    month: string
+    fund_value: number
+    premiums_paid?: number | null
+  }[]
 }
 
 export default function OverviewPage() {
@@ -172,7 +179,7 @@ export default function OverviewPage() {
       setIsGoalsLoading(true)
       setIsInsuranceLoading(true)
       setIsTxLoading(true)
-      
+
       const qs = params ? `?${params}` : ""
       const now = new Date()
       const endMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
@@ -189,33 +196,29 @@ export default function OverviewPage() {
             })()
           : twelveMonthsAgoStr
       const startMonth =
-        familyStartMonth > twelveMonthsAgoStr ? familyStartMonth : twelveMonthsAgoStr
-
-      let latestMonthFromOverview: string | null = null
+        familyStartMonth > twelveMonthsAgoStr
+          ? familyStartMonth
+          : twelveMonthsAgoStr
 
       fetch(`/api/overview${qs}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
-          if (d) {
-            setData(d)
-            latestMonthFromOverview = d.latestMonth ?? null
-          }
+          if (d) setData(d)
           setIsOverviewLoading(false)
         })
         .catch(() => setIsOverviewLoading(false))
 
-      fetch(`/api/cashflow?startMonth=${startMonth}&endMonth=${endMonth}${params ? `&${params}` : ""}`)
+      fetch(
+        `/api/cashflow?startMonth=${startMonth}&endMonth=${endMonth}${params ? `&${params}` : ""}`
+      )
         .then((r) => (r.ok ? r.json() : null))
         .then((cashflow) => {
           if (cashflow && Array.isArray(cashflow)) {
             setCashflowRangeData(cashflow)
-            const months = cashflow.map((r: { month: string }) => r.month).reverse()
+            const months = cashflow
+              .map((r: { month: string }) => r.month)
+              .reverse()
             setCashflowMonths(months)
-            const preferred =
-              latestMonthFromOverview && months.includes(latestMonthFromOverview)
-                ? latestMonthFromOverview
-                : months[0] ?? null
-            setSelectedMonth((prev) => (prev ?? preferred))
           }
           setIsCashflowLoading(false)
         })
@@ -229,7 +232,7 @@ export default function OverviewPage() {
               products.map((p: IlpProductWithEntries) => ({
                 ...p,
                 entries: p.entries ?? [],
-              })),
+              }))
             )
           }
           setIsIlpLoading(false)
@@ -252,29 +255,32 @@ export default function OverviewPage() {
         })
         .catch(() => setIsInsuranceLoading(false))
 
-      fetch(`/api/investments/transactions${qs ? `${qs}&limit=100` : "?limit=100"}`)
+      fetch(
+        `/api/investments/transactions${qs ? `${qs}&limit=100` : "?limit=100"}`
+      )
         .then((r) => (r.ok ? r.json() : null))
         .then((txs) => {
           if (txs) {
             setTransactions(
               txs.map(
-              (t: {
-                id: string
-                symbol: string
-                type: string
-                quantity: number
-                price: number
-                journal_text?: string
-                created_at: string
-              }) => ({
-                id: t.id,
-                symbol: t.symbol,
-                type: t.type as "buy" | "sell",
-                quantity: t.quantity,
-                price: t.price,
-                journalText: t.journal_text,
-                date: t.created_at.slice(0, 10),
-              })),
+                (t: {
+                  id: string
+                  symbol: string
+                  type: string
+                  quantity: number
+                  price: number
+                  journal_text?: string
+                  created_at: string
+                }) => ({
+                  id: t.id,
+                  symbol: t.symbol,
+                  type: t.type as "buy" | "sell",
+                  quantity: t.quantity,
+                  price: t.price,
+                  journalText: t.journal_text,
+                  date: t.created_at.slice(0, 10),
+                })
+              )
             )
           }
           setIsTxLoading(false)
@@ -295,9 +301,22 @@ export default function OverviewPage() {
     fetchAll()
   }, [params, activeFamilyId, families, dataVersion])
 
+  // Derive initial selectedMonth from overview + cashflow data
+  const derivedMonth = useMemo(() => {
+    const latestMonth = data?.latestMonth
+    if (latestMonth && cashflowMonths.includes(latestMonth)) return latestMonth
+    if (cashflowMonths.length > 0) return cashflowMonths[0] ?? null
+    return null
+  }, [data?.latestMonth, cashflowMonths])
+
+  // The effective selected month: user selection takes priority, else derived
+  const effectiveMonth = selectedMonth ?? derivedMonth
+
   useEffect(() => {
-    if (!selectedMonth || (!activeProfileId && !activeFamilyId)) return
-    const qs = params ? `?${params}&month=${selectedMonth}` : `?month=${selectedMonth}`
+    if (!effectiveMonth || (!activeProfileId && !activeFamilyId)) return
+    const qs = params
+      ? `?${params}&month=${effectiveMonth}`
+      : `?month=${effectiveMonth}`
     queueMicrotask(() => setIsOverviewLoading(true))
     fetch(`/api/overview${qs}`)
       .then((r) => (r.ok ? r.json() : null))
@@ -306,17 +325,17 @@ export default function OverviewPage() {
         setIsOverviewLoading(false)
       })
       .catch(() => setIsOverviewLoading(false))
-  }, [selectedMonth, params, activeProfileId, activeFamilyId])
+  }, [effectiveMonth, params, activeProfileId, activeFamilyId])
 
   useEffect(() => {
-    if (!selectedMonth || (!activeProfileId && !activeFamilyId)) return
-    fetch(`/api/cashflow?month=${selectedMonth}${params ? `&${params}` : ""}`)
+    if (!effectiveMonth || (!activeProfileId && !activeFamilyId)) return
+    fetch(`/api/cashflow?month=${effectiveMonth}${params ? `&${params}` : ""}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
         if (json) setWaterfallData(json)
       })
       .catch(() => setWaterfallData(null))
-  }, [selectedMonth, params, activeProfileId, activeFamilyId])
+  }, [effectiveMonth, params, activeProfileId, activeFamilyId])
 
   const savingsHistory = useMemo(() => {
     return cashflowRangeData.map((r) => ({
@@ -326,7 +345,8 @@ export default function OverviewPage() {
   }, [cashflowRangeData])
 
   const savingsTrend = useMemo(() => {
-    const savingsThisMonth = (data?.latestInflow ?? 0) - (data?.latestOutflow ?? 0)
+    const savingsThisMonth =
+      (data?.latestInflow ?? 0) - (data?.latestOutflow ?? 0)
     const prevSavings = data?.previousMonthSavings
     if (prevSavings !== undefined && prevSavings !== null) {
       if (Math.abs(prevSavings) === 0) return 0
@@ -337,9 +357,17 @@ export default function OverviewPage() {
     const previous = savingsHistory[savingsHistory.length - 2]?.value ?? 0
     if (previous === 0) return 0
     return ((current - previous) / Math.abs(previous)) * 100
-  }, [data?.latestInflow, data?.latestOutflow, data?.previousMonthSavings, savingsHistory])
+  }, [
+    data?.latestInflow,
+    data?.latestOutflow,
+    data?.previousMonthSavings,
+    savingsHistory,
+  ])
 
-  const investmentMonthlyData = useMemo((): { month: string; value: number }[] => {
+  const investmentMonthlyData = useMemo((): {
+    month: string
+    value: number
+  }[] => {
     if (investmentHistory.length >= 2) {
       return aggregateDailyInvestmentToMonthly(investmentHistory)
     }
@@ -357,7 +385,7 @@ export default function OverviewPage() {
     }
     const currentIlpTotal = ilpProducts.reduce(
       (sum, p) => sum + (p.latestEntry?.fund_value ?? 0),
-      0,
+      0
     )
     const ilpForSplit =
       apiIlp != null && Number.isFinite(apiIlp) ? apiIlp : currentIlpTotal
@@ -371,7 +399,9 @@ export default function OverviewPage() {
       const m = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
       return [
         {
-          month: new Date(m + "-01").toLocaleString("en-US", { month: "short" }),
+          month: new Date(m + "-01").toLocaleString("en-US", {
+            month: "short",
+          }),
           value: investmentTotal,
         },
       ]
@@ -379,11 +409,19 @@ export default function OverviewPage() {
     return allMonths.map((monthKey) => {
       const ilpVal = ilpTotalByMonth.get(monthKey) ?? 0
       return {
-        month: new Date(monthKey + "-01").toLocaleString("en-US", { month: "short" }),
+        month: new Date(monthKey + "-01").toLocaleString("en-US", {
+          month: "short",
+        }),
         value: ilpVal + nonIlp,
       }
     })
-  }, [ilpProducts, data?.investmentTotal, data?.netLiquidValue, data?.ilpFundTotal, investmentHistory])
+  }, [
+    ilpProducts,
+    data?.investmentTotal,
+    data?.netLiquidValue,
+    data?.ilpFundTotal,
+    investmentHistory,
+  ])
 
   const ilpCardsData = useMemo(() => {
     return ilpProducts.map((p) => {
@@ -394,8 +432,8 @@ export default function OverviewPage() {
         0,
         Math.floor(
           (now.getFullYear() - startDate.getFullYear()) * 12 +
-            (now.getMonth() - startDate.getMonth()),
-        ),
+            (now.getMonth() - startDate.getMonth())
+        )
       )
       const estimatedPremiums =
         p.premium_payment_mode === "one_time"
@@ -415,7 +453,7 @@ export default function OverviewPage() {
           ? ((fundValue - totalPremiumsPaid) / totalPremiumsPaid) * 100
           : 0
       const sortedEntries = [...(p.entries ?? [])].sort((a, b) =>
-        a.month.localeCompare(b.month),
+        a.month.localeCompare(b.month)
       )
       let monthlyData = sortedEntries.map((e) => ({
         month: ilpEntryMonthKey(e.month),
@@ -486,12 +524,12 @@ export default function OverviewPage() {
 
   const showIlpGrouped = useMemo(
     () => ilpCardsData.some((c) => c.groupId),
-    [ilpCardsData],
+    [ilpCardsData]
   )
 
   const ilpPortfolioTotal = useMemo(
     () => ilpCardsData.reduce((sum, c) => sum + c.fundValue, 0),
-    [ilpCardsData],
+    [ilpCardsData]
   )
 
   const investmentTrend = useMemo(() => {
@@ -517,7 +555,7 @@ export default function OverviewPage() {
       policies
         .filter((p) => p.is_active)
         .reduce((sum, p) => sum + (p.coverage_amount ?? 0), 0),
-    [policies],
+    [policies]
   )
 
   return (
@@ -527,7 +565,7 @@ export default function OverviewPage() {
         description="Net worth, savings rate, and key metrics at a glance."
       >
         <MonthYearPicker
-          value={selectedMonth}
+          value={effectiveMonth}
           onChange={setSelectedMonth}
           availableMonths={cashflowMonths}
           placeholder="Select month"
@@ -541,8 +579,8 @@ export default function OverviewPage() {
             <p className="text-xs text-muted-foreground">
               {isOverviewLoading
                 ? ""
-                : (selectedMonth ?? data?.latestMonth)
-                  ? formatTrendMonth(selectedMonth ?? data?.latestMonth ?? "")
+                : (effectiveMonth ?? data?.latestMonth)
+                  ? formatTrendMonth(effectiveMonth ?? data?.latestMonth ?? "")
                   : "Latest month"}
             </p>
           </CardHeader>
@@ -597,7 +635,7 @@ export default function OverviewPage() {
                       goal.target_amount > 0
                         ? Math.min(
                             (goal.current_amount / goal.target_amount) * 100,
-                            100,
+                            100
                           )
                         : 100
                     return (
@@ -606,31 +644,33 @@ export default function OverviewPage() {
                           <span className="truncate text-sm font-medium">
                             {goal.name}
                           </span>
-                          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                             {progressPct.toFixed(1)}%
                           </span>
                         </div>
                         <Progress
                           value={progressPct}
-                          className={
-                            goals.length === 1 ? "h-2" : "h-0.5"
-                          }
+                          className={goals.length === 1 ? "h-2" : "h-0.5"}
                         />
                       </div>
                     )
                   })}
                 </div>
-                <CardCTA href="/dashboard/banks#savings-goals">View goals</CardCTA>
+                <CardCTA href="/dashboard/banks#savings-goals">
+                  View goals
+                </CardCTA>
               </>
             )}
           </CardContent>
         </Card>
 
         <SavingsThisMonthCard
-          savingsThisMonth={(data?.latestInflow ?? 0) - (data?.latestOutflow ?? 0)}
+          savingsThisMonth={
+            (data?.latestInflow ?? 0) - (data?.latestOutflow ?? 0)
+          }
           trend={savingsTrend}
           savingsHistory={savingsHistory}
-          latestMonth={selectedMonth ?? data?.latestMonth ?? null}
+          latestMonth={effectiveMonth ?? data?.latestMonth ?? null}
           loading={isOverviewLoading || isCashflowLoading}
         />
       </div>
@@ -825,10 +865,13 @@ export default function OverviewPage() {
             </div>
           )}
         </div>
-      ) : (activeProfileId || activeFamilyId) ? (
+      ) : activeProfileId || activeFamilyId ? (
         <div className="rounded-lg border bg-card p-4 text-center text-sm text-muted-foreground">
           No ILP plans. Add one in{" "}
-          <Link href="/dashboard/investments" className="text-primary hover:underline">
+          <Link
+            href="/dashboard/investments"
+            className="text-primary hover:underline"
+          >
             Investments
           </Link>
           .
@@ -839,9 +882,9 @@ export default function OverviewPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle>Cashflow Waterfall</CardTitle>
-            {selectedMonth && (
+            {effectiveMonth && (
               <p className="text-xs text-muted-foreground">
-                {formatTrendMonth(selectedMonth)}
+                {formatTrendMonth(effectiveMonth)}
               </p>
             )}
           </CardHeader>
@@ -849,10 +892,10 @@ export default function OverviewPage() {
             <div className="flex flex-1 flex-col">
               {waterfallData ? (
                 <WaterfallChart data={waterfallData} />
-              ) : selectedMonth ? (
+              ) : effectiveMonth ? (
                 <ChartSkeleton height={300} />
               ) : (
-                <div className="flex h-[300px] items-center justify-center text-muted-foreground text-sm">
+                <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
                   Select a month
                 </div>
               )}
@@ -864,9 +907,9 @@ export default function OverviewPage() {
         <Card className="overflow-visible">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle>Cashflow Flow</CardTitle>
-            {selectedMonth && (
+            {effectiveMonth && (
               <p className="text-xs text-muted-foreground">
-                {formatTrendMonth(selectedMonth)}
+                {formatTrendMonth(effectiveMonth)}
               </p>
             )}
           </CardHeader>
@@ -874,10 +917,10 @@ export default function OverviewPage() {
             <div className="flex flex-1 flex-col">
               {waterfallData ? (
                 <CashflowSankey data={waterfallData} />
-              ) : selectedMonth ? (
+              ) : effectiveMonth ? (
                 <ChartSkeleton height={340} />
               ) : (
-                <div className="flex h-[340px] items-center justify-center text-muted-foreground text-sm">
+                <div className="flex h-[340px] items-center justify-center text-sm text-muted-foreground">
                   Select a month above
                 </div>
               )}
@@ -895,7 +938,10 @@ export default function OverviewPage() {
           <CardContent className="space-y-4 pt-4">
             <p className="text-sm text-muted-foreground">
               Log buys and sells with optional notes on the{" "}
-              <Link href="/dashboard/investments" className="text-primary underline">
+              <Link
+                href="/dashboard/investments"
+                className="text-primary underline"
+              >
                 Investments
               </Link>{" "}
               page (Holdings and Activity tabs). Recent trades:

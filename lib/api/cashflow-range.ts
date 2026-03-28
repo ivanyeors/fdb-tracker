@@ -5,9 +5,18 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { calculateTakeHome } from "@/lib/calculations/take-home"
-import { calculateTax } from "@/lib/calculations/tax"
-import { GIRO_OUTFLOW_DESTINATIONS } from "@/lib/api/giro-amounts"
+import {
+  buildGiroOutflowByProfile,
+  discretionaryForProfileMonth,
+  effectiveInflowFromContext,
+  monthlyTaxForProfile,
+  normalizeMonthKey,
+  sumIlpPremiums,
+  sumInsuranceOutflowPremiumsSplit,
+  sumLoanMonthlyPayments,
+  yearsInMonths,
+  GIRO_OUTFLOW_DESTINATIONS,
+} from "@/lib/api/cashflow-aggregation"
 
 export type CashflowRangeRow = {
   month: string
@@ -24,7 +33,10 @@ export type CashflowRangeRow = {
   outflowMemo?: string
 }
 
-export function getMonthsInRange(startMonth: string, endMonth: string): string[] {
+export function getMonthsInRange(
+  startMonth: string,
+  endMonth: string
+): string[] {
   const months: string[] = []
   const [startY, startM] = startMonth.split("-").map(Number)
   const [endY, endM] = endMonth.split("-").map(Number)
@@ -41,200 +53,6 @@ export function getMonthsInRange(startMonth: string, endMonth: string): string[]
   return months
 }
 
-function normalizeMonthKey(month: string): string {
-  return month.includes("-01") ? month : `${month}-01`
-}
-
-function yearsInMonths(months: string[]): number[] {
-  const ys = new Set<number>()
-  for (const mo of months) {
-    const y = parseInt(mo.slice(0, 4), 10)
-    if (!Number.isNaN(y)) ys.add(y)
-  }
-  return [...ys]
-}
-
-function buildGiroOutflowByProfile(
-  rules:
-    | Array<{
-        amount: number
-        source_bank_account_id: string
-        linked_entity_type: string | null
-      }>
-    | null
-    | undefined,
-  accounts: Array<{ id: string; profile_id: string | null }> | null | undefined,
-  profileIds: string[],
-): Map<string, number> {
-  const out = new Map<string, number>()
-  for (const pid of profileIds) out.set(pid, 0)
-  if (!rules?.length) return out
-
-  const profileAccountIds = new Map<string, Set<string>>()
-  for (const pid of profileIds) {
-    profileAccountIds.set(pid, new Set())
-  }
-  for (const a of accounts ?? []) {
-    if (!a.profile_id) continue
-    const set = profileAccountIds.get(a.profile_id)
-    if (set) set.add(a.id)
-  }
-
-  for (const r of rules) {
-    // Exclude linked GIRO rules — they are already counted in their respective
-    // buckets (insurance, loans, ilp) and would cause double-counting
-    if (r.linked_entity_type != null) continue
-    for (const pid of profileIds) {
-      const set = profileAccountIds.get(pid)
-      if (set?.has(r.source_bank_account_id)) {
-        out.set(pid, (out.get(pid) ?? 0) + r.amount)
-      }
-    }
-  }
-  return out
-}
-
-function sumLoanMonthlyPayments(
-  loansData: Array<{
-    principal: number
-    rate_pct: number
-    tenure_months: number
-  }> | null,
-): number {
-  if (!loansData?.length) return 0
-  let loans = 0
-  for (const loan of loansData) {
-    const monthlyRate = loan.rate_pct / 100 / 12
-    if (monthlyRate > 0 && loan.tenure_months > 0) {
-      loans +=
-        (loan.principal * monthlyRate) /
-        (1 - Math.pow(1 + monthlyRate, -loan.tenure_months))
-    } else if (loan.tenure_months > 0) {
-      loans += loan.principal / loan.tenure_months
-    }
-  }
-  return loans
-}
-
-function sumInsuranceOutflowPremiumsSplit(
-  policies: Array<{
-    premium_amount: number
-    frequency: string
-    is_active: boolean | null
-    deduct_from_outflow: boolean | null
-    type: string
-  }> | null,
-): { insurance: number; ilpFromLegacyPolicies: number } {
-  if (!policies?.length) return { insurance: 0, ilpFromLegacyPolicies: 0 }
-  let insurance = 0
-  let ilpFromLegacyPolicies = 0
-  for (const p of policies) {
-    if (!p.is_active || !p.deduct_from_outflow) continue
-    const monthlyEq = p.frequency === "monthly" ? p.premium_amount : p.premium_amount / 12
-    if (p.type === "ilp") ilpFromLegacyPolicies += monthlyEq
-    else insurance += monthlyEq
-  }
-  return { insurance, ilpFromLegacyPolicies }
-}
-
-function sumIlpPremiums(
-  rows: Array<{ monthly_premium: number; premium_payment_mode?: string | null }> | null,
-): number {
-  if (!rows?.length) return 0
-  return rows.reduce((sum, p) => {
-    if (p.premium_payment_mode === "one_time") return sum
-    return sum + p.monthly_premium
-  }, 0)
-}
-
-function effectiveInflowFromContext(
-  profileId: string,
-  monthStr: string,
-  year: number,
-  cashflowByKey: Map<string, { inflow: number | null; outflow: number | null }>,
-  profileById: Map<string, { birth_year: number; name?: string }>,
-  incomeByProfileId: Map<
-    string,
-    { annual_salary: number; bonus_estimate: number | null }
-  >,
-): number {
-  const key = `${profileId}:${monthStr}`
-  if (cashflowByKey.has(key)) {
-    const row = cashflowByKey.get(key)!
-    return row.inflow ?? 0
-  }
-
-  const profile = profileById.get(profileId)
-  const incomeConfig = incomeByProfileId.get(profileId)
-  if (!profile || !incomeConfig || incomeConfig.annual_salary <= 0) {
-    return 0
-  }
-
-  const result = calculateTakeHome(
-    incomeConfig.annual_salary,
-    incomeConfig.bonus_estimate ?? 0,
-    profile.birth_year,
-    year,
-  )
-  return result.annualTakeHome / 12
-}
-
-function monthlyTaxForProfile(
-  profileId: string,
-  year: number,
-  profileById: Map<string, { birth_year: number; name?: string }>,
-  incomeByProfileId: Map<
-    string,
-    { annual_salary: number; bonus_estimate: number | null }
-  >,
-  policiesForTax: Array<{
-    type: string
-    premium_amount: number
-    frequency: string
-    coverage_amount: number | null
-    is_active: boolean | null
-  }>,
-  manualReliefs: Array<{ relief_type: string; amount: number }>,
-): number {
-  const profile = profileById.get(profileId)
-  const incomeConfig = incomeByProfileId.get(profileId)
-  if (!profile || !incomeConfig) return 0
-
-  const result = calculateTax({
-    profile: { birth_year: profile.birth_year },
-    incomeConfig: {
-      annual_salary: incomeConfig.annual_salary,
-      bonus_estimate: incomeConfig.bonus_estimate ?? 0,
-    },
-    insurancePolicies: policiesForTax.map((p) => ({
-      type: p.type,
-      premium_amount: p.premium_amount,
-      frequency: p.frequency,
-      coverage_amount: p.coverage_amount ?? 0,
-      is_active: p.is_active ?? false,
-    })),
-    manualReliefs: manualReliefs.map((r) => ({
-      relief_type: r.relief_type,
-      amount: r.amount,
-    })),
-    year,
-  })
-  return result.taxPayable / 12
-}
-
-function discretionaryForProfileMonth(
-  profileId: string,
-  monthStr: string,
-  cashflowByKey: Map<string, { inflow: number | null; outflow: number | null }>,
-  giroByProfile: Map<string, number>,
-): number {
-  const key = `${profileId}:${monthStr}`
-  const userOutflow = cashflowByKey.has(key)
-    ? (cashflowByKey.get(key)!.outflow ?? 0)
-    : 0
-  return userOutflow + (giroByProfile.get(profileId) ?? 0)
-}
-
 /**
  * Loads all data for the range in parallel, then aggregates months synchronously.
  */
@@ -245,7 +63,7 @@ export async function fetchCashflowRangeSeries(
     familyId: string
     startMonth: string
     endMonth: string
-  },
+  }
 ): Promise<CashflowRangeRow[]> {
   const { profileIds, familyId, startMonth, endMonth } = params
   const months = getMonthsInRange(startMonth, endMonth)
@@ -293,7 +111,10 @@ export async function fetchCashflowRangeSeries(
       .in("profile_id", profileIds)
       .gte("month", startMonth)
       .lte("month", endMonth),
-    supabase.from("profiles").select("id, birth_year, name").in("id", profileIds),
+    supabase
+      .from("profiles")
+      .select("id, birth_year, name")
+      .in("id", profileIds),
     supabase
       .from("income_config")
       .select("profile_id, annual_salary, bonus_estimate")
@@ -306,7 +127,7 @@ export async function fetchCashflowRangeSeries(
     supabase
       .from("insurance_policies")
       .select(
-        "profile_id, premium_amount, frequency, is_active, deduct_from_outflow, type, coverage_amount",
+        "profile_id, premium_amount, frequency, is_active, deduct_from_outflow, type, coverage_amount"
       )
       .in("profile_id", profileIds),
     supabase
@@ -349,11 +170,20 @@ export async function fetchCashflowRangeSeries(
   ]
   const { data: bankAccounts, error: bankErr } =
     accountIds.length > 0
-      ? await supabase.from("bank_accounts").select("id, profile_id").in("id", accountIds)
-      : { data: [] as Array<{ id: string; profile_id: string | null }>, error: null }
+      ? await supabase
+          .from("bank_accounts")
+          .select("id, profile_id")
+          .in("id", accountIds)
+      : {
+          data: [] as Array<{ id: string; profile_id: string | null }>,
+          error: null,
+        }
   if (bankErr) throw new Error(bankErr.message)
 
-  const cashflowByKey = new Map<string, { inflow: number | null; outflow: number | null }>()
+  const cashflowByKey = new Map<
+    string,
+    { inflow: number | null; outflow: number | null }
+  >()
   const inflowMemoByKey = new Map<string, string>()
   const outflowMemoByKey = new Map<string, string>()
   for (const row of cashflowRes.data ?? []) {
@@ -396,7 +226,7 @@ export async function fetchCashflowRangeSeries(
   const giroByProfile = buildGiroOutflowByProfile(
     giroRulesRes.data ?? [],
     bankAccounts ?? [],
-    profileIds,
+    profileIds
   )
 
   const insuranceByProfile = new Map<
@@ -496,14 +326,14 @@ export async function fetchCashflowRangeSeries(
         year,
         cashflowByKey,
         profileById,
-        incomeByProfileId,
+        incomeByProfileId
       )
 
       discretionary += discretionaryForProfileMonth(
         pid,
         monthStr,
         cashflowByKey,
-        giroByProfile,
+        giroByProfile
       )
 
       const pols = insuranceByProfile.get(pid) ?? []
@@ -523,12 +353,13 @@ export async function fetchCashflowRangeSeries(
         profileById,
         incomeByProfileId,
         pols,
-        taxReliefByProfileYear.get(`${pid}:${year}`) ?? [],
+        taxReliefByProfileYear.get(`${pid}:${year}`) ?? []
       )
     }
 
     ilp += sharedIlp
-    const totalOutflow = discretionary + insurance + ilp + loans + tax + savingsGoals
+    const totalOutflow =
+      discretionary + insurance + ilp + loans + tax + savingsGoals
 
     const inflowMemoParts: string[] = []
     const outflowMemoParts: string[] = []

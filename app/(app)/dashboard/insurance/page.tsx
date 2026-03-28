@@ -646,8 +646,8 @@ export default function InsurancePage() {
                                   <div className="space-y-1">
                                     {policy.coverages
                                       .filter((c) => c.coverage_type)
-                                      .map((c) => (
-                                      <div key={c.coverage_type} className="flex items-center gap-2">
+                                      .map((c, i) => (
+                                      <div key={c.id || `${c.coverage_type}-${i}`} className="flex items-center gap-2">
                                         <Badge variant="outline" className="text-[10px] shrink-0">
                                           {COVERAGE_TYPE_LABELS[c.coverage_type as CoverageType] ?? c.coverage_type!.replace(/_/g, " ")}
                                         </Badge>
