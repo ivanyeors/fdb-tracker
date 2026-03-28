@@ -3694,7 +3694,7 @@ function InsuranceSection({
               <div className="space-y-2">
                 <Label>Yearly due month</Label>
                 <Select
-                  value={newPolicy.yearly_outflow_date?.toString() ?? ""}
+                  value={newPolicy.yearly_outflow_date?.toString()}
                   onValueChange={(v) =>
                     setNewPolicy((p) => ({ ...p, yearly_outflow_date: v ? parseInt(v, 10) : null }))
                   }
@@ -3705,7 +3705,7 @@ function InsuranceSection({
                   <SelectContent>
                     {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                       <SelectItem key={m} value={m.toString()}>
-                        {m}
+                        {new Date(2000, m - 1).toLocaleString("en", { month: "long" })}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -4200,7 +4200,7 @@ function InsuranceSection({
                           <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">Yearly due month</Label>
                             <Select
-                              value={e.yearly_outflow_date?.toString() ?? ""}
+                              value={e.yearly_outflow_date?.toString()}
                               onValueChange={(val) =>
                                 setEditing((prev) => ({
                                   ...prev,

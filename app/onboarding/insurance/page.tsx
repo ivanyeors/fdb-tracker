@@ -276,7 +276,7 @@ export default function InsurancePage() {
                       <div className="space-y-1.5">
                         <Label>Yearly due month</Label>
                         <Select
-                          value={item.yearly_outflow_date?.toString() ?? ""}
+                          value={item.yearly_outflow_date?.toString()}
                           onValueChange={(v) =>
                             updateItem(i, "yearly_outflow_date", v ? parseInt(v, 10) : null)
                           }
@@ -287,7 +287,7 @@ export default function InsurancePage() {
                           <SelectContent>
                             {Array.from({ length: 12 }, (_, m) => m + 1).map((m) => (
                               <SelectItem key={m} value={String(m)}>
-                                {m}
+                                {new Date(2000, m - 1).toLocaleString("en", { month: "long" })}
                               </SelectItem>
                             ))}
                           </SelectContent>
