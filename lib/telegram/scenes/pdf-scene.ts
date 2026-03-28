@@ -361,24 +361,71 @@ async function saveExtractedData(
       if (!extracted.name && !extracted.policyNumber) {
         throw new Error("Policy name or number is required")
       }
-      const { error } = await supabase.from("insurance_policies").insert({
-        profile_id: profileId,
-        name: extracted.name ?? `${extracted.insurer ?? "Unknown"} Policy`,
-        type: extracted.type ?? "term_life",
-        premium_amount: extracted.premiumAmount ?? 0,
-        frequency: extracted.frequency ?? "yearly",
-        insurer: extracted.insurer,
-        policy_number: extracted.policyNumber,
-        coverage_amount: extracted.coverageAmount,
-        coverage_type: extracted.coverageType,
-        inception_date: extracted.inceptionDate,
-        end_date: extracted.endDate,
-        rider_name: extracted.riderName,
-        rider_premium: extracted.riderPremium,
-        is_active: true,
-        deduct_from_outflow: true,
-      })
+
+      // Compute coverage_till_age from end date + profile birth_year
+      let computedCoverageTillAge: number | null = null
+      if (!extracted.coverageTillAge && extracted.endDate) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("birth_year")
+          .eq("id", profileId)
+          .single()
+        if (prof?.birth_year) {
+          const endYear = parseInt(extracted.endDate.slice(0, 4))
+          if (endYear > 0) computedCoverageTillAge = endYear - prof.birth_year
+        }
+      }
+
+      const { data: policy, error } = await supabase
+        .from("insurance_policies")
+        .insert({
+          profile_id: profileId,
+          name: extracted.name ?? `${extracted.insurer ?? "Unknown"} Policy`,
+          type: extracted.type ?? "term_life",
+          premium_amount: extracted.premiumAmount ?? 0,
+          frequency: extracted.frequency ?? "yearly",
+          insurer: extracted.insurer,
+          policy_number: extracted.policyNumber,
+          coverage_amount: extracted.coverageAmount,
+          coverage_type: extracted.coverageType,
+          inception_date: extracted.inceptionDate,
+          end_date: extracted.endDate,
+          rider_name: extracted.riderName,
+          rider_premium: extracted.riderPremium,
+          cpf_premium: extracted.cpfPremium,
+          premium_waiver: extracted.premiumWaiver,
+          coverage_till_age:
+            extracted.coverageTillAge ?? computedCoverageTillAge,
+          sub_type: extracted.subType,
+          cash_value: extracted.cashValue,
+          maturity_value: extracted.maturityValue,
+          is_active: true,
+          deduct_from_outflow: true,
+        })
+        .select("id")
+        .single()
       if (error) throw new Error(error.message)
+
+      // Insert benefit breakdowns into insurance_policy_coverages
+      if (policy && extracted.benefits.length > 0) {
+        const { error: covError } = await supabase
+          .from("insurance_policy_coverages")
+          .insert(
+            extracted.benefits.map((b, i) => ({
+              policy_id: policy.id,
+              coverage_type: b.coverageType,
+              coverage_amount: b.coverageAmount,
+              benefit_name: b.benefitName,
+              benefit_premium: b.benefitPremium,
+              renewal_bonus: b.renewalBonus,
+              benefit_expiry_date: b.benefitExpiryDate,
+              sort_order: i,
+            })),
+          )
+        if (covError) {
+          console.error("[pdf-scene] Failed to insert coverages:", covError)
+        }
+      }
       break
     }
 

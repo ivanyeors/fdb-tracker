@@ -37,9 +37,23 @@ export function formatExtractionSummary(
       if (result.type) fields.push({ label: "Policy Type", value: result.type.replace(/_/g, " ") })
       if (result.premiumAmount !== null) fields.push({ label: "Premium", value: fmtAmt(result.premiumAmount) })
       if (result.frequency) fields.push({ label: "Frequency", value: result.frequency })
+      if (result.cpfPremium !== null) fields.push({ label: "CPF Premium", value: fmtAmt(result.cpfPremium) })
       if (result.coverageAmount !== null) fields.push({ label: "Coverage", value: fmtAmt(result.coverageAmount) })
+      if (result.coverageTillAge !== null) fields.push({ label: "Coverage Till Age", value: String(result.coverageTillAge) })
       if (result.inceptionDate) fields.push({ label: "Inception", value: result.inceptionDate })
       if (result.endDate) fields.push({ label: "End Date", value: result.endDate })
+      if (result.premiumWaiver) fields.push({ label: "Premium Waiver", value: "Yes" })
+      if (result.cashValue !== null) fields.push({ label: "Cash Value", value: fmtAmt(result.cashValue) })
+      if (result.maturityValue !== null) fields.push({ label: "Maturity Value", value: fmtAmt(result.maturityValue) })
+      if (result.benefits.length > 0) {
+        fields.push({ label: "Benefits", value: `${result.benefits.length} extracted` })
+        for (const b of result.benefits.slice(0, 5)) {
+          fields.push({ label: `  ${b.benefitName}`, value: fmtAmt(b.coverageAmount) })
+        }
+        if (result.benefits.length > 5) {
+          fields.push({ label: "", value: `... +${result.benefits.length - 5} more` })
+        }
+      }
       break
 
     case "bank_statement":

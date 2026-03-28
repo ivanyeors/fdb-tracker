@@ -2,6 +2,7 @@
 
 /* eslint-disable react-hooks/set-state-in-effect -- sync UI state with server action results and prop changes */
 import {
+  Fragment,
   useActionState,
   useCallback,
   useEffect,
@@ -3357,6 +3358,16 @@ function InsuranceSection({
     }
   }
 
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  function toggleRow(id: string) {
+    setExpandedRows((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   const [editing, setEditing] = useState<
     Record<string, (typeof policies)[0]>
   >({})
@@ -3844,17 +3855,16 @@ function InsuranceSection({
 
   return (
     <>
-      <ScrollableTableWrapper minWidth="1050px">
+      <ScrollableTableWrapper minWidth="680px">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Insurance - Name</TableHead>
+            <TableHead className="w-8" />
+            <TableHead>Name</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Insurer</TableHead>
             <TableHead>Premium</TableHead>
             <TableHead>Frequency</TableHead>
-            <TableHead>Coverages</TableHead>
-            <TableHead>Details</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -3865,18 +3875,33 @@ function InsuranceSection({
               e.type,
               e.frequency as "monthly" | "yearly",
             )
+            const isExpanded = expandedRows.has(p.id)
+            const coverageCount = e.coverages.filter((c) => c.coverage_type && c.coverage_amount > 0).length
+            const customCount = e.coverages.filter((c) => !c.coverage_type).length
+            const totalBenefits = coverageCount + customCount
             return (
-              <TableRow key={p.id}>
-                <TableCell>
+              <Fragment key={p.id}>
+              <TableRow className={cn("cursor-pointer", isExpanded && "border-b-0")} onClick={() => toggleRow(p.id)}>
+                <TableCell className="w-8 pr-0">
+                  <div className="flex items-center gap-1.5">
+                    <ChevronRight className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
+                    {totalBenefits > 0 && (
+                      <Badge variant="secondary" className="text-[10px] font-normal px-1.5">
+                        {totalBenefits}
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell onClick={(ev) => ev.stopPropagation()}>
                   <Input
                     value={e.name}
                     onChange={(ev) =>
                       setEditing((prev) => ({ ...prev, [p.id]: { ...(prev[p.id] ?? p), name: ev.target.value } }))
                     }
-                    className="h-8 w-32"
+                    className="h-8 w-36"
                   />
                 </TableCell>
-                <TableCell>
+                <TableCell onClick={(ev) => ev.stopPropagation()}>
                   <Select
                     value={e.type}
                     onValueChange={(v) => {
@@ -3918,7 +3943,7 @@ function InsuranceSection({
                     </SelectContent>
                   </Select>
                 </TableCell>
-                <TableCell>
+                <TableCell onClick={(ev) => ev.stopPropagation()}>
                   <Input
                     value={e.insurer ?? ""}
                     onChange={(ev) =>
@@ -3931,7 +3956,7 @@ function InsuranceSection({
                     className="h-8 w-28"
                   />
                 </TableCell>
-                <TableCell>
+                <TableCell onClick={(ev) => ev.stopPropagation()}>
                   <CurrencyInput
                     value={e.premium_amount}
                     onChange={(v) =>
@@ -3943,7 +3968,7 @@ function InsuranceSection({
                     className="h-8 w-24"
                   />
                 </TableCell>
-                <TableCell>
+                <TableCell onClick={(ev) => ev.stopPropagation()}>
                   <Select
                     value={e.frequency}
                     onValueChange={(v) =>
@@ -3959,370 +3984,426 @@ function InsuranceSection({
                     </SelectContent>
                   </Select>
                 </TableCell>
-                <TableCell>
-                  <div className="space-y-1.5">
-                    {ALLOWED_COVERAGES_BY_POLICY[e.type as InsuranceType]?.length > 0 && (
-                      ALLOWED_COVERAGES_BY_POLICY[e.type as InsuranceType].map((ct) => {
-                        const cov = e.coverages.find((c) => c.coverage_type === ct)
-                        const isChecked = !!cov
-                        return (
-                          <div key={ct} className="flex items-center gap-1.5">
-                            <Switch
-                              checked={isChecked}
-                              onCheckedChange={(checked) => {
-                                const prev_e = editing[p.id] ?? p
-                                setEditing((prev) => ({
-                                  ...prev,
-                                  [p.id]: {
-                                    ...prev_e,
-                                    coverages: checked
-                                      ? [...prev_e.coverages, { id: "", coverage_type: ct as string | null, coverage_amount: 0, benefit_name: COVERAGE_TYPE_LABELS[ct], benefit_premium: null, renewal_bonus: null, benefit_expiry_date: null, benefit_unit: null, sort_order: prev_e.coverages.length }]
-                                      : prev_e.coverages.filter((c) => c.coverage_type !== ct),
-                                  },
-                                }))
-                              }}
-                            />
-                            <span className="text-xs whitespace-nowrap">{COVERAGE_TYPE_LABELS[ct]}</span>
-                            {isChecked && (
-                              <CurrencyInput
-                                value={cov.coverage_amount}
-                                onChange={(v) => {
-                                  const prev_e = editing[p.id] ?? p
-                                  setEditing((prev) => ({
-                                    ...prev,
-                                    [p.id]: {
-                                      ...prev_e,
-                                      coverages: prev_e.coverages.map((c) =>
-                                        c.coverage_type === ct ? { ...c, coverage_amount: v ?? 0 } : c,
-                                      ),
-                                    },
-                                  }))
-                                }}
-                                className="h-7 w-24"
-                              />
-                            )}
-                          </div>
-                        )
-                      })
-                    )}
-                    {e.coverages.filter((c) => !c.coverage_type).map((cb, idx) => (
-                      <div key={`custom-${idx}`} className="flex items-center gap-1.5 rounded border border-dashed p-1">
-                        <Input
-                          value={cb.benefit_name ?? ""}
-                          onChange={(ev) => {
-                            const prev_e = editing[p.id] ?? p
-                            const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
-                            let ci = 0
-                            setEditing((prev) => ({
-                              ...prev,
-                              [p.id]: {
-                                ...prev_e,
-                                coverages: prev_e.coverages.map((c) => {
-                                  if (c.coverage_type) return c
-                                  if (ci++ === customIdx) return { ...c, benefit_name: ev.target.value || null }
-                                  return c
-                                }),
-                              },
-                            }))
-                          }}
-                          placeholder="Benefit"
-                          className="h-7 w-32"
-                        />
-                        <CurrencyInput
-                          value={cb.coverage_amount}
-                          onChange={(v) => {
-                            const prev_e = editing[p.id] ?? p
-                            const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
-                            let ci = 0
-                            setEditing((prev) => ({
-                              ...prev,
-                              [p.id]: {
-                                ...prev_e,
-                                coverages: prev_e.coverages.map((c) => {
-                                  if (c.coverage_type) return c
-                                  if (ci++ === customIdx) return { ...c, coverage_amount: v ?? 0 }
-                                  return c
-                                }),
-                              },
-                            }))
-                          }}
-                          className="h-7 w-20"
-                        />
-                        <CurrencyInput
-                          value={cb.benefit_premium}
-                          onChange={(v) => {
-                            const prev_e = editing[p.id] ?? p
-                            const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
-                            let ci = 0
-                            setEditing((prev) => ({
-                              ...prev,
-                              [p.id]: {
-                                ...prev_e,
-                                coverages: prev_e.coverages.map((c) => {
-                                  if (c.coverage_type) return c
-                                  if (ci++ === customIdx) return { ...c, benefit_premium: v ?? null }
-                                  return c
-                                }),
-                              },
-                            }))
-                          }}
-                          placeholder="Prem"
-                          className="h-7 w-20"
-                        />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0"
-                          onClick={() => {
-                            const prev_e = editing[p.id] ?? p
-                            const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
-                            let ci = 0
-                            setEditing((prev) => ({
-                              ...prev,
-                              [p.id]: {
-                                ...prev_e,
-                                coverages: prev_e.coverages.filter((c) => {
-                                  if (c.coverage_type) return true
-                                  return ci++ !== customIdx
-                                }),
-                              },
-                            }))
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 text-xs"
-                      onClick={() => {
-                        const prev_e = editing[p.id] ?? p
-                        setEditing((prev) => ({
-                          ...prev,
-                          [p.id]: {
-                            ...prev_e,
-                            coverages: [
-                              ...prev_e.coverages,
-                              { id: "", coverage_type: null, coverage_amount: 0, benefit_name: "", benefit_premium: null, renewal_bonus: null, benefit_expiry_date: null, benefit_unit: null, sort_order: prev_e.coverages.length },
-                            ],
-                          },
-                        }))
-                      }}
-                    >
-                      <Plus className="mr-1 h-3 w-3" /> Benefit
-                    </Button>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {rowFields.showYearlyOutflowDate && (
-                      <Select
-                        value={e.yearly_outflow_date?.toString() ?? ""}
-                        onValueChange={(val) =>
-                          setEditing((prev) => ({
-                            ...prev,
-                            [p.id]: {
-                              ...(prev[p.id] ?? p),
-                              yearly_outflow_date: val ? parseInt(val, 10) : null,
-                            },
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="h-8 w-16">
-                          <SelectValue placeholder="Due" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                            <SelectItem key={m} value={m.toString()}>
-                              {m}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    {rowFields.showSubType && (
-                      <Select
-                        value={e.sub_type ?? ""}
-                        onValueChange={(v) =>
-                          setEditing((prev) => ({
-                            ...prev,
-                            [p.id]: { ...(prev[p.id] ?? p), sub_type: v || null },
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="h-8 w-24">
-                          <SelectValue placeholder="Ward" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ISP_SUB_TYPES.map((s) => (
-                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    {rowFields.showRider && (
-                      <>
-                        <Input
-                          value={e.rider_name ?? ""}
-                          onChange={(ev) =>
-                            setEditing((prev) => ({
-                              ...prev,
-                              [p.id]: { ...(prev[p.id] ?? p), rider_name: ev.target.value || null },
-                            }))
-                          }
-                          placeholder="Rider"
-                          className="h-8 w-24"
-                        />
-                        <CurrencyInput
-                          value={e.rider_premium ?? undefined}
-                          onChange={(v) =>
-                            setEditing((prev) => ({
-                              ...prev,
-                              [p.id]: { ...(prev[p.id] ?? p), rider_premium: v ?? null },
-                            }))
-                          }
-                          placeholder="Rider $"
-                          className="h-8 w-20"
-                        />
-                      </>
-                    )}
-                    {rowFields.showCoverageTillAge && (
-                      <Input
-                        type="number"
-                        value={e.coverage_till_age ?? ""}
-                        onChange={(ev) =>
-                          setEditing((prev) => ({
-                            ...prev,
-                            [p.id]: {
-                              ...(prev[p.id] ?? p),
-                              coverage_till_age: ev.target.value ? parseInt(ev.target.value, 10) : null,
-                            },
-                          }))
-                        }
-                        placeholder="Till age"
-                        className="h-8 w-20"
-                        min={1}
-                      />
-                    )}
-                    {rowFields.showCurrentAmount && (
-                      <CurrencyInput
-                        value={e.current_amount ?? undefined}
-                        onChange={(v) =>
-                          setEditing((prev) => ({
-                            ...prev,
-                            [p.id]: { ...(prev[p.id] ?? p), current_amount: v ?? null },
-                          }))
-                        }
-                        className="h-8 w-20"
-                        placeholder={rowFields.currentAmountLabel}
-                      />
-                    )}
-                    {rowFields.showCashValue && (
-                      <CurrencyInput
-                        value={e.cash_value ?? undefined}
-                        onChange={(v) =>
-                          setEditing((prev) => ({
-                            ...prev,
-                            [p.id]: { ...(prev[p.id] ?? p), cash_value: v ?? null },
-                          }))
-                        }
-                        className="h-8 w-20"
-                        placeholder="Cash val"
-                      />
-                    )}
-                    {rowFields.showMaturityValue && (
-                      <CurrencyInput
-                        value={e.maturity_value ?? undefined}
-                        onChange={(v) =>
-                          setEditing((prev) => ({
-                            ...prev,
-                            [p.id]: { ...(prev[p.id] ?? p), maturity_value: v ?? null },
-                          }))
-                        }
-                        className="h-8 w-20"
-                        placeholder="Maturity"
-                      />
-                    )}
-                    {rowFields.showEndDate && (
-                      <DatePicker
-                        value={e.end_date ?? null}
-                        onChange={(d) =>
-                          setEditing((prev) => ({
-                            ...prev,
-                            [p.id]: { ...(prev[p.id] ?? p), end_date: d },
-                          }))
-                        }
-                        placeholder={rowFields.endDateLabel}
-                        className="h-8 w-28"
-                      />
-                    )}
-                    <Input
-                      value={e.policy_number ?? ""}
-                      onChange={(ev) =>
-                        setEditing((prev) => ({
-                          ...prev,
-                          [p.id]: { ...(prev[p.id] ?? p), policy_number: ev.target.value || null },
-                        }))
-                      }
-                      placeholder="Policy #"
-                      className="h-8 w-24"
-                    />
-                    <DatePicker
-                      value={e.inception_date ?? null}
-                      onChange={(d) =>
-                        setEditing((prev) => ({
-                          ...prev,
-                          [p.id]: { ...(prev[p.id] ?? p), inception_date: d },
-                        }))
-                      }
-                      placeholder="Inception"
-                      className="h-8 w-28"
-                    />
-                    <CurrencyInput
-                      value={e.cpf_premium ?? undefined}
-                      onChange={(v) =>
-                        setEditing((prev) => ({
-                          ...prev,
-                          [p.id]: { ...(prev[p.id] ?? p), cpf_premium: v ?? null },
-                        }))
-                      }
-                      placeholder="CPF prem"
-                      className="h-8 w-20"
-                    />
-                    <div className="flex items-center gap-1">
-                      <Switch
-                        checked={e.premium_waiver ?? false}
-                        onCheckedChange={(checked) =>
-                          setEditing((prev) => ({
-                            ...prev,
-                            [p.id]: { ...(prev[p.id] ?? p), premium_waiver: checked },
-                          }))
-                        }
-                      />
-                      <span className="text-xs whitespace-nowrap">Waiver</span>
-                    </div>
-                    <Input
-                      value={e.remarks ?? ""}
-                      onChange={(ev) =>
-                        setEditing((prev) => ({
-                          ...prev,
-                          [p.id]: { ...(prev[p.id] ?? p), remarks: ev.target.value || null },
-                        }))
-                      }
-                      placeholder="Remarks"
-                      className="h-8 w-40"
-                    />
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right" onClick={(ev) => ev.stopPropagation()}>
                   <Button size="sm" variant="ghost" onClick={() => handleDelete(p.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </TableCell>
               </TableRow>
+              {isExpanded && (
+              <TableRow className="bg-muted/10 hover:bg-muted/10">
+                <TableCell colSpan={7} className="px-6 py-4">
+                  <div className="space-y-5">
+                    {/* Coverage & Benefits */}
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Coverage & Benefits</h4>
+                      <div className="space-y-2">
+                        {ALLOWED_COVERAGES_BY_POLICY[e.type as InsuranceType]?.length > 0 && (
+                          ALLOWED_COVERAGES_BY_POLICY[e.type as InsuranceType].map((ct) => {
+                            const cov = e.coverages.find((c) => c.coverage_type === ct)
+                            const isChecked = !!cov
+                            return (
+                              <div key={ct} className="flex items-center gap-2">
+                                <Switch
+                                  checked={isChecked}
+                                  onCheckedChange={(checked) => {
+                                    const prev_e = editing[p.id] ?? p
+                                    setEditing((prev) => ({
+                                      ...prev,
+                                      [p.id]: {
+                                        ...prev_e,
+                                        coverages: checked
+                                          ? [...prev_e.coverages, { id: "", coverage_type: ct as string | null, coverage_amount: 0, benefit_name: COVERAGE_TYPE_LABELS[ct], benefit_premium: null, renewal_bonus: null, benefit_expiry_date: null, benefit_unit: null, sort_order: prev_e.coverages.length }]
+                                          : prev_e.coverages.filter((c) => c.coverage_type !== ct),
+                                      },
+                                    }))
+                                  }}
+                                />
+                                <span className="text-sm w-44">{COVERAGE_TYPE_LABELS[ct]}</span>
+                                {isChecked && (
+                                  <CurrencyInput
+                                    value={cov.coverage_amount}
+                                    onChange={(v) => {
+                                      const prev_e = editing[p.id] ?? p
+                                      setEditing((prev) => ({
+                                        ...prev,
+                                        [p.id]: {
+                                          ...prev_e,
+                                          coverages: prev_e.coverages.map((c) =>
+                                            c.coverage_type === ct ? { ...c, coverage_amount: v ?? 0 } : c,
+                                          ),
+                                        },
+                                      }))
+                                    }}
+                                    className="h-8 w-32"
+                                  />
+                                )}
+                              </div>
+                            )
+                          })
+                        )}
+                        {e.coverages.filter((c) => !c.coverage_type).map((cb, idx) => (
+                          <div key={`custom-${idx}`} className="flex items-center gap-2 rounded-md border border-dashed p-2">
+                            <Input
+                              value={cb.benefit_name ?? ""}
+                              onChange={(ev) => {
+                                const prev_e = editing[p.id] ?? p
+                                const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
+                                let ci = 0
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: {
+                                    ...prev_e,
+                                    coverages: prev_e.coverages.map((c) => {
+                                      if (c.coverage_type) return c
+                                      if (ci++ === customIdx) return { ...c, benefit_name: ev.target.value || null }
+                                      return c
+                                    }),
+                                  },
+                                }))
+                              }}
+                              placeholder="Benefit name"
+                              className="h-8 w-44"
+                            />
+                            <CurrencyInput
+                              value={cb.coverage_amount}
+                              onChange={(v) => {
+                                const prev_e = editing[p.id] ?? p
+                                const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
+                                let ci = 0
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: {
+                                    ...prev_e,
+                                    coverages: prev_e.coverages.map((c) => {
+                                      if (c.coverage_type) return c
+                                      if (ci++ === customIdx) return { ...c, coverage_amount: v ?? 0 }
+                                      return c
+                                    }),
+                                  },
+                                }))
+                              }}
+                              placeholder="Coverage"
+                              className="h-8 w-28"
+                            />
+                            <CurrencyInput
+                              value={cb.benefit_premium}
+                              onChange={(v) => {
+                                const prev_e = editing[p.id] ?? p
+                                const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
+                                let ci = 0
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: {
+                                    ...prev_e,
+                                    coverages: prev_e.coverages.map((c) => {
+                                      if (c.coverage_type) return c
+                                      if (ci++ === customIdx) return { ...c, benefit_premium: v ?? null }
+                                      return c
+                                    }),
+                                  },
+                                }))
+                              }}
+                              placeholder="Premium"
+                              className="h-8 w-24"
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              onClick={() => {
+                                const prev_e = editing[p.id] ?? p
+                                const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
+                                let ci = 0
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: {
+                                    ...prev_e,
+                                    coverages: prev_e.coverages.filter((c) => {
+                                      if (c.coverage_type) return true
+                                      return ci++ !== customIdx
+                                    }),
+                                  },
+                                }))
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => {
+                            const prev_e = editing[p.id] ?? p
+                            setEditing((prev) => ({
+                              ...prev,
+                              [p.id]: {
+                                ...prev_e,
+                                coverages: [
+                                  ...prev_e.coverages,
+                                  { id: "", coverage_type: null, coverage_amount: 0, benefit_name: "", benefit_premium: null, renewal_bonus: null, benefit_expiry_date: null, benefit_unit: null, sort_order: prev_e.coverages.length },
+                                ],
+                              },
+                            }))
+                          }}
+                        >
+                          <Plus className="mr-1 h-3 w-3" /> Add benefit
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Policy Details */}
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Policy Details</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Policy number</Label>
+                          <Input
+                            value={e.policy_number ?? ""}
+                            onChange={(ev) =>
+                              setEditing((prev) => ({
+                                ...prev,
+                                [p.id]: { ...(prev[p.id] ?? p), policy_number: ev.target.value || null },
+                              }))
+                            }
+                            placeholder="e.g. L12345678"
+                            className="h-8"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Inception date</Label>
+                          <DatePicker
+                            value={e.inception_date ?? null}
+                            onChange={(d) =>
+                              setEditing((prev) => ({
+                                ...prev,
+                                [p.id]: { ...(prev[p.id] ?? p), inception_date: d },
+                              }))
+                            }
+                            placeholder="Policy start date"
+                            className="h-8"
+                          />
+                        </div>
+                        {rowFields.showYearlyOutflowDate && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Yearly due month</Label>
+                            <Select
+                              value={e.yearly_outflow_date?.toString() ?? ""}
+                              onValueChange={(val) =>
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: {
+                                    ...(prev[p.id] ?? p),
+                                    yearly_outflow_date: val ? parseInt(val, 10) : null,
+                                  },
+                                }))
+                              }
+                            >
+                              <SelectTrigger className="h-8">
+                                <SelectValue placeholder="Select month" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                                  <SelectItem key={m} value={m.toString()}>
+                                    {new Date(2000, m - 1).toLocaleString("en", { month: "long" })}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        {rowFields.showEndDate && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">{rowFields.endDateLabel}</Label>
+                            <DatePicker
+                              value={e.end_date ?? null}
+                              onChange={(d) =>
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: { ...(prev[p.id] ?? p), end_date: d },
+                                }))
+                              }
+                              placeholder={rowFields.endDateLabel}
+                              className="h-8"
+                            />
+                          </div>
+                        )}
+                        {rowFields.showCoverageTillAge && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Coverage till age</Label>
+                            <Input
+                              type="number"
+                              value={e.coverage_till_age ?? ""}
+                              onChange={(ev) =>
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: {
+                                    ...(prev[p.id] ?? p),
+                                    coverage_till_age: ev.target.value ? parseInt(ev.target.value, 10) : null,
+                                  },
+                                }))
+                              }
+                              placeholder="e.g. 65"
+                              className="h-8"
+                              min={1}
+                            />
+                          </div>
+                        )}
+                        {rowFields.showSubType && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Ward class</Label>
+                            <Select
+                              value={e.sub_type ?? ""}
+                              onValueChange={(v) =>
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: { ...(prev[p.id] ?? p), sub_type: v || null },
+                                }))
+                              }
+                            >
+                              <SelectTrigger className="h-8">
+                                <SelectValue placeholder="Select ward" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {ISP_SUB_TYPES.map((s) => (
+                                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        {rowFields.showRider && (
+                          <>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Rider name</Label>
+                              <Input
+                                value={e.rider_name ?? ""}
+                                onChange={(ev) =>
+                                  setEditing((prev) => ({
+                                    ...prev,
+                                    [p.id]: { ...(prev[p.id] ?? p), rider_name: ev.target.value || null },
+                                  }))
+                                }
+                                placeholder="e.g. Extra Care Rider"
+                                className="h-8"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Rider premium</Label>
+                              <CurrencyInput
+                                value={e.rider_premium ?? undefined}
+                                onChange={(v) =>
+                                  setEditing((prev) => ({
+                                    ...prev,
+                                    [p.id]: { ...(prev[p.id] ?? p), rider_premium: v ?? null },
+                                  }))
+                                }
+                                placeholder="0.00"
+                                className="h-8"
+                              />
+                            </div>
+                          </>
+                        )}
+                        {rowFields.showCurrentAmount && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">{rowFields.currentAmountLabel}</Label>
+                            <CurrencyInput
+                              value={e.current_amount ?? undefined}
+                              onChange={(v) =>
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: { ...(prev[p.id] ?? p), current_amount: v ?? null },
+                                }))
+                              }
+                              className="h-8"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        )}
+                        {rowFields.showCashValue && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Cash value</Label>
+                            <CurrencyInput
+                              value={e.cash_value ?? undefined}
+                              onChange={(v) =>
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: { ...(prev[p.id] ?? p), cash_value: v ?? null },
+                                }))
+                              }
+                              className="h-8"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        )}
+                        {rowFields.showMaturityValue && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Maturity value</Label>
+                            <CurrencyInput
+                              value={e.maturity_value ?? undefined}
+                              onChange={(v) =>
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: { ...(prev[p.id] ?? p), maturity_value: v ?? null },
+                                }))
+                              }
+                              className="h-8"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        )}
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">CPF premium (annual)</Label>
+                          <CurrencyInput
+                            value={e.cpf_premium ?? undefined}
+                            onChange={(v) =>
+                              setEditing((prev) => ({
+                                ...prev,
+                                [p.id]: { ...(prev[p.id] ?? p), cpf_premium: v ?? null },
+                              }))
+                            }
+                            placeholder="0.00"
+                            className="h-8"
+                          />
+                        </div>
+                        <div className="flex items-end pb-1">
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={e.premium_waiver ?? false}
+                              onCheckedChange={(checked) =>
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: { ...(prev[p.id] ?? p), premium_waiver: checked },
+                                }))
+                              }
+                            />
+                            <Label className="text-sm">Premium waiver</Label>
+                          </div>
+                        </div>
+                        <div className="col-span-2 md:col-span-3 space-y-1">
+                          <Label className="text-xs text-muted-foreground">Remarks</Label>
+                          <Input
+                            value={e.remarks ?? ""}
+                            onChange={(ev) =>
+                              setEditing((prev) => ({
+                                ...prev,
+                                [p.id]: { ...(prev[p.id] ?? p), remarks: ev.target.value || null },
+                              }))
+                            }
+                            placeholder="Benefit details, co-pay caps, deferred periods..."
+                            className="h-8"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </TableCell>
+              </TableRow>
+              )}
+              </Fragment>
             )
           })}
         </TableBody>

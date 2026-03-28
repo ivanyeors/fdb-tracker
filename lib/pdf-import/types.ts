@@ -44,6 +44,15 @@ export interface CpfExtractionResult extends BaseExtractionResult {
   ma: number | null
 }
 
+export interface InsuranceBenefitEntry {
+  benefitName: string
+  coverageType: string | null
+  coverageAmount: number
+  benefitPremium: number | null
+  renewalBonus: number | null
+  benefitExpiryDate: string | null
+}
+
 export interface InsuranceExtractionResult extends BaseExtractionResult {
   docType: "insurance_policy"
   insurer: string | null
@@ -58,6 +67,13 @@ export interface InsuranceExtractionResult extends BaseExtractionResult {
   endDate: string | null
   riderName: string | null
   riderPremium: number | null
+  benefits: InsuranceBenefitEntry[]
+  cpfPremium: number | null
+  premiumWaiver: boolean
+  coverageTillAge: number | null
+  subType: string | null
+  cashValue: number | null
+  maturityValue: number | null
 }
 
 export interface BankStatementExtractionResult extends BaseExtractionResult {

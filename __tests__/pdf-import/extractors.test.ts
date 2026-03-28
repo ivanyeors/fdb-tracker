@@ -85,8 +85,45 @@ describe("extractInsurance", () => {
       ACCIDENTAL DEATH BENEFIT
       Dependant Name Coverage start date Coverage Renewal Bonus Premium Coverage expiry date
       YEO RONG SUAN Dec 27, 2018 S$100,000.00 S$15,000.00 S$20.37 Dec 27, 2068
+
+      ACC DISMEMBERMENT AND BURNS
+      Dependant Name Coverage start date Coverage Renewal Bonus Premium Coverage expiry date
+      YEO RONG SUAN Dec 27, 2018 S$100,000.00 S$15,000.00 S$47.88 Dec 27, 2068
+
+      PERMANENT TOTAL DISABLEMENT
+      Dependant Name Coverage start date Coverage Renewal Bonus Premium Coverage expiry date
+      YEO RONG SUAN Dec 27, 2018 S$150,000.00 S$22,500.00 S$10.70 Dec 27, 2068
+
+      DOUBLE INDEMNITY ON ACC DEATH
+      Dependant Name Coverage start date Coverage Renewal Bonus Premium Coverage expiry date
+      YEO RONG SUAN Dec 27, 2018 S$100,000.00 S$15,000.00 S$3.06 Dec 27, 2068
+
+      ACC MEDICAL REIMBURSEMENT
+      Dependant Name Coverage start date Coverage Renewal Bonus Premium Coverage expiry date
+      YEO RONG SUAN Dec 27, 2018 S$2,000.00 NA S$56.17 Dec 27, 2068
+
+      TCM/CHIROPRACTIC REIMBURSEMENT
+      Dependant Name Coverage start date Coverage Renewal Bonus Premium Coverage expiry date
+      YEO RONG SUAN Dec 27, 2018 S$500.00 NA S$41.45 Dec 27, 2068
+
+      WEEKLY INCOME BENEFIT
+      Dependant Name Coverage start date Coverage Renewal Bonus Premium Coverage expiry date
+      YEO RONG SUAN Dec 27, 2018 S$100.00 NA S$30.86 Dec 27, 2068
+
+      MOBILITY AIDS REIMBURSEMENT
+      Dependant Name Coverage start date Coverage Renewal Bonus Premium Coverage expiry date
+      YEO RONG SUAN Dec 27, 2018 S$1,000.00 NA S$26.81 Dec 27, 2068
+
+      HOME MODIFICATION REIMB
+      Dependant Name Coverage start date Coverage Renewal Bonus Premium Coverage expiry date
+      YEO RONG SUAN Dec 27, 2018 S$5,000.00 NA S$3.67 Dec 27, 2068
+
+      FAMILY SUPPORT FUND BENEFIT
+      Dependant Name Coverage start date Coverage Renewal Bonus Premium Coverage expiry date
+      YEO RONG SUAN Dec 27, 2018 S$30,000.00 NA S$6.11 Dec 27, 2068
     `
     const result = extractInsurance(text)
+    // Policy-level fields
     expect(result.insurer).toBe("AIA")
     expect(result.policyNumber).toBe("P561125547")
     expect(result.name).toBe("AIA SOLITAIRE PERSONAL ACCIDENT")
@@ -96,6 +133,35 @@ describe("extractInsurance", () => {
     expect(result.coverageAmount).toBe(100000)
     expect(result.inceptionDate).toBe("2025-12-27")
     expect(result.endDate).toBe("2068-12-27")
+    expect(result.premiumWaiver).toBe(false)
+    expect(result.cpfPremium).toBeNull()
+    expect(result.coverageTillAge).toBeNull()
+
+    // Benefits
+    expect(result.benefits).toHaveLength(10)
+
+    // Accidental Death Benefit
+    expect(result.benefits[0].benefitName).toBe("Accidental Death Benefit")
+    expect(result.benefits[0].coverageType).toBe("death")
+    expect(result.benefits[0].coverageAmount).toBe(100000)
+    expect(result.benefits[0].benefitPremium).toBe(20.37)
+    expect(result.benefits[0].renewalBonus).toBe(15000)
+    expect(result.benefits[0].benefitExpiryDate).toBe("2068-12-27")
+
+    // Permanent Total Disablement
+    expect(result.benefits[2].benefitName).toBe("Permanent Total Disablement")
+    expect(result.benefits[2].coverageType).toBe("tpd")
+    expect(result.benefits[2].coverageAmount).toBe(150000)
+    expect(result.benefits[2].benefitPremium).toBe(10.70)
+
+    // Weekly Income → disability type
+    expect(result.benefits[6].coverageType).toBe("disability")
+
+    // Family Support Fund → null type (custom)
+    expect(result.benefits[9].benefitName).toBe("Family Support Fund Benefit")
+    expect(result.benefits[9].coverageType).toBeNull()
+    expect(result.benefits[9].coverageAmount).toBe(30000)
+
     expect(result.warnings).toHaveLength(0)
   })
 
