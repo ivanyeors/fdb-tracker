@@ -44,6 +44,10 @@ const updatePolicySchema = z.object({
   maturityValue: z.number().min(0).nullable().optional(),
   cashValue: z.number().min(0).nullable().optional(),
   coverageTillAge: z.number().int().min(1).nullable().optional(),
+  inceptionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  cpfPremium: z.number().min(0).nullable().optional(),
+  premiumWaiver: z.boolean().optional(),
+  remarks: z.string().nullable().optional(),
 })
 
 async function verifyPolicyOwnership(
@@ -118,6 +122,10 @@ export async function PATCH(
     if (parsed.data.maturityValue !== undefined) updates.maturity_value = parsed.data.maturityValue
     if (parsed.data.cashValue !== undefined) updates.cash_value = parsed.data.cashValue
     if (parsed.data.coverageTillAge !== undefined) updates.coverage_till_age = parsed.data.coverageTillAge
+    if (parsed.data.inceptionDate !== undefined) updates.inception_date = parsed.data.inceptionDate
+    if (parsed.data.cpfPremium !== undefined) updates.cpf_premium = parsed.data.cpfPremium
+    if (parsed.data.premiumWaiver !== undefined) updates.premium_waiver = parsed.data.premiumWaiver
+    if (parsed.data.remarks !== undefined) updates.remarks = parsed.data.remarks
 
     const coverages = parsed.data.coverages
 

@@ -80,6 +80,13 @@ Add Info icon next to metrics and config fields. Tooltip content lives in `lib/t
 - Modals: Sheet or Dialog components.
 - Feedback: `toast.success()` / `toast.error()` after API calls.
 
+## Card & Mobile Responsiveness
+
+- The base `Card` component does **not** use `overflow-hidden` — content flows naturally. Only add `overflow-hidden` via className when explicitly needed (e.g., cards containing charts that must clip).
+- `CardTitle` and `CardDescription` have `truncate` by default — long text is clipped with ellipsis.
+- All text inside cards (labels, values, descriptions) should use `truncate` to prevent overflow on narrow viewports.
+- Grid layouts containing cards **must** have mobile breakpoints: use `grid-cols-1 sm:grid-cols-2` or `grid-cols-1 sm:grid-cols-3`, never bare `grid-cols-2` or `grid-cols-3` without a responsive prefix.
+
 ## Styling
 
 - Prettier formats Tailwind classes via `prettier-plugin-tailwindcss`.

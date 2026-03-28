@@ -34,6 +34,7 @@ type PolicyForPremium = {
   frequency: string
   yearly_outflow_date: number | null
   is_active: boolean
+  cpf_premium?: number | null
 }
 
 export type MonthPremiumEntry = {
@@ -44,8 +45,10 @@ export type MonthPremiumEntry = {
     amount: number
     type: string
     isRecurring: boolean
+    isCpf?: boolean
   }>
   total: number
+  cpfTotal: number
 }
 
 export function getUpcomingPremiums(
@@ -61,11 +64,15 @@ export function getUpcomingPremiums(
       monthLabel: MONTH_LABELS[month - 1],
       premiums: [],
       total: 0,
+      cpfTotal: 0,
     }
   })
 
   for (const policy of activePolicies) {
+    const cpfAnnual = policy.cpf_premium ?? 0
+
     if (policy.frequency === "monthly") {
+      const cpfMonthly = cpfAnnual / 12
       for (const entry of months) {
         entry.premiums.push({
           name: policy.name,
@@ -74,6 +81,16 @@ export function getUpcomingPremiums(
           isRecurring: true,
         })
         entry.total += policy.premium_amount
+        if (cpfMonthly > 0) {
+          entry.premiums.push({
+            name: `${policy.name} (CPF)`,
+            amount: cpfMonthly,
+            type: policy.type,
+            isRecurring: true,
+            isCpf: true,
+          })
+          entry.cpfTotal += cpfMonthly
+        }
       }
     } else if (
       policy.frequency === "yearly" &&
@@ -90,6 +107,16 @@ export function getUpcomingPremiums(
           isRecurring: false,
         })
         target.total += policy.premium_amount
+        if (cpfAnnual > 0) {
+          target.premiums.push({
+            name: `${policy.name} (CPF)`,
+            amount: cpfAnnual,
+            type: policy.type,
+            isRecurring: false,
+            isCpf: true,
+          })
+          target.cpfTotal += cpfAnnual
+        }
       }
     }
   }

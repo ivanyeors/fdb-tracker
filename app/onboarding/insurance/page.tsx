@@ -117,6 +117,16 @@ export default function InsurancePage() {
         ...updated[index],
         end_date: typeof value === "string" ? value || null : null,
       }
+    else if (field === "inception_date")
+      updated[index] = {
+        ...updated[index],
+        inception_date: typeof value === "string" ? value || null : null,
+      }
+    else if (field === "cpf_premium")
+      updated[index] = {
+        ...updated[index],
+        cpf_premium: typeof value === "number" ? value : Number(value) || null,
+      }
     else if (field === "profileIndex")
       updated[index] = {
         ...updated[index],
@@ -305,6 +315,23 @@ export default function InsurancePage() {
                         />
                       </div>
                     )}
+                    <div className="space-y-1.5">
+                      <Label>Inception date (optional)</Label>
+                      <DatePicker
+                        value={item.inception_date ?? null}
+                        onChange={(d) => updateItem(i, "inception_date", d ?? "")}
+                        placeholder="Policy start date"
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>CPF premium (annual, optional)</Label>
+                      <CurrencyInput
+                        placeholder="0.00"
+                        value={item.cpf_premium ?? null}
+                        onChange={(v) => updateItem(i, "cpf_premium", v ?? 0)}
+                      />
+                    </div>
                   </>
                 )
               })()}

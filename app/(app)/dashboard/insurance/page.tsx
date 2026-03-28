@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
-import { Check, X, DollarSign, Percent } from "lucide-react"
+import { Check, X, DollarSign, Percent, ChevronDown, ShieldCheck, FileText } from "lucide-react"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { useActiveProfile } from "@/hooks/use-active-profile"
@@ -55,6 +55,10 @@ interface Policy {
   coverage_till_age: number | null
   end_date: string | null
   current_amount: number | null
+  inception_date: string | null
+  cpf_premium: number | null
+  premium_waiver: boolean
+  remarks: string | null
   coverages: PolicyCoverage[]
 }
 
@@ -70,8 +74,8 @@ const RADAR_AXES = [
 /** Each axis maps to one or more coverage types; grouped axes average their values. */
 const RADAR_AXIS_TYPES: string[][] = [
   ["death", "tpd"],
-  ["critical_illness"],
-  ["hospitalization"],
+  ["critical_illness", "early_critical_illness"],
+  ["hospitalization", "medical_reimbursement"],
   ["disability"],
   ["long_term_care"],
 ]
@@ -125,6 +129,7 @@ export default function InsurancePage() {
     useState<HouseholdCoverageAnalysis | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showDollars, setShowDollars] = useState(false)
+  const [expandedPolicies, setExpandedPolicies] = useState<Set<string>>(new Set())
 
   const fetchData = useCallback(async () => {
     if (!activeProfileId && !activeFamilyId) {
@@ -161,13 +166,19 @@ export default function InsurancePage() {
     [policies],
   )
 
-  const totalAnnualPremium = useMemo(() => {
-    return activePolicies.reduce((sum, p) => {
+  const { totalAnnualPremium, totalAnnualCpfPremium } = useMemo(() => {
+    let total = 0
+    let cpf = 0
+    for (const p of activePolicies) {
       const annual =
         p.frequency === "monthly" ? p.premium_amount * 12 : p.premium_amount
-      return sum + annual
-    }, 0)
+      total += annual
+      cpf += p.cpf_premium ?? 0
+    }
+    return { totalAnnualPremium: total, totalAnnualCpfPremium: cpf }
   }, [activePolicies])
+
+  const totalAnnualCashPremium = totalAnnualPremium - totalAnnualCpfPremium
 
   const totalCoverage = useMemo(
     () =>
@@ -275,10 +286,11 @@ export default function InsurancePage() {
           <TabsContent value="overview" className="space-y-6">
             <div className="grid gap-4 md:grid-cols-4">
               <MetricCard
-                label="Annual Premiums"
-                value={totalAnnualPremium}
+                label="Annual Premiums (Cash)"
+                value={totalAnnualCashPremium}
                 prefix="$"
                 tooltipId="INSURANCE_DEDUCT"
+                subtitle={totalAnnualCpfPremium > 0 ? `+$${formatCurrency(totalAnnualCpfPremium)} CPF` : undefined}
               />
               <MetricCard
                 label="Total Coverage"
@@ -501,6 +513,12 @@ export default function InsurancePage() {
                         <th className="px-4 py-3 text-left font-medium">
                           Type
                         </th>
+                        <th className="hidden px-4 py-3 text-left font-medium lg:table-cell">
+                          Policy #
+                        </th>
+                        <th className="hidden px-4 py-3 text-left font-medium lg:table-cell">
+                          Inception
+                        </th>
                         <th className="px-4 py-3 text-left font-medium">
                           Coverages
                         </th>
@@ -510,79 +528,176 @@ export default function InsurancePage() {
                         <th className="px-4 py-3 text-left font-medium">
                           Freq
                         </th>
+                        <th className="hidden px-4 py-3 text-left font-medium lg:table-cell">
+                          Term
+                        </th>
+                        <th className="hidden px-4 py-3 text-right font-medium lg:table-cell">
+                          Cash Value
+                        </th>
                         <th className="px-4 py-3 text-center font-medium">
                           Status
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {policies.map((policy) => (
-                        <tr
-                          key={policy.id}
-                          className="border-b last:border-0"
-                        >
-                          <td className="px-4 py-3 font-medium">
-                            {policy.name}
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            {policy.insurer ?? "—"}
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            {INSURANCE_TYPE_LABELS[
-                              policy.type as InsuranceType
-                            ] ?? policy.type.replace(/_/g, " ")}
-                          </td>
-                          <td className="px-4 py-3">
-                            {policy.coverages && policy.coverages.length > 0 ? (
-                              <div className="space-y-1">
-                                {policy.coverages.map((c) => (
-                                  <div key={c.coverage_type} className="flex items-center gap-2">
-                                    <Badge variant="outline" className="text-[10px] shrink-0">
-                                      {COVERAGE_TYPE_LABELS[c.coverage_type as CoverageType] ?? c.coverage_type.replace(/_/g, " ")}
-                                    </Badge>
-                                    <span className="text-xs tabular-nums text-muted-foreground">
-                                      {c.coverage_amount > 0 ? `$${formatCurrency(c.coverage_amount)}` : "—"}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">
-                                {policy.coverage_type?.replace(/_/g, " ") ?? "—"}
-                                {policy.coverage_amount ? ` ($${formatCurrency(policy.coverage_amount)})` : ""}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right tabular-nums">
-                            ${formatCurrency(policy.premium_amount)}
-                            {policy.rider_premium != null &&
-                              policy.rider_premium > 0 && (
-                                <span className="block text-xs text-muted-foreground">
-                                  +${formatCurrency(policy.rider_premium)}{" "}
-                                  rider
-                                </span>
-                              )}
-                          </td>
-                          <td className="px-4 py-3 capitalize text-muted-foreground">
-                            {policy.frequency}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <Badge
-                              variant={
-                                policy.is_active ? "default" : "secondary"
-                              }
-                              className={
-                                policy.is_active
-                                  ? "bg-green-600/20 text-green-700 hover:bg-green-600/30 dark:text-green-400"
-                                  : ""
-                              }
+                      {policies.map((policy) => {
+                        const isExpanded = expandedPolicies.has(policy.id)
+                        const hasExpandableContent = policy.remarks || policy.premium_waiver
+                        return (
+                          <React.Fragment key={policy.id}>
+                            <tr
+                              className={`border-b last:border-0 ${hasExpandableContent ? "cursor-pointer hover:bg-muted/30" : ""}`}
+                              onClick={() => {
+                                if (!hasExpandableContent) return
+                                setExpandedPolicies((prev) => {
+                                  const next = new Set(prev)
+                                  if (next.has(policy.id)) next.delete(policy.id)
+                                  else next.add(policy.id)
+                                  return next
+                                })
+                              }}
                             >
-                              {policy.is_active ? "Active" : "Inactive"}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
+                              <td className="px-4 py-3 font-medium">
+                                <div className="flex items-center gap-1.5">
+                                  {policy.name}
+                                  {hasExpandableContent && (
+                                    <ChevronDown className={`size-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-muted-foreground">
+                                {policy.insurer ?? "—"}
+                              </td>
+                              <td className="px-4 py-3 text-muted-foreground">
+                                {INSURANCE_TYPE_LABELS[
+                                  policy.type as InsuranceType
+                                ] ?? policy.type.replace(/_/g, " ")}
+                              </td>
+                              <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
+                                {policy.policy_number ?? "—"}
+                              </td>
+                              <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
+                                {policy.inception_date
+                                  ? new Intl.DateTimeFormat("en-SG", { month: "short", year: "numeric" }).format(new Date(policy.inception_date))
+                                  : "—"}
+                              </td>
+                              <td className="px-4 py-3">
+                                {policy.coverages && policy.coverages.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {policy.coverages.map((c) => (
+                                      <div key={c.coverage_type} className="flex items-center gap-2">
+                                        <Badge variant="outline" className="text-[10px] shrink-0">
+                                          {COVERAGE_TYPE_LABELS[c.coverage_type as CoverageType] ?? c.coverage_type.replace(/_/g, " ")}
+                                        </Badge>
+                                        <span className="text-xs tabular-nums text-muted-foreground">
+                                          {c.coverage_amount > 0 ? `$${formatCurrency(c.coverage_amount)}` : "—"}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">
+                                    {policy.coverage_type?.replace(/_/g, " ") ?? "—"}
+                                    {policy.coverage_amount ? ` ($${formatCurrency(policy.coverage_amount)})` : ""}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-right tabular-nums">
+                                ${formatCurrency(policy.premium_amount)}
+                                {policy.rider_premium != null &&
+                                  policy.rider_premium > 0 && (
+                                    <span className="block text-xs text-muted-foreground">
+                                      +${formatCurrency(policy.rider_premium)}{" "}
+                                      rider
+                                    </span>
+                                  )}
+                                {policy.cpf_premium != null &&
+                                  policy.cpf_premium > 0 && (
+                                    <span className="block text-xs text-blue-600 dark:text-blue-400">
+                                      ${formatCurrency(policy.cpf_premium)}/yr CPF
+                                    </span>
+                                  )}
+                              </td>
+                              <td className="px-4 py-3 capitalize text-muted-foreground">
+                                {policy.frequency}
+                              </td>
+                              <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
+                                {policy.coverage_till_age
+                                  ? `Till age ${policy.coverage_till_age}`
+                                  : "—"}
+                              </td>
+                              <td className="hidden px-4 py-3 text-right tabular-nums text-muted-foreground lg:table-cell">
+                                {policy.cash_value != null && policy.cash_value > 0
+                                  ? `$${formatCurrency(policy.cash_value)}`
+                                  : "—"}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <Badge
+                                  variant={
+                                    policy.is_active ? "default" : "secondary"
+                                  }
+                                  className={
+                                    policy.is_active
+                                      ? "bg-green-600/20 text-green-700 hover:bg-green-600/30 dark:text-green-400"
+                                      : ""
+                                  }
+                                >
+                                  {policy.is_active ? "Active" : "Inactive"}
+                                </Badge>
+                              </td>
+                            </tr>
+                            {isExpanded && (
+                              <tr className="border-b last:border-0 bg-muted/20">
+                                <td colSpan={11} className="px-6 py-3">
+                                  <div className="flex flex-wrap items-start gap-4 text-xs text-muted-foreground">
+                                    {policy.premium_waiver && (
+                                      <div className="flex items-center gap-1">
+                                        <ShieldCheck className="size-3.5 text-green-600" />
+                                        <span className="font-medium text-green-700 dark:text-green-400">Premium Waiver</span>
+                                      </div>
+                                    )}
+                                    {policy.remarks && (
+                                      <div className="flex items-start gap-1">
+                                        <FileText className="mt-0.5 size-3.5 shrink-0" />
+                                        <span className="whitespace-pre-wrap">{policy.remarks}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        )
+                      })}
                     </tbody>
+                    <tfoot>
+                      <tr className="border-t bg-muted/50 font-medium">
+                        <td className="px-4 py-3" colSpan={5}>
+                          Total ({activePolicies.length} active)
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs tabular-nums">
+                            ${formatCurrency(totalCoverage)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          ${formatCurrency(totalAnnualCashPremium)}/yr
+                          {totalAnnualCpfPremium > 0 && (
+                            <span className="block text-xs font-normal text-blue-600 dark:text-blue-400">
+                              +${formatCurrency(totalAnnualCpfPremium)} CPF
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3" colSpan={2}></td>
+                        <td className="hidden px-4 py-3 text-right tabular-nums lg:table-cell">
+                          {(() => {
+                            const totalCash = activePolicies.reduce((s, p) => s + (p.cash_value ?? 0), 0)
+                            return totalCash > 0 ? `$${formatCurrency(totalCash)}` : "—"
+                          })()}
+                        </td>
+                        <td className="px-4 py-3"></td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               </div>

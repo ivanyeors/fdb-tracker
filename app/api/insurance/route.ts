@@ -103,6 +103,10 @@ const createPolicySchema = z.object({
   maturityValue: z.number().min(0).nullable().optional(),
   cashValue: z.number().min(0).nullable().optional(),
   coverageTillAge: z.number().int().min(1).nullable().optional(),
+  inceptionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  cpfPremium: z.number().min(0).nullable().optional(),
+  premiumWaiver: z.boolean().optional(),
+  remarks: z.string().nullable().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -160,6 +164,10 @@ export async function POST(request: NextRequest) {
         maturity_value: parsed.data.maturityValue ?? null,
         cash_value: parsed.data.cashValue ?? null,
         coverage_till_age: parsed.data.coverageTillAge ?? null,
+        inception_date: parsed.data.inceptionDate ?? null,
+        cpf_premium: parsed.data.cpfPremium ?? null,
+        premium_waiver: parsed.data.premiumWaiver ?? false,
+        remarks: parsed.data.remarks ?? null,
       })
       .select()
       .single()

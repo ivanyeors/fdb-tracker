@@ -131,11 +131,11 @@ export function InvestmentCard({
       <CardContent>
         <div className="flex flex-1 flex-col">
           <p className="text-sm text-muted-foreground">Total investments</p>
-          <p className="mt-1 text-2xl font-bold tracking-tight">
+          <p className="mt-1 truncate text-2xl font-bold tracking-tight">
             ${formatCurrency(totalValue)}
           </p>
           {netLiquidValue != null && ilpFundTotal != null && (
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 truncate text-xs text-muted-foreground">
               NLV ${formatCurrency(netLiquidValue)}
               <span className="mx-1">·</span>
               ILP ${formatCurrency(ilpFundTotal)}

@@ -3,6 +3,7 @@ import { format, startOfMonth } from "date-fns"
 
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { botState, MyContext } from "@/lib/telegram/bot"
+import { sanitizeText } from "@/lib/telegram/sanitize"
 import {
   parseAmountAndMemoFromRest,
   parseCashflowOneLine,
@@ -96,7 +97,7 @@ export function createCashflowScene(type: CashflowType) {
 
       if (profilesError || !profiles || profiles.length === 0) {
         await ctx.reply(
-          "❌ No profiles found. Create one in the web dashboard first.",
+          "❌ No profiles found. Create one in the web dashboard first."
         )
         return ctx.scene.leave()
       }
@@ -124,14 +125,14 @@ export function createCashflowScene(type: CashflowType) {
           ctx.scene.session.profileId = one.profileId
           ctx.scene.session.profileName = one.profileName
           ctx.scene.session.amount = one.amount
-          if (one.memo) ctx.scene.session.memo = one.memo
+          if (one.memo) ctx.scene.session.memo = sanitizeText(one.memo)
           // Jump to confirmation
           ctx.wizard.selectStep(STEP_CONFIRM)
           await sendConfirmation(ctx, type)
           return
         }
         await ctx.reply(
-          `ℹ️ Could not parse that message. Try \`/${type === "inflow" ? "in" : "out"} 5000\` or \`/${type === "inflow" ? "in" : "out"} YourName 5000 short note\`, or continue below.`,
+          `ℹ️ Could not parse that message. Try \`/${type === "inflow" ? "in" : "out"} 5000\` or \`/${type === "inflow" ? "in" : "out"} YourName 5000 short note\`, or continue below.`
         )
       }
 
@@ -150,11 +151,11 @@ export function createCashflowScene(type: CashflowType) {
         const header = progressHeader(
           1,
           TOTAL_STEPS,
-          `Recording ${label(type)}`,
+          `Recording ${label(type)}`
         )
         await ctx.reply(
           `${header}\n\nSelected profile: ${profiles[0].name}\n\nSelect the month:`,
-          { reply_markup: buildMonthPicker() },
+          { reply_markup: buildMonthPicker() }
         )
         ctx.wizard.selectStep(STEP_MONTH)
         return
@@ -164,11 +165,7 @@ export function createCashflowScene(type: CashflowType) {
         { text: p.name, callback_data: `profile_${p.id}_${p.name}` },
       ])
 
-      const header = progressHeader(
-        1,
-        TOTAL_STEPS,
-        `Recording ${label(type)}`,
-      )
+      const header = progressHeader(1, TOTAL_STEPS, `Recording ${label(type)}`)
       await ctx.reply(`${header}\n\nSelect a profile:`, {
         reply_markup: { inline_keyboard: buttons },
       })
@@ -188,7 +185,7 @@ export function createCashflowScene(type: CashflowType) {
           const header = progressHeader(
             2,
             TOTAL_STEPS,
-            `Recording ${label(type)} for ${ctx.scene.session.profileName}`,
+            `Recording ${label(type)} for ${ctx.scene.session.profileName}`
           )
           await ctx.reply(`${header}\n\nSelect the month:`, {
             reply_markup: buildMonthPicker(),
@@ -208,20 +205,18 @@ export function createCashflowScene(type: CashflowType) {
           ctx.scene.session.monthLabel = parsed.monthLabel
           await ctx.answerCbQuery()
 
-          const returned = await advanceOrReturn(
-            ctx,
-            STEP_CONFIRM,
-            (c) => sendConfirmation(c, type),
+          const returned = await advanceOrReturn(ctx, STEP_CONFIRM, (c) =>
+            sendConfirmation(c, type)
           )
           if (returned) return
 
           const header = progressHeader(
             3,
             TOTAL_STEPS,
-            `Recording ${label(type)} for ${ctx.scene.session.profileName}`,
+            `Recording ${label(type)} for ${ctx.scene.session.profileName}`
           )
           await ctx.reply(
-            `${header}\n\nMonth: ${parsed.monthLabel}\n\nEnter the ${label(type)} amount:`,
+            `${header}\n\nMonth: ${parsed.monthLabel}\n\nEnter the ${label(type)} amount:`
           )
           return ctx.wizard.next()
         }
@@ -244,17 +239,17 @@ export function createCashflowScene(type: CashflowType) {
         await ctx.reply(
           errorMsg(
             "Invalid amount. Enter a positive number, optionally followed by a short note.",
-            `5000 ${exampleMemo(type)}`,
-          ),
+            `5000 ${exampleMemo(type)}`
+          )
         )
         return undefined
       }
 
       ctx.scene.session.amount = parsed.amount
-      if (parsed.memo) ctx.scene.session.memo = parsed.memo
+      if (parsed.memo) ctx.scene.session.memo = sanitizeText(parsed.memo)
 
       const returned = await advanceOrReturn(ctx, STEP_CONFIRM, (c) =>
-        sendConfirmation(c, type),
+        sendConfirmation(c, type)
       )
       if (returned) return
 
@@ -268,10 +263,10 @@ export function createCashflowScene(type: CashflowType) {
       const header = progressHeader(
         4,
         TOTAL_STEPS,
-        `Recording ${label(type)} for ${ctx.scene.session.profileName}`,
+        `Recording ${label(type)} for ${ctx.scene.session.profileName}`
       )
       await ctx.reply(
-        `${header}\n\n💭 Anything to remember for this month? Reply with a short note, or send /skip.`,
+        `${header}\n\n💭 Anything to remember for this month? Reply with a short note, or send /skip.`
       )
       return ctx.wizard.next()
     },
@@ -284,11 +279,11 @@ export function createCashflowScene(type: CashflowType) {
       if (t === "/skip" || t.toLowerCase() === "skip") {
         ctx.scene.session.memo = undefined
       } else {
-        ctx.scene.session.memo = t.slice(0, 2000)
+        ctx.scene.session.memo = sanitizeText(t)
       }
 
       const returned = await advanceOrReturn(ctx, STEP_CONFIRM, (c) =>
-        sendConfirmation(c, type),
+        sendConfirmation(c, type)
       )
       if (returned) return
 
@@ -355,7 +350,7 @@ export function createCashflowScene(type: CashflowType) {
           const header = progressHeader(
             2,
             TOTAL_STEPS,
-            `Editing month for ${label(type)}`,
+            `Editing month for ${label(type)}`
           )
           await ctx.reply(`${header}\n\nSelect a new month:`, {
             reply_markup: buildMonthPicker(),
@@ -369,11 +364,9 @@ export function createCashflowScene(type: CashflowType) {
           const header = progressHeader(
             3,
             TOTAL_STEPS,
-            `Editing amount for ${label(type)}`,
+            `Editing amount for ${label(type)}`
           )
-          await ctx.reply(
-            `${header}\n\nEnter the new ${label(type)} amount:`,
-          )
+          await ctx.reply(`${header}\n\nEnter the new ${label(type)} amount:`)
           return
         }
 
@@ -383,17 +376,17 @@ export function createCashflowScene(type: CashflowType) {
           const header = progressHeader(
             4,
             TOTAL_STEPS,
-            `Editing memo for ${label(type)}`,
+            `Editing memo for ${label(type)}`
           )
           await ctx.reply(
-            `${header}\n\nEnter a new memo, or send /skip to remove it.`,
+            `${header}\n\nEnter a new memo, or send /skip to remove it.`
           )
           return
         }
       }
 
       return undefined
-    },
+    }
   )
 }
 

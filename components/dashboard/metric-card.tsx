@@ -12,6 +12,7 @@ interface MetricCardProps {
   value: string | number
   prefix?: string
   suffix?: string
+  subtitle?: string
   trend?: number
   trendLabel?: string
   tooltipId?: keyof typeof TOOLTIPS
@@ -24,6 +25,7 @@ export function MetricCard({
   value,
   prefix,
   suffix,
+  subtitle,
   trend,
   trendLabel,
   tooltipId,
@@ -45,10 +47,10 @@ export function MetricCard({
     <Card className={className}>
       <CardContent>
         <div className="flex items-center gap-1.5">
-          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="truncate text-sm text-muted-foreground">{label}</p>
           {tooltipId && <InfoTooltip id={tooltipId} />}
         </div>
-        <p className="mt-1 text-2xl font-bold tracking-tight">
+        <p className="mt-1 truncate text-2xl font-bold tracking-tight">
           {prefix}
           {typeof value === "number"
             ? prefix === "$"
@@ -57,6 +59,9 @@ export function MetricCard({
             : value}
           {suffix}
         </p>
+        {subtitle && (
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</p>
+        )}
         {trend !== undefined && (
           <div className="mt-1 flex items-center gap-1 text-sm">
             {trend >= 0 ? (

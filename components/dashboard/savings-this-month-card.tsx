@@ -134,7 +134,7 @@ export function SavingsThisMonthCard({
               <p className="text-sm text-muted-foreground">Savings this month</p>
             </div>
             <div className="mt-1 flex items-center gap-2">
-              <span className="text-2xl font-bold tracking-tight">
+              <span className="truncate text-2xl font-bold tracking-tight">
                 ${formatCurrency(savingsThisMonth)}
               </span>
               {trend !== 0 && (

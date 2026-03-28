@@ -16,6 +16,7 @@ export type Database = {
           telegram_chat_id: string | null
           telegram_bot_token: string | null
           onboarding_completed_at: string | null
+          account_type: string
           created_at: string
         }
         Insert: {
@@ -24,6 +25,7 @@ export type Database = {
           telegram_chat_id?: string | null
           telegram_bot_token?: string | null
           onboarding_completed_at?: string | null
+          account_type?: string
           created_at?: string
         }
         Update: {
@@ -32,6 +34,7 @@ export type Database = {
           telegram_chat_id?: string | null
           telegram_bot_token?: string | null
           onboarding_completed_at?: string | null
+          account_type?: string
           created_at?: string
         }
         Relationships: []
@@ -1298,6 +1301,10 @@ export type Database = {
           maturity_value: number | null
           cash_value: number | null
           coverage_till_age: number | null
+          inception_date: string | null
+          cpf_premium: number | null
+          premium_waiver: boolean
+          remarks: string | null
           created_at: string
         }
         Insert: {
@@ -1322,6 +1329,10 @@ export type Database = {
           maturity_value?: number | null
           cash_value?: number | null
           coverage_till_age?: number | null
+          inception_date?: string | null
+          cpf_premium?: number | null
+          premium_waiver?: boolean
+          remarks?: string | null
           created_at?: string
         }
         Update: {
@@ -1346,6 +1357,10 @@ export type Database = {
           maturity_value?: number | null
           cash_value?: number | null
           coverage_till_age?: number | null
+          inception_date?: string | null
+          cpf_premium?: number | null
+          premium_waiver?: boolean
+          remarks?: string | null
           created_at?: string
         }
         Relationships: [

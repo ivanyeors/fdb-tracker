@@ -16,19 +16,25 @@ export async function GET(request: NextRequest) {
   if (!token) {
     return NextResponse.json(
       { ok: false, error: "TELEGRAM_BOT_TOKEN is not set" },
-      { status: 500 },
+      { status: 500 }
     )
   }
 
   if (!baseUrl) {
     return NextResponse.json(
       { ok: false, error: "NEXT_PUBLIC_APP_URL is not set" },
-      { status: 500 },
+      { status: 500 }
     )
   }
 
   const webhookUrl = `${baseUrl.replace(/\/$/, "")}/api/telegram/webhook`
-  const apiUrl = `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}`
+  const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET
+
+  const params = new URLSearchParams({ url: webhookUrl })
+  if (webhookSecret) {
+    params.set("secret_token", webhookSecret)
+  }
+  const apiUrl = `https://api.telegram.org/bot${token}/setWebhook?${params.toString()}`
 
   try {
     const res = await fetch(apiUrl)
@@ -46,13 +52,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       { ok: false, error: data.description ?? res.statusText },
-      { status: 400 },
+      { status: 400 }
     )
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error"
-    return NextResponse.json(
-      { ok: false, error: message },
-      { status: 500 },
-    )
+    return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }
 }

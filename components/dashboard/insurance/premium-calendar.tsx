@@ -13,6 +13,7 @@ type PremiumCalendarProps = {
     frequency: string
     yearly_outflow_date: number | null
     is_active: boolean
+    cpf_premium?: number | null
   }>
 }
 
@@ -105,9 +106,16 @@ function MonthCard({
         {entry.premiums.map((p, i) => (
           <div
             key={`${p.name}-${i}`}
-            className="flex items-center gap-1 text-[10px] leading-tight text-muted-foreground"
+            className={cn(
+              "flex items-center gap-1 text-[10px] leading-tight",
+              p.isCpf ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground",
+            )}
           >
-            {p.isRecurring ? (
+            {p.isCpf ? (
+              <span className="shrink-0 text-[8px]" title="CPF premium">
+                ◆
+              </span>
+            ) : p.isRecurring ? (
               <span className="shrink-0 text-[8px]" title="Monthly recurring">
                 ↻
               </span>

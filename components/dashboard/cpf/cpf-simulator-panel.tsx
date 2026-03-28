@@ -130,7 +130,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                       </span>
                     </div>
                     {loan.enabled && (
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                         <div className="space-y-1">
                           <Label className="text-[10px] text-muted-foreground">
                             Principal
@@ -209,7 +209,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                         <X className="h-3.5 w-3.5" />
                       </Button>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                       <div className="space-y-1">
                         <Label className="text-[10px] text-muted-foreground">
                           Principal
@@ -294,7 +294,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                         <X className="h-3.5 w-3.5" />
                       </Button>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                       <div className="space-y-1">
                         <Label className="text-[10px] text-muted-foreground">
                           Principal

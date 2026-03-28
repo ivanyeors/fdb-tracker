@@ -7,8 +7,7 @@ import { cancelMiddleware } from "@/lib/telegram/scene-helpers"
 import { generateAndStoreOtp } from "@/lib/auth/otp"
 import {
   resolveHouseholdId,
-  resolveProfileContext,
-  getOrCreateAccount,
+  resolveOrProvisionPublicUser,
 } from "@/lib/telegram/resolve-household"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { supabaseSessionStore } from "@/lib/telegram/session"
@@ -29,7 +28,9 @@ type CommandHandler = (accountId: string, text: string) => Promise<string>
 
 const textCommands: Record<string, CommandHandler> = {}
 
-function extractCommand(text: string): { command: string; rest: string } | null {
+function extractCommand(
+  text: string
+): { command: string; rest: string } | null {
   const match = text.match(/^\/(\w+)(@\S+)?\s*([\s\S]*)$/)
   if (!match) return null
   return { command: match[1], rest: match[3] ?? "" }
@@ -37,21 +38,47 @@ function extractCommand(text: string): { command: string; rest: string } | null 
 
 async function handleStartCommand(
   chatId: string,
-  reply: (text: string) => Promise<unknown>,
+  fromUserId: string | null,
+  fromUsername: string | null,
+  firstName: string | null,
+  reply: (text: string) => Promise<unknown>
 ): Promise<void> {
-  const accountId = await getOrCreateAccount(chatId)
-  if (!accountId) {
-    await reply("❌ Something went wrong setting up your account. Please try again.")
+  const ctx = await resolveOrProvisionPublicUser(
+    chatId,
+    fromUserId,
+    fromUsername,
+    firstName
+  )
+  if (!ctx) {
+    await reply(
+      "❌ Something went wrong setting up your account. Please try again."
+    )
     return
   }
-  await reply(
-    "👋 Welcome to fdb-tracker!\n\n" +
-      "Use /otp to get a one-time password for logging in.\n" +
-      "Use /link to link your profile — I'll guide you through it.\n" +
-      "Use /auth to link your account with an API key from the platform.\n" +
-      "Type / to see all available commands.\n" +
-      "Type /cancel at any time to exit a command.",
-  )
+
+  if (ctx.accountType === "public") {
+    await reply(
+      "👋 Welcome to fdb-tracker!\n\n" +
+        "Track your finances right here in Telegram:\n" +
+        "  /in — Record monthly income\n" +
+        "  /out — Record monthly expenses\n" +
+        "  /buy — Record a stock purchase\n" +
+        "  /sell — Record a stock sale\n" +
+        "  /goaladd — Add to a savings goal\n" +
+        "  /repay — Log a loan repayment\n\n" +
+        "Type / to see all available commands.\n" +
+        "Type /cancel at any time to exit a command."
+    )
+  } else {
+    await reply(
+      "👋 Welcome to fdb-tracker!\n\n" +
+        "Use /otp to get a one-time password for logging in.\n" +
+        "Use /link to link your profile — I'll guide you through it.\n" +
+        "Use /auth to link your account with an API key from the platform.\n" +
+        "Type / to see all available commands.\n" +
+        "Type /cancel at any time to exit a command."
+    )
+  }
 }
 
 async function handleOtpCommand(ctx: MyContext): Promise<void> {
@@ -65,22 +92,36 @@ async function handleOtpCommand(ctx: MyContext): Promise<void> {
 
   console.log(
     "[telegram/otp] handleOtpCommand called:",
-    JSON.stringify({ chatId: chat.id, chatType: chat.type, fromUserId, telegramUsername }),
+    JSON.stringify({
+      chatId: chat.id,
+      chatType: chat.type,
+      fromUserId,
+      telegramUsername,
+    })
   )
   try {
     const accountId = await resolveHouseholdId(
       String(chat.id),
       fromUserId != null ? String(fromUserId) : null,
-      { telegramUsername, allowCreate: false },
+      { telegramUsername, allowCreate: false }
     )
 
     if (accountId) {
-      console.log("[telegram/otp] Account resolved:", JSON.stringify({ chatId: chat.id, accountId }))
+      console.log(
+        "[telegram/otp] Account resolved:",
+        JSON.stringify({ chatId: chat.id, accountId })
+      )
 
       const result = await generateAndStoreOtp(accountId)
-      console.log("[telegram/otp] generateAndStoreOtp result:", JSON.stringify(result))
+      console.log(
+        "[telegram/otp] generateAndStoreOtp result:",
+        JSON.stringify(result)
+      )
       if (!result.ok) {
-        console.error("[telegram/otp] OTP creation failed:", JSON.stringify(result))
+        console.error(
+          "[telegram/otp] OTP creation failed:",
+          JSON.stringify(result)
+        )
         await ctx.reply(`❌ ${result.error}`)
         return
       }
@@ -134,7 +175,12 @@ function ensureHandlers() {
 
   bot.on("message", async (ctx) => {
     const msg = ctx.message
-    console.log("[telegram/webhook] bot.on('message') triggered, chat.id:", msg.chat.id, "chat.type:", msg.chat.type)
+    console.log(
+      "[telegram/webhook] bot.on('message') triggered, chat.id:",
+      msg.chat.id,
+      "chat.type:",
+      msg.chat.type
+    )
 
     if (!("text" in msg) || !msg.text) {
       console.log("[telegram/webhook] No text in message, ignoring")
@@ -152,54 +198,84 @@ function ensureHandlers() {
     const chatId = msg.chat.id
 
     if (parsed.command === "start") {
-      await handleStartCommand(String(chatId), (text) =>
-        bot.telegram.sendMessage(chatId, text),
+      await handleStartCommand(
+        String(chatId),
+        msg.from?.id != null ? String(msg.from.id) : null,
+        msg.from?.username ?? null,
+        msg.from?.first_name ?? null,
+        (text) => bot.telegram.sendMessage(chatId, text)
       )
       return
     }
 
+    // Resolve user context (auto-provisions public accounts on first use)
+    const userContext = await resolveOrProvisionPublicUser(
+      String(chatId),
+      msg.from?.id != null ? String(msg.from.id) : null,
+      msg.from?.username ?? null,
+      msg.from?.first_name ?? null
+    )
+
+    // Gate owner-only commands
     if (parsed.command === "auth") {
+      if (userContext?.accountType === "public") {
+        await ctx.reply(
+          "This command is not available. Use /in, /out, /buy, /sell, /goaladd, or /repay to track your finances."
+        )
+        return
+      }
       botState(ctx).linkApiKeyOrToken = undefined
       await ctx.scene.enter("auth_wizard")
       return
     }
 
     if (parsed.command === "link") {
+      if (userContext?.accountType === "public") {
+        await ctx.reply(
+          "This command is not available. Use /in, /out, /buy, /sell, /goaladd, or /repay to track your finances."
+        )
+        return
+      }
       botState(ctx).linkApiKeyOrToken = undefined
       await ctx.scene.enter("link_api_wizard")
       return
     }
 
     if (parsed.command === "otp") {
+      if (userContext?.accountType === "public") {
+        await ctx.reply(
+          "This command is not available. Use /in, /out, /buy, /sell, /goaladd, or /repay to track your finances."
+        )
+        return
+      }
       await handleOtpCommand(ctx)
       return
     }
 
-    const profileContext = await resolveProfileContext(
-      String(chatId),
-      msg.from?.id != null ? String(msg.from.id) : null,
-    )
-    if (!profileContext) {
-      await ctx.reply("❌ Could not resolve your account. Use /link or /auth to link first, or /otp to set up.")
+    if (!userContext) {
+      await ctx.reply(
+        "❌ Could not resolve your account. Please try /start first."
+      )
       return
     }
 
-    const accountId = profileContext.householdId
+    const accountId = userContext.householdId
 
     // Update telegram_last_used for linked profiles
-    if (profileContext.profileId) {
+    if (userContext.profileId) {
       createSupabaseAdmin()
         .from("profiles")
         .update({ telegram_last_used: new Date().toISOString() })
-        .eq("id", profileContext.profileId)
+        .eq("id", userContext.profileId)
         .then(() => {})
     }
 
     function setBotContext() {
       const st = botState(ctx)
       st.accountId = accountId
-      st.profileId = profileContext!.profileId ?? undefined
-      st.familyId = profileContext!.familyId ?? undefined
+      st.profileId = userContext!.profileId ?? undefined
+      st.familyId = userContext!.familyId ?? undefined
+      st.accountType = userContext!.accountType
     }
 
     if (parsed.command === "in") {
@@ -222,7 +298,7 @@ function ensureHandlers() {
       await ctx.scene.enter("buy_sell_wizard")
       return
     }
-    
+
     if (parsed.command === "sell") {
       setBotContext()
       botState(ctx).type = "sell"
@@ -259,7 +335,8 @@ function ensureHandlers() {
     if (parsed.command === "stockimg") {
       let fileId: string | undefined
       if ("photo" in msg && Array.isArray(msg.photo) && msg.photo.length > 0) {
-        fileId = (msg.photo[msg.photo.length - 1] as { file_id: string }).file_id
+        fileId = (msg.photo[msg.photo.length - 1] as { file_id: string })
+          .file_id
       } else if (
         "reply_to_message" in msg &&
         msg.reply_to_message &&
@@ -289,7 +366,10 @@ function ensureHandlers() {
 
   bot.on("channel_post", async (ctx) => {
     const post = ctx.channelPost
-    console.log("[telegram/webhook] bot.on('channel_post') triggered, chat.id:", ctx.chat.id)
+    console.log(
+      "[telegram/webhook] bot.on('channel_post') triggered, chat.id:",
+      ctx.chat.id
+    )
 
     if (!("text" in post) || !post.text) return
 
@@ -299,8 +379,8 @@ function ensureHandlers() {
     console.log("[telegram/webhook] Channel post command:", parsed.command)
 
     if (parsed.command === "start") {
-      await handleStartCommand(String(ctx.chat.id), (text) =>
-        bot.telegram.sendMessage(ctx.chat.id, text),
+      await handleStartCommand(String(ctx.chat.id), null, null, null, (text) =>
+        bot.telegram.sendMessage(ctx.chat.id, text)
       )
       return
     }
@@ -329,8 +409,18 @@ export async function POST(request: NextRequest) {
     console.error("[telegram/webhook] TELEGRAM_BOT_TOKEN is not set")
     return NextResponse.json(
       { error: "Telegram bot not configured" },
-      { status: 503 },
+      { status: 503 }
     )
+  }
+
+  // Verify webhook secret if configured
+  const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET
+  if (webhookSecret) {
+    const headerSecret = request.headers.get("x-telegram-bot-api-secret-token")
+    if (headerSecret !== webhookSecret) {
+      console.warn("[telegram/webhook] Invalid or missing webhook secret")
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
   }
 
   const bot = getBot()
@@ -339,7 +429,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     console.log("[telegram/webhook] Received update:", body?.update_id)
-    console.log("[telegram/webhook] Update body:", JSON.stringify(body, null, 2))
+    console.log(
+      "[telegram/webhook] Update body:",
+      JSON.stringify(body, null, 2)
+    )
     await bot.handleUpdate(body)
     console.log("[telegram/webhook] bot.handleUpdate completed")
     return NextResponse.json({ ok: true })
@@ -347,7 +440,7 @@ export async function POST(request: NextRequest) {
     console.error("[telegram/webhook] Error handling update:", err)
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

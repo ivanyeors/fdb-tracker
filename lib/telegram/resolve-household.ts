@@ -7,7 +7,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 export async function getHouseholdFromLinkedProfile(
   chatId: string,
-  fromUserId: string | null,
+  fromUserId: string | null
 ): Promise<string | null> {
   const supabase = createSupabaseAdmin()
   const orConditions = fromUserId
@@ -34,7 +34,7 @@ export async function getHouseholdFromLinkedProfile(
 }
 
 export async function getHouseholdFromLinkedAccount(
-  telegramUserId: string,
+  telegramUserId: string
 ): Promise<string | null> {
   const supabase = createSupabaseAdmin()
   const { data, error } = await supabase
@@ -53,7 +53,7 @@ function normalizeTelegramUsername(username: string): string {
 }
 
 export async function getHouseholdFromTelegramUsername(
-  username: string,
+  username: string
 ): Promise<string | null> {
   const normalized = normalizeTelegramUsername(username)
   if (!normalized) return null
@@ -97,7 +97,7 @@ export type ResolveHouseholdOptions = {
 export async function resolveHouseholdId(
   chatId: string,
   fromUserId: string | null,
-  options: ResolveHouseholdOptions = {},
+  options: ResolveHouseholdOptions = {}
 ): Promise<string | null> {
   const { telegramUsername, allowCreate = true } = options
   const fromUserIdStr = fromUserId != null ? String(fromUserId) : null
@@ -111,7 +111,8 @@ export async function resolveHouseholdId(
   }
 
   if (telegramUsername) {
-    const fromUsername = await getHouseholdFromTelegramUsername(telegramUsername)
+    const fromUsername =
+      await getHouseholdFromTelegramUsername(telegramUsername)
     if (fromUsername) return fromUsername
   }
 
@@ -129,7 +130,7 @@ export type ProfileContext = {
 export async function resolveProfileContext(
   chatId: string,
   fromUserId: string | null,
-  options: ResolveHouseholdOptions = {},
+  options: ResolveHouseholdOptions = {}
 ): Promise<ProfileContext | null> {
   const fromUserIdStr = fromUserId != null ? String(fromUserId) : null
 
@@ -167,7 +168,201 @@ export async function resolveProfileContext(
   return { householdId, profileId: null, familyId: null }
 }
 
-export async function getOrCreateAccount(chatId: string): Promise<string | null> {
+/** Context returned by resolveOrProvisionPublicUser — includes account type. */
+export type PublicUserContext = {
+  householdId: string
+  familyId: string
+  profileId: string
+  accountType: "owner" | "public"
+}
+
+/**
+ * Resolve an existing user OR auto-provision a new public account.
+ * Used by the webhook handler so that any Telegram user can start using
+ * the bot immediately without web onboarding.
+ */
+export async function resolveOrProvisionPublicUser(
+  chatId: string,
+  fromUserId: string | null,
+  fromUsername: string | null,
+  firstName: string | null
+): Promise<PublicUserContext | null> {
+  const supabase = createSupabaseAdmin()
+  const fromUserIdStr = fromUserId != null ? String(fromUserId) : null
+
+  // 1. Check profiles table by telegram_user_id or telegram_chat_id
+  if (fromUserIdStr) {
+    const orConditions = `telegram_chat_id.eq.${chatId},telegram_user_id.eq.${fromUserIdStr}`
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, family_id")
+      .or(orConditions)
+      .limit(1)
+      .maybeSingle()
+
+    if (profile) {
+      const { data: family } = await supabase
+        .from("families")
+        .select("household_id")
+        .eq("id", profile.family_id)
+        .single()
+
+      if (family) {
+        const { data: household } = await supabase
+          .from("households")
+          .select("account_type")
+          .eq("id", family.household_id)
+          .single()
+
+        return {
+          householdId: family.household_id,
+          familyId: profile.family_id,
+          profileId: profile.id,
+          accountType:
+            (household?.account_type as "owner" | "public") ?? "owner",
+        }
+      }
+    }
+  }
+
+  // 2. Check linked_telegram_accounts
+  if (fromUserIdStr) {
+    const { data: linked } = await supabase
+      .from("linked_telegram_accounts")
+      .select("household_id")
+      .eq("telegram_user_id", fromUserIdStr)
+      .order("linked_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (linked) {
+      // Resolve the first family + first profile in that household
+      const { data: family } = await supabase
+        .from("families")
+        .select("id")
+        .eq("household_id", linked.household_id)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle()
+
+      let profileId: string | null = null
+      if (family) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("family_id", family.id)
+          .limit(1)
+          .maybeSingle()
+        profileId = profile?.id ?? null
+      }
+
+      const { data: household } = await supabase
+        .from("households")
+        .select("account_type")
+        .eq("id", linked.household_id)
+        .single()
+
+      if (family && profileId) {
+        return {
+          householdId: linked.household_id,
+          familyId: family.id,
+          profileId,
+          accountType:
+            (household?.account_type as "owner" | "public") ?? "owner",
+        }
+      }
+    }
+  }
+
+  // 3. Auto-provision a new public account
+  try {
+    const displayName = firstName || fromUsername || "User"
+
+    const { data: household, error: householdError } = await supabase
+      .from("households")
+      .insert({
+        user_count: 1,
+        telegram_chat_id: chatId,
+        account_type: "public",
+        onboarding_completed_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single()
+
+    if (householdError || !household) {
+      console.error(
+        "[telegram] Public account creation failed:",
+        householdError?.message
+      )
+      return null
+    }
+
+    const { data: family, error: familyError } = await supabase
+      .from("families")
+      .insert({
+        household_id: household.id,
+        name: "Personal",
+        user_count: 1,
+      })
+      .select("id")
+      .single()
+
+    if (familyError || !family) {
+      console.error(
+        "[telegram] Public family creation failed:",
+        familyError?.message
+      )
+      return null
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .insert({
+        family_id: family.id,
+        name: displayName,
+        birth_year: 2000,
+        telegram_user_id: fromUserIdStr,
+        telegram_chat_id: chatId,
+        telegram_username: fromUsername
+          ? fromUsername.replace(/^@/, "").toLowerCase()
+          : null,
+        telegram_last_used: new Date().toISOString(),
+      })
+      .select("id")
+      .single()
+
+    if (profileError || !profile) {
+      console.error(
+        "[telegram] Public profile creation failed:",
+        profileError?.message
+      )
+      return null
+    }
+
+    console.log(
+      "[telegram] Auto-provisioned public account:",
+      JSON.stringify({
+        householdId: household.id,
+        familyId: family.id,
+        profileId: profile.id,
+      })
+    )
+
+    return {
+      householdId: household.id,
+      familyId: family.id,
+      profileId: profile.id,
+      accountType: "public",
+    }
+  } catch (err) {
+    console.error("[telegram] resolveOrProvisionPublicUser error:", err)
+    return null
+  }
+}
+
+export async function getOrCreateAccount(
+  chatId: string
+): Promise<string | null> {
   try {
     const supabase = createSupabaseAdmin()
 

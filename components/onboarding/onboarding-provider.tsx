@@ -83,6 +83,8 @@ export interface OnboardingInsurance {
   yearly_outflow_date?: number | null
   current_amount?: number | null
   end_date?: string | null
+  inception_date?: string | null
+  cpf_premium?: number | null
   profileIndex: number
 }
 

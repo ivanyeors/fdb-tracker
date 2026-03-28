@@ -85,21 +85,27 @@ type PolicyForGap = {
 const COVERAGE_LABELS: Record<CoverageType, string> = {
   death: "Death / Life",
   critical_illness: "Critical Illness",
+  early_critical_illness: "Early Critical Illness",
   hospitalization: "Hospitalization",
+  medical_reimbursement: "Medical Reimbursement",
   disability: "Disability Income",
   personal_accident: "Personal Accident",
+  accident_death_tpd: "Accident Death/TPD",
   long_term_care: "Long-term Care",
   tpd: "Total Permanent Disability",
 }
 
 const SCORE_WEIGHTS: Record<CoverageType, number> = {
-  death: 0.25,
-  critical_illness: 0.2,
-  hospitalization: 0.2,
+  death: 0.22,
+  critical_illness: 0.17,
+  early_critical_illness: 0.05,
+  hospitalization: 0.18,
+  medical_reimbursement: 0.03,
   disability: 0.12,
   tpd: 0.1,
   long_term_care: 0.08,
-  personal_accident: 0.05,
+  personal_accident: 0.03,
+  accident_death_tpd: 0.02,
 }
 
 function sumCoverageByType(
@@ -144,11 +150,16 @@ export function calculateCoverageGap(
   const ltcMonthlyNeeded =
     customBenchmarks?.longTermCareMonthlyTarget ?? 3000
 
+  const earlyCiNeeded = ciNeeded * 0.25
+
   const deathHeld = sumCoverageByType(policies, "death")
   const ciHeld = sumCoverageByType(policies, "critical_illness")
+  const earlyCiHeld = sumCoverageByType(policies, "early_critical_illness")
   const hasISP = hasActiveISP(policies)
+  const medicalHeld = sumCoverageByType(policies, "medical_reimbursement")
   const disabilityHeld = sumCoverageByType(policies, "disability")
   const paHeld = sumCoverageByType(policies, "personal_accident")
+  const accidentDtpdHeld = sumCoverageByType(policies, "accident_death_tpd")
   const tpdHeld = sumCoverageByType(policies, "tpd")
   const ltcHeld = sumCoverageByType(policies, "long_term_care")
 
@@ -173,6 +184,7 @@ export function calculateCoverageGap(
   return [
     makeItem("death", deathHeld, deathNeeded),
     makeItem("critical_illness", ciHeld, ciNeeded),
+    makeItem("early_critical_illness", earlyCiHeld, earlyCiNeeded),
     {
       coverageType: "hospitalization",
       label: COVERAGE_LABELS.hospitalization,
@@ -181,6 +193,15 @@ export function calculateCoverageGap(
       gap: hasISP ? 0 : 1,
       gapPct: hasISP ? 0 : 100,
       hasCoverage: hasISP,
+    },
+    {
+      coverageType: "medical_reimbursement",
+      label: COVERAGE_LABELS.medical_reimbursement,
+      held: medicalHeld,
+      needed: 0,
+      gap: 0,
+      gapPct: 0,
+      hasCoverage: medicalHeld > 0,
     },
     makeItem("disability", disabilityHeld, disabilityNeeded),
     makeItem("tpd", tpdHeld, tpdNeeded),
@@ -193,6 +214,15 @@ export function calculateCoverageGap(
       gap: 0,
       gapPct: 0,
       hasCoverage: paHeld > 0,
+    },
+    {
+      coverageType: "accident_death_tpd",
+      label: COVERAGE_LABELS.accident_death_tpd,
+      held: accidentDtpdHeld,
+      needed: 0,
+      gap: 0,
+      gapPct: 0,
+      hasCoverage: accidentDtpdHeld > 0,
     },
   ]
 }
@@ -207,7 +237,9 @@ export function calculateOverallScore(items: CoverageGapItem[]): number {
 
     if (
       item.coverageType === "hospitalization" ||
-      item.coverageType === "personal_accident"
+      item.coverageType === "personal_accident" ||
+      item.coverageType === "accident_death_tpd" ||
+      item.coverageType === "medical_reimbursement"
     ) {
       weightedSum += item.hasCoverage ? weight * 100 : 0
     } else if (item.needed > 0) {
@@ -256,11 +288,14 @@ function combineCoverageItems(
   const coverageTypes: CoverageType[] = [
     "death",
     "critical_illness",
+    "early_critical_illness",
     "hospitalization",
+    "medical_reimbursement",
     "disability",
     "tpd",
     "long_term_care",
     "personal_accident",
+    "accident_death_tpd",
   ]
 
   return coverageTypes.map((ct) => {
@@ -329,6 +364,8 @@ export function getCoverageRecommendation(
       return `TPD coverage of $${Math.round(item.gap).toLocaleString()} recommended (9\u00d7 income benchmark, often bundled with life)`
     case "long_term_care":
       return `Consider supplementary long-term care coverage of $${Math.round(item.gap).toLocaleString()}/mo to supplement CareShield Life`
+    case "early_critical_illness":
+      return `Early critical illness cover of $${Math.round(item.gap).toLocaleString()} recommended (25% of CI benchmark for early-stage conditions)`
     default:
       return null
   }

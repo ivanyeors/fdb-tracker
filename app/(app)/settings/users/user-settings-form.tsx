@@ -50,6 +50,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { DatePicker } from "@/components/ui/date-picker"
+import { Textarea } from "@/components/ui/textarea"
 import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -222,6 +223,10 @@ export type FinancialDataByFamily = {
     maturity_value: number | null
     cash_value: number | null
     coverage_till_age: number | null
+    inception_date: string | null
+    cpf_premium: number | null
+    premium_waiver: boolean
+    remarks: string | null
     coverages: Array<{
       id: string
       coverage_type: string
@@ -417,6 +422,10 @@ function insuranceRowDirty(
     (e.maturity_value ?? null) !== (p.maturity_value ?? null) ||
     (e.cash_value ?? null) !== (p.cash_value ?? null) ||
     (e.coverage_till_age ?? null) !== (p.coverage_till_age ?? null) ||
+    (e.inception_date ?? null) !== (p.inception_date ?? null) ||
+    (e.cpf_premium ?? null) !== (p.cpf_premium ?? null) ||
+    (e.premium_waiver ?? false) !== (p.premium_waiver ?? false) ||
+    (e.remarks ?? null) !== (p.remarks ?? null) ||
     coveragesDirty(e.coverages, p.coverages)
   )
 }
@@ -1680,7 +1689,7 @@ function MonthlyLogSection({
                 placeholder="Select month"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="log-inflow">Inflow (income + bonus - CPF)</Label>
                 <CurrencyInput
@@ -3048,6 +3057,10 @@ function InsuranceSection({
     maturity_value: number | null
     cash_value: number | null
     coverage_till_age: number | null
+    inception_date: string | null
+    cpf_premium: number | null
+    premium_waiver: boolean
+    remarks: string | null
   }>({
     name: "",
     type: "term_life",
@@ -3066,6 +3079,10 @@ function InsuranceSection({
     maturity_value: null,
     cash_value: null,
     coverage_till_age: null,
+    inception_date: null,
+    cpf_premium: null,
+    premium_waiver: false,
+    remarks: null,
   })
 
   const newPolicyFields = getFieldsForInsurancePolicyRow(newPolicy.type, newPolicy.frequency)
@@ -3139,6 +3156,10 @@ function InsuranceSection({
           maturityValue: newPolicy.maturity_value ?? undefined,
           cashValue: newPolicy.cash_value ?? undefined,
           coverageTillAge: newPolicy.coverage_till_age ?? undefined,
+          inceptionDate: newPolicy.inception_date ?? undefined,
+          cpfPremium: newPolicy.cpf_premium ?? undefined,
+          premiumWaiver: newPolicy.premium_waiver,
+          remarks: newPolicy.remarks ?? undefined,
         }),
       })
       if (!res.ok) {
@@ -3164,6 +3185,10 @@ function InsuranceSection({
         maturity_value: null,
         cash_value: null,
         coverage_till_age: null,
+        inception_date: null,
+        cpf_premium: null,
+        premium_waiver: false,
+        remarks: null,
       })
       setAddOpen(false)
       onMutate()
@@ -3221,6 +3246,10 @@ function InsuranceSection({
           maturityValue: e.maturity_value,
           cashValue: e.cash_value,
           coverageTillAge: e.coverage_till_age,
+          inceptionDate: e.inception_date ?? undefined,
+          cpfPremium: e.cpf_premium ?? undefined,
+          premiumWaiver: e.premium_waiver ?? undefined,
+          remarks: e.remarks ?? undefined,
         }),
       })
       if (!res.ok) {
@@ -3463,6 +3492,40 @@ function InsuranceSection({
                 />
               </div>
             )}
+            <div className="space-y-2">
+              <Label>Inception date</Label>
+              <DatePicker
+                value={newPolicy.inception_date ?? null}
+                onChange={(d) => setNewPolicy((p) => ({ ...p, inception_date: d }))}
+                placeholder="Policy start date"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>CPF premium (annual)</Label>
+              <CurrencyInput
+                placeholder="0"
+                value={newPolicy.cpf_premium}
+                onChange={(v) => setNewPolicy((p) => ({ ...p, cpf_premium: v ?? null }))}
+              />
+            </div>
+            <div className="col-span-full flex items-center gap-2">
+              <Switch
+                checked={newPolicy.premium_waiver}
+                onCheckedChange={(checked) =>
+                  setNewPolicy((p) => ({ ...p, premium_waiver: checked }))
+                }
+              />
+              <Label>Premium waiver benefit</Label>
+            </div>
+            <div className="col-span-full space-y-2">
+              <Label>Remarks</Label>
+              <Textarea
+                placeholder="Benefit details, co-pay caps, deferred periods..."
+                value={newPolicy.remarks ?? ""}
+                onChange={(e) => setNewPolicy((p) => ({ ...p, remarks: e.target.value || null }))}
+                rows={2}
+              />
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -3803,6 +3866,51 @@ function InsuranceSection({
                       }
                       placeholder="Policy #"
                       className="h-8 w-24"
+                    />
+                    <DatePicker
+                      value={e.inception_date ?? null}
+                      onChange={(d) =>
+                        setEditing((prev) => ({
+                          ...prev,
+                          [p.id]: { ...(prev[p.id] ?? p), inception_date: d },
+                        }))
+                      }
+                      placeholder="Inception"
+                      className="h-8 w-28"
+                    />
+                    <CurrencyInput
+                      value={e.cpf_premium ?? undefined}
+                      onChange={(v) =>
+                        setEditing((prev) => ({
+                          ...prev,
+                          [p.id]: { ...(prev[p.id] ?? p), cpf_premium: v ?? null },
+                        }))
+                      }
+                      placeholder="CPF prem"
+                      className="h-8 w-20"
+                    />
+                    <div className="flex items-center gap-1">
+                      <Switch
+                        checked={e.premium_waiver ?? false}
+                        onCheckedChange={(checked) =>
+                          setEditing((prev) => ({
+                            ...prev,
+                            [p.id]: { ...(prev[p.id] ?? p), premium_waiver: checked },
+                          }))
+                        }
+                      />
+                      <span className="text-xs whitespace-nowrap">Waiver</span>
+                    </div>
+                    <Input
+                      value={e.remarks ?? ""}
+                      onChange={(ev) =>
+                        setEditing((prev) => ({
+                          ...prev,
+                          [p.id]: { ...(prev[p.id] ?? p), remarks: ev.target.value || null },
+                        }))
+                      }
+                      placeholder="Remarks"
+                      className="h-8 w-40"
                     />
                   </div>
                 </TableCell>

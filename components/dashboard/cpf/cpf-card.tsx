@@ -162,7 +162,7 @@ export function CpfCard({ total, breakdown, delta = 0, loading = false }: CpfCar
         <div className="flex flex-1 flex-col">
           <div className="flex flex-1 flex-col">
             <p className="text-sm text-muted-foreground">CPF Total</p>
-            <p className="mt-1 text-2xl font-bold tracking-tight">
+            <p className="mt-1 truncate text-2xl font-bold tracking-tight">
               ${formatCurrency(total)}
             </p>
             {delta !== 0 && (

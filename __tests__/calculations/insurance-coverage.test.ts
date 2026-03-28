@@ -227,11 +227,14 @@ describe("calculateOverallScore", () => {
       [
         makePolicy({ coverage_type: "death", coverage_amount: 900_000 }),
         makePolicy({ coverage_type: "critical_illness", coverage_amount: 400_000, type: "critical_illness" }),
+        makePolicy({ coverage_type: "early_critical_illness", coverage_amount: 100_000, type: "early_critical_illness" }),
         makePolicy({ type: "integrated_shield", coverage_type: "hospitalization" }),
         makePolicy({ coverage_type: "disability", coverage_amount: 375_000 }),
         makePolicy({ coverage_type: "tpd", coverage_amount: 900_000, type: "tpd" }),
         makePolicy({ coverage_type: "long_term_care", coverage_amount: 3_000, type: "long_term_care" }),
         makePolicy({ coverage_type: "personal_accident", coverage_amount: 100_000, type: "personal_accident" }),
+        makePolicy({ coverage_type: "accident_death_tpd", coverage_amount: 50_000, type: "personal_accident" }),
+        makePolicy({ coverage_type: "medical_reimbursement", coverage_amount: 50_000, type: "integrated_shield" }),
       ],
       100_000,
     )

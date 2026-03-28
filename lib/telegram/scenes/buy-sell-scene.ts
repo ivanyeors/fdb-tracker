@@ -2,6 +2,7 @@ import { Scenes } from "telegraf"
 
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { botState, MyContext } from "@/lib/telegram/bot"
+import { sanitizeText } from "@/lib/telegram/sanitize"
 import { calculateWeightedAverageCost } from "@/lib/calculations/investments"
 import {
   progressHeader,
@@ -44,7 +45,7 @@ async function sendConfirmation(ctx: MyContext) {
 
   const msg = buildConfirmationMessage(
     `Confirm ${s.type === "buy" ? "Buy" : "Sell"}`,
-    fields,
+    fields
   )
   const editFields = [
     { label: "Symbol", callbackData: "ed_sym" },
@@ -116,11 +117,9 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
       const header = progressHeader(
         2,
         TOTAL_STEPS,
-        `Recording ${typeLabel(type)} for ${profiles[0].name}`,
+        `Recording ${typeLabel(type)} for ${profiles[0].name}`
       )
-      await ctx.reply(
-        `${header}\n\nEnter the stock symbol (e.g. AAPL):`,
-      )
+      await ctx.reply(`${header}\n\nEnter the stock symbol (e.g. AAPL):`)
       ctx.wizard.selectStep(STEP_SYMBOL)
       return
     }
@@ -132,7 +131,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     const header = progressHeader(
       1,
       TOTAL_STEPS,
-      `Recording ${typeLabel(type)}`,
+      `Recording ${typeLabel(type)}`
     )
     await ctx.reply(`${header}\n\nSelect a profile:`, {
       reply_markup: { inline_keyboard: buttons },
@@ -153,11 +152,9 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
         const header = progressHeader(
           2,
           TOTAL_STEPS,
-          `Recording ${typeLabel(ctx.scene.session.type!)} for ${ctx.scene.session.profileName}`,
+          `Recording ${typeLabel(ctx.scene.session.type!)} for ${ctx.scene.session.profileName}`
         )
-        await ctx.reply(
-          `${header}\n\nEnter the stock symbol (e.g. AAPL):`,
-        )
+        await ctx.reply(`${header}\n\nEnter the stock symbol (e.g. AAPL):`)
         return ctx.wizard.next()
       }
     }
@@ -171,10 +168,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     const symbol = ctx.message.text.toUpperCase().trim()
     if (!symbol || symbol.includes(" ")) {
       await ctx.reply(
-        errorMsg(
-          "Invalid symbol. Enter a single ticker.",
-          "AAPL",
-        ),
+        errorMsg("Invalid symbol. Enter a single ticker.", "AAPL")
       )
       return undefined
     }
@@ -187,7 +181,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     const header = progressHeader(
       3,
       TOTAL_STEPS,
-      `${typeLabel(ctx.scene.session.type!)} ${symbol} for ${ctx.scene.session.profileName}`,
+      `${typeLabel(ctx.scene.session.type!)} ${symbol} for ${ctx.scene.session.profileName}`
     )
     await ctx.reply(`${header}\n\nEnter the quantity of shares:`)
     return ctx.wizard.next()
@@ -200,7 +194,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     const quantity = parseFloat(ctx.message.text)
     if (isNaN(quantity) || quantity <= 0) {
       await ctx.reply(
-        errorMsg("Invalid quantity. Enter a positive number.", "10"),
+        errorMsg("Invalid quantity. Enter a positive number.", "10")
       )
       return undefined
     }
@@ -213,7 +207,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     const header = progressHeader(
       4,
       TOTAL_STEPS,
-      `${typeLabel(ctx.scene.session.type!)} ${ctx.scene.session.quantity} ${ctx.scene.session.symbol} for ${ctx.scene.session.profileName}`,
+      `${typeLabel(ctx.scene.session.type!)} ${ctx.scene.session.quantity} ${ctx.scene.session.symbol} for ${ctx.scene.session.profileName}`
     )
     await ctx.reply(`${header}\n\nEnter the price per share:`)
     return ctx.wizard.next()
@@ -226,7 +220,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     const price = parseFloat(ctx.message.text)
     if (isNaN(price) || price <= 0) {
       await ctx.reply(
-        errorMsg("Invalid price. Enter a positive number.", "150.50"),
+        errorMsg("Invalid price. Enter a positive number.", "150.50")
       )
       return undefined
     }
@@ -239,10 +233,10 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     const header = progressHeader(
       5,
       TOTAL_STEPS,
-      `${typeLabel(ctx.scene.session.type!)} ${ctx.scene.session.quantity} ${ctx.scene.session.symbol} @ ${fmtAmt(price)}`,
+      `${typeLabel(ctx.scene.session.type!)} ${ctx.scene.session.quantity} ${ctx.scene.session.symbol} @ ${fmtAmt(price)}`
     )
     await ctx.reply(
-      `${header}\n\n💭 Want to add a short note? (Optional)\nReply with text, or send /skip.`,
+      `${header}\n\n💭 Want to add a short note? (Optional)\nReply with text, or send /skip.`
     )
     return ctx.wizard.next()
   },
@@ -255,7 +249,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     if (t === "/skip" || t.toLowerCase() === "skip") {
       ctx.scene.session.journalNote = undefined
     } else {
-      ctx.scene.session.journalNote = t.slice(0, 2000)
+      ctx.scene.session.journalNote = sanitizeText(t)
     }
 
     const returned = await advanceOrReturn(ctx, STEP_CONFIRM, sendConfirmation)
@@ -311,7 +305,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     }
 
     return undefined
-  },
+  }
 )
 
 async function finishBuySell(ctx: MyContext) {
@@ -355,7 +349,7 @@ async function finishBuySell(ctx: MyContext) {
         existing.units,
         existing.cost_basis,
         quantity,
-        price,
+        price
       )
       const newUnits = existing.units + quantity
 
@@ -397,7 +391,7 @@ async function finishBuySell(ctx: MyContext) {
 
     if (existing.units < quantity) {
       await ctx.reply(
-        `❌ Insufficient units. You only have ${existing.units} shares of ${symbol}.`,
+        `❌ Insufficient units. You only have ${existing.units} shares of ${symbol}.`
       )
       return ctx.scene.leave()
     }
@@ -456,7 +450,7 @@ async function finishBuySell(ctx: MyContext) {
   }
 
   await ctx.reply(
-    `✅ ${session.profileName} ${type === "buy" ? "bought" : "sold"} ${quantity} ${symbol} @ ${fmtAmt(price)}. Total: ${fmtAmt(totalCost)}.`,
+    `✅ ${session.profileName} ${type === "buy" ? "bought" : "sold"} ${quantity} ${symbol} @ ${fmtAmt(price)}. Total: ${fmtAmt(totalCost)}.`
   )
   return ctx.scene.leave()
 }

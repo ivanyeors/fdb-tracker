@@ -43,6 +43,8 @@ export interface BotWebhookState {
   profileId?: string
   /** Pre-resolved family ID from linked Telegram account. */
   familyId?: string
+  /** Account type: 'owner' for dashboard users, 'public' for Telegram-only users. */
+  accountType?: "owner" | "public"
   type?: "buy" | "sell"
   isEarlyRepayment?: boolean
   fileId?: string

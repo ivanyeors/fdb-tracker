@@ -505,11 +505,11 @@ export function IlpCard({
       <Card>
         <CardContent>
           <div className="flex flex-1 flex-col">
-            <p className="text-sm text-muted-foreground">{name}</p>
-            <p className="mt-1 text-2xl font-bold tracking-tight">
+            <p className="truncate text-sm text-muted-foreground">{name}</p>
+            <p className="mt-1 truncate text-2xl font-bold tracking-tight">
               {formatMoney(fundValue)}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 truncate text-xs text-muted-foreground">
               Premiums {formatMoney(totalPremiumsPaid)}
               <span className="opacity-70">
                 {" "}
@@ -599,7 +599,7 @@ export function IlpCard({
             />
           ) : null}
           <div className="min-w-0 flex-1">
-            <CardTitle className="text-base font-bold leading-tight">{name}</CardTitle>
+            <CardTitle className="truncate text-base font-bold leading-tight">{name}</CardTitle>
             {groupAllocationPct != null && Number.isFinite(groupAllocationPct) ? (
               <p className="mt-1 text-xs text-muted-foreground">
                 Group allocation: {fmt(groupAllocationPct)}% of group

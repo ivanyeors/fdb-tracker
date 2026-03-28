@@ -23,6 +23,8 @@ const insuranceSchema = z.object({
   yearly_outflow_date: z.number().int().min(1).max(12).nullable().optional(),
   current_amount: z.number().min(0).nullable().optional(),
   end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  inception_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  cpf_premium: z.number().min(0).nullable().optional(),
   profileIndex: z.number().int().min(0),
 })
 
@@ -102,6 +104,8 @@ export async function POST(request: Request) {
             yearly_outflow_date: pol.yearly_outflow_date ?? null,
             current_amount: pol.current_amount ?? null,
             end_date: pol.end_date ?? null,
+            inception_date: pol.inception_date ?? null,
+            cpf_premium: pol.cpf_premium ?? null,
             is_active: true,
             deduct_from_outflow: true,
           })

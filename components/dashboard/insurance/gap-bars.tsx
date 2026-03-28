@@ -10,6 +10,8 @@ import {
   Cross,
   Accessibility,
   ShieldPlus,
+  Stethoscope,
+  Zap,
 } from "lucide-react"
 import { cn, formatCurrency } from "@/lib/utils"
 import type { CoverageGapItem } from "@/lib/calculations/insurance"
@@ -22,9 +24,12 @@ type GapBarsProps = {
 const ICON_MAP: Record<string, React.ElementType> = {
   death: Heart,
   critical_illness: Activity,
+  early_critical_illness: Activity,
   hospitalization: Cross,
+  medical_reimbursement: Stethoscope,
   disability: Accessibility,
   personal_accident: ShieldPlus,
+  accident_death_tpd: Zap,
 }
 
 function getCoveredPct(item: CoverageGapItem): number {
@@ -81,13 +86,15 @@ function GapBarRow({
   const status = getStatusConfig(pct)
   const Icon = ICON_MAP[item.coverageType] ?? ShieldPlus
   const isHosp = item.coverageType === "hospitalization"
-  const isPA = item.coverageType === "personal_accident"
+  const isInformational = item.coverageType === "personal_accident" ||
+    item.coverageType === "accident_death_tpd" ||
+    item.coverageType === "medical_reimbursement"
 
   const rightLabel = isHosp
     ? item.hasCoverage
       ? "Active ISP"
       : "No ISP"
-    : isPA
+    : isInformational
       ? item.hasCoverage
         ? `$${formatCurrency(item.held)}`
         : "None"
@@ -144,7 +151,7 @@ function GapBarRow({
                 style={{ width: `${Math.max(pct, isHosp && !item.hasCoverage ? 0 : 1)}%` }}
               />
             </div>
-            {!isPA && !isHosp && (
+            {!isInformational && !isHosp && (
               <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
                 {Math.round(pct)}%
               </span>
@@ -162,11 +169,11 @@ function GapBarRow({
                 ? "You have an active Integrated Shield Plan. This covers private hospital bills beyond MediShield Life."
                 : "No Integrated Shield Plan found. MediShield Life provides basic coverage only. Consider a private ISP for better hospital coverage."}
             </p>
-          ) : isPA ? (
+          ) : isInformational ? (
             <p className="text-xs text-muted-foreground">
               {item.hasCoverage
-                ? `Personal accident coverage of $${formatCurrency(item.held)}. No standard benchmark — this is informational.`
-                : "No personal accident coverage found. This is optional but provides protection against accidental death and disability."}
+                ? `${item.label} coverage of $${formatCurrency(item.held)}. No standard benchmark — this is informational.`
+                : `No ${item.label.toLowerCase()} coverage found. This is optional.`}
             </p>
           ) : (
             <div className="space-y-1.5 text-xs">
@@ -201,11 +208,14 @@ function GapBarRow({
 export function GapBars({ items, showDollars = false }: GapBarsProps) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
 
+  const INFORMATIONAL_TYPES = new Set(["personal_accident", "accident_death_tpd", "medical_reimbursement"])
+
   const displayItems = useMemo(
     () =>
       items.filter(
-        (i) => i.coverageType !== "personal_accident" || i.held > 0,
+        (i) => !INFORMATIONAL_TYPES.has(i.coverageType) || i.held > 0,
       ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [items],
   )
 
