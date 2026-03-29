@@ -62,6 +62,29 @@ export async function GET(request: NextRequest) {
     const { familyId } = resolved
     const requestedProfileId = parsed.data.profileId ?? null
 
+    // When filtering by profile, also include products belonging to groups
+    // assigned to that profile (group-level profile_id).
+    let groupProductIds: string[] = []
+    if (requestedProfileId) {
+      const { data: profileGroups } = await supabase
+        .from("ilp_fund_groups")
+        .select("id")
+        .eq("family_id", familyId)
+        .eq("profile_id", requestedProfileId)
+
+      if (profileGroups && profileGroups.length > 0) {
+        const groupIds = profileGroups.map((g) => g.id)
+        const { data: groupMembers } = await supabase
+          .from("ilp_fund_group_members")
+          .select("product_id")
+          .in("fund_group_id", groupIds)
+
+        if (groupMembers) {
+          groupProductIds = groupMembers.map((m) => m.product_id)
+        }
+      }
+    }
+
     let query = supabase
       .from("ilp_products")
       .select("*")
@@ -69,9 +92,16 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: true })
 
     if (requestedProfileId) {
-      query = query.or(
-        `profile_id.eq.${requestedProfileId},profile_id.is.null`,
-      )
+      if (groupProductIds.length > 0) {
+        // Include: product's own profile matches, OR product has no profile, OR product is in a group assigned to this profile
+        query = query.or(
+          `profile_id.eq.${requestedProfileId},profile_id.is.null,id.in.(${groupProductIds.join(",")})`,
+        )
+      } else {
+        query = query.or(
+          `profile_id.eq.${requestedProfileId},profile_id.is.null`,
+        )
+      }
     }
 
     const { data: products, error } = await query
@@ -92,7 +122,7 @@ export async function GET(request: NextRequest) {
         supabase
           .from("ilp_fund_group_members")
           .select(
-            "id, fund_group_id, product_id, allocation_pct, ilp_fund_groups ( id, name, group_premium_amount, premium_payment_mode )"
+            "id, fund_group_id, product_id, allocation_pct, ilp_fund_groups ( id, name, group_premium_amount, premium_payment_mode, profile_id )"
           )
           .in("product_id", productIds),
         supabase
@@ -139,6 +169,7 @@ export async function GET(request: NextRequest) {
           name: string
           group_premium_amount: number | null
           premium_payment_mode: string
+          profile_id: string | null
         } | null
         return {
           id: m.id,
@@ -147,6 +178,7 @@ export async function GET(request: NextRequest) {
           allocation_pct: Number(m.allocation_pct),
           group_premium_amount: g?.group_premium_amount ?? null,
           premium_payment_mode: g?.premium_payment_mode ?? "monthly",
+          group_profile_id: g?.profile_id ?? null,
         }
       })
 

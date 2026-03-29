@@ -83,7 +83,7 @@ describe("groupTopHoldingsSlicesForIlpGroup", () => {
 })
 
 describe("allocationModeForGroupSummaryCard", () => {
-  it("returns holdings when merged top-holdings slices exist", () => {
+  it("returns category as default mode for summary cards", () => {
     const members = [
       {
         name: "F1",
@@ -103,7 +103,7 @@ describe("allocationModeForGroupSummaryCard", () => {
         } as Record<string, unknown>,
       },
     ]
-    expect(allocationModeForGroupSummaryCard(members)).toBe("holdings")
+    expect(allocationModeForGroupSummaryCard(members)).toBe("category")
   })
 
   it("falls back to category when no holdings data", () => {
@@ -119,7 +119,7 @@ describe("allocationModeForGroupSummaryCard", () => {
 })
 
 describe("subtitleForGroupSummaryCard", () => {
-  it("mentions merged companies when mode is holdings", () => {
+  it("returns category subtitle for summary cards (default mode)", () => {
     const members = [
       {
         name: "F1",
@@ -139,6 +139,6 @@ describe("subtitleForGroupSummaryCard", () => {
         } as Record<string, unknown>,
       },
     ]
-    expect(subtitleForGroupSummaryCard(members)).toContain("Merged by company")
+    expect(subtitleForGroupSummaryCard(members)).toContain("Morningstar category")
   })
 })

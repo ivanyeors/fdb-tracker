@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { ArrowLeft, RefreshCw } from "lucide-react"
+import { ArrowLeft, RefreshCw, User } from "lucide-react"
 import { toast } from "sonner"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { Button } from "@/components/ui/button"
@@ -29,7 +29,7 @@ import { formatCurrency } from "@/lib/utils"
 export default function IlpFundGroupDetailPage() {
   const params = useParams()
   const groupId = typeof params.groupId === "string" ? params.groupId : ""
-  const { activeProfileId, activeFamilyId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId, profiles } = useActiveProfile()
   const [ilpProducts, setIlpProducts] = useState<IlpProductWithEntries[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [editGroupOpen, setEditGroupOpen] = useState(false)
@@ -37,6 +37,7 @@ export default function IlpFundGroupDetailPage() {
   const [fxLoading, setFxLoading] = useState(true)
   const [premiumInput, setPremiumInput] = useState<number | null>(null)
   const [premiumSaving, setPremiumSaving] = useState(false)
+  const [groupProfileId, setGroupProfileId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -57,6 +58,23 @@ export default function IlpFundGroupDetailPage() {
       cancelled = true
     }
   }, [])
+
+  // Fetch group details (for profile_id)
+  const fetchGroupDetails = useCallback(async () => {
+    if (!activeFamilyId) return
+    try {
+      const r = await fetch(`/api/investments/ilp/groups?familyId=${activeFamilyId}`)
+      if (r.ok) {
+        const groups = await r.json()
+        const group = groups.find((g: { id: string }) => g.id === groupId)
+        if (group) setGroupProfileId(group.profile_id ?? null)
+      }
+    } catch { /* ignore */ }
+  }, [activeFamilyId, groupId])
+
+  useEffect(() => {
+    void fetchGroupDetails()
+  }, [fetchGroupDetails])
 
   const fetchIlp = useCallback(async () => {
     if (!activeProfileId && !activeFamilyId) {
@@ -111,6 +129,14 @@ export default function IlpFundGroupDetailPage() {
     firstMembership?.premium_payment_mode === "one_time"
       ? "one_time"
       : "monthly"
+
+  // Sync groupProfileId from membership data (authoritative after fetchIlp)
+  useEffect(() => {
+    const memberProfileId = (firstMembership as Record<string, unknown> | null)?.group_profile_id
+    if (memberProfileId !== undefined) {
+      setGroupProfileId((memberProfileId as string) ?? null)
+    }
+  }, [firstMembership])
 
   const productsForEdit = useMemo(
     () =>
@@ -216,7 +242,13 @@ export default function IlpFundGroupDetailPage() {
           description="Funds in this group. Monthly values, returns, and imported report details."
         >
           {!isLoading ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {groupProfileId && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground">
+                  <User className="size-3" />
+                  {profiles.find((p) => p.id === groupProfileId)?.name ?? "Assigned"}
+                </span>
+              )}
               <Button type="button" onClick={() => setEditGroupOpen(true)}>
                 Edit group funds
               </Button>
@@ -241,7 +273,8 @@ export default function IlpFundGroupDetailPage() {
           }
           premiumPaymentMode={groupPremiumMode}
           products={productsForEdit}
-          onSuccess={() => void fetchIlp()}
+          onSuccess={() => { void fetchIlp(); void fetchGroupDetails() }}
+          groupProfileId={groupProfileId}
         />
 
         {/* Group Summary Cards */}

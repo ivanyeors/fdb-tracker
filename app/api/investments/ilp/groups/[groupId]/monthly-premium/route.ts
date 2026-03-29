@@ -9,6 +9,7 @@ import { deriveMonthlyPremiumsFromGroupTotal } from "@/lib/investments/ilp-premi
 const bodySchema = z.object({
   familyId: z.string().uuid(),
   monthlyTotal: z.number().min(0),
+  profileId: z.string().uuid().nullable().optional(),
 })
 
 export async function PATCH(
@@ -40,10 +41,16 @@ export async function PATCH(
     if (!resolved)
       return NextResponse.json({ error: "Family not found" }, { status: 404 })
 
-    // Update group premium amount
+    // Update group premium amount (and profile_id if provided)
+    const updatePayload: Record<string, unknown> = {
+      group_premium_amount: body.data.monthlyTotal,
+    }
+    if (body.data.profileId !== undefined) {
+      updatePayload.profile_id = body.data.profileId
+    }
     const { error: groupErr } = await supabase
       .from("ilp_fund_groups")
-      .update({ group_premium_amount: body.data.monthlyTotal })
+      .update(updatePayload)
       .eq("id", groupId)
       .eq("family_id", resolved.familyId)
 

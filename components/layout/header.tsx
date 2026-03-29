@@ -1,27 +1,71 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
-import { Loader2 } from "lucide-react"
+import { ChevronRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { useUserSettingsSave } from "@/components/layout/user-settings-save-context"
 import { cn } from "@/lib/utils"
 
-const breadcrumbMap: Record<string, string> = {
+const segmentLabels: Record<string, string> = {
+  dashboard: "Dashboard",
+  banks: "Banks",
+  cpf: "CPF",
+  cashflow: "Cashflow",
+  investments: "Investments",
+  ilp: "ILP",
+  group: "Group",
+  loans: "Loans",
+  insurance: "Insurance",
+  tax: "Tax Planner",
+  developer: "Developer",
+  goals: "Goals",
+  settings: "Settings",
+  users: "User Settings",
+  giro: "GIRO Rules",
+  notifications: "Notifications",
+  setup: "Setup",
+}
+
+const rootOverrides: Record<string, string> = {
   "/dashboard": "Overview",
-  "/dashboard/banks": "Banks",
-  "/dashboard/cpf": "CPF",
-  "/dashboard/cashflow": "Cashflow",
-  "/dashboard/investments": "Investments",
-  "/dashboard/loans": "Loans",
-  "/dashboard/insurance": "Insurance",
-  "/dashboard/tax": "Tax Planner",
-  "/settings": "General Settings",
-  "/settings/users": "User Settings",
-  "/settings/giro": "GIRO Rules",
-  "/settings/notifications": "Notifications",
-  "/settings/setup": "Setup",
+  "/settings": "General",
+}
+
+const UUID_RE = /^[0-9a-f-]{20,}$/i
+
+type Crumb = { label: string; href: string }
+
+function buildBreadcrumbs(pathname: string): Crumb[] {
+  const segments = pathname.split("/").filter(Boolean)
+  if (segments.length === 0) return []
+
+  const crumbs: Crumb[] = []
+  let path = ""
+
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i]
+    path += `/${seg}`
+
+    // Skip UUID-like dynamic segments (e.g. groupId)
+    if (UUID_RE.test(seg)) continue
+
+    const isFirst = i === 0
+    const isLast = i === segments.length - 1 || (i === segments.length - 2 && UUID_RE.test(segments[segments.length - 1]))
+
+    // Root section pages get special labels
+    if (isFirst && isLast && rootOverrides[path]) {
+      crumbs.push({ label: rootOverrides[path], href: path })
+      continue
+    }
+
+    const label = segmentLabels[seg] ?? seg
+    crumbs.push({ label, href: path })
+  }
+
+  return crumbs
 }
 
 export function Header() {
@@ -32,7 +76,6 @@ export function Header() {
   const { aggregateDirty, saveAll, isSaving } = useUserSettingsSave()
   const isUserSettings = pathname === "/settings/users"
 
-  /** Only sync URL → state when the query `profileId` actually changes (navigation / replace). */
   const lastSyncedDashboardProfileUrl = useRef<string | null | undefined>(undefined)
 
   useEffect(() => {
@@ -56,7 +99,7 @@ export function Header() {
     }
   }, [pathname, profileIdFromUrl, setActiveProfileId, profiles])
 
-  const sectionName = breadcrumbMap[pathname] ?? "Dashboard"
+  const crumbs = buildBreadcrumbs(pathname)
 
   return (
     <header
@@ -66,8 +109,30 @@ export function Header() {
           "sticky top-0 z-30 supports-backdrop-filter:bg-background/95 supports-backdrop-filter:backdrop-blur-sm"
       )}
     >
-      <div className="flex h-12 items-center gap-2">
-        <h2 className="min-w-0 truncate text-sm font-medium">{sectionName}</h2>
+      <div className="flex h-10 items-center gap-2">
+        <nav className="flex min-w-0 items-center gap-1 text-sm">
+          {crumbs.map((crumb, i) => {
+            const isLast = i === crumbs.length - 1
+            return (
+              <span key={crumb.href} className="flex items-center gap-1">
+                {i > 0 && (
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                )}
+                {isLast ? (
+                  <span className="truncate font-medium">{crumb.label}</span>
+                ) : (
+                  <Link
+                    href={crumb.href}
+                    className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {crumb.label}
+                  </Link>
+                )}
+              </span>
+            )
+          })}
+        </nav>
+
         {isUserSettings && (
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <Button

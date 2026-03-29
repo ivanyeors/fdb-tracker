@@ -182,33 +182,29 @@ export function groupHasHoldingsSlices(
 export function availableIlpGroupAllocationModes(
   members: readonly IlpGroupMemberForDonut[],
 ): { mode: IlpGroupAllocationMode; label: string }[] {
-  const out: { mode: IlpGroupAllocationMode; label: string }[] = []
+  const out: { mode: IlpGroupAllocationMode; label: string }[] = [
+    { mode: "category", label: "Fund category" },
+  ]
   if (groupHasHoldingsSlices(members)) {
     out.push({ mode: "holdings", label: "Portfolio holdings" })
   }
-  out.push({
-    mode: "category",
-    label: "Fund category",
-  })
   return out
 }
 
 export function defaultIlpGroupAllocationMode(
-  members: readonly IlpGroupMemberForDonut[],
+  _members: readonly IlpGroupMemberForDonut[],
 ): IlpGroupAllocationMode {
-  if (groupHasHoldingsSlices(members)) return "holdings"
   return "category"
 }
 
 /**
- * Mode for compact ILP group summary cards (no tab strip): prefer merged holdings
- * when imports support it; otherwise same fallback order as the full panel.
+ * Mode for compact ILP group summary cards (no tab strip): show fund category
+ * by default; portfolio holdings is available as a tab on the detail page.
  */
 export function allocationModeForGroupSummaryCard(
-  members: readonly IlpGroupMemberForDonut[],
+  _members: readonly IlpGroupMemberForDonut[],
 ): IlpGroupAllocationMode {
-  if (groupHasHoldingsSlices(members)) return "holdings"
-  return defaultIlpGroupAllocationMode(members)
+  return "category"
 }
 
 export function allocationSlicesForIlpGroupMode(

@@ -60,6 +60,8 @@ interface IlpGroupFundsEditSheetProps {
   premiumPaymentMode: "monthly" | "one_time"
   products: IlpGroupProductForEdit[]
   onSuccess: () => void
+  /** Current profile_id assigned to this group (null = unassigned). */
+  groupProfileId?: string | null
 }
 
 type Row = {
@@ -78,14 +80,16 @@ export function IlpGroupFundsEditSheet({
   premiumPaymentMode: initialPremiumMode,
   products,
   onSuccess,
+  groupProfileId: initialGroupProfileId,
 }: IlpGroupFundsEditSheetProps) {
-  const { activeProfileId, activeFamilyId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId, profiles } = useActiveProfile()
   const [rows, setRows] = useState<Row[]>([])
   const [groupPremium, setGroupPremium] = useState<number | null>(null)
   const [premiumMode, setPremiumMode] = useState<"monthly" | "one_time">(
     "monthly",
   )
   const [topUpDelta, setTopUpDelta] = useState<number | null>(null)
+  const [assignedProfileId, setAssignedProfileId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string
@@ -137,7 +141,8 @@ export function IlpGroupFundsEditSheet({
     )
     setPremiumMode(initialPremiumMode)
     setTopUpDelta(null)
-  }, [products, groupPremiumAmount, initialPremiumMode])
+    setAssignedProfileId(initialGroupProfileId ?? null)
+  }, [products, groupPremiumAmount, initialPremiumMode, initialGroupProfileId])
 
   useEffect(() => {
     if (open) {
@@ -223,6 +228,7 @@ export function IlpGroupFundsEditSheet({
           items,
           groupPremiumAmount: gp,
           premiumPaymentMode: premiumMode,
+          profileId: assignedProfileId,
         }),
       })
       if (!res.ok) {
@@ -399,6 +405,43 @@ export function IlpGroupFundsEditSheet({
           </SheetHeader>
 
           <div className="flex flex-col gap-6 p-4">
+            {/* Assign to profile */}
+            <div className="space-y-1.5">
+              <Label className="text-foreground">Assigned profile</Label>
+              <p className="text-xs text-muted-foreground">
+                Choose which family member this ILP group belongs to, or leave unassigned for family-wide.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setAssignedProfileId(null)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                    assignedProfileId === null
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                  )}
+                >
+                  Unassigned
+                </button>
+                {profiles.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setAssignedProfileId(p.id)}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      assignedProfileId === p.id
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                    )}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-3">
               <Label className="text-foreground">Group premium</Label>
               <div className="grid gap-3 sm:grid-cols-2">
