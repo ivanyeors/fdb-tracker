@@ -10,12 +10,12 @@ describe("allocationByIlpGroupOrStandalone", () => {
       {
         name: "Fund A",
         latestEntry: { fund_value: 40 },
-        ilp_fund_groups: { id: "g1", name: "My Group" },
+        fund_group_memberships: [{ group_id: "g1", group_name: "My Group" }],
       },
       {
         name: "Fund B",
         latestEntry: { fund_value: 60 },
-        ilp_fund_groups: { id: "g1", name: "My Group" },
+        fund_group_memberships: [{ group_id: "g1", group_name: "My Group" }],
       },
     ])
     expect(rows).toHaveLength(1)
@@ -31,12 +31,12 @@ describe("allocationByIlpGroupOrStandalone", () => {
       {
         name: "Solo",
         latestEntry: { fund_value: 30 },
-        ilp_fund_groups: null,
+        fund_group_memberships: [],
       },
       {
         name: "Other",
         latestEntry: { fund_value: 70 },
-        ilp_fund_groups: undefined,
+        fund_group_memberships: undefined,
       },
     ])
     expect(rows).toHaveLength(2)
@@ -51,12 +51,12 @@ describe("allocationByIlpGroupOrStandalone", () => {
       {
         name: "X",
         latestEntry: { fund_value: 0 },
-        ilp_fund_groups: null,
+        fund_group_memberships: [],
       },
       {
         name: "Y",
         latestEntry: null,
-        ilp_fund_groups: null,
+        fund_group_memberships: [],
       },
     ])
     expect(rows).toHaveLength(0)
@@ -67,12 +67,12 @@ describe("allocationByIlpGroupOrStandalone", () => {
       {
         name: "Small",
         latestEntry: { fund_value: 10 },
-        ilp_fund_groups: null,
+        fund_group_memberships: [],
       },
       {
         name: "Big",
         latestEntry: { fund_value: 90 },
-        ilp_fund_groups: null,
+        fund_group_memberships: [],
       },
     ])
     expect(rows[0].name).toBe("Big")
@@ -84,12 +84,12 @@ describe("allocationByIlpGroupOrStandalone", () => {
       {
         name: "Fund A",
         latestEntry: { fund_value: 40 },
-        ilp_fund_groups: { id: "g1", name: "AIA PRE" },
+        fund_group_memberships: [{ group_id: "g1", group_name: "AIA PRE" }],
       },
       {
         name: "Fund B",
         latestEntry: { fund_value: 60 },
-        ilp_fund_groups: { id: "g1", name: "AIA PRE" },
+        fund_group_memberships: [{ group_id: "g1", group_name: "AIA PRE" }],
       },
     ])
     expect(rows).toHaveLength(2)
@@ -108,12 +108,12 @@ describe("allocationByIlpGroupOrStandalone", () => {
       {
         name: "A",
         latestEntry: { fund_value: 40 },
-        ilp_fund_groups: { id: "g1", name: "Same" },
+        fund_group_memberships: [{ group_id: "g1", group_name: "Same" }],
       },
       {
         name: "B",
         latestEntry: { fund_value: 60 },
-        ilp_fund_groups: { id: "g2", name: "Same" },
+        fund_group_memberships: [{ group_id: "g2", group_name: "Same" }],
       },
     ])
     expect(rows).toHaveLength(2)

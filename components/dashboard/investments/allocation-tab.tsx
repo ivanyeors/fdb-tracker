@@ -154,9 +154,10 @@ export function AllocationTab({
       ilpProducts.map((p) => ({
         name: p.name,
         latestEntry: p.latestEntry,
-        ilp_fund_groups: p.ilp_fund_groups
-          ? { id: p.ilp_fund_groups.id, name: p.ilp_fund_groups.name }
-          : null,
+        fund_group_memberships: (p.fund_group_memberships ?? []).map((m) => ({
+          group_id: m.group_id,
+          group_name: m.group_name,
+        })),
       })),
     )
     for (const row of ilpMarketSlices) {
@@ -196,8 +197,9 @@ export function AllocationTab({
     for (const p of ilpProducts) {
       const fv = p.latestEntry?.fund_value ?? 0
       if (fv <= 0) continue
-      const label = p.ilp_fund_groups
-        ? `${p.ilp_fund_groups.name} · ${p.name}`
+      const firstGroup = p.fund_group_memberships?.[0]
+      const label = firstGroup
+        ? `${firstGroup.group_name} · ${p.name}`
         : p.name
       grouped.set(label, (grouped.get(label) || 0) + fv)
     }

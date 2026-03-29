@@ -71,6 +71,15 @@ import {
 } from "@/components/dashboard/investments/investments-display-currency"
 import { AllocationTab } from "@/components/dashboard/investments/allocation-tab"
 
+type IlpFundGroupMembership = {
+  id: string
+  group_id: string
+  group_name: string
+  allocation_pct: number
+  group_premium_amount?: number | null
+  premium_payment_mode?: string | null
+}
+
 type IlpProductWithEntries = {
   id: string
   name: string
@@ -79,13 +88,7 @@ type IlpProductWithEntries = {
   premium_payment_mode?: string | null
   end_date: string
   created_at: string
-  group_allocation_pct?: number | null
-  ilp_fund_groups?: {
-    id: string
-    name: string
-    group_premium_amount?: number | null
-    premium_payment_mode?: string | null
-  } | null
+  fund_group_memberships?: IlpFundGroupMembership[]
   latestEntry: {
     fund_value: number
     month: string
@@ -311,8 +314,7 @@ export default function InvestmentsDetailPage() {
             monthly_premium: number
             end_date: string
             created_at: string
-            group_allocation_pct?: number | null
-            ilp_fund_groups?: { id: string; name: string } | null
+            fund_group_memberships?: IlpFundGroupMembership[]
             latestEntry: {
               fund_value: number
               month: string
@@ -459,9 +461,10 @@ export default function InvestmentsDetailPage() {
         ilpProducts.map((p) => ({
           name: p.name,
           latestEntry: p.latestEntry,
-          ilp_fund_groups: p.ilp_fund_groups
-            ? { id: p.ilp_fund_groups.id, name: p.ilp_fund_groups.name }
-            : null,
+          fund_group_memberships: (p.fund_group_memberships ?? []).map((m) => ({
+            group_id: m.group_id,
+            group_name: m.group_name,
+          })),
         })),
       ),
     [ilpProducts],
@@ -546,7 +549,9 @@ export default function InvestmentsDetailPage() {
       }
       const pm: "monthly" | "one_time" =
         p.premium_payment_mode === "one_time" ? "one_time" : "monthly"
-      const gAmt = p.ilp_fund_groups?.group_premium_amount
+      const memberships = p.fund_group_memberships ?? []
+      const firstMembership = memberships[0]
+      const gAmt = firstMembership?.group_premium_amount
       const fundValueForAllocationWeighted = fundValueForAllocation(
         p.latestEntry,
         p.entries ?? [],
@@ -555,10 +560,12 @@ export default function InvestmentsDetailPage() {
         productId: p.id,
         name: p.name,
         profileId: p.profile_id ?? null,
-        groupId: p.ilp_fund_groups?.id ?? null,
-        groupName: p.ilp_fund_groups?.name ?? null,
+        groupId: firstMembership?.group_id ?? null,
+        groupName: firstMembership?.group_name ?? null,
         groupAllocationPct:
-          p.group_allocation_pct != null ? Number(p.group_allocation_pct) : null,
+          firstMembership?.allocation_pct != null
+            ? Number(firstMembership.allocation_pct)
+            : null,
         fundValue,
         fundValueForAllocation: fundValueForAllocationWeighted,
         totalPremiumsPaid,
@@ -574,32 +581,50 @@ export default function InvestmentsDetailPage() {
         latestEntryPremiumsPaid: p.latestEntry?.premiums_paid ?? null,
         monthlyData,
         fundReportSnapshot: p.latestEntry?.fund_report_snapshot ?? null,
+        fundGroupMemberships: memberships,
       }
     })
   }, [ilpProducts])
 
   const ilpGroupedSections = useMemo(() => {
     type Card = (typeof ilpCardsData)[number]
-    const withGroup = ilpCardsData.filter((c) => c.groupId)
-    const without = ilpCardsData.filter((c) => !c.groupId)
     const map = new Map<string, { title: string; cards: Card[] }>()
-    for (const c of withGroup) {
-      const key = c.groupId!
-      const title = c.groupName ?? "Group"
-      if (!map.has(key)) map.set(key, { title, cards: [] })
-      map.get(key)!.cards.push(c)
+    const ungrouped: Card[] = []
+
+    for (const c of ilpCardsData) {
+      const memberships = (c as { fundGroupMemberships?: IlpFundGroupMembership[] }).fundGroupMemberships ?? []
+      if (memberships.length === 0) {
+        ungrouped.push(c)
+      } else {
+        for (const m of memberships) {
+          const key = m.group_id
+          const title = m.group_name || "Group"
+          if (!map.has(key)) map.set(key, { title, cards: [] })
+          map.get(key)!.cards.push({
+            ...c,
+            groupId: m.group_id,
+            groupName: m.group_name,
+            groupAllocationPct: Number(m.allocation_pct),
+            groupPremiumAmount:
+              m.group_premium_amount != null
+                ? Number(m.group_premium_amount)
+                : null,
+          })
+        }
+      }
     }
+
     const sections = [...map.entries()].map(([key, v]) => ({
       key,
       title: v.title,
       cards: v.cards,
     }))
     sections.sort((a, b) => a.title.localeCompare(b.title))
-    if (without.length > 0) {
+    if (ungrouped.length > 0) {
       sections.push({
         key: "_ungrouped",
         title: "Other ILPs",
-        cards: without,
+        cards: ungrouped,
       })
     }
     return sections

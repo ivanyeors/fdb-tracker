@@ -78,22 +78,30 @@ export default function IlpFundGroupDetailPage() {
   }, [fetchIlp])
 
   const groupCards = useMemo(() => {
-    const inGroup = ilpProducts.filter((p) => p.ilp_fund_groups?.id === groupId)
-    return inGroup.map((p) => buildIlpCardDataFromProduct(p))
+    const inGroup = ilpProducts.filter((p) =>
+      p.fund_group_memberships?.some((m) => m.group_id === groupId),
+    )
+    return inGroup.map((p) => buildIlpCardDataFromProduct(p, groupId))
   }, [ilpProducts, groupId])
 
   const groupTitle = useMemo(() => {
-    const first = ilpProducts.find((p) => p.ilp_fund_groups?.id === groupId)
-    return first?.ilp_fund_groups?.name ?? "Fund group"
+    for (const p of ilpProducts) {
+      const m = p.fund_group_memberships?.find((m) => m.group_id === groupId)
+      if (m) return m.group_name || "Fund group"
+    }
+    return "Fund group"
   }, [ilpProducts, groupId])
 
-  const firstInGroup = useMemo(
-    () => ilpProducts.find((p) => p.ilp_fund_groups?.id === groupId),
-    [ilpProducts, groupId],
-  )
-  const groupPremiumAmount = firstInGroup?.ilp_fund_groups?.group_premium_amount
+  const firstMembership = useMemo(() => {
+    for (const p of ilpProducts) {
+      const m = p.fund_group_memberships?.find((m) => m.group_id === groupId)
+      if (m) return m
+    }
+    return null
+  }, [ilpProducts, groupId])
+  const groupPremiumAmount = firstMembership?.group_premium_amount
   const groupPremiumMode =
-    firstInGroup?.ilp_fund_groups?.premium_payment_mode === "one_time"
+    firstMembership?.premium_payment_mode === "one_time"
       ? "one_time"
       : "monthly"
 

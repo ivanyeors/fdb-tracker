@@ -49,7 +49,7 @@ export type IlpProductForAllocation = {
     fund_value: number
     fund_report_snapshot?: Record<string, unknown> | null
   }[]
-  ilp_fund_groups?: { id: string; name: string } | null
+  fund_group_memberships?: { group_id: string; group_name: string }[]
 }
 
 // ---------------------------------------------------------------------------
@@ -144,8 +144,9 @@ export function buildUnifiedPositionList(
   for (const p of ilpProducts) {
     const fv = p.latestEntry?.fund_value ?? 0
     if (fv <= 0) continue
-    const label = p.ilp_fund_groups
-      ? `${p.ilp_fund_groups.name} · ${p.name}`
+    const firstGroup = p.fund_group_memberships?.[0]
+    const label = firstGroup
+      ? `${firstGroup.group_name} · ${p.name}`
       : p.name
     rows.push({
       name: label,

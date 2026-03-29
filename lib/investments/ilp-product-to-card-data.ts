@@ -1,6 +1,15 @@
 import { currentMonthYm, ilpEntryMonthKey } from "@/lib/investments/ilp-chart"
 import { fundValueForAllocation as fundValueForAllocationFromEntries } from "@/lib/investments/ilp-fund-value-for-allocation"
 
+export type IlpFundGroupMembership = {
+  id: string
+  group_id: string
+  group_name: string
+  allocation_pct: number
+  group_premium_amount?: number | null
+  premium_payment_mode?: string | null
+}
+
 export type IlpProductWithEntries = {
   id: string
   name: string
@@ -9,13 +18,7 @@ export type IlpProductWithEntries = {
   premium_payment_mode?: string | null
   end_date: string
   created_at: string
-  group_allocation_pct?: number | null
-  ilp_fund_groups?: {
-    id: string
-    name: string
-    group_premium_amount?: number | null
-    premium_payment_mode?: string | null
-  } | null
+  fund_group_memberships?: IlpFundGroupMembership[]
   latestEntry: {
     fund_value: number
     month: string
@@ -52,10 +55,18 @@ export type IlpCardRowData = {
   fundReportSnapshot: Record<string, unknown> | null
   /** Balance used to weight group donuts; last positive month if latest is zero. */
   fundValueForAllocation: number
+  /** All group memberships for this product */
+  fundGroupMemberships: IlpFundGroupMembership[]
 }
 
+/**
+ * Build card data from a product. When `forGroupId` is provided,
+ * the group-specific fields (groupId, groupName, groupAllocationPct, groupPremiumAmount)
+ * reflect that specific group's membership. Otherwise uses the first membership.
+ */
 export function buildIlpCardDataFromProduct(
-  p: IlpProductWithEntries
+  p: IlpProductWithEntries,
+  forGroupId?: string,
 ): IlpCardRowData {
   const fundValue = p.latestEntry?.fund_value ?? 0
   const startDate = new Date(p.created_at)
@@ -95,7 +106,13 @@ export function buildIlpCardDataFromProduct(
   }
   const pm: "monthly" | "one_time" =
     p.premium_payment_mode === "one_time" ? "one_time" : "monthly"
-  const gAmt = p.ilp_fund_groups?.group_premium_amount
+
+  const memberships = p.fund_group_memberships ?? []
+  const membership = forGroupId
+    ? memberships.find((m) => m.group_id === forGroupId) ?? memberships[0]
+    : memberships[0]
+
+  const gAmt = membership?.group_premium_amount
   const fundValueForAllocation = fundValueForAllocationFromEntries(
     p.latestEntry,
     p.entries ?? [],
@@ -104,10 +121,10 @@ export function buildIlpCardDataFromProduct(
     productId: p.id,
     name: p.name,
     profileId: p.profile_id ?? null,
-    groupId: p.ilp_fund_groups?.id ?? null,
-    groupName: p.ilp_fund_groups?.name ?? null,
+    groupId: membership?.group_id ?? null,
+    groupName: membership?.group_name ?? null,
     groupAllocationPct:
-      p.group_allocation_pct != null ? Number(p.group_allocation_pct) : null,
+      membership?.allocation_pct != null ? Number(membership.allocation_pct) : null,
     fundValue,
     fundValueForAllocation,
     totalPremiumsPaid,
@@ -123,5 +140,6 @@ export function buildIlpCardDataFromProduct(
     latestEntryPremiumsPaid: p.latestEntry?.premiums_paid ?? null,
     monthlyData,
     fundReportSnapshot: p.latestEntry?.fund_report_snapshot ?? null,
+    fundGroupMemberships: memberships,
   }
 }

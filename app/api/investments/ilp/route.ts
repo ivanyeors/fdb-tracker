@@ -4,7 +4,6 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
-import { isValidIlpGroupAllocationSum } from "@/lib/investments/ilp-group-allocation"
 
 const ilpQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -18,10 +17,6 @@ const createIlpSchema = z
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     profileId: z.string().uuid().optional(),
     familyId: z.string().uuid().optional(),
-    /** Optional fund group (must belong to same family). */
-    ilpFundGroupId: z.string().uuid().nullable().optional(),
-    /** Required when assigning to a group; first member must be 100%. Use bulk allocations if the group already has products. */
-    groupAllocationPct: z.number().min(0).max(100).nullable().optional(),
     premiumPaymentMode: z.enum(["monthly", "one_time"]).optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   })
@@ -69,14 +64,10 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from("ilp_products")
-      .select(
-        "*, ilp_fund_groups ( id, name, group_premium_amount, premium_payment_mode )",
-      )
+      .select("*")
       .eq("family_id", familyId)
       .order("created_at", { ascending: true })
 
-    // Match overview / computeIlpFundTotal: one profile → that profile + shared (null);
-    // family-wide (no profile in query) → every product in the family.
     if (requestedProfileId) {
       query = query.or(
         `profile_id.eq.${requestedProfileId},profile_id.is.null`,
@@ -94,6 +85,20 @@ export async function GET(request: NextRequest) {
     }
 
     const productIds = products.map((p) => p.id)
+
+    // Fetch fund group memberships for all products
+    const { data: memberships } = await supabase
+      .from("ilp_fund_group_members")
+      .select("id, fund_group_id, product_id, allocation_pct, ilp_fund_groups ( id, name, group_premium_amount, premium_payment_mode )")
+      .in("product_id", productIds)
+
+    // Build a map: productId -> array of memberships
+    const membershipsByProduct = new Map<string, typeof memberships>()
+    for (const m of memberships ?? []) {
+      const list = membershipsByProduct.get(m.product_id) ?? []
+      list.push(m)
+      membershipsByProduct.set(m.product_id, list)
+    }
 
     const { data: allEntries, error: entriesError } = await supabase
       .from("ilp_entries")
@@ -120,8 +125,27 @@ export async function GET(request: NextRequest) {
       const entries = (entriesByProduct.get(product.id) ?? []).sort(
         (a, b) => a.month.localeCompare(b.month),
       )
+      const productMemberships = membershipsByProduct.get(product.id) ?? []
+      const fundGroupMemberships = productMemberships.map((m) => {
+        const g = m.ilp_fund_groups as unknown as {
+          id: string
+          name: string
+          group_premium_amount: number | null
+          premium_payment_mode: string
+        } | null
+        return {
+          id: m.id,
+          group_id: g?.id ?? m.fund_group_id,
+          group_name: g?.name ?? "",
+          allocation_pct: Number(m.allocation_pct),
+          group_premium_amount: g?.group_premium_amount ?? null,
+          premium_payment_mode: g?.premium_payment_mode ?? "monthly",
+        }
+      })
+
       return {
         ...product,
+        fund_group_memberships: fundGroupMemberships,
         latestEntry: latestEntryByProduct.get(product.id) ?? null,
         entries: entries.map((e) => ({
           month: e.month,
@@ -160,8 +184,6 @@ export async function POST(request: NextRequest) {
       endDate,
       profileId,
       familyId,
-      ilpFundGroupId,
-      groupAllocationPct,
       premiumPaymentMode,
       startDate,
     } = parsed.data
@@ -179,60 +201,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 
-    if (ilpFundGroupId) {
-      const { data: grp } = await supabase
-        .from("ilp_fund_groups")
-        .select("id")
-        .eq("id", ilpFundGroupId)
-        .eq("family_id", resolved.familyId)
-        .maybeSingle()
-      if (!grp) {
-        return NextResponse.json({ error: "Fund group not found" }, { status: 400 })
-      }
-
-      const { count, error: cntErr } = await supabase
-        .from("ilp_products")
-        .select("*", { count: "exact", head: true })
-        .eq("ilp_fund_group_id", ilpFundGroupId)
-
-      if (cntErr) {
-        return NextResponse.json({ error: "Failed to check fund group" }, { status: 500 })
-      }
-
-      const existingMembers = count ?? 0
-      if (existingMembers > 0) {
-        return NextResponse.json(
-          {
-            error:
-              "This fund group already has products. Use PATCH /api/investments/ilp/groups/{groupId}/allocations with the full product list.",
-          },
-          { status: 400 },
-        )
-      }
-
-      if (groupAllocationPct == null) {
-        return NextResponse.json(
-          { error: "groupAllocationPct is required when assigning a new product to a fund group." },
-          { status: 400 },
-        )
-      }
-
-      if (!isValidIlpGroupAllocationSum(groupAllocationPct)) {
-        return NextResponse.json(
-          {
-            error:
-              "The first product in a fund group must have an allocation of 100% (within rounding).",
-          },
-          { status: 400 },
-        )
-      }
-    } else if (groupAllocationPct != null) {
-      return NextResponse.json(
-        { error: "groupAllocationPct is only allowed when ilpFundGroupId is set." },
-        { status: 400 },
-      )
-    }
-
     const { data, error } = await supabase
       .from("ilp_products")
       .insert({
@@ -243,21 +211,15 @@ export async function POST(request: NextRequest) {
         premium_payment_mode: premiumPaymentMode ?? "monthly",
         ...(profileId && { profile_id: profileId }),
         ...(startDate && { start_date: startDate }),
-        ...(ilpFundGroupId && {
-          ilp_fund_group_id: ilpFundGroupId,
-          group_allocation_pct: groupAllocationPct ?? null,
-        }),
       })
-      .select(
-        "*, ilp_fund_groups ( id, name, group_premium_amount, premium_payment_mode )",
-      )
+      .select("*")
       .single()
 
     if (error) {
       return NextResponse.json({ error: "Failed to create ILP product" }, { status: 500 })
     }
 
-    return NextResponse.json(data, { status: 201 })
+    return NextResponse.json({ ...data, fund_group_memberships: [] }, { status: 201 })
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

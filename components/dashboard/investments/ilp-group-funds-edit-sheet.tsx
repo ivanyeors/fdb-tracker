@@ -87,7 +87,6 @@ export function IlpGroupFundsEditSheet({
   )
   const [topUpDelta, setTopUpDelta] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string
     name: string
@@ -97,8 +96,16 @@ export function IlpGroupFundsEditSheet({
   const [addEndDate, setAddEndDate] = useState("")
   const [addingFund, setAddingFund] = useState(false)
 
+  // Existing funds in the family (for "existing" add mode)
+  const [allFamilyProducts, setAllFamilyProducts] = useState<
+    { id: string; name: string }[]
+  >([])
+  const [existingFundId, setExistingFundId] = useState<string>("")
+
   // Upload-from-report state
-  const [addMode, setAddMode] = useState<"manual" | "upload">("manual")
+  const [addMode, setAddMode] = useState<"manual" | "upload" | "existing">(
+    "manual",
+  )
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploadStep, setUploadStep] = useState<"idle" | "extracting" | "extracted">("idle")
   const [uploadParse, setUploadParse] = useState<{
@@ -133,8 +140,23 @@ export function IlpGroupFundsEditSheet({
   }, [products, groupPremiumAmount, initialPremiumMode])
 
   useEffect(() => {
-    if (open) syncFromProps()
-  }, [open, syncFromProps])
+    if (open) {
+      syncFromProps()
+      // Fetch all family products for "existing" add mode
+      if (activeFamilyId) {
+        const q = new URLSearchParams()
+        q.set("familyId", activeFamilyId)
+        void fetch(`/api/investments/ilp?${q}`)
+          .then((r) => (r.ok ? r.json() : []))
+          .then((data: { id: string; name: string }[]) =>
+            setAllFamilyProducts(
+              data.map((p) => ({ id: p.id, name: p.name })),
+            ),
+          )
+          .catch(() => setAllFamilyProducts([]))
+      }
+    }
+  }, [open, syncFromProps, activeFamilyId])
 
   const allocationSum = useMemo(
     () => sumAllocationPcts(rows.map((r) => r.allocationPct)),
@@ -354,29 +376,11 @@ export function IlpGroupFundsEditSheet({
     }
   }
 
-  async function confirmDelete() {
-    if (!deleteTarget || !activeFamilyId) return
-    const removedId = deleteTarget.id
-    setDeletingId(removedId)
-    try {
-      const res = await fetch(`/api/investments/ilp/${removedId}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ familyId: activeFamilyId }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(typeof err.error === "string" ? err.error : "Failed to delete")
-      }
-      toast.success("Fund removed from group")
-      setDeleteTarget(null)
-      setRows((prev) => prev.filter((r) => r.productId !== removedId))
-      onSuccess()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Something went wrong")
-    } finally {
-      setDeletingId(null)
-    }
+  function confirmRemoveFromGroup() {
+    if (!deleteTarget) return
+    setRows((prev) => prev.filter((r) => r.productId !== deleteTarget.id))
+    toast.success("Fund removed from group — save to apply changes.")
+    setDeleteTarget(null)
   }
 
   return (
@@ -526,6 +530,18 @@ export function IlpGroupFundsEditSheet({
                     type="button"
                     className={cn(
                       "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                      addMode === "existing"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    onClick={() => setAddMode("existing")}
+                  >
+                    Existing
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                       addMode === "manual"
                         ? "bg-background text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground",
@@ -549,7 +565,71 @@ export function IlpGroupFundsEditSheet({
                 </div>
               </div>
 
-              {addMode === "manual" ? (
+              {addMode === "existing" ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Select an existing fund already in your family to add to this group.
+                    The same fund can belong to multiple groups.
+                  </p>
+                  {(() => {
+                    const currentIds = new Set(rows.map((r) => r.productId))
+                    const available = allFamilyProducts.filter(
+                      (p) => !currentIds.has(p.id),
+                    )
+                    return available.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">
+                        No other funds available in this family.
+                      </p>
+                    ) : (
+                      <>
+                        <Select
+                          value={existingFundId}
+                          onValueChange={(v) => setExistingFundId(v)}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Choose a fund..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {available.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          disabled={!existingFundId}
+                          onClick={() => {
+                            const fund = allFamilyProducts.find(
+                              (p) => p.id === existingFundId,
+                            )
+                            if (!fund) return
+                            setRows((prev) => [
+                              ...prev,
+                              {
+                                productId: fund.id,
+                                name: fund.name,
+                                fundValue: 0,
+                                allocationPct: 0,
+                              },
+                            ])
+                            setExistingFundId("")
+                            toast.success(
+                              "Fund added. Adjust allocations to total 100%, then save.",
+                            )
+                          }}
+                        >
+                          <Plus className="mr-2 size-4" />
+                          Add to group
+                        </Button>
+                      </>
+                    )
+                  })()}
+                </div>
+              ) : addMode === "manual" ? (
                 <form onSubmit={handleAddFundSubmit} className="space-y-3">
                   <p className="text-xs text-muted-foreground">
                     Creates a new ILP product, then include it in the allocation list and
@@ -825,19 +905,18 @@ export function IlpGroupFundsEditSheet({
             <AlertDialogTitle>Remove fund from group?</AlertDialogTitle>
             <AlertDialogDescription>
               <span className="font-medium text-foreground">{deleteTarget?.name}</span> will
-              be deleted and its monthly history removed. Remaining funds will be
-              rebalanced.
+              be removed from this group. The fund and its monthly history are preserved
+              — it can be re-added to this or another group later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletingId != null}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <Button
               type="button"
               variant="destructive"
-              disabled={deletingId != null}
-              onClick={() => void confirmDelete()}
+              onClick={confirmRemoveFromGroup}
             >
-              {deletingId ? <Loader2 className="size-4 animate-spin" /> : "Delete"}
+              Remove
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

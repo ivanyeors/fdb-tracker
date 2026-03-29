@@ -48,8 +48,10 @@ type ParseResponse = {
 type IlpProductRow = {
   id: string
   name: string
-  ilp_fund_group_id: string | null
-  group_allocation_pct: number | null
+  fund_group_memberships?: {
+    group_id: string
+    allocation_pct: number
+  }[]
 }
 type FundGroupRow = { id: string; name: string }
 
@@ -309,7 +311,9 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
     if (fundGroupChoice === NO_FUND_GROUP || fundGroupChoice === NEW_FUND_GROUP) {
       return []
     }
-    return products.filter((p) => p.ilp_fund_group_id === fundGroupChoice)
+    return products.filter((p) =>
+      p.fund_group_memberships?.some((m) => m.group_id === fundGroupChoice),
+    )
   }, [products, fundGroupChoice])
 
   const needsSingleAllocStep =
@@ -699,18 +703,25 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
       return product.id
     }
 
-    const existingInGroup = products.filter((p) => p.ilp_fund_group_id === ilpFundGroupId)
+    const existingInGroup = products.filter((p) =>
+      p.fund_group_memberships?.some((m) => m.group_id === ilpFundGroupId),
+    )
+    // Create the product without group — group membership is managed via allocations PATCH
+    const product = await createIlpProduct(baseBody)
+
     if (existingInGroup.length === 0) {
-      const product = await createIlpProduct({
-        ...baseBody,
-        ilpFundGroupId,
-        groupAllocationPct: 100,
+      // First product in the group — just set 100% allocation
+      await patchGroupAllocations(ilpFundGroupId, [
+        { productId: product.id, allocationPct: 100 },
+      ], {
+        groupPremiumAmount: singleGroupPremiumAmount ?? 0,
+        premiumPaymentMode: singleGroupPremiumMode,
       })
       await loadProducts()
       return product.id
     }
 
-    const product = await createIlpProduct(baseBody)
+    // Group already has members — use the allocation percentages the user set
     const newId = product.id
 
     const items: { productId: string; allocationPct: number }[] = []
@@ -881,7 +892,9 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
     if (multiGroupTarget === NO_FUND_GROUP || multiGroupTarget === NEW_FUND_GROUP) {
       return []
     }
-    return products.filter((p) => p.ilp_fund_group_id === multiGroupTarget)
+    return products.filter((p) =>
+      p.fund_group_memberships?.some((m) => m.group_id === multiGroupTarget),
+    )
   }, [products, multiGroupTarget])
 
   useEffect(() => {

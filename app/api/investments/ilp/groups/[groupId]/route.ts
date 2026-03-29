@@ -62,21 +62,8 @@ export async function DELETE(
       )
     }
 
-    // Delete all products in the group
-    const { error: productsErr } = await supabase
-      .from("ilp_products")
-      .delete()
-      .eq("ilp_fund_group_id", groupId)
-      .eq("family_id", resolved.familyId)
-
-    if (productsErr) {
-      return NextResponse.json(
-        { error: "Failed to delete group funds" },
-        { status: 500 },
-      )
-    }
-
-    // Delete the group itself
+    // Delete the group — CASCADE removes junction rows (ilp_fund_group_members).
+    // Products are NOT deleted; they simply become ungrouped.
     const { error: groupErr } = await supabase
       .from("ilp_fund_groups")
       .delete()

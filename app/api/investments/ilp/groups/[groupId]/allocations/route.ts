@@ -29,6 +29,7 @@ const bodySchema = z.object({
 /**
  * Atomically assigns all products in `items` to the group with the given
  * allocation percentages, and removes any previous members of the group not listed.
+ * Products can belong to multiple groups (many-to-many via ilp_fund_group_members).
  */
 export async function PATCH(
   request: NextRequest,
@@ -71,7 +72,7 @@ export async function PATCH(
 
     const { data: group, error: groupErr } = await supabase
       .from("ilp_fund_groups")
-      .select("id")
+      .select("id, name")
       .eq("id", groupId)
       .eq("family_id", resolved.familyId)
       .maybeSingle()
@@ -91,7 +92,7 @@ export async function PATCH(
 
     const { data: products, error: prodErr } = await supabase
       .from("ilp_products")
-      .select("id, family_id, ilp_fund_group_id")
+      .select("id, family_id")
       .in("id", productIds)
       .eq("family_id", resolved.familyId)
 
@@ -102,36 +103,24 @@ export async function PATCH(
       )
     }
 
-    for (const p of products) {
-      const gid = p.ilp_fund_group_id
-      if (gid != null && gid !== groupId) {
-        return NextResponse.json(
-          {
-            error:
-              "One or more products belong to another fund group. Remove them from that group first.",
-          },
-          { status: 400 },
-        )
-      }
-    }
+    // Remove members no longer in the list
+    const { data: currentMembers } = await supabase
+      .from("ilp_fund_group_members")
+      .select("product_id")
+      .eq("fund_group_id", groupId)
 
-    const { data: groupMembers } = await supabase
-      .from("ilp_products")
-      .select("id")
-      .eq("ilp_fund_group_id", groupId)
-      .eq("family_id", resolved.familyId)
-
-    const toRemove = (groupMembers ?? [])
-      .map((m) => m.id)
+    const toRemove = (currentMembers ?? [])
+      .map((m) => m.product_id)
       .filter((id) => !productIds.includes(id))
 
     if (toRemove.length > 0) {
-      const { error: clearErr } = await supabase
-        .from("ilp_products")
-        .update({ ilp_fund_group_id: null, group_allocation_pct: null })
-        .in("id", toRemove)
+      const { error: removeErr } = await supabase
+        .from("ilp_fund_group_members")
+        .delete()
+        .eq("fund_group_id", groupId)
+        .in("product_id", toRemove)
 
-      if (clearErr) {
+      if (removeErr) {
         return NextResponse.json(
           { error: "Failed to update group membership" },
           { status: 500 },
@@ -139,15 +128,18 @@ export async function PATCH(
       }
     }
 
+    // Upsert memberships
     for (const row of items) {
       const { error: upErr } = await supabase
-        .from("ilp_products")
-        .update({
-          ilp_fund_group_id: groupId,
-          group_allocation_pct: row.allocationPct,
-        })
-        .eq("id", row.productId)
-        .eq("family_id", resolved.familyId)
+        .from("ilp_fund_group_members")
+        .upsert(
+          {
+            fund_group_id: groupId,
+            product_id: row.productId,
+            allocation_pct: row.allocationPct,
+          },
+          { onConflict: "fund_group_id,product_id" },
+        )
 
       if (upErr) {
         return NextResponse.json(
@@ -157,6 +149,7 @@ export async function PATCH(
       }
     }
 
+    // Update group premium if provided
     if (
       groupPremiumAmount !== undefined &&
       premiumPaymentMode !== undefined
@@ -216,10 +209,25 @@ export async function PATCH(
       }
     }
 
-    const { data: updated, error: fetchErr } = await supabase
+    // Fetch updated products with their membership info for this group
+    const { data: members, error: memErr } = await supabase
+      .from("ilp_fund_group_members")
+      .select("product_id, allocation_pct")
+      .eq("fund_group_id", groupId)
+
+    if (memErr) {
+      return NextResponse.json({ error: "Failed to load updated products" }, { status: 500 })
+    }
+
+    const memberProductIds = (members ?? []).map((m) => m.product_id)
+    if (memberProductIds.length === 0) {
+      return NextResponse.json({ products: [] })
+    }
+
+    const { data: updatedProducts, error: fetchErr } = await supabase
       .from("ilp_products")
-      .select("*, ilp_fund_groups ( id, name )")
-      .eq("ilp_fund_group_id", groupId)
+      .select("*")
+      .in("id", memberProductIds)
       .eq("family_id", resolved.familyId)
       .order("created_at", { ascending: true })
 
@@ -227,7 +235,17 @@ export async function PATCH(
       return NextResponse.json({ error: "Failed to load updated products" }, { status: 500 })
     }
 
-    return NextResponse.json({ products: updated ?? [] })
+    const memberMap = new Map(
+      (members ?? []).map((m) => [m.product_id, m.allocation_pct]),
+    )
+
+    const result = (updatedProducts ?? []).map((p) => ({
+      ...p,
+      group_allocation_pct: memberMap.get(p.id) ?? 0,
+      ilp_fund_groups: { id: groupId, name: group.name },
+    }))
+
+    return NextResponse.json({ products: result })
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

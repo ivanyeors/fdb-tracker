@@ -101,12 +101,13 @@ type IlpProductWithEntries = {
   premium_payment_mode?: string | null
   end_date: string
   created_at: string
-  group_allocation_pct?: number | null
-  ilp_fund_groups?: {
+  fund_group_memberships?: {
     id: string
-    name: string
+    group_id: string
+    group_name: string
+    allocation_pct: number
     group_premium_amount?: number | null
-  } | null
+  }[]
   latestEntry: {
     fund_value: number
     month: string
@@ -389,16 +390,17 @@ export default function OverviewPage() {
       }
       const pm: "monthly" | "one_time" =
         p.premium_payment_mode === "one_time" ? "one_time" : "monthly"
-      const gAmt = p.ilp_fund_groups?.group_premium_amount
+      const firstMembership = p.fund_group_memberships?.[0]
+      const gAmt = firstMembership?.group_premium_amount
       const fvAlloc = fundValueForAllocation(p.latestEntry, p.entries ?? [])
       return {
         productId: p.id,
         name: p.name,
-        groupId: p.ilp_fund_groups?.id ?? null,
-        groupName: p.ilp_fund_groups?.name ?? null,
+        groupId: firstMembership?.group_id ?? null,
+        groupName: firstMembership?.group_name ?? null,
         groupAllocationPct:
-          p.group_allocation_pct != null
-            ? Number(p.group_allocation_pct)
+          firstMembership?.allocation_pct != null
+            ? Number(firstMembership.allocation_pct)
             : null,
         fundValue,
         fundValueForAllocation: fvAlloc,

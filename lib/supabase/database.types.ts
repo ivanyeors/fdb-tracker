@@ -761,6 +761,45 @@ export type Database = {
           },
         ]
       }
+      ilp_fund_group_members: {
+        Row: {
+          id: string
+          fund_group_id: string
+          product_id: string
+          allocation_pct: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          fund_group_id: string
+          product_id: string
+          allocation_pct?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          fund_group_id?: string
+          product_id?: string
+          allocation_pct?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ilp_fund_group_members_fund_group_id_fkey"
+            columns: ["fund_group_id"]
+            isOneToOne: false
+            referencedRelation: "ilp_fund_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ilp_fund_group_members_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "ilp_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ilp_fund_groups: {
         Row: {
           id: string
@@ -804,8 +843,6 @@ export type Database = {
           name: string
           monthly_premium: number
           end_date: string
-          ilp_fund_group_id: string | null
-          group_allocation_pct: number | null
           premium_payment_mode: string
           deduction_bank_account_id: string | null
           start_date: string | null
@@ -818,8 +855,6 @@ export type Database = {
           name: string
           monthly_premium: number
           end_date: string
-          ilp_fund_group_id?: string | null
-          group_allocation_pct?: number | null
           premium_payment_mode?: string
           deduction_bank_account_id?: string | null
           start_date?: string | null
@@ -832,8 +867,6 @@ export type Database = {
           name?: string
           monthly_premium?: number
           end_date?: string
-          ilp_fund_group_id?: string | null
-          group_allocation_pct?: number | null
           premium_payment_mode?: string
           deduction_bank_account_id?: string | null
           start_date?: string | null
@@ -845,13 +878,6 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ilp_products_ilp_fund_group_id_fkey"
-            columns: ["ilp_fund_group_id"]
-            isOneToOne: false
-            referencedRelation: "ilp_fund_groups"
             referencedColumns: ["id"]
           },
           {

@@ -10,6 +10,7 @@ import { deriveMonthlyPremiumsFromGroupTotal } from "@/lib/investments/ilp-premi
 /**
  * After deleting one product in a fund group, renormalize remaining members' allocation %,
  * derive monthly premiums from the group total when mode is monthly, and remove an empty group row.
+ * Uses ilp_fund_group_members junction table for membership queries.
  */
 export async function rebalanceIlpFundGroupAfterProductDelete(
   supabase: SupabaseClient,
@@ -24,10 +25,9 @@ export async function rebalanceIlpFundGroupAfterProductDelete(
     .maybeSingle()
 
   const { data: members, error: membersErr } = await supabase
-    .from("ilp_products")
-    .select("id, group_allocation_pct")
-    .eq("ilp_fund_group_id", groupId)
-    .eq("family_id", familyId)
+    .from("ilp_fund_group_members")
+    .select("id, product_id, allocation_pct")
+    .eq("fund_group_id", groupId)
     .order("created_at", { ascending: true })
 
   if (membersErr) {
@@ -46,8 +46,9 @@ export async function rebalanceIlpFundGroupAfterProductDelete(
     return { error: null }
   }
 
-  const ids = members.map((m) => m.id)
-  const weights = members.map((m) => Number(m.group_allocation_pct ?? 0))
+  const memberIds = members.map((m) => m.id)
+  const productIds = members.map((m) => m.product_id)
+  const weights = members.map((m) => Number(m.allocation_pct ?? 0))
 
   let newPcts: number[]
   if (members.length === 1) {
@@ -61,24 +62,33 @@ export async function rebalanceIlpFundGroupAfterProductDelete(
     }
   }
 
-  const items = ids.map((id, i) => ({
-    productId: id,
+  const items = productIds.map((pid, i) => ({
+    productId: pid,
     allocationPct: newPcts[i]!,
   }))
 
   const groupTotal = Number(group?.group_premium_amount ?? 0)
   const mode = group?.premium_payment_mode ?? "monthly"
 
+  // Update allocation percentages on junction table
+  for (let i = 0; i < memberIds.length; i++) {
+    const { error } = await supabase
+      .from("ilp_fund_group_members")
+      .update({ allocation_pct: newPcts[i]! })
+      .eq("id", memberIds[i]!)
+    if (error) return { error: error.message }
+  }
+
+  // Update product premiums
   if (mode === "one_time") {
-    for (let i = 0; i < ids.length; i++) {
+    for (const pid of productIds) {
       const { error } = await supabase
         .from("ilp_products")
         .update({
-          group_allocation_pct: newPcts[i]!,
           monthly_premium: 0,
           premium_payment_mode: "one_time",
         })
-        .eq("id", ids[i]!)
+        .eq("id", pid)
         .eq("family_id", familyId)
       if (error) return { error: error.message }
     }
@@ -86,17 +96,15 @@ export async function rebalanceIlpFundGroupAfterProductDelete(
   }
 
   const derived = deriveMonthlyPremiumsFromGroupTotal(groupTotal, items)
-  for (let i = 0; i < ids.length; i++) {
-    const id = ids[i]!
-    const mp = derived.get(id) ?? 0
+  for (const pid of productIds) {
+    const mp = derived.get(pid) ?? 0
     const { error } = await supabase
       .from("ilp_products")
       .update({
-        group_allocation_pct: newPcts[i]!,
         monthly_premium: mp,
         premium_payment_mode: "monthly",
       })
-      .eq("id", id)
+      .eq("id", pid)
       .eq("family_id", familyId)
     if (error) return { error: error.message }
   }

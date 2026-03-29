@@ -5,7 +5,7 @@
 export type IlpProductSliceInput = {
   name: string
   latestEntry: { fund_value: number } | null
-  ilp_fund_groups?: { id: string; name: string } | null
+  fund_group_memberships?: { group_id: string; group_name: string }[]
 }
 
 export type AllocationSliceRow = {
@@ -23,9 +23,10 @@ export function allocationByIlpGroupOrStandalone(
   for (const p of products) {
     const fv = p.latestEntry?.fund_value ?? 0
     if (fv <= 0) continue
-    const gid = p.ilp_fund_groups?.id ?? null
+    const firstMembership = p.fund_group_memberships?.[0]
+    const gid = firstMembership?.group_id ?? null
     if (gid) {
-      const title = p.ilp_fund_groups?.name?.trim() || "Fund group"
+      const title = firstMembership?.group_name?.trim() || "Fund group"
       const cur = groupMap.get(gid)
       if (cur) {
         cur.value += fv
@@ -71,11 +72,12 @@ export function allocationByIlpProductWithGroupLabel(
   for (const p of products) {
     const fv = p.latestEntry?.fund_value ?? 0
     if (fv <= 0) continue
-    const gid = p.ilp_fund_groups?.id ?? null
+    const firstMembership = p.fund_group_memberships?.[0]
+    const gid = firstMembership?.group_id ?? null
     const fundName = p.name?.trim() || "ILP fund"
     const label =
       gid != null
-        ? `${p.ilp_fund_groups?.name?.trim() || "Fund group"} · ${fundName}`
+        ? `${firstMembership?.group_name?.trim() || "Fund group"} · ${fundName}`
         : fundName
     rows.push({ name: label, value: fv })
   }
