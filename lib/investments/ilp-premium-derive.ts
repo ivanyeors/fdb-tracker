@@ -21,3 +21,21 @@ export function deriveMonthlyPremiumsFromGroupTotal(
   map.set(last.productId, lastAmt)
   return map
 }
+
+/** Number of months elapsed since a start date. */
+export function monthsElapsedSinceGroupStart(startDate: string): number {
+  const start = new Date(startDate)
+  const now = new Date()
+  return (
+    (now.getFullYear() - start.getFullYear()) * 12 +
+    (now.getMonth() - start.getMonth())
+  )
+}
+
+/** Total invested over time = monthly premium * months elapsed. */
+export function totalInvestedOverTime(
+  monthlyPremium: number,
+  monthsElapsed: number,
+): number {
+  return Math.max(0, monthlyPremium * Math.max(0, monthsElapsed))
+}

@@ -23,6 +23,8 @@ export type Ocbc360Progress = {
   target: number
 }
 
+export type Ocbc360ProgressZone = "safe" | "cautious" | "danger"
+
 export type Ocbc360CategoryRow = {
   id: string
   category: string
@@ -32,6 +34,18 @@ export type Ocbc360CategoryRow = {
   met: boolean
   progress: Ocbc360Progress | null
   progressLabel: string | null
+  zone: Ocbc360ProgressZone | null
+  /** Extra context for the condition (e.g. balance delta detail for Save). */
+  detail: string | null
+}
+
+/** safe >= 100%, cautious >= 70%, danger < 70% */
+export function getProgressZone(current: number, target: number): Ocbc360ProgressZone {
+  if (target <= 0) return "safe"
+  const ratio = current / target
+  if (ratio >= 1) return "safe"
+  if (ratio >= 0.7) return "cautious"
+  return "danger"
 }
 
 export type Ocbc360StatusInputs = {
@@ -132,6 +146,7 @@ export function computeOcbc360CategoryRows(
   let saveMet = false
   let saveProgress: Ocbc360Progress | null = null
   let saveLabel: string | null = null
+  let saveDetail: string | null = null
   if (snapshotsClosing === null) {
     saveLabel = "Need at least 2 monthly balance snapshots"
   } else {
@@ -143,6 +158,7 @@ export function computeOcbc360CategoryRows(
       target: OCBC_SAVE_INCREASE_MIN,
     }
     saveLabel = `$${delta.toFixed(0)} / $${OCBC_SAVE_INCREASE_MIN} (vs prior month)`
+    saveDetail = `Previous: $${prev.toLocaleString("en-SG", { maximumFractionDigits: 0 })} → Current: $${latest.toLocaleString("en-SG", { maximumFractionDigits: 0 })}`
   }
 
   // Spend — logged monthly outflow (`/out`)
@@ -197,6 +213,8 @@ export function computeOcbc360CategoryRows(
       met: true,
       progress: null,
       progressLabel: "—",
+      zone: null,
+      detail: null,
     },
     {
       id: "salary",
@@ -207,6 +225,8 @@ export function computeOcbc360CategoryRows(
       met: salaryMet,
       progress: salaryProgress,
       progressLabel: salaryLabel,
+      zone: salaryProgress ? getProgressZone(salaryProgress.current, salaryProgress.target) : null,
+      detail: null,
     },
     {
       id: "save",
@@ -217,6 +237,8 @@ export function computeOcbc360CategoryRows(
       met: saveMet,
       progress: saveProgress,
       progressLabel: saveLabel,
+      zone: saveProgress ? getProgressZone(saveProgress.current, saveProgress.target) : null,
+      detail: saveDetail,
     },
     {
       id: "spend",
@@ -227,6 +249,8 @@ export function computeOcbc360CategoryRows(
       met: spendMet,
       progress: spendProgress,
       progressLabel: spendLabel,
+      zone: spendProgress ? getProgressZone(spendProgress.current, spendProgress.target) : null,
+      detail: null,
     },
     {
       id: "insure",
@@ -237,6 +261,8 @@ export function computeOcbc360CategoryRows(
       met: insureMet,
       progress: null,
       progressLabel: insureMet ? "Confirmed" : "Not confirmed",
+      zone: insureMet ? "safe" : "danger",
+      detail: null,
     },
     {
       id: "invest",
@@ -247,6 +273,8 @@ export function computeOcbc360CategoryRows(
       met: investMet,
       progress: null,
       progressLabel: investMet ? "Confirmed" : "Not confirmed",
+      zone: investMet ? "safe" : "danger",
+      detail: null,
     },
     {
       id: "bonus_tranches",
@@ -257,6 +285,8 @@ export function computeOcbc360CategoryRows(
       met: bonusTrancheMet,
       progress: bonusTrancheProgress,
       progressLabel: bonusTrancheLabel,
+      zone: getProgressZone(bonusTrancheProgress.current, bonusTrancheProgress.target),
+      detail: null,
     },
     {
       id: "grow",
@@ -267,6 +297,8 @@ export function computeOcbc360CategoryRows(
       met: growMet,
       progress: growProgress,
       progressLabel: growLabel,
+      zone: getProgressZone(growProgress.current, growProgress.target),
+      detail: null,
     },
   ]
 }

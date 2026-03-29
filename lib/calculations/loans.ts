@@ -197,6 +197,19 @@ function totalInterestOverLife(
   return round2(payment * months - principal)
 }
 
+// --- Common early repayment penalty rates in Singapore ---
+
+export const EARLY_REPAYMENT_PENALTIES_SG = [
+  { lender: "HDB", penaltyPct: 0, lockInYears: 0, notes: "No penalty for early repayment" },
+  { lender: "DBS", penaltyPct: 1.5, lockInYears: 2, notes: "1.5% of prepaid amount during lock-in" },
+  { lender: "OCBC", penaltyPct: 1.5, lockInYears: 2, notes: "1.5% of prepaid amount during lock-in" },
+  { lender: "UOB", penaltyPct: 1.5, lockInYears: 2, notes: "1.5% during lock-in; varies by package" },
+  { lender: "Standard Chartered", penaltyPct: 1.5, lockInYears: 2, notes: "Typically 1.5% during lock-in" },
+  { lender: "HSBC", penaltyPct: 1.5, lockInYears: 3, notes: "1.5% during 2-3 year lock-in" },
+  { lender: "Maybank", penaltyPct: 1.5, lockInYears: 2, notes: "1.5% during lock-in period" },
+  { lender: "CIMB", penaltyPct: 1.5, lockInYears: 2, notes: "1.5% of prepaid amount during lock-in" },
+] as const
+
 /** Number of months to pay off a balance at a given monthly payment and rate. */
 function monthsToPayOff(
   balance: number,

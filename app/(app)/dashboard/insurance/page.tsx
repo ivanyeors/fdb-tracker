@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
+import dynamic from "next/dynamic"
 import { Check, X, DollarSign, Percent, ChevronDown, ShieldCheck, FileText } from "lucide-react"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { MetricCard } from "@/components/dashboard/metric-card"
@@ -14,7 +15,17 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/utils"
-import { RadarChart } from "@/components/dashboard/insurance/radar-chart"
+
+const RadarChart = dynamic(
+  () =>
+    import("@/components/dashboard/insurance/radar-chart").then(
+      (m) => m.RadarChart
+    ),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[300px] w-full rounded-xl" />,
+  }
+)
 import { GapBars } from "@/components/dashboard/insurance/gap-bars"
 import { CoverageTable } from "@/components/dashboard/insurance/coverage-table"
 import { PremiumCalendar } from "@/components/dashboard/insurance/premium-calendar"

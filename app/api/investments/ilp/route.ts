@@ -86,11 +86,28 @@ export async function GET(request: NextRequest) {
 
     const productIds = products.map((p) => p.id)
 
-    // Fetch fund group memberships for all products
-    const { data: memberships } = await supabase
-      .from("ilp_fund_group_members")
-      .select("id, fund_group_id, product_id, allocation_pct, ilp_fund_groups ( id, name, group_premium_amount, premium_payment_mode )")
-      .in("product_id", productIds)
+    // Fetch memberships and entries in parallel (both depend on productIds only)
+    const [{ data: memberships }, { data: allEntries, error: entriesError }] =
+      await Promise.all([
+        supabase
+          .from("ilp_fund_group_members")
+          .select(
+            "id, fund_group_id, product_id, allocation_pct, ilp_fund_groups ( id, name, group_premium_amount, premium_payment_mode )"
+          )
+          .in("product_id", productIds),
+        supabase
+          .from("ilp_entries")
+          .select("*")
+          .in("product_id", productIds)
+          .order("month", { ascending: false }),
+      ])
+
+    if (entriesError) {
+      return NextResponse.json(
+        { error: "Failed to fetch ILP entries" },
+        { status: 500 }
+      )
+    }
 
     // Build a map: productId -> array of memberships
     const membershipsByProduct = new Map<string, typeof memberships>()
@@ -98,16 +115,6 @@ export async function GET(request: NextRequest) {
       const list = membershipsByProduct.get(m.product_id) ?? []
       list.push(m)
       membershipsByProduct.set(m.product_id, list)
-    }
-
-    const { data: allEntries, error: entriesError } = await supabase
-      .from("ilp_entries")
-      .select("*")
-      .in("product_id", productIds)
-      .order("month", { ascending: false })
-
-    if (entriesError) {
-      return NextResponse.json({ error: "Failed to fetch ILP entries" }, { status: 500 })
     }
 
     const latestEntryByProduct = new Map<string, (typeof allEntries)[number]>()

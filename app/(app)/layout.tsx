@@ -2,7 +2,9 @@ import { redirect } from "next/navigation"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { SidebarNav } from "@/components/layout/sidebar-nav"
 import { AppMainChrome } from "@/components/layout/app-main-chrome"
+import { TopNav } from "@/components/layout/top-nav"
 import { ActiveProfileProvider } from "@/hooks/use-active-profile"
+import { GlobalMonthProvider } from "@/hooks/use-global-month"
 import { DataRefreshProvider } from "@/hooks/use-data-refresh"
 import { cookies } from "next/headers"
 import { getSessionFromCookies } from "@/lib/auth/session"
@@ -45,14 +47,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       profiles={profiles ?? []}
       initialFamilyId={initialFamilyId}
     >
-      <DataRefreshProvider>
-        <SidebarProvider>
-          <SidebarNav />
-          <SidebarInset className="min-h-0">
-            <AppMainChrome>{children}</AppMainChrome>
-          </SidebarInset>
-        </SidebarProvider>
-      </DataRefreshProvider>
+      <GlobalMonthProvider>
+        <DataRefreshProvider>
+          <SidebarProvider>
+            <TopNav />
+            <SidebarNav />
+            <SidebarInset className="min-h-0 pt-(--top-nav-height)">
+              <AppMainChrome>{children}</AppMainChrome>
+            </SidebarInset>
+          </SidebarProvider>
+        </DataRefreshProvider>
+      </GlobalMonthProvider>
     </ActiveProfileProvider>
   )
 }

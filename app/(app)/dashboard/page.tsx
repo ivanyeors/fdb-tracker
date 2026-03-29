@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import {
   Card,
   CardContent,
@@ -18,23 +19,35 @@ import { CpfCard } from "@/components/dashboard/cpf/cpf-card"
 import { IlpCard } from "@/components/dashboard/investments/ilp-card"
 import { IlpGroupSummaryCard } from "@/components/dashboard/investments/ilp-group-summary-card"
 import { fundValueForAllocation } from "@/lib/investments/ilp-fund-value-for-allocation"
-import {
-  WaterfallChart,
-  type WaterfallData,
-} from "@/components/dashboard/cashflow/waterfall-chart"
-import { CashflowSankey } from "@/components/dashboard/cashflow/cashflow-sankey"
+import type { WaterfallData } from "@/components/dashboard/cashflow/waterfall-chart"
 import {
   JournalList,
   type JournalEntry,
 } from "@/components/dashboard/investments/journal-list"
-import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import { useGlobalMonth } from "@/hooks/use-global-month"
 import { useApi } from "@/hooks/use-api"
 import { currentMonthYm, ilpEntryMonthKey } from "@/lib/investments/ilp-chart"
 import { formatCurrency } from "@/lib/utils"
 import { Progress } from "@/components/ui/progress"
 import { ChartSkeleton } from "@/components/loading"
 import { Skeleton } from "@/components/ui/skeleton"
+
+const WaterfallChart = dynamic(
+  () =>
+    import("@/components/dashboard/cashflow/waterfall-chart").then(
+      (m) => m.WaterfallChart
+    ),
+  { ssr: false, loading: () => <ChartSkeleton className="h-[300px]" /> }
+)
+
+const CashflowSankey = dynamic(
+  () =>
+    import("@/components/dashboard/cashflow/cashflow-sankey").then(
+      (m) => m.CashflowSankey
+    ),
+  { ssr: false, loading: () => <ChartSkeleton className="h-[300px]" /> }
+)
 
 const monthLabels: Record<string, string> = {
   "01": "Jan",
@@ -123,7 +136,7 @@ type IlpProductWithEntries = {
 
 export default function OverviewPage() {
   const { activeProfileId, activeFamilyId, families } = useActiveProfile()
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(null)
+  const { effectiveMonth, setAvailableMonths } = useGlobalMonth()
 
   const qs = useMemo(() => {
     const p = new URLSearchParams()
@@ -168,14 +181,12 @@ export default function OverviewPage() {
     [cashflowRangeRaw]
   )
 
-  // Overview: fetch with month once effectiveMonth is known, else initial fetch
-  const effectiveMonth =
-    selectedMonth ??
-    (() => {
-      // Derive from cashflow months (first = latest)
-      if (cashflowMonths.length > 0) return cashflowMonths[0] ?? null
-      return null
-    })()
+  // Sync available months to global context for TopNav picker
+  useEffect(() => {
+    if (cashflowMonths.length > 0) {
+      setAvailableMonths(cashflowMonths)
+    }
+  }, [cashflowMonths, setAvailableMonths])
 
   const overviewUrl = effectiveMonth
     ? `/api/overview?${qs ? `${qs}&` : ""}month=${effectiveMonth}`
@@ -490,14 +501,7 @@ export default function OverviewPage() {
       <SectionHeader
         title="Overview"
         description="Net worth, savings rate, and key metrics at a glance."
-      >
-        <MonthYearPicker
-          value={effectiveMonth}
-          onChange={setSelectedMonth}
-          availableMonths={cashflowMonths}
-          placeholder="Select month"
-        />
-      </SectionHeader>
+      />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>

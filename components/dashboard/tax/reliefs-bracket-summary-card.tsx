@@ -105,11 +105,11 @@ export function ReliefsBracketSummaryCard({
                 {profilesWithSnap.map((p) => {
                   const s = snapCurrent(p.id)!
                   return (
-                    <li key={p.id} className="text-sm leading-snug">
+                    <li key={p.id} className="min-w-0 text-sm leading-snug">
                       {profiles.length > 1 && (
                         <span className="font-medium text-foreground">{p.name}: </span>
                       )}
-                      <span className="text-muted-foreground">
+                      <span className="text-muted-foreground break-words">
                         {formatMarginalBandLine(s)}
                       </span>
                     </li>
@@ -133,11 +133,11 @@ export function ReliefsBracketSummaryCard({
                   {withNext.map((p) => {
                     const sN = snapNext(p.id)!
                     return (
-                      <li key={`${p.id}-next`} className="text-sm leading-snug">
+                      <li key={`${p.id}-next`} className="min-w-0 text-sm leading-snug">
                         {profiles.length > 1 && (
                           <span className="font-medium text-foreground">{p.name}: </span>
                         )}
-                        <span className="text-muted-foreground">
+                        <span className="text-muted-foreground break-words">
                           {formatMarginalBandLine(sN)}
                         </span>
                       </li>

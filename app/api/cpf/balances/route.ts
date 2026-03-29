@@ -92,15 +92,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Project from income when no manual data - support single or multi-profile
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, birth_year")
-      .in("id", profileIds)
-
-    const { data: incomeConfigs } = await supabase
-      .from("income_config")
-      .select("profile_id, annual_salary, bonus_estimate")
-      .in("profile_id", profileIds)
+    const [{ data: profiles }, { data: incomeConfigs }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, birth_year")
+        .in("id", profileIds),
+      supabase
+        .from("income_config")
+        .select("profile_id, annual_salary, bonus_estimate")
+        .in("profile_id", profileIds),
+    ])
 
     const incomeByProfile = new Map(
       incomeConfigs?.map((ic) => [ic.profile_id, ic]) ?? [],

@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, RefreshCw } from "lucide-react"
+import { toast } from "sonner"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { Button } from "@/components/ui/button"
+import { MetricCard } from "@/components/dashboard/metric-card"
+import { CurrencyInput } from "@/components/ui/currency-input"
 import { IlpCard } from "@/components/dashboard/investments/ilp-card"
 import { IlpGroupFundsEditSheet } from "@/components/dashboard/investments/ilp-group-funds-edit-sheet"
 import { useActiveProfile } from "@/hooks/use-active-profile"
@@ -20,6 +23,8 @@ import {
 import { IlpGroupAllocationPanel } from "@/components/dashboard/investments/ilp-group-allocation-panel"
 import { DeleteIlpGroupDialog } from "@/components/dashboard/investments/delete-ilp-group-dialog"
 import { ChartSkeleton } from "@/components/loading"
+import { buildGroupSummary } from "@/lib/investments/ilp-group-summary"
+import { formatCurrency } from "@/lib/utils"
 
 export default function IlpFundGroupDetailPage() {
   const params = useParams()
@@ -30,6 +35,8 @@ export default function IlpFundGroupDetailPage() {
   const [editGroupOpen, setEditGroupOpen] = useState(false)
   const [sgdPerUsd, setSgdPerUsd] = useState<number | null>(null)
   const [fxLoading, setFxLoading] = useState(true)
+  const [premiumInput, setPremiumInput] = useState<number | null>(null)
+  const [premiumSaving, setPremiumSaving] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -135,6 +142,44 @@ export default function IlpFundGroupDetailPage() {
     [ilpProducts],
   )
 
+  const groupSummary = useMemo(() => {
+    const productsForSummary = ilpProducts
+      .filter((p) => p.fund_group_memberships?.some((m) => m.group_id === groupId))
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        entries: (p.entries ?? []).map((e) => ({
+          month: e.month,
+          fund_value: e.fund_value,
+          premiums_paid: e.premiums_paid ?? null,
+        })),
+        fund_group_memberships: p.fund_group_memberships?.map((m) => ({
+          group_id: m.group_id,
+          allocation_pct: m.allocation_pct,
+        })),
+      }))
+    return buildGroupSummary(productsForSummary, groupId)
+  }, [ilpProducts, groupId])
+
+  const handlePremiumUpdate = useCallback(async () => {
+    if (premiumInput == null || premiumInput <= 0 || !activeFamilyId) return
+    setPremiumSaving(true)
+    try {
+      const res = await fetch(`/api/investments/ilp/groups/${groupId}/monthly-premium`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ familyId: activeFamilyId, monthlyTotal: premiumInput }),
+      })
+      if (!res.ok) throw new Error("Failed to update")
+      toast.success("Monthly premium updated and individual amounts recalculated")
+      void fetchIlp()
+    } catch {
+      toast.error("Failed to update monthly premium")
+    } finally {
+      setPremiumSaving(false)
+    }
+  }, [premiumInput, activeFamilyId, groupId, fetchIlp])
+
   if (!activeProfileId && !activeFamilyId) {
     return (
       <InvestmentsDisplayCurrencyProvider
@@ -199,13 +244,103 @@ export default function IlpFundGroupDetailPage() {
           onSuccess={() => void fetchIlp()}
         />
 
+        {/* Group Summary Cards */}
+        {!isLoading && groupCards.length > 0 && (
+          <>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <MetricCard
+                label="Total Invested"
+                value={groupSummary.totalPremiumsPaid}
+                prefix="$"
+                trend={0}
+                trendLabel=""
+              />
+              <MetricCard
+                label="Total Fund Value"
+                value={groupSummary.totalFundValue}
+                prefix="$"
+                trend={0}
+                trendLabel=""
+              />
+              <MetricCard
+                label="Return"
+                value={groupSummary.returnPct}
+                suffix="%"
+                trend={0}
+                trendLabel=""
+              />
+              <MetricCard
+                label="Monthly Change"
+                value={groupSummary.monthlyVariance.length > 0
+                  ? groupSummary.monthlyVariance[groupSummary.monthlyVariance.length - 1].deltaFromPrevious
+                  : 0}
+                prefix="$"
+                trend={0}
+                trendLabel=""
+              />
+            </div>
+
+            {/* Monthly Premium Update */}
+            <div className="rounded-xl border bg-card p-4 sm:p-5">
+              <h2 className="text-sm font-medium text-foreground">Monthly Group Premium</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Update the total monthly amount. Individual fund premiums will be recalculated based on their allocation %.
+              </p>
+              <div className="mt-3 flex items-end gap-3">
+                <div className="flex-1 max-w-[200px]">
+                  <CurrencyInput
+                    value={premiumInput ?? (groupPremiumAmount != null ? Number(groupPremiumAmount) : null)}
+                    onChange={(v) => setPremiumInput(v ?? null)}
+                    placeholder={groupPremiumAmount != null ? `$${formatCurrency(Number(groupPremiumAmount))}` : "0.00"}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handlePremiumUpdate}
+                  disabled={premiumSaving || premiumInput == null || premiumInput <= 0}
+                >
+                  {premiumSaving ? <RefreshCw className="size-4 animate-spin" /> : "Recalculate"}
+                </Button>
+              </div>
+              {groupSummary.individualBreakdowns.length > 0 && (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b text-left text-muted-foreground">
+                        <th className="pb-1.5 pr-3 font-medium">Fund</th>
+                        <th className="pb-1.5 pr-3 text-right font-medium">Allocation</th>
+                        <th className="pb-1.5 pr-3 text-right font-medium">Premiums Paid</th>
+                        <th className="pb-1.5 pr-3 text-right font-medium">Fund Value</th>
+                        <th className="pb-1.5 text-right font-medium">Return</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groupSummary.individualBreakdowns.map((p) => (
+                        <tr key={p.productId} className="border-b last:border-0">
+                          <td className="py-1.5 pr-3 font-medium truncate max-w-[150px]">{p.name}</td>
+                          <td className="py-1.5 pr-3 text-right tabular-nums">{p.allocationPct.toFixed(1)}%</td>
+                          <td className="py-1.5 pr-3 text-right tabular-nums">${formatCurrency(p.premiumsPaid)}</td>
+                          <td className="py-1.5 pr-3 text-right tabular-nums">${formatCurrency(p.fundValue)}</td>
+                          <td className={`py-1.5 text-right tabular-nums ${p.returnPct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                            {p.returnPct >= 0 ? "+" : ""}{p.returnPct.toFixed(1)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
         {!isLoading && groupCards.length > 0 ? (
           <div className="rounded-xl border bg-card p-4 sm:p-5">
             <h2 className="text-sm font-medium text-foreground">Group allocation</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              The companies and By sector views use the portfolio holdings table from each
-              imported report; Fund category uses each fund’s Morningstar category line
-              from the report header.
+              The portfolio holdings view uses the holdings table from each imported report,
+              aggregated across all funds in this group. Fund category uses each fund’s
+              Morningstar category from the report header.
             </p>
             <div className="mt-3">
               <IlpGroupAllocationPanel

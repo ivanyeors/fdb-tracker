@@ -12,6 +12,7 @@ const querySchema = z.object({
 const createGroupSchema = z.object({
   familyId: z.string().uuid(),
   name: z.string().min(1).max(200),
+  profileId: z.string().uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from("ilp_fund_groups")
-      .select("id, name, created_at")
+      .select("id, name, profile_id, created_at")
       .eq("family_id", resolved.familyId)
       .order("name", { ascending: true })
 
@@ -88,6 +89,7 @@ export async function POST(request: NextRequest) {
       .insert({
         family_id: resolved.familyId,
         name: parsed.data.name.trim(),
+        ...(parsed.data.profileId ? { profile_id: parsed.data.profileId } : {}),
       })
       .select()
       .single()

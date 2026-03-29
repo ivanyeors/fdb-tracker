@@ -10,7 +10,10 @@ export function AppMainChrome({ children }: { children: ReactNode }) {
     <UserSettingsSaveProvider>
       <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
         <Header />
-        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-24 md:pb-0">
+        <div
+          id="main-scroll-container"
+          className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-24 md:pb-0"
+        >
           {children}
         </div>
         <BottomNav />

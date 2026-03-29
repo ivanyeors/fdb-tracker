@@ -24,6 +24,8 @@ const bodySchema = z.object({
   /** When set with premiumPaymentMode, updates group budget and per-product monthly_premium. */
   groupPremiumAmount: z.number().min(0).optional(),
   premiumPaymentMode: z.enum(["monthly", "one_time"]).optional(),
+  /** Assign this group to a specific profile. */
+  profileId: z.string().uuid().nullable().optional(),
 })
 
 /**
@@ -150,6 +152,15 @@ export async function PATCH(
     }
 
     // Update group premium if provided
+    // Update profile assignment if provided
+    if (parsed.data.profileId !== undefined) {
+      await supabase
+        .from("ilp_fund_groups")
+        .update({ profile_id: parsed.data.profileId })
+        .eq("id", groupId)
+        .eq("family_id", resolved.familyId)
+    }
+
     if (
       groupPremiumAmount !== undefined &&
       premiumPaymentMode !== undefined

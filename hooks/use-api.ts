@@ -26,6 +26,7 @@ export function useApi<T = unknown>(
   return useSWR<T>(key, () => fetcher(path!) as Promise<T>, {
     revalidateOnFocus: false,
     dedupingInterval: 30_000,
+    keepPreviousData: true,
     ...options,
   })
 }

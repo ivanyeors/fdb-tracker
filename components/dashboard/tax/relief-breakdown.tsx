@@ -66,11 +66,11 @@ export function ReliefBreakdown({
       <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Relief</TableHead>
+          <TableHead className="max-w-[120px]">Relief</TableHead>
           <TableHead>Type</TableHead>
           <TableHead className="text-right">Amount</TableHead>
           <TableHead className="text-right">Tax Saved</TableHead>
-          <TableHead>Where Money Flowed</TableHead>
+          <TableHead className="hidden sm:table-cell">Where Money Flowed</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -79,7 +79,7 @@ export function ReliefBreakdown({
           const taxSaved = totalReliefs > 0 ? totalTaxSaved * reliefPct : 0
           return (
             <TableRow key={relief.id}>
-              <TableCell className="font-medium">
+              <TableCell className="max-w-[120px] truncate font-medium">
                 {formatReliefType(relief.relief_type)}
               </TableCell>
               <TableCell>
@@ -100,7 +100,7 @@ export function ReliefBreakdown({
               <TableCell className="text-right tabular-nums text-muted-foreground">
                 ~${formatCurrency(taxSaved)}
               </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
+              <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">
                 {MONEY_FLOW[relief.relief_type] ?? "—"}
               </TableCell>
             </TableRow>

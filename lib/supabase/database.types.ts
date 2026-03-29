@@ -807,6 +807,7 @@ export type Database = {
           name: string
           group_premium_amount: number | null
           premium_payment_mode: string
+          profile_id: string | null
           created_at: string
         }
         Insert: {
@@ -815,6 +816,7 @@ export type Database = {
           name: string
           group_premium_amount?: number | null
           premium_payment_mode?: string
+          profile_id?: string | null
           created_at?: string
         }
         Update: {
@@ -823,6 +825,7 @@ export type Database = {
           name?: string
           group_premium_amount?: number | null
           premium_payment_mode?: string
+          profile_id?: string | null
           created_at?: string
         }
         Relationships: [
@@ -831,6 +834,13 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ilp_fund_groups_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

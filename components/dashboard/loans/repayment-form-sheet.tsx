@@ -23,11 +23,24 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  prepaymentSavingsEstimate,
+  calculateEarlyRepaymentPenalty,
+} from "@/lib/calculations/loans"
+import { formatCurrency } from "@/lib/utils"
 
 interface LoanOption {
   id: string
   name: string
   use_cpf_oa: boolean
+  outstanding?: number
+  rate_pct?: number
+  remaining_months?: number
+  property_type?: string | null
+  lock_in_end_date?: string | null
+  early_repayment_penalty_pct?: number | null
+  split_profile_id?: string | null
+  split_pct?: number | null
 }
 
 interface RepaymentFormSheetProps {
@@ -199,6 +212,66 @@ export function RepaymentFormSheet({
                 <p className="text-xs text-muted-foreground">
                   Amount paid from CPF OA (leave blank if fully cash)
                 </p>
+              </div>
+            )}
+
+            {/* Early repayment savings preview */}
+            {isEarly && selectedLoan && amount && amount > 0 && selectedLoan.outstanding != null && selectedLoan.outstanding > 0 && (
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5 text-sm">
+                <p className="font-medium text-foreground">Early Repayment Preview</p>
+                {(() => {
+                  const penalty = calculateEarlyRepaymentPenalty(
+                    amount,
+                    {
+                      property_type: selectedLoan.property_type ?? null,
+                      lock_in_end_date: selectedLoan.lock_in_end_date ?? null,
+                      early_repayment_penalty_pct: selectedLoan.early_repayment_penalty_pct ?? null,
+                    },
+                    date,
+                  )
+                  const savings = prepaymentSavingsEstimate(
+                    selectedLoan.outstanding,
+                    selectedLoan.rate_pct ?? 0,
+                    selectedLoan.remaining_months ?? 0,
+                    amount,
+                    penalty,
+                  )
+                  const newBalance = Math.max(0, selectedLoan.outstanding - amount)
+                  const isSplit = selectedLoan.split_profile_id != null && (selectedLoan.split_pct ?? 100) < 100
+                  return (
+                    <>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>New outstanding</span>
+                        <span className="tabular-nums font-medium text-foreground">${formatCurrency(newBalance)}</span>
+                      </div>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Interest saved</span>
+                        <span className="tabular-nums text-emerald-600 dark:text-emerald-400">${formatCurrency(savings.interestSaved)}</span>
+                      </div>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Months saved</span>
+                        <span className="tabular-nums">{savings.monthsSaved}</span>
+                      </div>
+                      {penalty > 0 && (
+                        <>
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>Penalty</span>
+                            <span className="tabular-nums text-red-600 dark:text-red-400">${formatCurrency(penalty)}</span>
+                          </div>
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>Net savings</span>
+                            <span className="tabular-nums font-medium text-foreground">${formatCurrency(savings.netSavings)}</span>
+                          </div>
+                        </>
+                      )}
+                      {isSplit && (
+                        <p className="text-xs text-muted-foreground mt-1 border-t pt-1.5">
+                          This repayment reduces the total outstanding balance. Both shares will be adjusted proportionally.
+                        </p>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
             )}
           </div>

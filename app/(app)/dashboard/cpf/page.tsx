@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
+import dynamic from "next/dynamic"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CpfOverviewChart } from "@/components/dashboard/cpf/cpf-overview-chart"
-import { CpfRetirementChart } from "@/components/dashboard/cpf/cpf-retirement-chart"
 import { CpfHousingTab, type CpfHousingApiResponse } from "@/components/dashboard/cpf/cpf-housing-tab"
 import { CpfLoansTab, type CpfLoanRow } from "@/components/dashboard/cpf/cpf-loans-tab"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -18,6 +17,22 @@ import { CpfSimulatorPanel } from "@/components/dashboard/cpf/cpf-simulator-pane
 import { ChartSkeleton } from "@/components/loading"
 import { Badge } from "@/components/ui/badge"
 import { calculateRetirementGap, findBenchmarkAge } from "@/lib/calculations/cpf-retirement"
+
+const CpfOverviewChart = dynamic(
+  () =>
+    import("@/components/dashboard/cpf/cpf-overview-chart").then(
+      (m) => m.CpfOverviewChart
+    ),
+  { ssr: false, loading: () => <ChartSkeleton className="h-[300px]" /> }
+)
+
+const CpfRetirementChart = dynamic(
+  () =>
+    import("@/components/dashboard/cpf/cpf-retirement-chart").then(
+      (m) => m.CpfRetirementChart
+    ),
+  { ssr: false, loading: () => <ChartSkeleton className="h-[350px]" /> }
+)
 
 type CpfBalanceRow = { month: string; oa: number; sa: number; ma: number }
 

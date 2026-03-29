@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import Link from "next/link"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { MetricCard } from "@/components/dashboard/metric-card"
-import { formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,7 @@ import {
   loanMonthlyPayment,
   prepaymentSavingsEstimate,
   splitLoanAmount,
+  EARLY_REPAYMENT_PENALTIES_SG,
 } from "@/lib/calculations/loans"
 import {
   LoanFormSheet,
@@ -155,18 +156,27 @@ export default function LoansPage() {
   }, [fetchData])
 
   const totalPrincipal = useMemo(
-    () => loans.reduce((sum, l) => sum + l.principal, 0),
-    [loans],
+    () =>
+      loans.reduce((sum, l) => {
+        const isSplit = l.split_profile_id != null && (l.split_pct ?? 100) < 100
+        const isPrimary = !activeProfileId || l.profile_id === activeProfileId
+        return sum + (isSplit && activeProfileId
+          ? splitLoanAmount(l.principal, l.split_pct ?? 100, isPrimary)
+          : l.principal)
+      }, 0),
+    [loans, activeProfileId],
   )
   const totalMonthly = useMemo(
     () =>
-      loans.reduce(
-        (sum, l) =>
-          sum +
-          calculateMonthlyPayment(l.principal, l.rate_pct, l.tenure_months),
-        0,
-      ),
-    [loans],
+      loans.reduce((sum, l) => {
+        const fullMonthly = calculateMonthlyPayment(l.principal, l.rate_pct, l.tenure_months)
+        const isSplit = l.split_profile_id != null && (l.split_pct ?? 100) < 100
+        const isPrimary = !activeProfileId || l.profile_id === activeProfileId
+        return sum + (isSplit && activeProfileId
+          ? splitLoanAmount(fullMonthly, l.split_pct ?? 100, isPrimary)
+          : fullMonthly)
+      }, 0),
+    [loans, activeProfileId],
   )
 
   const hasCpfLoans = useMemo(
@@ -376,11 +386,15 @@ export default function LoansPage() {
                       monthsElapsed,
                     )
 
-                    const monthly = calculateMonthlyPayment(
-                      displayPrincipal,
+                    const fullMonthly = calculateMonthlyPayment(
+                      loan.principal,
                       currentRate,
                       loan.tenure_months,
                     )
+                    const monthly =
+                      isSplit && activeProfileId
+                        ? splitLoanAmount(fullMonthly, splitPct, isPrimary)
+                        : fullMonthly
                     const remaining = getRemainingMonths(
                       loan.start_date,
                       loan.tenure_months,
@@ -658,6 +672,56 @@ export default function LoansPage() {
                     </tbody>
                   </table>
                 </div>
+                {/* Split loan context */}
+                {loan.split_profile_id != null && (loan.split_pct ?? 100) < 100 && activeProfileId && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Full loan outstanding: ${formatCurrency(fullOutstanding)} &middot; Your share ({loan.profile_id === activeProfileId ? loan.split_pct : 100 - (loan.split_pct ?? 100)}%): ${formatCurrency(
+                      splitLoanAmount(fullOutstanding, loan.split_pct ?? 100, loan.profile_id === activeProfileId)
+                    )}. Early repayments reduce the total outstanding; both shares adjust proportionally.
+                  </p>
+                )}
+
+                {/* Common SG bank penalties reference */}
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
+                    Common early repayment penalties in Singapore
+                  </summary>
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b bg-muted/30">
+                          <th className="px-2 py-1.5 text-left font-medium">Lender</th>
+                          <th className="px-2 py-1.5 text-right font-medium">Penalty</th>
+                          <th className="px-2 py-1.5 text-right font-medium">Lock-in</th>
+                          <th className="px-2 py-1.5 text-left font-medium">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {EARLY_REPAYMENT_PENALTIES_SG.map((row) => (
+                          <tr
+                            key={row.lender}
+                            className={cn(
+                              "border-b last:border-0",
+                              loan.lender && loan.lender.toLowerCase().includes(row.lender.toLowerCase())
+                                ? "bg-primary/5 font-medium"
+                                : "",
+                            )}
+                          >
+                            <td className="px-2 py-1.5">{row.lender}</td>
+                            <td className="px-2 py-1.5 text-right tabular-nums">{row.penaltyPct}%</td>
+                            <td className="px-2 py-1.5 text-right tabular-nums">{row.lockInYears > 0 ? `${row.lockInYears}y` : "—"}</td>
+                            <td className="px-2 py-1.5 text-muted-foreground">{row.notes}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {loan.early_repayment_penalty_pct != null && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Using your configured rate: {loan.early_repayment_penalty_pct}%
+                    </p>
+                  )}
+                </details>
               </div>
             )
           })()}
@@ -679,11 +743,28 @@ export default function LoansPage() {
         open={repaymentFormOpen}
         onOpenChange={setRepaymentFormOpen}
         onSuccess={fetchData}
-        loans={loans.map((l) => ({
-          id: l.id,
-          name: l.name,
-          use_cpf_oa: l.use_cpf_oa,
-        }))}
+        loans={loans.map((l) => {
+          const fullOutstanding = estimateOutstandingPrincipal(
+            l.principal,
+            l.rate_pct,
+            scheduledByLoan.get(l.id) ?? [],
+            earlyByLoan.get(l.id) ?? [],
+          )
+          const remaining = getRemainingMonths(l.start_date, l.tenure_months)
+          return {
+            id: l.id,
+            name: l.name,
+            use_cpf_oa: l.use_cpf_oa,
+            outstanding: fullOutstanding,
+            rate_pct: l.rate_pct,
+            remaining_months: remaining,
+            property_type: l.property_type,
+            lock_in_end_date: l.lock_in_end_date,
+            early_repayment_penalty_pct: l.early_repayment_penalty_pct,
+            split_profile_id: l.split_profile_id,
+            split_pct: l.split_pct,
+          }
+        })}
         defaultLoanId={repaymentLoanId}
       />
 

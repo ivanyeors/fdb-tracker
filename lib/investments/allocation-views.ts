@@ -6,7 +6,6 @@
 import type { Holding } from "@/lib/investments/holding"
 import type { IlpGroupMemberForDonut } from "@/lib/investments/ilp-group-donut-data"
 import {
-  blendedFundMixSlicesForIlpGroup,
   groupTopHoldingsSlicesForIlpGroup,
 } from "@/lib/investments/ilp-group-donut-data"
 import { parseFundReportSnapshot } from "@/lib/investments/ilp-snapshot-ui"
@@ -378,7 +377,6 @@ export function hasIlpLookThroughData(
 
   if (members.length === 0) return false
 
-  const blended = blendedFundMixSlicesForIlpGroup(members)
   const holdings = groupTopHoldingsSlicesForIlpGroup(members)
-  return blended != null || holdings != null
+  return holdings != null
 }

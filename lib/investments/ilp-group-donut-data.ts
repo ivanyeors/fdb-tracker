@@ -13,12 +13,9 @@ export type IlpGroupMemberForDonut = {
 
 export type IlpGroupAllocationMode =
   | "category"
-  | "blend"
   | "holdings"
-  | "sector"
 
 const OTHER_LABEL = "Other"
-const UNCLASSIFIED_SECTOR = "Unclassified"
 
 function snapshotOrNull(
   raw: Record<string, unknown> | null | undefined | string,
@@ -59,7 +56,7 @@ function mergeTopNWithOther(
 }
 
 /**
- * Donut slices for a fund group: bucket by Morningstar category when present on a fund’s
+ * Donut slices for a fund group: bucket by Morningstar category when present on a fund's
  * latest snapshot; otherwise use the fund name. Sums values per bucket, percentages within group.
  */
 export function allocationSlicesForIlpGroup(
@@ -93,47 +90,6 @@ export function groupUsesCategoryBuckets(
       m.fundValue > 0 &&
       morningstarCategoryFromSnapshot(m.fundReportSnapshot ?? null) != null,
   )
-}
-
-/** Weight each fund’s asset-allocation rows by fund value in the group; merge by row label. */
-export function blendedFundMixSlicesForIlpGroup(
-  members: readonly IlpGroupMemberForDonut[],
-  options?: { topN?: number; otherLabel?: string },
-): DonutSliceRow[] | null {
-  const topN = options?.topN ?? 10
-  const otherLabel = options?.otherLabel ?? OTHER_LABEL
-  const positive = members.filter((m) => m.fundValue > 0)
-  if (positive.length === 0) return null
-
-  const buckets = new Map<string, number>()
-  let any = false
-  for (const m of positive) {
-    const s = snapshotOrNull(m.fundReportSnapshot ?? null)
-    const rows = s?.assetAllocation
-    if (!Array.isArray(rows) || rows.length === 0) continue
-    for (const r of rows) {
-      const w =
-        typeof r.weightPct === "number" && Number.isFinite(r.weightPct)
-          ? Math.max(0, r.weightPct)
-          : 0
-      if (w <= 0) continue
-      const contrib = m.fundValue * (w / 100)
-      const label = r.label.trim() || "Unknown"
-      buckets.set(label, (buckets.get(label) ?? 0) + contrib)
-      any = true
-    }
-  }
-  if (!any) return null
-
-  const total = [...buckets.values()].reduce((s, v) => s + v, 0)
-  const base: DonutSliceRow[] = [...buckets.entries()]
-    .map(([name, value]) => ({
-      name,
-      value,
-      percentage: total > 0 ? (value / total) * 100 : 0,
-    }))
-    .sort((a, b) => b.value - a.value)
-  return mergeTopNWithOther(base, topN, otherLabel)
 }
 
 /** DB/JSON sometimes stores % as string; group math must still work. */
@@ -217,75 +173,18 @@ export function groupTopHoldingsSlicesForIlpGroup(
   return mergeTopNWithOther(base, topN, otherLabel)
 }
 
-/** Aggregate holdings by sector (reported per line); rows without sector go to Unclassified. */
-export function groupSectorSlicesFromHoldings(
-  members: readonly IlpGroupMemberForDonut[],
-  options?: { topN?: number; otherLabel?: string; unclassifiedLabel?: string },
-): DonutSliceRow[] | null {
-  const topN = options?.topN ?? 10
-  const otherLabel = options?.otherLabel ?? OTHER_LABEL
-  const unclassified = options?.unclassifiedLabel ?? UNCLASSIFIED_SECTOR
-  const positive = members.filter((m) => m.fundValue > 0)
-  if (positive.length === 0) return null
-
-  const buckets = new Map<string, number>()
-  let any = false
-  for (const m of positive) {
-    const rows = topHoldingsFromSnapshot(m.fundReportSnapshot ?? null)
-    if (!rows) continue
-    for (const row of rows) {
-      const w = holdingWeightPctFromRow(row) ?? 0
-      if (w <= 0) continue
-      const sector = row.sector?.trim()
-      const key = sector && sector.length > 0 ? sector : unclassified
-      buckets.set(key, (buckets.get(key) ?? 0) + m.fundValue * (w / 100))
-      any = true
-    }
-  }
-  if (!any) return null
-
-  const total = [...buckets.values()].reduce((s, v) => s + v, 0)
-  const base: DonutSliceRow[] = [...buckets.entries()]
-    .map(([name, value]) => ({
-      name,
-      value,
-      percentage: total > 0 ? (value / total) * 100 : 0,
-    }))
-    .sort((a, b) => b.value - a.value)
-  return mergeTopNWithOther(base, topN, otherLabel)
-}
-
-export function groupHasBlendableAssetAllocation(
-  members: readonly IlpGroupMemberForDonut[],
-): boolean {
-  return blendedFundMixSlicesForIlpGroup(members) != null
-}
-
 export function groupHasHoldingsSlices(
   members: readonly IlpGroupMemberForDonut[],
 ): boolean {
   return groupTopHoldingsSlicesForIlpGroup(members) != null
 }
 
-export function groupHasSectorSlices(
-  members: readonly IlpGroupMemberForDonut[],
-): boolean {
-  return groupSectorSlicesFromHoldings(members) != null
-}
-
 export function availableIlpGroupAllocationModes(
   members: readonly IlpGroupMemberForDonut[],
 ): { mode: IlpGroupAllocationMode; label: string }[] {
-  /** Prefer company-level views first; “category” is the single Morningstar label per fund (header), not holdings. */
   const out: { mode: IlpGroupAllocationMode; label: string }[] = []
   if (groupHasHoldingsSlices(members)) {
-    out.push({ mode: "holdings", label: "companies" })
-  }
-  if (groupHasSectorSlices(members)) {
-    out.push({ mode: "sector", label: "By sector" })
-  }
-  if (groupHasBlendableAssetAllocation(members)) {
-    out.push({ mode: "blend", label: "Blended fund mix" })
+    out.push({ mode: "holdings", label: "Portfolio holdings" })
   }
   out.push({
     mode: "category",
@@ -298,7 +197,6 @@ export function defaultIlpGroupAllocationMode(
   members: readonly IlpGroupMemberForDonut[],
 ): IlpGroupAllocationMode {
   if (groupHasHoldingsSlices(members)) return "holdings"
-  if (groupHasBlendableAssetAllocation(members)) return "blend"
   return "category"
 }
 
@@ -318,18 +216,11 @@ export function allocationSlicesForIlpGroupMode(
   mode: IlpGroupAllocationMode,
 ): DonutSliceRow[] {
   switch (mode) {
-    case "category":
-      return allocationSlicesForIlpGroup(members)
-    case "blend":
-      return blendedFundMixSlicesForIlpGroup(members) ?? allocationSlicesForIlpGroup(members)
     case "holdings":
       return (
         groupTopHoldingsSlicesForIlpGroup(members) ?? allocationSlicesForIlpGroup(members)
       )
-    case "sector":
-      return (
-        groupSectorSlicesFromHoldings(members) ?? allocationSlicesForIlpGroup(members)
-      )
+    case "category":
     default:
       return allocationSlicesForIlpGroup(members)
   }
@@ -339,16 +230,11 @@ export function subtitleForIlpGroupAllocationMode(
   mode: IlpGroupAllocationMode,
 ): string {
   switch (mode) {
-    case "category":
-      return "Each fund’s Morningstar category from the report header (fund-level label, not stock holdings)."
-    case "blend":
-      return "Blended asset mix from latest reports (by fund weight in group)"
     case "holdings":
-      return "Company names from each fund’s portfolio table, merged across the group; largest weights shown, rest as Other."
-    case "sector":
-      return "Same as companies, grouped by sector column when the report lists it."
+      return "Aggregated portfolio holdings combined from each individual ILP fund, merged across the group; largest weights shown, rest as Other."
+    case "category":
     default:
-      return "Allocation"
+      return "Each fund's Morningstar category from the report header (fund-level label, not stock holdings)."
   }
 }
 

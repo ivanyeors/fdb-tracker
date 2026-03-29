@@ -11,6 +11,7 @@ import {
   CreditCard,
   Shield,
   Receipt,
+  Code,
   LayoutDashboard,
   Settings,
   Sliders,
@@ -49,6 +50,7 @@ const dashboardItems = [
   { title: "Loans", href: "/dashboard/loans", icon: CreditCard },
   { title: "Insurance", href: "/dashboard/insurance", icon: Shield, badge: "BETA" },
   { title: "Tax Planner", href: "/dashboard/tax", icon: Receipt },
+  { title: "Developer", href: "/dashboard/developer", icon: Code },
 ]
 
 const settingsItems = [
@@ -86,8 +88,10 @@ export function SidebarNav() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="px-4 py-3">
-        <span className="text-lg font-semibold tracking-tight">fdb-tracker</span>
+      <SidebarHeader className="px-4 py-2">
+        <span className="text-sm font-semibold tracking-tight text-muted-foreground">
+          fdb-tracker
+        </span>
       </SidebarHeader>
       <SidebarContent>
         <CompleteSetupNav />

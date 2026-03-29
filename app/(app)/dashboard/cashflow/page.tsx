@@ -1,12 +1,20 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import dynamic from "next/dynamic"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CashflowChart } from "@/components/dashboard/cashflow/cashflow-chart"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { ChartSkeleton } from "@/components/loading"
+
+const CashflowChart = dynamic(
+  () =>
+    import("@/components/dashboard/cashflow/cashflow-chart").then(
+      (m) => m.CashflowChart
+    ),
+  { ssr: false, loading: () => <ChartSkeleton className="h-[400px]" /> }
+)
 
 export default function CashflowPage() {
   const { activeProfileId, activeFamilyId } = useActiveProfile()

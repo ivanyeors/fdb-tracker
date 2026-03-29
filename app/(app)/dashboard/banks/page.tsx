@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Check, HelpCircle, Loader2, X } from "lucide-react"
+import { Check, ExternalLink, HelpCircle, Loader2, X } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -227,10 +227,67 @@ export default function BanksPage() {
           ) : null}
 
           {activeProfileId && ocbc360Account && categories.length > 0 ? (
+            <>
+            {/* Standalone Monthly Spend Progress */}
+            {(() => {
+              const spendCat = categories.find((c) => c.id === "spend")
+              if (!spendCat?.progress || spendCat.progress.target <= 0) return null
+              const pct = Math.min(100, (spendCat.progress.current / spendCat.progress.target) * 100)
+              return (
+                <Card>
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Monthly Spend Progress</p>
+                        <p className="text-xs text-muted-foreground">
+                          ${spendCat.progress.current.toFixed(0)} / ${spendCat.progress.target.toFixed(0)} spent this month
+                        </p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-xs",
+                          spendCat.zone === "safe" ? "border-emerald-500/50 text-emerald-600 dark:text-emerald-400" :
+                          spendCat.zone === "cautious" ? "border-amber-500/50 text-amber-600 dark:text-amber-400" :
+                          "border-red-500/50 text-red-600 dark:text-red-400",
+                        )}
+                      >
+                        {spendCat.met ? "Met" : `${pct.toFixed(0)}%`}
+                      </Badge>
+                    </div>
+                    <div className="relative mt-2 h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div className="absolute inset-0 flex rounded-full overflow-hidden">
+                        <div className="h-full bg-red-500/8" style={{ width: "70%" }} />
+                        <div className="h-full bg-amber-500/8" style={{ width: "30%" }} />
+                      </div>
+                      <div
+                        className={cn(
+                          "relative h-full rounded-full transition-all",
+                          spendCat.zone === "safe" ? "bg-emerald-500" :
+                          spendCat.zone === "cautious" ? "bg-amber-500" :
+                          "bg-red-500",
+                        )}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[10px] text-muted-foreground">OCBC 360 Spend condition</p>
+                  </CardContent>
+                </Card>
+              )
+            })()}
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-1.5">
                   <CardTitle>OCBC 360 Interest Breakdown</CardTitle>
+                  <a
+                    href="https://www.ocbc.com/personal-banking/deposits/360-savings-account"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex shrink-0 text-muted-foreground hover:text-foreground"
+                    title="OCBC 360 official page"
+                  >
+                    <ExternalLink className="size-3.5" />
+                  </a>
                   <HoverCard openDelay={200} closeDelay={100}>
                     <HoverCardTrigger asChild>
                       <button
@@ -291,6 +348,17 @@ export default function BanksPage() {
                     ${projectedMonthlyInterest.toFixed(2)}/month
                   </span>{" "}
                   (Grow is separate from the two-tranche bonus base)
+                  {(() => {
+                    const now = new Date()
+                    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+                    const dayOfMonth = now.getDate()
+                    const daysLeft = daysInMonth - dayOfMonth
+                    return (
+                      <span className="block mt-1 text-xs text-muted-foreground">
+                        Day {dayOfMonth} of {daysInMonth} — conditions reset in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
+                      </span>
+                    )
+                  })()}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -349,12 +417,24 @@ export default function BanksPage() {
                                 >
                                   {cat.progressLabel ?? "—"}
                                 </span>
+                                {cat.detail ? (
+                                  <span className="block text-[10px] text-muted-foreground/70">
+                                    {cat.detail}
+                                  </span>
+                                ) : null}
                                 {cat.progress && cat.progress.target > 0 ? (
-                                  <div className="h-1.5 w-full max-w-[160px] overflow-hidden rounded-full bg-muted">
+                                  <div className="relative h-2 w-full max-w-[180px] overflow-hidden rounded-full bg-muted">
+                                    {/* Zone background indicators */}
+                                    <div className="absolute inset-0 flex rounded-full overflow-hidden">
+                                      <div className="h-full bg-red-500/8" style={{ width: "70%" }} />
+                                      <div className="h-full bg-amber-500/8" style={{ width: "30%" }} />
+                                    </div>
                                     <div
                                       className={cn(
-                                        "h-full rounded-full transition-all",
-                                        cat.met ? "bg-emerald-500" : "bg-primary/70",
+                                        "relative h-full rounded-full transition-all",
+                                        cat.zone === "safe" ? "bg-emerald-500" :
+                                        cat.zone === "cautious" ? "bg-amber-500" :
+                                        "bg-red-500",
                                       )}
                                       style={{
                                         width: `${Math.min(
@@ -393,6 +473,7 @@ export default function BanksPage() {
                 </div>
               </CardContent>
             </Card>
+            </>
           ) : null}
         </>
       )}

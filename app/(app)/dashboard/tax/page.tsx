@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import dynamic from "next/dynamic"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { cn, formatCurrency } from "@/lib/utils"
 import { useActiveProfile } from "@/hooks/use-active-profile"
@@ -20,9 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ReliefBreakdown } from "@/components/dashboard/tax/relief-breakdown"
-import { TaxComparison } from "@/components/dashboard/tax/tax-comparison"
 import type { HouseholdChargeableMarker } from "@/components/dashboard/tax/tax-bracket-ladder"
-import { TaxReliefDonut } from "@/components/dashboard/tax/tax-relief-donut"
 import { ManualReliefForm } from "@/components/dashboard/tax/manual-relief-form"
 import { ActualTaxDialog } from "@/components/dashboard/tax/actual-tax-dialog"
 import { MonthlyTaxDialog } from "@/components/dashboard/tax/monthly-tax-dialog"
@@ -31,6 +30,28 @@ import type { TaxSnapshot } from "@/lib/tax/tax-snapshot"
 import { ReliefsBracketSummaryCard } from "@/components/dashboard/tax/reliefs-bracket-summary-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+
+const TaxComparison = dynamic(
+  () =>
+    import("@/components/dashboard/tax/tax-comparison").then(
+      (m) => m.TaxComparison
+    ),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[300px] w-full rounded-xl" />,
+  }
+)
+
+const TaxReliefDonut = dynamic(
+  () =>
+    import("@/components/dashboard/tax/tax-relief-donut").then(
+      (m) => m.TaxReliefDonut
+    ),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[200px] w-full rounded-xl" />,
+  }
+)
 
 interface TaxEntry {
   id: string
@@ -425,12 +446,12 @@ export default function TaxPage() {
                                 key={i}
                                 className="flex items-center justify-between rounded-md border bg-blue-50/50 px-3 py-2 dark:bg-blue-950/20"
                               >
-                                <div className="text-sm">
-                                  <span className="font-medium capitalize">
+                                <div className="min-w-0 flex-1 text-sm">
+                                  <span className="font-medium capitalize truncate">
                                     {s.relief_type.replace(/_/g, " ")}
                                   </span>
                                   {" "}
-                                  <span className="text-muted-foreground">
+                                  <span className="hidden text-muted-foreground sm:inline">
                                     — {s.label}
                                   </span>
                                   <Badge variant="outline" className="ml-2 text-xs">
@@ -440,6 +461,7 @@ export default function TaxPage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
+                                  className="shrink-0"
                                   onClick={() => handleApplySuggestion(s)}
                                 >
                                   Apply
@@ -496,12 +518,12 @@ export default function TaxPage() {
                         key={i}
                         className="flex items-center justify-between rounded-md border bg-blue-50/50 px-3 py-2 dark:bg-blue-950/20"
                       >
-                        <div className="text-sm">
-                          <span className="font-medium capitalize">
+                        <div className="min-w-0 flex-1 text-sm">
+                          <span className="font-medium capitalize truncate">
                             {s.relief_type.replace(/_/g, " ")}
                           </span>
                           {" "}
-                          <span className="text-muted-foreground">
+                          <span className="hidden text-muted-foreground sm:inline">
                             — {s.label}
                           </span>
                           <Badge variant="outline" className="ml-2 text-xs">
@@ -511,6 +533,7 @@ export default function TaxPage() {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="shrink-0"
                           onClick={() => handleApplySuggestion(s)}
                         >
                           Apply
@@ -624,7 +647,7 @@ export default function TaxPage() {
                         >
                           <td className="px-4 py-3 font-medium">YA {entry.year}</td>
                           {data.profiles.length > 1 && (
-                            <td className="px-4 py-3 text-muted-foreground">
+                            <td className="max-w-[120px] truncate px-4 py-3 text-muted-foreground">
                               {profileMap.get(entry.profile_id) ?? "—"}
                             </td>
                           )}

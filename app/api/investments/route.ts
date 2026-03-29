@@ -76,8 +76,10 @@ export async function GET(request: NextRequest) {
 
     if (!investments) return NextResponse.json([])
 
-    const enriched = await enrichInvestmentsWithLivePrices(investments)
-    const sgdPerUsd = await getSgdPerUsd()
+    const [enriched, sgdPerUsd] = await Promise.all([
+      enrichInvestmentsWithLivePrices(investments),
+      getSgdPerUsd(),
+    ])
 
     return NextResponse.json({ investments: enriched, sgdPerUsd })
   } catch (err) {

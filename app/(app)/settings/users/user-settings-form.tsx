@@ -3041,8 +3041,8 @@ function LoanRepaymentsSection({
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Log loan repayment</DialogTitle>
-            <DialogDescription>Record a loan instalment payment.</DialogDescription>
+            <DialogTitle>Log early loan repayment</DialogTitle>
+            <DialogDescription>Record an early loan repayment.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -4858,7 +4858,7 @@ function FamilyMemberSettingsPanels({
         <LoansSection loans={profileLoans} profileId={p.id} onMutate={handleMutate} />
       </CollapsibleSection>
       <CollapsibleSection
-        title="Loan Repayments"
+        title="Early Loan Repayments"
         badge={profileLoans.length > 0 ? `${profileLoans.length} loans` : "None"}
       >
         <LoanRepaymentsSection loans={profileLoans} profileId={p.id} onMutate={handleMutate} />
@@ -5036,8 +5036,8 @@ export function FamilyMembersTable({
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="flex items-center gap-2">
-              <CardTitle>{family.name}</CardTitle>
+            <div className="flex min-w-0 items-center gap-2">
+              <CardTitle className="min-w-0 truncate">{family.name}</CardTitle>
               <Button
                 variant="ghost"
                 size="icon"
@@ -5094,9 +5094,9 @@ export function FamilyMembersTable({
               switching to another person.
             </CardDescription>
           </div>
-          <Button onClick={() => setAddDialogOpen(true)} variant="outline" size="sm">
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add family member
+          <Button onClick={() => setAddDialogOpen(true)} variant="outline" size="sm" className="shrink-0">
+            <UserPlus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add family member</span>
           </Button>
         </div>
       </CardHeader>

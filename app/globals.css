@@ -5,6 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+    --top-nav-height: 84px;
     --background: oklch(1 0 0);
     --foreground: oklch(0.147 0.004 49.25);
     --card: oklch(1 0 0);
@@ -40,6 +41,12 @@
     --sidebar-accent-foreground: oklch(0.216 0.006 56.043);
     --sidebar-border: oklch(0.923 0.003 48.717);
     --sidebar-ring: oklch(0.709 0.01 56.259);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --top-nav-height: 48px;
+  }
 }
 
 .dark {
@@ -132,9 +139,16 @@
     @apply bg-background text-foreground;
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
     }
   html {
     @apply font-sans;
+    }
+  input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
     }
 }
 

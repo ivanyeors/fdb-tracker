@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useSearchParams } from "next/navigation"
+import dynamic from "next/dynamic"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { SeasonalityPrompts } from "@/components/dashboard/investments/seasonality-prompts"
 import { Button } from "@/components/ui/button"
@@ -34,7 +35,6 @@ import {
 } from "@/components/dashboard/investments/holdings-table"
 import { HoldingDetailSheet } from "@/components/dashboard/investments/holding-detail-sheet"
 import { groupHoldings } from "@/lib/investments/group-holdings"
-import { AllocationChart } from "@/components/dashboard/investments/allocation-chart"
 import { IlpCard } from "@/components/dashboard/investments/ilp-card"
 import { IlpGroupSummaryCard } from "@/components/dashboard/investments/ilp-group-summary-card"
 import { PreciousMetals } from "@/components/dashboard/investments/precious-metals"
@@ -42,12 +42,11 @@ import { AddHoldingForm } from "@/components/dashboard/investments/add-holding-f
 import { InvestmentAccountBalance } from "@/components/dashboard/investments/investment-account-balance"
 import { AddIlpForm } from "@/components/dashboard/investments/add-ilp-form"
 import { AddMetalForm } from "@/components/dashboard/investments/add-metal-form"
-import { InvestmentValueChart } from "@/components/dashboard/investments/investment-value-chart"
+import { ChartSkeleton } from "@/components/loading"
 import {
   JournalList,
   type JournalEntry,
 } from "@/components/dashboard/investments/journal-list"
-import { ChartSkeleton } from "@/components/loading"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { useDataRefresh } from "@/hooks/use-data-refresh"
 import { Loader2 } from "lucide-react"
@@ -70,6 +69,22 @@ import {
   InvestmentsCurrencyToggle,
 } from "@/components/dashboard/investments/investments-display-currency"
 import { AllocationTab } from "@/components/dashboard/investments/allocation-tab"
+
+const AllocationChart = dynamic(
+  () =>
+    import("@/components/dashboard/investments/allocation-chart").then(
+      (m) => m.AllocationChart
+    ),
+  { ssr: false, loading: () => <ChartSkeleton className="h-[300px]" /> }
+)
+
+const InvestmentValueChart = dynamic(
+  () =>
+    import("@/components/dashboard/investments/investment-value-chart").then(
+      (m) => m.InvestmentValueChart
+    ),
+  { ssr: false, loading: () => <ChartSkeleton className="h-[300px]" /> }
+)
 
 type IlpFundGroupMembership = {
   id: string

@@ -1,49 +1,9 @@
 import { describe, expect, it } from "vitest"
 import {
   allocationModeForGroupSummaryCard,
-  blendedFundMixSlicesForIlpGroup,
-  groupSectorSlicesFromHoldings,
   groupTopHoldingsSlicesForIlpGroup,
   subtitleForGroupSummaryCard,
 } from "@/lib/investments/ilp-group-donut-data"
-
-describe("blendedFundMixSlicesForIlpGroup", () => {
-  it("weights asset allocation rows by fund value", () => {
-    const rows = blendedFundMixSlicesForIlpGroup([
-      {
-        name: "A",
-        fundValue: 1000,
-        fundReportSnapshot: {
-          version: 1,
-          header: {},
-          assetAllocation: [
-            { label: "Stocks", weightPct: 50, categoryPct: null },
-            { label: "Cash", weightPct: 50, categoryPct: null },
-          ],
-        } as Record<string, unknown>,
-      },
-      {
-        name: "B",
-        fundValue: 1000,
-        fundReportSnapshot: {
-          version: 1,
-          header: {},
-          assetAllocation: [
-            { label: "Stocks", weightPct: 80, categoryPct: null },
-            { label: "Bonds", weightPct: 20, categoryPct: null },
-          ],
-        } as Record<string, unknown>,
-      },
-    ])
-    expect(rows).not.toBeNull()
-    const stocks = rows!.find((r) => r.name === "Stocks")
-    const cash = rows!.find((r) => r.name === "Cash")
-    const bonds = rows!.find((r) => r.name === "Bonds")
-    expect(stocks?.value).toBeCloseTo(500 + 800, 5)
-    expect(cash?.value).toBeCloseTo(500, 5)
-    expect(bonds?.value).toBeCloseTo(200, 5)
-  })
-})
 
 describe("groupTopHoldingsSlicesForIlpGroup", () => {
   it("accepts string weightPct from JSON", () => {
@@ -146,7 +106,7 @@ describe("allocationModeForGroupSummaryCard", () => {
     expect(allocationModeForGroupSummaryCard(members)).toBe("holdings")
   })
 
-  it("falls back to category when no holdings or blend data", () => {
+  it("falls back to category when no holdings data", () => {
     const members = [
       {
         name: "F1",
@@ -180,44 +140,5 @@ describe("subtitleForGroupSummaryCard", () => {
       },
     ]
     expect(subtitleForGroupSummaryCard(members)).toContain("Merged by company")
-  })
-})
-
-describe("groupSectorSlicesFromHoldings", () => {
-  it("buckets by sector and sends missing sector to Unclassified", () => {
-    const rows = groupSectorSlicesFromHoldings(
-      [
-        {
-          name: "F1",
-          fundValue: 1000,
-          fundReportSnapshot: {
-            version: 1,
-            header: {},
-            topHoldings: [
-              {
-                rank: 1,
-                securityName: "A",
-                sector: "Technology",
-                country: null,
-                weightPct: 40,
-              },
-              {
-                rank: 2,
-                securityName: "B",
-                sector: null,
-                country: null,
-                weightPct: 10,
-              },
-            ],
-          } as Record<string, unknown>,
-        },
-      ],
-      { topN: 10, unclassifiedLabel: "Unclassified" },
-    )
-    expect(rows).not.toBeNull()
-    const tech = rows!.find((r) => r.name === "Technology")
-    const uncl = rows!.find((r) => r.name === "Unclassified")
-    expect(tech?.value).toBeCloseTo(400, 5)
-    expect(uncl?.value).toBeCloseTo(100, 5)
   })
 })

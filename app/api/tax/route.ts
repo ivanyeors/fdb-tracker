@@ -270,6 +270,61 @@ export async function GET(request: NextRequest) {
       label: string
     }> = []
 
+    // Check for married profiles without spouse linked — suggest spouse relief
+    for (const profileId of profileIds) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("marital_status, spouse_profile_id, gender")
+        .eq("id", profileId)
+        .single()
+      if (!profile) continue
+
+      if (profile.marital_status === "married" && !profile.spouse_profile_id) {
+        const hasManualSpouse = (reliefInputs ?? []).some(
+          (r) => r.profile_id === profileId && r.year === currentYear && r.relief_type === "spouse"
+        )
+        if (!hasManualSpouse) {
+          suggestedReliefs.push({
+            profile_id: profileId,
+            relief_type: "spouse",
+            amount: 2000,
+            label: "Married but no spouse linked — link in Settings > User Settings to auto-derive, or apply $2,000 manually",
+          })
+        }
+      }
+
+      // Check for parent dependents with no claimant assigned
+      const unclaimedParents = (familyDependents ?? []).filter(
+        (d) =>
+          (d.relationship === "parent" || d.relationship === "grandparent") &&
+          !d.claimed_by_profile_id,
+      )
+      for (const dep of unclaimedParents) {
+        const amount = dep.living_with_claimant ? 9000 : 5500
+        suggestedReliefs.push({
+          profile_id: profileId,
+          relief_type: "parent",
+          amount,
+          label: `${dep.name} (${dep.relationship}) not claimed by any profile — assign in Settings > User Settings`,
+        })
+      }
+
+      // Check for children that could qualify for WMCR but aren't claimed by a female profile
+      if (profile.gender === "female") {
+        const unclaimedChildren = (familyDependents ?? []).filter(
+          (d) => d.relationship === "child" && !d.claimed_by_profile_id,
+        )
+        if (unclaimedChildren.length > 0) {
+          suggestedReliefs.push({
+            profile_id: profileId,
+            relief_type: "wmcr",
+            amount: 0,
+            label: `${unclaimedChildren.length} child(ren) not assigned — claim in Settings to unlock WMCR`,
+          })
+        }
+      }
+    }
+
     // Check for SRS bank accounts — suggest as SRS contribution relief
     const { data: allFamilies } = await supabase
       .from("families")
