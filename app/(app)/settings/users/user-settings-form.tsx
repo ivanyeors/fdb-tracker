@@ -4771,14 +4771,14 @@ function FamilyMemberSettingsPanels({
   profiles: ProfileWithIncome[]
   handleMutate: () => void
 }) {
-  const profileBanks = filterByProfile(financialData.bankAccounts, p.id)
-  const profileGoals = filterByProfile(financialData.savingsGoals, p.id)
-  const profileInvestments = filterByProfile(financialData.investments, p.id)
-  const profileLoans = financialData.loans.filter((l) => l.profile_id === p.id)
-  const profilePolicies = financialData.insurancePolicies.filter((pol) => pol.profile_id === p.id)
-  const cpfData = financialData.cpfBalances.find((c) => c.profile_id === p.id)
+  const profileBanks = useMemo(() => filterByProfile(financialData.bankAccounts, p.id), [financialData.bankAccounts, p.id])
+  const profileGoals = useMemo(() => filterByProfile(financialData.savingsGoals, p.id), [financialData.savingsGoals, p.id])
+  const profileInvestments = useMemo(() => filterByProfile(financialData.investments, p.id), [financialData.investments, p.id])
+  const profileLoans = useMemo(() => financialData.loans.filter((l) => l.profile_id === p.id), [financialData.loans, p.id])
+  const profilePolicies = useMemo(() => financialData.insurancePolicies.filter((pol) => pol.profile_id === p.id), [financialData.insurancePolicies, p.id])
+  const cpfData = useMemo(() => financialData.cpfBalances.find((c) => c.profile_id === p.id), [financialData.cpfBalances, p.id])
 
-  const profileLogs = financialData.monthlyCashflow.filter((l) => l.profile_id === p.id)
+  const profileLogs = useMemo(() => financialData.monthlyCashflow.filter((l) => l.profile_id === p.id), [financialData.monthlyCashflow, p.id])
   const telegramBadge = p.telegram_user_id ? "Connected" : "Not linked"
 
   return (

@@ -150,12 +150,12 @@ export async function getHistoricalMetalPrices(
       const sgdPerUsd = typeof r.SGD === "number" ? r.SGD : 0
 
       if (usdPerOzGold > 0 && sgdPerUsd > 0) {
-        const sellSgd = Math.round(usdPerOzGold * sgdPerUsd * (1 - 0.01) * 100) / 100
+        const sellSgd = Math.round(usdPerOzGold * sgdPerUsd * (1 - 0.004) * 100) / 100
         goldByDate.set(dateStr, sellSgd)
         goldList.push({ date: dateStr, sellPriceSgd: sellSgd })
       }
       if (usdPerOzSilver > 0 && sgdPerUsd > 0) {
-        const sellSgd = Math.round(usdPerOzSilver * sgdPerUsd * (1 - 0.01) * 100) / 100
+        const sellSgd = Math.round(usdPerOzSilver * sgdPerUsd * (1 - 0.004) * 100) / 100
         silverByDate.set(dateStr, sellSgd)
         silverList.push({ date: dateStr, sellPriceSgd: sellSgd })
       }
@@ -252,7 +252,7 @@ async function fetchMetalpriceLatest(): Promise<PreciousMetalPrice[]> {
     const goldSgd = usdPerOzGold * sgdPerUsd
     const silverSgd = usdPerOzSilver * sgdPerUsd
 
-    const spread = 0.01
+    const spread = 0.004
     const result: PreciousMetalPrice[] = [
       {
         metalType: "gold",
@@ -327,6 +327,82 @@ async function fetchOcbcPreciousMetalPricesRaw(): Promise<
   }))
 }
 
+const YAHOO_GOLD_TICKER = "GC=F"
+const YAHOO_SILVER_TICKER = "SI=F"
+
+async function fetchYahooMetalPrices(): Promise<PreciousMetalPrice[] | null> {
+  try {
+    const { getYahooFinance } = await import(
+      "@/lib/external/yahoo-finance-client"
+    )
+    const { getSgdPerUsd } = await import("@/lib/external/usd-sgd")
+
+    const [yahooFinance, sgdPerUsd] = await Promise.all([
+      getYahooFinance(),
+      getSgdPerUsd(),
+    ])
+
+    if (!sgdPerUsd) {
+      console.warn("[precious-metals] Yahoo fallback: no USD/SGD rate.")
+      return null
+    }
+
+    const quotes = await yahooFinance.quote([
+      YAHOO_GOLD_TICKER,
+      YAHOO_SILVER_TICKER,
+    ])
+    const arr: unknown[] = Array.isArray(quotes) ? quotes : [quotes]
+
+    const findPrice = (ticker: string): number | null => {
+      const q = arr.find(
+        (r) => (r as { symbol?: string })?.symbol === ticker,
+      ) as { regularMarketPrice?: number } | undefined
+      const p = q?.regularMarketPrice
+      return typeof p === "number" && p > 0 ? p : null
+    }
+
+    const goldUsd = findPrice(YAHOO_GOLD_TICKER)
+    const silverUsd = findPrice(YAHOO_SILVER_TICKER)
+
+    if (!goldUsd && !silverUsd) {
+      console.warn("[precious-metals] Yahoo fallback: no valid metal prices.")
+      return null
+    }
+
+    const spread = 0.004
+    const result: PreciousMetalPrice[] = []
+
+    if (goldUsd) {
+      const sgd = goldUsd * sgdPerUsd
+      result.push({
+        metalType: "gold",
+        buyPriceSgd: Math.round(sgd * (1 + spread) * 100) / 100,
+        sellPriceSgd: Math.round(sgd * (1 - spread) * 100) / 100,
+        unit: "oz",
+        timestamp: new Date().toISOString(),
+        source: "live",
+      })
+    }
+
+    if (silverUsd) {
+      const sgd = silverUsd * sgdPerUsd
+      result.push({
+        metalType: "silver",
+        buyPriceSgd: Math.round(sgd * (1 + spread) * 100) / 100,
+        sellPriceSgd: Math.round(sgd * (1 - spread) * 100) / 100,
+        unit: "oz",
+        timestamp: new Date().toISOString(),
+        source: "live",
+      })
+    }
+
+    return result
+  } catch (err) {
+    console.warn("[precious-metals] Yahoo metal prices failed:", err)
+    return null
+  }
+}
+
 export async function getOcbcPreciousMetalPrices(): Promise<
   PreciousMetalPrice[]
 > {
@@ -355,12 +431,14 @@ export async function getOcbcPreciousMetalPrices(): Promise<
     console.warn("[precious-metals] Failed to fetch OCBC prices:", err)
   }
 
-  if (!hasMetalpriceKey) {
-    const fromMetal = await fetchMetalpriceLatest()
-    if (fromMetal.length > 0) {
-      metalsCache = { data: fromMetal, expires: Date.now() + CACHE_TTL_MS }
-      return fromMetal
+  try {
+    const fromYahoo = await fetchYahooMetalPrices()
+    if (fromYahoo && fromYahoo.length > 0) {
+      metalsCache = { data: fromYahoo, expires: Date.now() + CACHE_TTL_MS }
+      return fromYahoo
     }
+  } catch (err) {
+    console.warn("[precious-metals] Failed to fetch Yahoo prices:", err)
   }
 
   const fromDb = await fetchFromDb()
