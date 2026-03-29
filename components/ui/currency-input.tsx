@@ -86,6 +86,7 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
         groupSeparator=","
         decimalSeparator="."
         allowNegativeValue={allowNegativeValue}
+        inputMode="decimal"
       />
     )
   },

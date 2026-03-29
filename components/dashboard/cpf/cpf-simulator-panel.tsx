@@ -84,6 +84,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                 </Label>
                 <Input
                   type="number"
+                  inputMode="decimal"
                   min={0}
                   max={20}
                   step={0.5}
@@ -154,6 +155,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                           </Label>
                           <Input
                             type="number"
+                            inputMode="decimal"
                             min={0}
                             max={20}
                             step={0.1}
@@ -173,6 +175,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                           </Label>
                           <Input
                             type="number"
+                            inputMode="numeric"
                             min={1}
                             max={600}
                             value={loan.tenureMonths}
@@ -232,6 +235,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                         </Label>
                         <Input
                           type="number"
+                          inputMode="decimal"
                           min={0}
                           max={20}
                           step={0.1}
@@ -250,6 +254,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                         </Label>
                         <Input
                           type="number"
+                          inputMode="numeric"
                           min={1}
                           max={600}
                           value={state.hypotheticalLoan.tenureMonths}
@@ -317,6 +322,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                         </Label>
                         <Input
                           type="number"
+                          inputMode="decimal"
                           min={0}
                           max={20}
                           step={0.1}
@@ -335,6 +341,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                         </Label>
                         <Input
                           type="number"
+                          inputMode="numeric"
                           min={1}
                           max={600}
                           value={hypoDraft.tenureMonths}

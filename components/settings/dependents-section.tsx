@@ -341,6 +341,7 @@ export function DependentsSection({
                 <Label>Birth Year</Label>
                 <Input
                   type="number"
+                  inputMode="numeric"
                   min={1920}
                   max={2040}
                   value={formBirthYear}

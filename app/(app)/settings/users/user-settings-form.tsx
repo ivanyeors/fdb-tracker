@@ -218,6 +218,8 @@ export type FinancialDataByFamily = {
     inception_date: string | null
     cpf_premium: number | null
     premium_waiver: boolean
+    is_active: boolean
+    deduct_from_outflow: boolean
     remarks: string | null
     coverages: Array<{
       id: string
@@ -431,6 +433,8 @@ function insuranceRowDirty(
     (e.inception_date ?? null) !== (p.inception_date ?? null) ||
     (e.cpf_premium ?? null) !== (p.cpf_premium ?? null) ||
     (e.premium_waiver ?? false) !== (p.premium_waiver ?? false) ||
+    (e.is_active ?? true) !== (p.is_active ?? true) ||
+    (e.deduct_from_outflow ?? true) !== (p.deduct_from_outflow ?? true) ||
     (e.remarks ?? null) !== (p.remarks ?? null) ||
     coveragesDirty(e.coverages, p.coverages)
   )
@@ -635,6 +639,7 @@ function ProfileSection({
             <Input
               id={`birth-${profile.id}`}
               type="number"
+              inputMode="numeric"
               min={1900}
               max={new Date().getFullYear()}
               value={birthYear}
@@ -704,6 +709,7 @@ function ProfileSection({
             <Input
               id={`dependents-${profile.id}`}
               type="number"
+              inputMode="numeric"
               min={0}
               max={20}
               value={numDependents}
@@ -750,6 +756,7 @@ function ProfileSection({
             <Input
               id={`cpf-${profile.id}`}
               type="number"
+              inputMode="decimal"
               min={0}
               max={100}
               step={0.1}
@@ -1128,6 +1135,7 @@ function BanksSection({
                 <TableCell>
                   <Input
                     type="number"
+                    inputMode="decimal"
                     step={0.01}
                     value={e.interest_rate_pct ?? ""}
                     onChange={(ev) =>
@@ -2257,6 +2265,7 @@ function InvestmentsSection({
               <Label>Units</Label>
               <Input
                 type="number"
+                inputMode="decimal"
                 step="any"
                 min={0}
                 placeholder="0"
@@ -2406,6 +2415,7 @@ function InvestmentsSection({
                 <TableCell>
                   <Input
                     type="number"
+                    inputMode="decimal"
                     step="any"
                     min={0}
                     value={e.units}
@@ -2435,6 +2445,7 @@ function InvestmentsSection({
                 <TableCell>
                   <Input
                     type="number"
+                    inputMode="decimal"
                     step="0.1"
                     min={0}
                     max={100}
@@ -2689,6 +2700,7 @@ function LoansSection({
             <Label>Interest rate %</Label>
             <Input
               type="number"
+              inputMode="decimal"
               step={0.01}
               min={0}
               placeholder="0"
@@ -2702,6 +2714,7 @@ function LoansSection({
             <Label>Tenure (months)</Label>
             <Input
               type="number"
+              inputMode="numeric"
               min={1}
               placeholder="Months"
               value={newLoan.tenure_months || ""}
@@ -2820,6 +2833,7 @@ function LoansSection({
                 <TableCell>
                   <Input
                     type="number"
+                    inputMode="decimal"
                     step={0.01}
                     value={e.rate_pct}
                     onChange={(ev) =>
@@ -2834,6 +2848,7 @@ function LoansSection({
                 <TableCell>
                   <Input
                     type="number"
+                    inputMode="numeric"
                     value={e.tenure_months}
                     onChange={(ev) =>
                       setEditing((p) => ({
@@ -3445,6 +3460,8 @@ function InsuranceSection({
           inceptionDate: e.inception_date,
           cpfPremium: e.cpf_premium,
           premiumWaiver: e.premium_waiver,
+          isActive: e.is_active,
+          deductFromOutflow: e.deduct_from_outflow,
           remarks: e.remarks,
         }),
       })
@@ -3768,6 +3785,7 @@ function InsuranceSection({
                 <Label>Coverage till age</Label>
                 <Input
                   type="number"
+                  inputMode="numeric"
                   placeholder="Age"
                   value={newPolicy.coverage_till_age ?? ""}
                   onChange={(e) =>
@@ -3903,7 +3921,7 @@ function InsuranceSection({
             const totalBenefits = coverageCount + customCount
             return (
               <Fragment key={p.id}>
-              <TableRow className={cn("cursor-pointer", isExpanded && "border-b-0")} onClick={() => toggleRow(p.id)}>
+              <TableRow className={cn("cursor-pointer", isExpanded && "border-b-0", !(e.is_active ?? true) && "opacity-50")} onClick={() => toggleRow(p.id)}>
                 <TableCell className="w-8 pr-0">
                   <div className="flex items-center gap-1.5">
                     <ChevronRight className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
@@ -4268,6 +4286,7 @@ function InsuranceSection({
                             <Label className="text-xs text-muted-foreground">Coverage till age</Label>
                             <Input
                               type="number"
+                              inputMode="numeric"
                               value={e.coverage_till_age ?? ""}
                               onChange={(ev) =>
                                 setEditing((prev) => ({
@@ -4415,6 +4434,34 @@ function InsuranceSection({
                             <Label className="text-sm">Premium waiver</Label>
                           </div>
                         </div>
+                        <div className="flex items-end pb-1">
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={e.is_active ?? true}
+                              onCheckedChange={(checked) =>
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: { ...(prev[p.id] ?? p), is_active: checked },
+                                }))
+                              }
+                            />
+                            <Label className="text-sm">Active policy</Label>
+                          </div>
+                        </div>
+                        <div className="flex items-end pb-1">
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={e.deduct_from_outflow ?? true}
+                              onCheckedChange={(checked) =>
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [p.id]: { ...(prev[p.id] ?? p), deduct_from_outflow: checked },
+                                }))
+                              }
+                            />
+                            <Label className="text-sm">Include in outflow</Label>
+                          </div>
+                        </div>
                         <div className="col-span-2 md:col-span-3 space-y-1">
                           <Label className="text-xs text-muted-foreground">Remarks</Label>
                           <Input
@@ -4533,6 +4580,7 @@ function AddFamilyMemberDialog({
               id="add-birthYear"
               name="birthYear"
               type="number"
+              inputMode="numeric"
               min={1900}
               max={new Date().getFullYear()}
               placeholder="e.g. 1990"

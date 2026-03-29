@@ -65,6 +65,9 @@ export default function LoginPage() {
             <Label htmlFor="otp">One-Time Password</Label>
             <Input
               id="otp"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="one-time-code"
               placeholder="000000"
               maxLength={6}
               value={otp}

@@ -102,6 +102,7 @@ export function AddMetalForm({ onSuccess }: AddMetalFormProps) {
           <Input
             id="metal-units"
             type="number"
+            inputMode="decimal"
             step="any"
             min="0"
             placeholder="0"

@@ -206,6 +206,7 @@ export function EditHoldingDialog({ initial, onSuccess }: EditHoldingDialogProps
               <Input
                 id="edit-holding-units"
                 type="number"
+                inputMode="decimal"
                 step="any"
                 min="0"
                 value={units}

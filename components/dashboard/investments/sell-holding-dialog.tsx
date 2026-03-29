@@ -123,6 +123,7 @@ export function SellHoldingDialog({ initial, onSuccess }: SellHoldingDialogProps
             <Input
               id="sell-qty"
               type="number"
+              inputMode="decimal"
               step="any"
               min="0"
               max={initial.maxUnits}

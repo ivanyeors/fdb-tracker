@@ -1526,6 +1526,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                         </span>
                         <Input
                           type="number"
+                          inputMode="decimal"
                           step="0.01"
                           min={0}
                           max={100}
@@ -1549,6 +1550,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                     </span>
                     <Input
                       type="number"
+                      inputMode="decimal"
                       step="0.01"
                       min={0}
                       max={100}
@@ -1929,6 +1931,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                           </span>
                           <Input
                             type="number"
+                            inputMode="decimal"
                             step="0.01"
                             className="w-24"
                             value={multiAllocPct[`e:${m.id}`] ?? ""}
@@ -1951,6 +1954,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
                         </span>
                         <Input
                           type="number"
+                          inputMode="decimal"
                           step="0.01"
                           className="w-24"
                           value={multiAllocPct[`n:${fi}`] ?? ""}

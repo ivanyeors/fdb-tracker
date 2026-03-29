@@ -193,6 +193,7 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
           <Input
             id="holding-units"
             type="number"
+            inputMode="decimal"
             step="any"
             min="0"
             placeholder="0"

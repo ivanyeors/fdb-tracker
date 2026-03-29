@@ -145,6 +145,7 @@ export function JournalForm({ onSuccess }: JournalFormProps) {
           <Input
             id="journal-qty"
             type="number"
+            inputMode="decimal"
             step="any"
             placeholder="0"
             value={quantity}

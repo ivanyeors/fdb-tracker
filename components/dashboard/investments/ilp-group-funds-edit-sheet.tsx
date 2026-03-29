@@ -482,6 +482,7 @@ export function IlpGroupFundsEditSheet({
                         <div className="flex flex-wrap items-center gap-2">
                           <Input
                             type="number"
+                            inputMode="decimal"
                             step={0.01}
                             min={0}
                             max={100}

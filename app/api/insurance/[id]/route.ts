@@ -58,6 +58,8 @@ const updatePolicySchema = z.object({
   cpfPremium: z.number().min(0).nullable().optional(),
   premiumWaiver: z.boolean().optional(),
   remarks: z.string().nullable().optional(),
+  isActive: z.boolean().optional(),
+  deductFromOutflow: z.boolean().optional(),
 })
 
 async function verifyPolicyOwnership(
@@ -136,6 +138,8 @@ export async function PATCH(
     if (parsed.data.cpfPremium !== undefined) updates.cpf_premium = parsed.data.cpfPremium
     if (parsed.data.premiumWaiver !== undefined) updates.premium_waiver = parsed.data.premiumWaiver
     if (parsed.data.remarks !== undefined) updates.remarks = parsed.data.remarks
+    if (parsed.data.isActive !== undefined) updates.is_active = parsed.data.isActive
+    if (parsed.data.deductFromOutflow !== undefined) updates.deduct_from_outflow = parsed.data.deductFromOutflow
 
     const coverages = parsed.data.coverages
 

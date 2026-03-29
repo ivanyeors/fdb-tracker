@@ -223,6 +223,7 @@ export default function LoansPage() {
                 <Label>Tenure (months)</Label>
                 <Input
                   type="number"
+                  inputMode="numeric"
                   placeholder="240"
                   value={item.tenure_months || ""}
                   onChange={(e) =>

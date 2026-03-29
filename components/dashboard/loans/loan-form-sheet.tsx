@@ -286,6 +286,7 @@ export function LoanFormSheet({
                 <Input
                   id="loan-tenure"
                   type="number"
+                  inputMode="numeric"
                   placeholder="e.g. 300"
                   value={tenureMonths}
                   onChange={(e) => setTenureMonths(e.target.value)}
@@ -401,6 +402,7 @@ export function LoanFormSheet({
                         <Input
                           id="loan-split-pct"
                           type="number"
+                          inputMode="numeric"
                           min={1}
                           max={99}
                           value={splitPct}
