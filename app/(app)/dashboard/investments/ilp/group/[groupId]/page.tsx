@@ -132,9 +132,8 @@ export default function IlpFundGroupDetailPage() {
 
   // Sync groupProfileId from membership data (authoritative after fetchIlp)
   useEffect(() => {
-    const memberProfileId = (firstMembership as Record<string, unknown> | null)?.group_profile_id
-    if (memberProfileId !== undefined) {
-      setGroupProfileId((memberProfileId as string) ?? null)
+    if (firstMembership?.group_profile_id !== undefined) {
+      setGroupProfileId(firstMembership.group_profile_id ?? null)
     }
   }, [firstMembership])
 

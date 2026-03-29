@@ -356,7 +356,7 @@ function NetworkGraphInner({ width, height }: { width: number; height: number })
   const [selectedLink, setSelectedLink] = useState<CalcGraphLink | null>(null)
   const [hoveredLink, setHoveredLink] = useState<number | null>(null)
   const [hoveredNode, setHoveredNode] = useState<string | null>(null)
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>("grid")
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("cluster")
   const [showClusters, setShowClusters] = useState(true)
 
   // Pan & zoom state

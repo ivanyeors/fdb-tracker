@@ -8,6 +8,7 @@ export type IlpFundGroupMembership = {
   allocation_pct: number
   group_premium_amount?: number | null
   premium_payment_mode?: string | null
+  group_profile_id?: string | null
 }
 
 export type IlpProductWithEntries = {

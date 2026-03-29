@@ -17,7 +17,7 @@ const CalculationNetworkGraph = dynamic(
 
 export default function DeveloperPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       <SectionHeader
         title="Developer"
         description="Calculation logic dependency graph — click a connection to see the calculation details."
