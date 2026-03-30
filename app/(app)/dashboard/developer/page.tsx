@@ -3,12 +3,13 @@
 import dynamic from "next/dynamic"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ReactFlowProvider } from "@xyflow/react"
 
-const CalculationNetworkGraph = dynamic(
+const NodeCanvas = dynamic(
   () =>
-    import(
-      "@/components/dashboard/developer/calculation-network-graph"
-    ).then((m) => m.CalculationNetworkGraph),
+    import("@/components/dashboard/developer/node-canvas").then(
+      (m) => m.NodeCanvas
+    ),
   {
     ssr: false,
     loading: () => <Skeleton className="h-full w-full rounded-xl" />,
@@ -20,13 +21,15 @@ export default function DeveloperPage() {
     <div className="space-y-6 p-4 md:p-6">
       <SectionHeader
         title="Developer"
-        description="Calculation logic dependency graph — click a connection to see the calculation details."
+        description="Calculation logic dependency graph — drag nodes, click connections to see details, and export the graph."
       />
       <div
-        className="rounded-xl border bg-card"
+        className="overflow-hidden rounded-xl border bg-card"
         style={{ height: "calc(100vh - 12rem)" }}
       >
-        <CalculationNetworkGraph />
+        <ReactFlowProvider>
+          <NodeCanvas />
+        </ReactFlowProvider>
       </div>
     </div>
   )

@@ -1971,6 +1971,44 @@ export type Database = {
           },
         ]
       }
+      developer_graph_layouts: {
+        Row: {
+          id: string
+          household_id: string
+          graph_key: string
+          positions: Record<string, unknown>
+          viewport: Record<string, unknown> | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          household_id: string
+          graph_key?: string
+          positions?: Record<string, unknown>
+          viewport?: Record<string, unknown> | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          household_id?: string
+          graph_key?: string
+          positions?: Record<string, unknown>
+          viewport?: Record<string, unknown> | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "developer_graph_layouts_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

@@ -59,7 +59,10 @@ type PositionedNode = CalcGraphNode & { x: number; y: number }
 
 // ----------- Layout algorithms -----------
 
-function gridLayout(width: number, height: number): Map<string, PositionedNode> {
+function gridLayout(
+  width: number,
+  height: number
+): Map<string, PositionedNode> {
   const nodesByType = new Map<GraphNodeType, CalcGraphNode[]>()
   for (const node of GRAPH_NODES) {
     const list = nodesByType.get(node.type) || []
@@ -89,7 +92,10 @@ function gridLayout(width: number, height: number): Map<string, PositionedNode> 
   return positioned
 }
 
-function clusterLayout(width: number, height: number): Map<string, PositionedNode> {
+function clusterLayout(
+  width: number,
+  height: number
+): Map<string, PositionedNode> {
   const nodesByType = new Map<GraphNodeType, CalcGraphNode[]>()
   for (const node of GRAPH_NODES) {
     const list = nodesByType.get(node.type) || []
@@ -110,12 +116,14 @@ function clusterLayout(width: number, height: number): Map<string, PositionedNod
     const cx = cellW * col + cellW / 2
     const cy = cellH * row + cellH / 2
     const nodes = nodesByType.get(type) || []
-    const clusterRadius = Math.min(cellW, cellH) / 2 - NODE_RADIUS - CLUSTER_PADDING
+    const clusterRadius =
+      Math.min(cellW, cellH) / 2 - NODE_RADIUS - CLUSTER_PADDING
     const angleStep = (2 * Math.PI) / Math.max(nodes.length, 1)
 
     nodes.forEach((node, ni) => {
       const angle = angleStep * ni - Math.PI / 2
-      const r = nodes.length === 1 ? 0 : Math.min(clusterRadius, 60 + nodes.length * 8)
+      const r =
+        nodes.length === 1 ? 0 : Math.min(clusterRadius, 60 + nodes.length * 8)
       positioned.set(node.id, {
         ...node,
         x: cx + Math.cos(angle) * r,
@@ -126,7 +134,10 @@ function clusterLayout(width: number, height: number): Map<string, PositionedNod
   return positioned
 }
 
-function radialLayout(width: number, height: number): Map<string, PositionedNode> {
+function radialLayout(
+  width: number,
+  height: number
+): Map<string, PositionedNode> {
   const cx = width / 2
   const cy = height / 2
   const maxRadius = Math.min(width, height) / 2 - NODE_RADIUS - 30
@@ -141,7 +152,9 @@ function radialLayout(width: number, height: number): Map<string, PositionedNode
     outgoing.get(link.source)!.add(link.target)
   }
 
-  const roots = GRAPH_NODES.filter((n) => !incoming.has(n.id) || incoming.get(n.id)!.size === 0)
+  const roots = GRAPH_NODES.filter(
+    (n) => !incoming.has(n.id) || incoming.get(n.id)!.size === 0
+  )
   const depth = new Map<string, number>()
   const queue = roots.map((r) => ({ id: r.id, d: 0 }))
   const visited = new Set<string>()
@@ -193,9 +206,15 @@ function radialLayout(width: number, height: number): Map<string, PositionedNode
   return positioned
 }
 
-function forceLayout(width: number, height: number): Map<string, PositionedNode> {
+function forceLayout(
+  width: number,
+  height: number
+): Map<string, PositionedNode> {
   // Simple force-directed simulation (no d3 dependency)
-  const positions = new Map<string, { x: number; y: number; vx: number; vy: number }>()
+  const positions = new Map<
+    string,
+    { x: number; y: number; vx: number; vy: number }
+  >()
 
   // Initialize with random positions
   for (const node of GRAPH_NODES) {
@@ -278,8 +297,14 @@ function forceLayout(width: number, height: number): Map<string, PositionedNode>
       pos.x += pos.vx
       pos.y += pos.vy
       // Clamp to bounds
-      pos.x = Math.max(NODE_RADIUS + 10, Math.min(width - NODE_RADIUS - 10, pos.x))
-      pos.y = Math.max(NODE_RADIUS + 30, Math.min(height - NODE_RADIUS - 10, pos.y))
+      pos.x = Math.max(
+        NODE_RADIUS + 10,
+        Math.min(width - NODE_RADIUS - 10, pos.x)
+      )
+      pos.y = Math.max(
+        NODE_RADIUS + 30,
+        Math.min(height - NODE_RADIUS - 10, pos.y)
+      )
     }
   }
 
@@ -291,21 +316,37 @@ function forceLayout(width: number, height: number): Map<string, PositionedNode>
   return result
 }
 
-function computeLayout(mode: LayoutMode, width: number, height: number): Map<string, PositionedNode> {
+function computeLayout(
+  mode: LayoutMode,
+  width: number,
+  height: number
+): Map<string, PositionedNode> {
   switch (mode) {
-    case "cluster": return clusterLayout(width, height)
-    case "radial": return radialLayout(width, height)
-    case "force": return forceLayout(width, height)
+    case "cluster":
+      return clusterLayout(width, height)
+    case "radial":
+      return radialLayout(width, height)
+    case "force":
+      return forceLayout(width, height)
     case "grid":
-    default: return gridLayout(width, height)
+    default:
+      return gridLayout(width, height)
   }
 }
 
 // ----------- Cluster bounds for visual grouping -----------
 
-type ClusterBounds = { type: GraphNodeType; cx: number; cy: number; rx: number; ry: number }
+type ClusterBounds = {
+  type: GraphNodeType
+  cx: number
+  cy: number
+  rx: number
+  ry: number
+}
 
-function computeClusterBounds(nodeMap: Map<string, PositionedNode>): ClusterBounds[] {
+function computeClusterBounds(
+  nodeMap: Map<string, PositionedNode>
+): ClusterBounds[] {
   const byType = new Map<GraphNodeType, PositionedNode[]>()
   for (const node of nodeMap.values()) {
     const list = byType.get(node.type) || []
@@ -352,7 +393,13 @@ function bezierPath(sx: number, sy: number, tx: number, ty: number): string {
 
 // ----------- Component -----------
 
-function NetworkGraphInner({ width, height }: { width: number; height: number }) {
+function NetworkGraphInner({
+  width,
+  height,
+}: {
+  width: number
+  height: number
+}) {
   const [selectedLink, setSelectedLink] = useState<CalcGraphLink | null>(null)
   const [hoveredLink, setHoveredLink] = useState<number | null>(null)
   const [hoveredNode, setHoveredNode] = useState<string | null>(null)
@@ -366,15 +413,22 @@ function NetworkGraphInner({ width, height }: { width: number; height: number })
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 })
   const svgRef = useRef<SVGSVGElement>(null)
 
-  const nodeMap = useMemo(() => computeLayout(layoutMode, width, height), [layoutMode, width, height])
-  const clusterBounds = useMemo(() => showClusters ? computeClusterBounds(nodeMap) : [], [nodeMap, showClusters])
+  const nodeMap = useMemo(
+    () => computeLayout(layoutMode, width, height),
+    [layoutMode, width, height]
+  )
+  const clusterBounds = useMemo(
+    () => (showClusters ? computeClusterBounds(nodeMap) : []),
+    [nodeMap, showClusters]
+  )
 
   // Highlighted nodes/links when hovering a node
   const highlightedLinks = useMemo(() => {
     if (!hoveredNode) return new Set<number>()
     const indices = new Set<number>()
     GRAPH_LINKS.forEach((link, i) => {
-      if (link.source === hoveredNode || link.target === hoveredNode) indices.add(i)
+      if (link.source === hoveredNode || link.target === hoveredNode)
+        indices.add(i)
     })
     return indices
   }, [hoveredNode])
@@ -395,19 +449,30 @@ function NetworkGraphInner({ width, height }: { width: number; height: number })
     setZoom((z) => Math.max(0.3, Math.min(3, z * delta)))
   }, [])
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 0) return
-    setIsPanning(true)
-    panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y }
-  }, [pan])
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return
+      setIsPanning(true)
+      panStart.current = {
+        x: e.clientX,
+        y: e.clientY,
+        panX: pan.x,
+        panY: pan.y,
+      }
+    },
+    [pan]
+  )
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isPanning) return
-    setPan({
-      x: panStart.current.panX + (e.clientX - panStart.current.x),
-      y: panStart.current.panY + (e.clientY - panStart.current.y),
-    })
-  }, [isPanning])
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isPanning) return
+      setPan({
+        x: panStart.current.panX + (e.clientX - panStart.current.x),
+        y: panStart.current.panY + (e.clientY - panStart.current.y),
+      })
+    },
+    [isPanning]
+  )
 
   const handleMouseUp = useCallback(() => setIsPanning(false), [])
 
@@ -427,8 +492,14 @@ function NetworkGraphInner({ width, height }: { width: number; height: number })
   return (
     <>
       {/* Controls */}
-      <div className="absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2">
-        <Select value={layoutMode} onValueChange={(v) => { setLayoutMode(v as LayoutMode); resetView() }}>
+      <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-2">
+        <Select
+          value={layoutMode}
+          onValueChange={(v) => {
+            setLayoutMode(v as LayoutMode)
+            resetView()
+          }}
+        >
           <SelectTrigger className="h-7 w-[120px] bg-card text-xs">
             <SelectValue />
           </SelectTrigger>
@@ -439,16 +510,44 @@ function NetworkGraphInner({ width, height }: { width: number; height: number })
             <SelectItem value="force">Force</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" size="icon" className="size-7 bg-card" onClick={() => setShowClusters((v) => !v)} title={showClusters ? "Hide clusters" : "Show clusters"}>
-          {showClusters ? <Unlock className="size-3.5" /> : <Lock className="size-3.5" />}
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-7 bg-card"
+          onClick={() => setShowClusters((v) => !v)}
+          title={showClusters ? "Hide clusters" : "Show clusters"}
+        >
+          {showClusters ? (
+            <Unlock className="size-3.5" />
+          ) : (
+            <Lock className="size-3.5" />
+          )}
         </Button>
-        <Button variant="outline" size="icon" className="size-7 bg-card" onClick={() => setZoom((z) => Math.min(3, z * 1.2))} title="Zoom in">
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-7 bg-card"
+          onClick={() => setZoom((z) => Math.min(3, z * 1.2))}
+          title="Zoom in"
+        >
           <ZoomIn className="size-3.5" />
         </Button>
-        <Button variant="outline" size="icon" className="size-7 bg-card" onClick={() => setZoom((z) => Math.max(0.3, z * 0.8))} title="Zoom out">
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-7 bg-card"
+          onClick={() => setZoom((z) => Math.max(0.3, z * 0.8))}
+          title="Zoom out"
+        >
           <ZoomOut className="size-3.5" />
         </Button>
-        <Button variant="outline" size="icon" className="size-7 bg-card" onClick={resetView} title="Reset view">
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-7 bg-card"
+          onClick={resetView}
+          title="Reset view"
+        >
           <Maximize2 className="size-3.5" />
         </Button>
       </div>
@@ -479,7 +578,9 @@ function NetworkGraphInner({ width, height }: { width: number; height: number })
       >
         <rect width={width} height={height} fill="transparent" />
         <Group top={pan.y} left={pan.x}>
-          <g transform={`translate(${width / 2}, ${height / 2}) scale(${zoom}) translate(${-width / 2}, ${-height / 2})`}>
+          <g
+            transform={`translate(${width / 2}, ${height / 2}) scale(${zoom}) translate(${-width / 2}, ${-height / 2})`}
+          >
             {/* Cluster backgrounds */}
             {clusterBounds.map((c) => (
               <ellipse
@@ -545,9 +646,25 @@ function NetworkGraphInner({ width, height }: { width: number; height: number })
                   <path
                     d={bezierPath(source.x, source.y, target.x, target.y)}
                     fill="none"
-                    stroke={isSelected ? "#f97316" : isHighlighted ? NODE_COLORS[source.type] : "#94a3b8"}
-                    strokeWidth={isSelected ? 2.5 : isHovered || isHighlighted ? 2 : 1.2}
-                    strokeOpacity={dimmed ? 0.08 : isSelected ? 0.9 : isHovered || isHighlighted ? 0.7 : 0.25}
+                    stroke={
+                      isSelected
+                        ? "#f97316"
+                        : isHighlighted
+                          ? NODE_COLORS[source.type]
+                          : "#94a3b8"
+                    }
+                    strokeWidth={
+                      isSelected ? 2.5 : isHovered || isHighlighted ? 2 : 1.2
+                    }
+                    strokeOpacity={
+                      dimmed
+                        ? 0.08
+                        : isSelected
+                          ? 0.9
+                          : isHovered || isHighlighted
+                            ? 0.7
+                            : 0.25
+                    }
                     className="cursor-pointer transition-opacity duration-150"
                     onClick={() => setSelectedLink(link)}
                     onMouseEnter={() => setHoveredLink(i)}
@@ -556,29 +673,48 @@ function NetworkGraphInner({ width, height }: { width: number; height: number })
                     strokeLinecap="round"
                   />
                   {/* Arrow at target */}
-                  {(isSelected || isHovered || isHighlighted) && (() => {
-                    const d = bezierPath(source.x, source.y, target.x, target.y)
-                    const path = document.createElementNS("http://www.w3.org/2000/svg", "path")
-                    path.setAttribute("d", d)
-                    const totalLen = path.getTotalLength()
-                    if (totalLen < NODE_RADIUS * 2) return null
-                    const pt = path.getPointAtLength(totalLen - NODE_RADIUS - 4)
-                    const pt2 = path.getPointAtLength(totalLen - NODE_RADIUS - 12)
-                    const angle = Math.atan2(pt.y - pt2.y, pt.x - pt2.x)
-                    const arrowSize = 6
-                    const x1 = pt.x - arrowSize * Math.cos(angle - 0.4)
-                    const y1 = pt.y - arrowSize * Math.sin(angle - 0.4)
-                    const x2 = pt.x - arrowSize * Math.cos(angle + 0.4)
-                    const y2 = pt.y - arrowSize * Math.sin(angle + 0.4)
-                    return (
-                      <polygon
-                        points={`${pt.x},${pt.y} ${x1},${y1} ${x2},${y2}`}
-                        fill={isSelected ? "#f97316" : isHighlighted ? NODE_COLORS[source.type] : "#94a3b8"}
-                        fillOpacity={isSelected ? 0.9 : 0.7}
-                        pointerEvents="none"
-                      />
-                    )
-                  })()}
+                  {(isSelected || isHovered || isHighlighted) &&
+                    (() => {
+                      const d = bezierPath(
+                        source.x,
+                        source.y,
+                        target.x,
+                        target.y
+                      )
+                      const path = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "path"
+                      )
+                      path.setAttribute("d", d)
+                      const totalLen = path.getTotalLength()
+                      if (totalLen < NODE_RADIUS * 2) return null
+                      const pt = path.getPointAtLength(
+                        totalLen - NODE_RADIUS - 4
+                      )
+                      const pt2 = path.getPointAtLength(
+                        totalLen - NODE_RADIUS - 12
+                      )
+                      const angle = Math.atan2(pt.y - pt2.y, pt.x - pt2.x)
+                      const arrowSize = 6
+                      const x1 = pt.x - arrowSize * Math.cos(angle - 0.4)
+                      const y1 = pt.y - arrowSize * Math.sin(angle - 0.4)
+                      const x2 = pt.x - arrowSize * Math.cos(angle + 0.4)
+                      const y2 = pt.y - arrowSize * Math.sin(angle + 0.4)
+                      return (
+                        <polygon
+                          points={`${pt.x},${pt.y} ${x1},${y1} ${x2},${y2}`}
+                          fill={
+                            isSelected
+                              ? "#f97316"
+                              : isHighlighted
+                                ? NODE_COLORS[source.type]
+                                : "#94a3b8"
+                          }
+                          fillOpacity={isSelected ? 0.9 : 0.7}
+                          pointerEvents="none"
+                        />
+                      )
+                    })()}
                 </g>
               )
             })}
@@ -586,7 +722,8 @@ function NetworkGraphInner({ width, height }: { width: number; height: number })
             {/* Nodes */}
             {Array.from(nodeMap.values()).map((node) => {
               const color = NODE_COLORS[node.type]
-              const dimmed = hoveredNode != null && !highlightedNodes.has(node.id)
+              const dimmed =
+                hoveredNode != null && !highlightedNodes.has(node.id)
               const isHover = hoveredNode === node.id
 
               return (
@@ -630,7 +767,9 @@ function NetworkGraphInner({ width, height }: { width: number; height: number })
                     fillOpacity={dimmed ? 0.3 : 1}
                     className="select-none"
                   >
-                    {node.label.length > 12 ? node.label.slice(0, 11) + "\u2026" : node.label}
+                    {node.label.length > 12
+                      ? node.label.slice(0, 11) + "\u2026"
+                      : node.label}
                   </text>
                   <text
                     x={node.x}
@@ -639,7 +778,7 @@ function NetworkGraphInner({ width, height }: { width: number; height: number })
                     dominantBaseline="central"
                     fill="currentColor"
                     fontSize={8}
-                    className="select-none fill-muted-foreground"
+                    className="fill-muted-foreground select-none"
                     pointerEvents="none"
                     fillOpacity={dimmed ? 0.15 : 0.7}
                   >
@@ -653,7 +792,12 @@ function NetworkGraphInner({ width, height }: { width: number; height: number })
       </svg>
 
       {/* Detail dialog */}
-      <Dialog open={selectedLink !== null} onOpenChange={(open) => { if (!open) setSelectedLink(null) }}>
+      <Dialog
+        open={selectedLink !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedLink(null)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{selectedLink?.calculationName}</DialogTitle>
@@ -665,7 +809,9 @@ function NetworkGraphInner({ width, height }: { width: number; height: number })
           </DialogHeader>
           {selectedLink && (
             <div className="space-y-4 text-sm">
-              <p className="text-muted-foreground">{selectedLink.description}</p>
+              <p className="text-muted-foreground">
+                {selectedLink.description}
+              </p>
               <div className="rounded-lg border bg-muted/50 px-3 py-2">
                 <span className="font-mono text-xs text-muted-foreground">
                   {selectedLink.filePath}
@@ -673,13 +819,35 @@ function NetworkGraphInner({ width, height }: { width: number; height: number })
               </div>
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-block size-2.5 rounded-full" style={{ backgroundColor: NODE_COLORS[nodeMap.get(selectedLink.source)?.type ?? "cashflow"] }} />
-                  <span>{nodeMap.get(selectedLink.source)?.label ?? selectedLink.source}</span>
+                  <span
+                    className="inline-block size-2.5 rounded-full"
+                    style={{
+                      backgroundColor:
+                        NODE_COLORS[
+                          nodeMap.get(selectedLink.source)?.type ?? "cashflow"
+                        ],
+                    }}
+                  />
+                  <span>
+                    {nodeMap.get(selectedLink.source)?.label ??
+                      selectedLink.source}
+                  </span>
                 </div>
                 <span>&rarr;</span>
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-block size-2.5 rounded-full" style={{ backgroundColor: NODE_COLORS[nodeMap.get(selectedLink.target)?.type ?? "cashflow"] }} />
-                  <span>{nodeMap.get(selectedLink.target)?.label ?? selectedLink.target}</span>
+                  <span
+                    className="inline-block size-2.5 rounded-full"
+                    style={{
+                      backgroundColor:
+                        NODE_COLORS[
+                          nodeMap.get(selectedLink.target)?.type ?? "cashflow"
+                        ],
+                    }}
+                  />
+                  <span>
+                    {nodeMap.get(selectedLink.target)?.label ??
+                      selectedLink.target}
+                  </span>
                 </div>
               </div>
             </div>
