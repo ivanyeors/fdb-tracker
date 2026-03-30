@@ -195,6 +195,20 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Post-filter: exclude products claimed by groups assigned to a DIFFERENT profile.
+    // Once a group has a profile_id, its member products are no longer "family-wide".
+    if (requestedProfileId) {
+      const filtered = result.filter((item) => {
+        if (item.profile_id != null) return true
+        const groupProfileIds = item.fund_group_memberships
+          .map((m) => m.group_profile_id)
+          .filter((pid): pid is string => pid != null)
+        if (groupProfileIds.length === 0) return true
+        return groupProfileIds.includes(requestedProfileId)
+      })
+      return NextResponse.json(filtered)
+    }
+
     return NextResponse.json(result)
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
