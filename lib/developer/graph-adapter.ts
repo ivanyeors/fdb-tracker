@@ -4,13 +4,10 @@ import {
   GRAPH_LINKS,
   NODE_COLORS,
   type CalcGraphNode,
-  type CalcGraphLink,
   type GraphNodeType,
 } from "@/lib/developer/calculation-graph-data"
-import {
-  NODE_TYPE_REGISTRY,
-  type PortDataType,
-} from "@/lib/developer/node-registry"
+import { NODE_TYPE_REGISTRY } from "@/lib/developer/node-registry"
+import type { MoneyFlowPayload } from "@/lib/developer/money-flow-types"
 
 // Custom data attached to each React Flow node
 export interface CalcNodeData {
@@ -21,6 +18,10 @@ export interface CalcNodeData {
   inputs: string[]
   outputs: string[]
   description: string
+  // Money flow fields (populated when viewMode === "money-flow")
+  moneyAmount?: string
+  moneyBreakdown?: string
+  moneyPeriod?: "monthly" | "annual" | "total"
   [key: string]: unknown
 }
 
@@ -32,6 +33,9 @@ export interface CalcEdgeData {
   calculationLogic: string
   sourceType: GraphNodeType
   targetType: GraphNodeType
+  // Money flow fields
+  flowFormula?: string
+  flowAmount?: number
   [key: string]: unknown
 }
 
@@ -220,4 +224,65 @@ export function buildReactFlowEdges(): Edge<CalcEdgeData>[] {
       },
     }
   })
+}
+
+export function applyMoneyFlowData(
+  nodes: Node<CalcNodeData>[],
+  edges: Edge<CalcEdgeData>[],
+  payload: MoneyFlowPayload
+): { nodes: Node<CalcNodeData>[]; edges: Edge<CalcEdgeData>[] } {
+  const updatedNodes = nodes.map((n) => {
+    const flow = payload.nodes[n.id]
+    if (!flow) return n
+    return {
+      ...n,
+      data: {
+        ...n.data,
+        moneyAmount: flow.amount,
+        moneyBreakdown: flow.breakdown,
+        moneyPeriod: flow.period,
+      },
+    }
+  })
+
+  const updatedEdges = edges.map((e) => {
+    const flow = payload.edges[e.id]
+    if (!flow) return e
+    return {
+      ...e,
+      data: {
+        ...e.data!,
+        flowFormula: flow.flowFormula,
+        flowAmount: flow.rawAmount,
+      },
+    }
+  })
+
+  return { nodes: updatedNodes, edges: updatedEdges }
+}
+
+export function clearMoneyFlowData(
+  nodes: Node<CalcNodeData>[],
+  edges: Edge<CalcEdgeData>[]
+): { nodes: Node<CalcNodeData>[]; edges: Edge<CalcEdgeData>[] } {
+  const updatedNodes = nodes.map((n) => ({
+    ...n,
+    data: {
+      ...n.data,
+      moneyAmount: undefined,
+      moneyBreakdown: undefined,
+      moneyPeriod: undefined,
+    },
+  }))
+
+  const updatedEdges = edges.map((e) => ({
+    ...e,
+    data: {
+      ...e.data!,
+      flowFormula: undefined,
+      flowAmount: undefined,
+    },
+  }))
+
+  return { nodes: updatedNodes, edges: updatedEdges }
 }

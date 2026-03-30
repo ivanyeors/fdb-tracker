@@ -6,8 +6,9 @@ import { NODE_TYPE_REGISTRY } from "@/lib/developer/node-registry"
 import { GRAPH_LINKS } from "@/lib/developer/calculation-graph-data"
 import { GRAPH_NODES } from "@/lib/developer/calculation-graph-data"
 import { NODE_COLORS } from "@/lib/developer/calculation-graph-data"
-import { X, FileCode, ArrowRight, ArrowLeft } from "lucide-react"
+import { X, FileCode, ArrowRight, ArrowLeft, DollarSign } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useDeveloperView } from "@/components/dashboard/developer/developer-view-context"
 
 interface NodeDetailPanelProps {
   node: Node<CalcNodeData>
@@ -17,6 +18,8 @@ interface NodeDetailPanelProps {
 export function NodeDetailPanel({ node, onClose }: NodeDetailPanelProps) {
   const data = node.data
   const typeDef = NODE_TYPE_REGISTRY[data.nodeType]
+  const { viewMode } = useDeveloperView()
+  const isMoneyFlow = viewMode === "money-flow"
 
   // Find incoming and outgoing connections
   const incoming = GRAPH_LINKS.filter((l) => l.target === node.id)
@@ -55,6 +58,34 @@ export function NodeDetailPanel({ node, onClose }: NodeDetailPanelProps) {
       </div>
 
       <div className="space-y-3 p-3">
+        {/* Money flow value */}
+        {isMoneyFlow && data.moneyAmount && (
+          <div className="rounded-md border px-3 py-2" style={{ borderColor: `${data.color}40` }}>
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4" style={{ color: data.color }} />
+              <span className="text-lg font-bold" style={{ color: data.color }}>
+                {data.moneyAmount}
+              </span>
+              {data.moneyPeriod && (
+                <span
+                  className="rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase"
+                  style={{
+                    backgroundColor: `${data.color}15`,
+                    color: data.color,
+                  }}
+                >
+                  {data.moneyPeriod}
+                </span>
+              )}
+            </div>
+            {data.moneyBreakdown && (
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                {data.moneyBreakdown}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Type & Description */}
         <div>
           <span

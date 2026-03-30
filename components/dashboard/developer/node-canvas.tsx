@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef, useEffect } from "react"
+import { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import {
   ReactFlow,
   MiniMap,
@@ -34,7 +34,9 @@ import {
   fetchLayoutFromDB,
   saveLayoutToDB,
   applyPositionsToNodes,
+  applyMoneyFlowData,
   clearLocalPositions,
+  clearMoneyFlowData,
   type CalcNodeData,
   type CalcEdgeData,
 } from "@/lib/developer/graph-adapter"
@@ -42,6 +44,9 @@ import {
   NODE_COLORS,
   type GraphNodeType,
 } from "@/lib/developer/calculation-graph-data"
+import { useDeveloperView } from "@/components/dashboard/developer/developer-view-context"
+import { useActiveProfile } from "@/hooks/use-active-profile"
+import type { MoneyFlowPayload } from "@/lib/developer/money-flow-types"
 import { toast } from "sonner"
 
 const nodeTypes = {
@@ -133,9 +138,8 @@ export function NodeCanvas() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(buildReactFlowEdges())
 
   // Filter out React Flow's built-in edge selection to prevent CSS conflicts
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleEdgesChange = useCallback(
-    (changes: EdgeChange<any>[]) => {
+    (changes: EdgeChange<Edge<CalcEdgeData>>[]) => {
       onEdgesChange(changes.filter((c) => c.type !== "select"))
     },
     [onEdgesChange]
@@ -149,9 +153,71 @@ export function NodeCanvas() {
   )
   const [snapToGrid, setSnapToGrid] = useState(true)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [moneyFlowLoading, setMoneyFlowLoading] = useState(false)
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dbSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Money flow view data fetching
+  const { viewMode } = useDeveloperView()
+  const { activeProfileId, activeFamilyId } = useActiveProfile()
+  const moneyFlowUrl = useMemo(() => {
+    if (viewMode !== "money-flow") return null
+    const params = new URLSearchParams()
+    if (activeProfileId) params.set("profileId", activeProfileId)
+    if (activeFamilyId) params.set("familyId", activeFamilyId)
+    return `/api/developer/money-flow?${params}`
+  }, [viewMode, activeProfileId, activeFamilyId])
+
+  const moneyFlowRef = useRef<MoneyFlowPayload | null>(null)
+  const prevUrlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!moneyFlowUrl) {
+      // Switched back to calculation mode — clear money data
+      if (moneyFlowRef.current) {
+        moneyFlowRef.current = null
+        setNodes((currentNodes) => {
+          const result = clearMoneyFlowData(
+            currentNodes as Node<CalcNodeData>[],
+            edges as Edge<CalcEdgeData>[]
+          )
+          setEdges(result.edges)
+          return result.nodes
+        })
+      }
+      return
+    }
+    if (moneyFlowUrl === prevUrlRef.current) return
+    prevUrlRef.current = moneyFlowUrl
+
+    setMoneyFlowLoading(true)
+    fetch(moneyFlowUrl)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: MoneyFlowPayload | null) => {
+        if (!data) {
+          toast.error("Failed to load money flow data")
+          return
+        }
+        moneyFlowRef.current = data
+        setNodes((currentNodes) => {
+          const result = applyMoneyFlowData(
+            currentNodes as Node<CalcNodeData>[],
+            edges as Edge<CalcEdgeData>[],
+            data
+          )
+          setEdges(result.edges)
+          return result.nodes
+        })
+      })
+      .catch(() => {
+        toast.error("Failed to load money flow data")
+      })
+      .finally(() => {
+        setMoneyFlowLoading(false)
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moneyFlowUrl])
 
   // Load layout from DB on mount (overrides localStorage if available)
   useEffect(() => {
@@ -395,6 +461,7 @@ export function NodeCanvas() {
             onExportJSON={handleExportJSON}
             snapToGrid={snapToGrid}
             onToggleSnap={() => setSnapToGrid((s) => !s)}
+            moneyFlowLoading={moneyFlowLoading}
           />
         </Panel>
 

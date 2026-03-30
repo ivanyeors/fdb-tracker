@@ -4,8 +4,9 @@ import type { Edge } from "@xyflow/react"
 import type { CalcEdgeData } from "@/lib/developer/graph-adapter"
 import { NODE_COLORS } from "@/lib/developer/calculation-graph-data"
 import { GRAPH_NODES } from "@/lib/developer/calculation-graph-data"
-import { X, ArrowRight, FileCode } from "lucide-react"
+import { X, ArrowRight, FileCode, DollarSign } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useDeveloperView } from "@/components/dashboard/developer/developer-view-context"
 
 interface EdgeDetailPanelProps {
   edge: Edge<CalcEdgeData>
@@ -105,6 +106,9 @@ function LogicBlock({ text }: { text: string }) {
 }
 
 export function EdgeDetailPanel({ edge, onClose }: EdgeDetailPanelProps) {
+  const { viewMode } = useDeveloperView()
+  const isMoneyFlow = viewMode === "money-flow"
+
   const data = edge.data
   if (!data) return null
 
@@ -128,6 +132,27 @@ export function EdgeDetailPanel({ edge, onClose }: EdgeDetailPanelProps) {
       </div>
 
       <div className="space-y-3 p-3">
+        {/* Money flow formula (prominent in money-flow mode) */}
+        {isMoneyFlow && data.flowFormula && (
+          <div
+            className="rounded-md border px-3 py-2"
+            style={{ borderColor: `${NODE_COLORS[data.sourceType]}40` }}
+          >
+            <div className="flex items-center gap-1.5">
+              <DollarSign
+                className="h-4 w-4"
+                style={{ color: NODE_COLORS[data.sourceType] }}
+              />
+              <span
+                className="font-mono text-sm font-bold"
+                style={{ color: NODE_COLORS[data.sourceType] }}
+              >
+                {data.flowFormula}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Calculation name */}
         <div>
           <div className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
@@ -171,7 +196,7 @@ export function EdgeDetailPanel({ edge, onClose }: EdgeDetailPanelProps) {
           </p>
         </div>
 
-        {/* Calculation Logic */}
+        {/* Calculation Logic (shown in both modes but less prominent in money-flow) */}
         {data.calculationLogic && (
           <div>
             <div className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">

@@ -14,8 +14,10 @@ import {
   Shield,
   Target,
   FileCode,
+  DollarSign,
 } from "lucide-react"
 import type { GraphNodeType } from "@/lib/developer/calculation-graph-data"
+import { useDeveloperView } from "@/components/dashboard/developer/developer-view-context"
 
 const ICON_MAP: Record<
   string,
@@ -31,17 +33,19 @@ const ICON_MAP: Record<
   Target,
 }
 
-function getIcon(type: GraphNodeType) {
+function NodeIcon({ type, color }: { type: GraphNodeType; color: string }) {
   const def = NODE_TYPE_REGISTRY[type]
-  return ICON_MAP[def.icon] || FileCode
+  const Icon = ICON_MAP[def.icon] || FileCode
+  return <Icon className="h-3.5 w-3.5" style={{ color }} />
 }
 
 function CalcNodeComponent({
   data,
   selected,
 }: NodeProps & { data: CalcNodeData }) {
-  const Icon = getIcon(data.nodeType)
   const typeDef = NODE_TYPE_REGISTRY[data.nodeType]
+  const { viewMode } = useDeveloperView()
+  const isMoneyFlow = viewMode === "money-flow" && data.moneyAmount
 
   return (
     <div
@@ -52,7 +56,7 @@ function CalcNodeComponent({
       }`}
       style={{
         minWidth: 180,
-        maxWidth: 220,
+        maxWidth: 240,
       }}
     >
       {/* Header */}
@@ -64,7 +68,7 @@ function CalcNodeComponent({
           className="flex h-6 w-6 items-center justify-center rounded"
           style={{ backgroundColor: `${data.color}25` }}
         >
-          <Icon className="h-3.5 w-3.5" style={{ color: data.color }} />
+          <NodeIcon type={data.nodeType} color={data.color} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-xs font-semibold text-foreground">
@@ -84,10 +88,27 @@ function CalcNodeComponent({
 
       {/* Body */}
       <div className="px-3 py-2">
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <FileCode className="h-3 w-3 shrink-0" />
-          <span className="truncate">{data.filePath}</span>
-        </div>
+        {isMoneyFlow ? (
+          <div>
+            <div
+              className="flex items-center gap-1.5 text-sm font-semibold"
+              style={{ color: data.color }}
+            >
+              <DollarSign className="h-3.5 w-3.5 shrink-0" />
+              <span>{data.moneyAmount}</span>
+            </div>
+            {data.moneyBreakdown && (
+              <div className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+                {data.moneyBreakdown}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <FileCode className="h-3 w-3 shrink-0" />
+            <span className="truncate">{data.filePath}</span>
+          </div>
+        )}
       </div>
 
       {/* Input handles (left side) */}
