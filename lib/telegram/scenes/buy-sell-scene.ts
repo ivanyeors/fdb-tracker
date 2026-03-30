@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { botState, MyContext } from "@/lib/telegram/bot"
 import { sanitizeText } from "@/lib/telegram/sanitize"
 import { calculateWeightedAverageCost } from "@/lib/calculations/investments"
+import { searchStocks } from "@/lib/external/fmp"
 import {
   progressHeader,
   buildConfirmationMessage,
@@ -25,13 +26,84 @@ function typeLabel(type: "buy" | "sell") {
   return type === "buy" ? "buy" : "sell"
 }
 
+/**
+ * Prompt the symbol step. For sell, shows existing holdings as inline buttons.
+ * For buy, shows the standard text prompt.
+ */
+async function promptSymbolStep(ctx: MyContext) {
+  const s = ctx.scene.session
+  const header = progressHeader(
+    2,
+    TOTAL_STEPS,
+    `Recording ${typeLabel(s.type!)} for ${s.profileName}`
+  )
+
+  if (s.type === "sell") {
+    const supabase = createSupabaseAdmin()
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("family_id")
+      .eq("id", s.profileId!)
+      .single()
+
+    if (profile) {
+      const { data: holdings } = await supabase
+        .from("investments")
+        .select("symbol, units")
+        .eq("family_id", profile.family_id)
+        .eq("profile_id", s.profileId!)
+        .gt("units", 0)
+        .order("symbol")
+
+      if (holdings && holdings.length > 0) {
+        const buttons = holdings.slice(0, 20).map((h) => [
+          {
+            text: `${h.symbol} (${h.units} shares)`,
+            callback_data: `hsym_${h.symbol}`,
+          },
+        ])
+        buttons.push([
+          { text: "Type manually", callback_data: "hsym_manual" },
+        ])
+        await ctx.reply(`${header}\n\nSelect a stock to sell:`, {
+          reply_markup: { inline_keyboard: buttons },
+        })
+        return
+      }
+    }
+  }
+
+  await ctx.reply(`${header}\n\nEnter the stock symbol (e.g. AAPL):`)
+}
+
+/**
+ * Shared transition from symbol → quantity step (or back to confirmation if editing).
+ */
+async function proceedFromSymbol(ctx: MyContext): Promise<boolean> {
+  const returned = await advanceOrReturn(ctx, STEP_CONFIRM, sendConfirmation)
+  if (returned) return true
+
+  const s = ctx.scene.session
+  const header = progressHeader(
+    3,
+    TOTAL_STEPS,
+    `${typeLabel(s.type!)} ${s.symbol} for ${s.profileName}`
+  )
+  await ctx.reply(`${header}\n\nEnter the quantity of shares:`)
+  ctx.wizard.next()
+  return false
+}
+
 async function sendConfirmation(ctx: MyContext) {
   const s = ctx.scene.session
   const total = (s.quantity ?? 0) * (s.price ?? 0)
+  const symbolDisplay = s.symbolName
+    ? `${s.symbol} (${s.symbolName})`
+    : (s.symbol ?? "—")
   const fields = [
     { label: "Profile", value: s.profileName ?? "—" },
     { label: "Type", value: s.type === "buy" ? "Buy" : "Sell" },
-    { label: "Symbol", value: s.symbol ?? "—" },
+    { label: "Symbol", value: symbolDisplay },
     {
       label: "Quantity",
       value: s.quantity != null ? `${s.quantity} shares` : "—",
@@ -114,13 +186,8 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     if (profiles.length === 1) {
       ctx.scene.session.profileId = profiles[0].id
       ctx.scene.session.profileName = profiles[0].name
-      const header = progressHeader(
-        2,
-        TOTAL_STEPS,
-        `Recording ${typeLabel(type)} for ${profiles[0].name}`
-      )
-      await ctx.reply(`${header}\n\nEnter the stock symbol (e.g. AAPL):`)
       ctx.wizard.selectStep(STEP_SYMBOL)
+      await promptSymbolStep(ctx)
       return
     }
 
@@ -149,20 +216,53 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
         ctx.scene.session.profileName = parts.slice(1).join("_")
         await ctx.answerCbQuery()
 
-        const header = progressHeader(
-          2,
-          TOTAL_STEPS,
-          `Recording ${typeLabel(ctx.scene.session.type!)} for ${ctx.scene.session.profileName}`
-        )
-        await ctx.reply(`${header}\n\nEnter the stock symbol (e.g. AAPL):`)
-        return ctx.wizard.next()
+        ctx.wizard.next()
+        await promptSymbolStep(ctx)
+        return
       }
     }
     return undefined
   },
 
-  // STEP 2: Symbol input
+  // STEP 2: Symbol input (text + inline keyboard callbacks)
   async (ctx) => {
+    // --- Path A: Sell holdings picker callback (hsym_) ---
+    if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
+      const data = ctx.callbackQuery.data
+      await ctx.answerCbQuery()
+
+      if (data === "hsym_manual") {
+        await ctx.reply("Enter the stock symbol:")
+        return
+      }
+
+      if (data.startsWith("hsym_")) {
+        const symbol = data.replace("hsym_", "")
+        ctx.scene.session.symbol = symbol
+        ctx.scene.session.symbolName = undefined
+        await proceedFromSymbol(ctx)
+        return
+      }
+
+      // --- Path B: Buy search picker callback (ssym_) ---
+      if (data === "ssym_raw") {
+        // symbol already set from text input
+        await proceedFromSymbol(ctx)
+        return
+      }
+
+      if (data.startsWith("ssym_")) {
+        const parts = data.replace("ssym_", "").split("|")
+        ctx.scene.session.symbol = parts[0]
+        ctx.scene.session.symbolName = parts[1] || undefined
+        await proceedFromSymbol(ctx)
+        return
+      }
+
+      return
+    }
+
+    // --- Path C: Text input ---
     if (!ctx.message || !("text" in ctx.message)) return undefined
 
     const symbol = ctx.message.text.toUpperCase().trim()
@@ -173,18 +273,60 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
       return undefined
     }
 
+    // For sell, accept directly (no API lookup needed)
+    if (ctx.scene.session.type === "sell") {
+      ctx.scene.session.symbol = symbol
+      ctx.scene.session.symbolName = undefined
+      await proceedFromSymbol(ctx)
+      return
+    }
+
+    // For buy, try FMP stock search
+    const results = await searchStocks(symbol)
+
+    if (
+      results.length > 0 &&
+      results[0].ticker.toUpperCase() === symbol
+    ) {
+      // Exact match — auto-accept
+      ctx.scene.session.symbol = results[0].ticker
+      ctx.scene.session.symbolName = results[0].name || undefined
+      await proceedFromSymbol(ctx)
+      return
+    }
+
+    if (results.length > 1) {
+      // Multiple matches — show picker
+      ctx.scene.session.symbol = symbol
+      const buttons = results.slice(0, 8).map((r) => {
+        // Telegram callback_data max 64 bytes — truncate name to fit
+        const name = (r.name ?? "").slice(0, 50)
+        return [
+          {
+            text: `${r.ticker} — ${r.name ?? "Unknown"}${r.exchange ? ` (${r.exchange})` : ""}`,
+            callback_data: `ssym_${r.ticker}|${name}`,
+          },
+        ]
+      })
+      buttons.push([
+        {
+          text: `Use "${symbol}" as entered`,
+          callback_data: "ssym_raw",
+        },
+      ])
+      await ctx.reply("Multiple matches found. Select one:", {
+        reply_markup: { inline_keyboard: buttons },
+      })
+      return
+    }
+
+    // No results or single non-exact match — accept raw symbol
     ctx.scene.session.symbol = symbol
-
-    const returned = await advanceOrReturn(ctx, STEP_CONFIRM, sendConfirmation)
-    if (returned) return
-
-    const header = progressHeader(
-      3,
-      TOTAL_STEPS,
-      `${typeLabel(ctx.scene.session.type!)} ${symbol} for ${ctx.scene.session.profileName}`
-    )
-    await ctx.reply(`${header}\n\nEnter the quantity of shares:`)
-    return ctx.wizard.next()
+    if (results.length === 1) {
+      ctx.scene.session.symbolName = results[0].name || undefined
+    }
+    await proceedFromSymbol(ctx)
+    return
   },
 
   // STEP 3: Quantity input
@@ -278,7 +420,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
       if (data === "ed_sym") {
         ctx.scene.session.editingField = "symbol"
         ctx.wizard.selectStep(STEP_SYMBOL)
-        await ctx.reply("Enter the new stock symbol:")
+        await promptSymbolStep(ctx)
         return
       }
 

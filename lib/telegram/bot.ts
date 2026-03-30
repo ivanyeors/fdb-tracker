@@ -31,6 +31,8 @@ export interface MySessionData extends Scenes.WizardSessionData {
   loanName?: string
   /** Cached ILP product name for confirmation display. */
   productName?: string
+  /** Stock company name from FMP search (for display in confirmation). */
+  symbolName?: string
   /** Which field is being edited in the confirmation step. */
   editingField?: string
   /** PDF import: classified document type. */
