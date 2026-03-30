@@ -40,7 +40,7 @@ import { IlpGroupSummaryCard } from "@/components/dashboard/investments/ilp-grou
 import { PreciousMetals } from "@/components/dashboard/investments/precious-metals"
 import { AddHoldingForm } from "@/components/dashboard/investments/add-holding-form"
 import { InvestmentAccountBalance } from "@/components/dashboard/investments/investment-account-balance"
-import { AddIlpForm } from "@/components/dashboard/investments/add-ilp-form"
+import { AddIlpSheetContent } from "@/components/dashboard/investments/add-ilp-sheet-content"
 import { AddMetalForm } from "@/components/dashboard/investments/add-metal-form"
 import { ChartSkeleton } from "@/components/loading"
 import {
@@ -1091,22 +1091,14 @@ export default function InvestmentsDetailPage() {
           <Sheet open={addIlpOpen} onOpenChange={setAddIlpOpen}>
             <SheetContent
               side="right"
-              className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-lg"
+              className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-2xl"
             >
-              <SheetHeader className="border-b p-4 text-left">
-                <SheetTitle>Add ILP Product</SheetTitle>
-                <SheetDescription>
-                  Enter policy details and optional initial snapshot values.
-                </SheetDescription>
-              </SheetHeader>
-              <div className="p-4">
-                <AddIlpForm
-                  onSuccess={() => {
-                    void handleMutation()
-                    setAddIlpOpen(false)
-                  }}
-                />
-              </div>
+              <AddIlpSheetContent
+                onSuccess={() => {
+                  void handleMutation()
+                  setAddIlpOpen(false)
+                }}
+              />
             </SheetContent>
           </Sheet>
           {isLoading ? (
@@ -1134,6 +1126,7 @@ export default function InvestmentsDetailPage() {
                         cards={section.cards}
                         fullPortfolioTotal={fullPortfolioTotal}
                         chartHeight={380}
+                        onDeleted={triggerRefresh}
                       />
                     </div>
                   ))}

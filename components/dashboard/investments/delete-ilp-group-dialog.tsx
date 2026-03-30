@@ -20,12 +20,15 @@ interface DeleteIlpGroupDialogProps {
   groupId: string
   groupName: string
   fundCount: number
+  /** When provided, called instead of navigating to /dashboard/investments */
+  onDeleted?: () => void
 }
 
 export function DeleteIlpGroupDialog({
   groupId,
   groupName,
   fundCount,
+  onDeleted,
 }: DeleteIlpGroupDialogProps) {
   const { activeFamilyId } = useActiveProfile()
   const router = useRouter()
@@ -50,7 +53,11 @@ export function DeleteIlpGroupDialog({
 
       toast.success("Fund group and all its funds removed")
       setOpen(false)
-      router.push("/dashboard/investments?tab=ilp")
+      if (onDeleted) {
+        onDeleted()
+      } else {
+        router.push("/dashboard/investments?tab=ilp")
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong")
     } finally {

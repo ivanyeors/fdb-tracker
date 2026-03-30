@@ -129,9 +129,19 @@ function clearIlpImportDraft() {
   }
 }
 
-export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string | null }) {
-  const { activeFamilyId, activeProfileId } = useActiveProfile()
+export function IlpFundImportTab({
+  familyId: familyIdProp,
+  onSuccess,
+  variant = "card",
+}: {
+  familyId: string | null
+  onSuccess?: () => void
+  variant?: "card" | "inline"
+}) {
+  const { activeFamilyId, activeProfileId, profiles } = useActiveProfile()
   const familyId = activeFamilyId ?? familyIdProp
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
+  const effectiveProfileId = selectedProfileId ?? activeProfileId
 
   const [step, setStep] = useState<Step>("idle")
   const [files, setFiles] = useState<File[]>([])
@@ -694,7 +704,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
       endDate: newEndDate,
       ...(newStartDate && { startDate: newStartDate }),
     }
-    if (activeProfileId) baseBody.profileId = activeProfileId
+    if (effectiveProfileId) baseBody.profileId = effectiveProfileId
     else if (familyId) baseBody.familyId = familyId
 
     if (!ilpFundGroupId) {
@@ -825,7 +835,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
         endDate: row.newEndDate,
         ...(row.newStartDate && { startDate: row.newStartDate }),
       }
-      if (activeProfileId) body.profileId = activeProfileId
+      if (effectiveProfileId) body.profileId = effectiveProfileId
       else if (familyId) body.familyId = familyId
       const product = await createIlpProduct(body)
       return product.id
@@ -847,7 +857,7 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
       endDate: row.newEndDate,
       ...(row.newStartDate && { startDate: row.newStartDate }),
     }
-    if (activeProfileId) body.profileId = activeProfileId
+    if (effectiveProfileId) body.profileId = effectiveProfileId
     else if (familyId) body.familyId = familyId
 
     const product = await createIlpProduct(body)
@@ -1176,20 +1186,40 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
       : multiGroupDisabled
     : singleConfirmDisabled
 
-  return (
-    <Card className="border-dashed">
-      <CardHeader>
-        <CardTitle className="text-base">ILP fund report import</CardTitle>
-        <CardDescription>
+  const inner = (
+    <>
+      {variant === "inline" ? (
+        <p className="text-sm text-muted-foreground">
           Save Tokio Marine fund page(s) as <strong>Webpage, single file</strong> in Chrome,
           then drop .mhtml file(s) here. Files are processed in memory only and are not stored.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+        </p>
+      ) : null}
+      <div className="space-y-6">
         {!familyId ? (
           <p className="text-sm text-muted-foreground">
             Add a family in onboarding or user settings to import against an ILP product.
           </p>
+        ) : null}
+
+        {profiles.length > 1 ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="ilp-import-profile">Assign to</Label>
+            <Select
+              value={selectedProfileId ?? activeProfileId ?? ""}
+              onValueChange={(v) => setSelectedProfileId(v || null)}
+            >
+              <SelectTrigger id="ilp-import-profile" className="w-full sm:w-64">
+                <SelectValue placeholder="Select profile" />
+              </SelectTrigger>
+              <SelectContent>
+                {profiles.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         ) : null}
 
         {step !== "success" ? (
@@ -2175,20 +2205,45 @@ export function IlpFundImportTab({ familyId: familyIdProp }: { familyId: string 
           <div className="space-y-4 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
             <p className="text-sm font-medium text-foreground">Import saved</p>
             <p className="text-sm text-muted-foreground">
-              Your ILP entries and fund report snapshots are stored. View them on the
-              Investments page under the ILP tab.
+              Your ILP entries and fund report snapshots are stored.
+              {!onSuccess
+                ? " View them on the Investments page under the ILP tab."
+                : null}
             </p>
             <div className="flex flex-wrap gap-2">
-              <Button asChild>
-                <Link href="/dashboard/investments?tab=ilp">View Investments — ILP</Link>
-              </Button>
+              {onSuccess ? (
+                <Button type="button" onClick={onSuccess}>
+                  Done
+                </Button>
+              ) : (
+                <Button asChild>
+                  <Link href="/dashboard/investments?tab=ilp">View Investments — ILP</Link>
+                </Button>
+              )}
               <Button type="button" variant="outline" onClick={resetFlow}>
                 Import more files
               </Button>
             </div>
           </div>
         ) : null}
-      </CardContent>
+      </div>
+    </>
+  )
+
+  if (variant === "inline") {
+    return <div className="space-y-4">{inner}</div>
+  }
+
+  return (
+    <Card className="border-dashed">
+      <CardHeader>
+        <CardTitle className="text-base">ILP fund report import</CardTitle>
+        <CardDescription>
+          Save Tokio Marine fund page(s) as <strong>Webpage, single file</strong> in Chrome,
+          then drop .mhtml file(s) here. Files are processed in memory only and are not stored.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>{inner}</CardContent>
     </Card>
   )
 }

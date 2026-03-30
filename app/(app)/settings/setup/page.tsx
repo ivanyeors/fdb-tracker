@@ -60,8 +60,8 @@ export default async function SetupPage() {
       <div>
         <h1 className="text-2xl font-semibold">Setup</h1>
         <p className="text-muted-foreground mt-1">
-          Review setup configuration, import ILP fund reports, or add new
-          families via the onboarding wizard.
+          Review setup configuration or add new families via the onboarding
+          wizard.
         </p>
       </div>
 
