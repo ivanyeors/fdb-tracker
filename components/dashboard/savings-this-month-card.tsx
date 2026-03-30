@@ -22,6 +22,7 @@ interface SavingsThisMonthCardProps {
   savingsHistory: MonthlyData[]
   latestMonth?: string | null
   loading?: boolean
+  noData?: boolean
 }
 
 const monthLabels: Record<string, string> = {
@@ -106,6 +107,7 @@ export function SavingsThisMonthCard({
   trend,
   savingsHistory,
   loading = false,
+  noData = false,
 }: SavingsThisMonthCardProps) {
   const chartData = useMemo(() => {
     return savingsHistory.map((d) => ({
@@ -120,6 +122,18 @@ export function SavingsThisMonthCard({
         <CardContent>
           <Skeleton className="mb-3 h-4 w-32" />
           <Skeleton className="h-8 w-40" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (noData) {
+    return (
+      <Card className="border-dashed opacity-60">
+        <CardContent className="flex min-h-[120px] flex-col items-center justify-center">
+          <p className="text-sm text-muted-foreground">
+            No savings data for this month
+          </p>
         </CardContent>
       </Card>
     )

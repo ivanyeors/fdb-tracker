@@ -35,7 +35,12 @@ interface MonthYearPickerProps {
   id?: string
   value: string | null
   onChange: (value: string | null) => void
+  /** When set, only these months are selectable (others disabled). Used by ILP dialogs. */
   availableMonths?: string[]
+  /** Months shown with a dot indicator (purely visual, does not disable). */
+  highlightedMonths?: string[]
+  /** Maximum selectable month (format YYYY-MM-01). Months after this are disabled. */
+  maxMonth?: string
   placeholder?: string
   disabled?: boolean
   className?: string
@@ -46,6 +51,8 @@ export function MonthYearPicker({
   value,
   onChange,
   availableMonths,
+  highlightedMonths,
+  maxMonth,
   placeholder = "Select month",
   disabled = false,
   className,
@@ -67,34 +74,50 @@ export function MonthYearPicker({
   }, [open, value])
 
   const { minYear, maxYear } = React.useMemo(() => {
-    if (!availableMonths || availableMonths.length === 0) {
-      const now = new Date()
+    const now = new Date()
+    const maxMonthYear = maxMonth
+      ? parseInt(maxMonth.split("-")[0] ?? "0", 10)
+      : null
+
+    if (availableMonths && availableMonths.length > 0) {
+      const years = availableMonths.map((m) => parseInt(m.split("-")[0] ?? "0", 10))
       return {
-        minYear: now.getFullYear() - 2,
-        maxYear: now.getFullYear() + 1,
+        minYear: Math.min(...years),
+        maxYear: maxMonthYear
+          ? Math.min(Math.max(...years), maxMonthYear)
+          : Math.max(...years),
       }
     }
-    const years = availableMonths.map((m) => parseInt(m.split("-")[0] ?? "0", 10))
+
     return {
-      minYear: Math.min(...years),
-      maxYear: Math.max(...years),
+      minYear: now.getFullYear() - 5,
+      maxYear: maxMonthYear ?? now.getFullYear() + 1,
     }
-  }, [availableMonths])
+  }, [availableMonths, maxMonth])
 
   const canGoPrev = displayYear > minYear
   const canGoNext = displayYear < maxYear
 
+  const highlightedSet = React.useMemo(
+    () => new Set(highlightedMonths ?? []),
+    [highlightedMonths]
+  )
+
   const isMonthAvailable = React.useCallback(
     (year: number, month: number) => {
       const monthStr = `${year}-${String(month).padStart(2, "0")}-01`
-      if (!availableMonths || availableMonths.length === 0) return true
-      return availableMonths.includes(monthStr)
+      if (maxMonth && monthStr > maxMonth) return false
+      if (availableMonths && availableMonths.length > 0) {
+        return availableMonths.includes(monthStr)
+      }
+      return true
     },
-    [availableMonths]
+    [availableMonths, maxMonth]
   )
 
   const handleMonthSelect = (year: number, month: number) => {
     const monthStr = `${year}-${String(month).padStart(2, "0")}-01`
+    if (maxMonth && monthStr > maxMonth) return
     if (availableMonths && availableMonths.length > 0 && !availableMonths.includes(monthStr)) {
       return
     }
@@ -155,11 +178,14 @@ export function MonthYearPicker({
                   key={num}
                   variant={isSelected ? "secondary" : "ghost"}
                   size="sm"
-                  className="h-8 text-xs"
+                  className="relative h-8 text-xs"
                   disabled={!available}
                   onClick={() => handleMonthSelect(displayYear, monthNum)}
                 >
                   {label}
+                  {highlightedSet.has(monthStr) && (
+                    <span className="absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-primary" />
+                  )}
                 </Button>
               )
             })}

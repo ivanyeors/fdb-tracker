@@ -5,7 +5,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import { FamilySwitcherPopover } from "@/components/layout/family-switcher-popover"
 import { ProfileToggle } from "@/components/layout/profile-toggle"
-import { useGlobalMonth } from "@/hooks/use-global-month"
+import { useGlobalMonth, getCurrentMonth } from "@/hooks/use-global-month"
 import { useScrollDirection } from "@/hooks/use-scroll-direction"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -33,7 +33,8 @@ export function TopNav() {
           <MonthYearPicker
             value={effectiveMonth}
             onChange={setSelectedMonth}
-            availableMonths={
+            maxMonth={getCurrentMonth()}
+            highlightedMonths={
               availableMonths.length > 0 ? availableMonths : undefined
             }
             placeholder="Month"

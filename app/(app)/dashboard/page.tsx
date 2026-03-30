@@ -28,7 +28,7 @@ import { useActiveProfile } from "@/hooks/use-active-profile"
 import { useGlobalMonth } from "@/hooks/use-global-month"
 import { useApi } from "@/hooks/use-api"
 import { currentMonthYm, ilpEntryMonthKey } from "@/lib/investments/ilp-chart"
-import { formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 import { Progress } from "@/components/ui/progress"
 import { ChartSkeleton } from "@/components/loading"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -187,6 +187,10 @@ export default function OverviewPage() {
       setAvailableMonths(cashflowMonths)
     }
   }, [cashflowMonths, setAvailableMonths])
+
+  // Detect whether the selected month has cashflow data
+  const hasMonthData =
+    !isCashflowLoading && cashflowMonths.includes(effectiveMonth)
 
   const overviewUrl = effectiveMonth
     ? `/api/overview?${qs ? `${qs}&` : ""}month=${effectiveMonth}`
@@ -504,7 +508,7 @@ export default function OverviewPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card>
+        <Card className={cn(!hasMonthData && !isOverviewLoading && !isCashflowLoading && "border-dashed opacity-60")}>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Cashflow</CardTitle>
             <p className="text-xs text-muted-foreground">
@@ -521,6 +525,10 @@ export default function OverviewPage() {
                 <Skeleton className="h-5 w-full" />
                 <Skeleton className="h-5 w-full" />
               </div>
+            ) : !hasMonthData ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                No cashflow data for this month
+              </p>
             ) : (
               <>
                 <div className="flex flex-1 flex-col gap-2">
@@ -603,6 +611,7 @@ export default function OverviewPage() {
           savingsHistory={savingsHistory}
           latestMonth={effectiveMonth ?? data?.latestMonth ?? null}
           loading={isOverviewLoading || isCashflowLoading}
+          noData={!hasMonthData && !isCashflowLoading}
         />
       </div>
 
@@ -810,7 +819,7 @@ export default function OverviewPage() {
       ) : null}
 
       <div className="space-y-6">
-        <Card>
+        <Card className={cn(!hasMonthData && !isCashflowLoading && "border-dashed opacity-60")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle>Cashflow Waterfall</CardTitle>
             {effectiveMonth && (
@@ -821,7 +830,11 @@ export default function OverviewPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-1 flex-col">
-              {waterfallData ? (
+              {!hasMonthData && !isCashflowLoading ? (
+                <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
+                  No cashflow data for this month
+                </div>
+              ) : waterfallData ? (
                 <WaterfallChart data={waterfallData} />
               ) : effectiveMonth ? (
                 <ChartSkeleton height={300} />
@@ -835,7 +848,7 @@ export default function OverviewPage() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-visible">
+        <Card className={cn("overflow-visible", !hasMonthData && !isCashflowLoading && "border-dashed opacity-60")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle>Cashflow Flow</CardTitle>
             {effectiveMonth && (
@@ -846,7 +859,11 @@ export default function OverviewPage() {
           </CardHeader>
           <CardContent className="overflow-visible">
             <div className="flex flex-1 flex-col">
-              {waterfallData ? (
+              {!hasMonthData && !isCashflowLoading ? (
+                <div className="flex h-[340px] items-center justify-center text-sm text-muted-foreground">
+                  No cashflow data for this month
+                </div>
+              ) : waterfallData ? (
                 <CashflowSankey data={waterfallData} />
               ) : effectiveMonth ? (
                 <ChartSkeleton height={340} />

@@ -5,7 +5,7 @@ import { useActiveProfile } from "@/hooks/use-active-profile"
 
 const STORAGE_KEY = "fdb-global-month"
 
-function getCurrentMonth(): string {
+export function getCurrentMonth(): string {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
 }
