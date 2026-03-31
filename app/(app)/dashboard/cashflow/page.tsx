@@ -25,9 +25,13 @@ export default function CashflowPage() {
       discretionary: number
       insurance: number
       ilp: number
+      ilpOneTime: number
       loans: number
+      earlyRepayments: number
       tax: number
+      taxReliefCash: number
       savingsGoals: number
+      investments: number
       totalOutflow: number
       inflowMemo?: string
       outflowMemo?: string
@@ -84,9 +88,13 @@ export default function CashflowPage() {
         discretionary: entry.discretionary,
         insurance: entry.insurance,
         ilp: entry.ilp,
+        ilpOneTime: entry.ilpOneTime ?? 0,
         loans: entry.loans,
+        earlyRepayments: entry.earlyRepayments ?? 0,
         tax: entry.tax,
-        savingsGoals: entry.savingsGoals,
+        taxReliefCash: entry.taxReliefCash ?? 0,
+        savingsGoals: entry.savingsGoals ?? 0,
+        investments: entry.investments ?? 0,
       }
     }).sort((a, b) => (a.sortKey ?? "").localeCompare(b.sortKey ?? ""))
   }, [cashflowData])

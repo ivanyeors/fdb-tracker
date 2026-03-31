@@ -21,8 +21,13 @@ const NODE_COLORS: Record<string, string> = {
   Spending: NEGATIVE_FILL,
   Insurance: NEGATIVE_FILL,
   ILP: NEGATIVE_FILL,
+  "ILP (One-Time)": NEGATIVE_FILL,
   Loans: NEGATIVE_FILL,
+  "Early Repayments": NEGATIVE_FILL,
   Tax: NEGATIVE_FILL,
+  "SRS/CPF Top-ups": NEGATIVE_FILL,
+  "Savings Goals": NEGATIVE_FILL,
+  Investments: NEGATIVE_FILL,
 }
 
 type SankeyNodeDatum = { name: string }
@@ -33,29 +38,36 @@ function buildSankeyData(data: WaterfallData): {
   links: { source: number; target: number; value: number }[]
 } {
   const { inflowTotal, outflowBreakdown, netSavings } = data
-  const { discretionary, insurance, ilp, loans, tax } = outflowBreakdown
+  const ob = outflowBreakdown
+
+  const outflowItems: { name: string; value: number }[] = [
+    { name: "Spending", value: ob.discretionary },
+    { name: "Insurance", value: ob.insurance },
+    { name: "ILP", value: ob.ilp + ob.ilpOneTime },
+    { name: "Loans", value: ob.loans + ob.earlyRepayments },
+    { name: "Tax", value: ob.tax },
+    { name: "SRS/CPF Top-ups", value: ob.taxReliefCash },
+    { name: "Savings Goals", value: ob.savingsGoals },
+    { name: "Investments", value: ob.investments },
+  ].filter((item) => item.value > 0)
 
   const nodes: SankeyNodeDatum[] = [
     { name: "Inflow" },
-    { name: "Spending" },
-    { name: "Insurance" },
-    { name: "ILP" },
-    { name: "Loans" },
-    { name: "Tax" },
+    ...outflowItems.map((item) => ({ name: item.name })),
     { name: "Savings" },
   ]
 
   const links: { source: number; target: number; value: number }[] = []
 
-  if (discretionary > 0) links.push({ source: 0, target: 1, value: discretionary })
-  if (insurance > 0) links.push({ source: 0, target: 2, value: insurance })
-  if (ilp > 0) links.push({ source: 0, target: 3, value: ilp })
-  if (loans > 0) links.push({ source: 0, target: 4, value: loans })
-  if (tax > 0) links.push({ source: 0, target: 5, value: tax })
-  if (netSavings !== 0) links.push({ source: 0, target: 6, value: Math.abs(netSavings) })
+  outflowItems.forEach((item, i) => {
+    links.push({ source: 0, target: i + 1, value: item.value })
+  })
+
+  const savingsIdx = nodes.length - 1
+  if (netSavings !== 0) links.push({ source: 0, target: savingsIdx, value: Math.abs(netSavings) })
 
   if (links.length === 0 && inflowTotal > 0) {
-    links.push({ source: 0, target: 6, value: inflowTotal })
+    links.push({ source: 0, target: savingsIdx, value: inflowTotal })
   }
 
   return { nodes, links }

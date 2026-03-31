@@ -181,6 +181,14 @@ export function effectiveInflowFromContext(
 /*  Monthly tax estimate from context                                  */
 /* ------------------------------------------------------------------ */
 
+export type TaxEntryData = {
+  actual_amount: number | null
+}
+
+/**
+ * Monthly tax for a profile. If an actual_amount is recorded in tax_entries
+ * for this year, it takes precedence over the calculated estimate.
+ */
 export function monthlyTaxForProfile(
   profileId: string,
   year: number,
@@ -193,8 +201,15 @@ export function monthlyTaxForProfile(
     coverage_amount: number | null
     is_active: boolean | null
   }>,
-  manualReliefs: Array<TaxRelief>
+  manualReliefs: Array<TaxRelief>,
+  taxEntryByProfileYear?: Map<string, TaxEntryData>,
 ): number {
+  // Check for user-recorded actual tax first
+  const taxEntry = taxEntryByProfileYear?.get(`${profileId}:${year}`)
+  if (taxEntry?.actual_amount != null && taxEntry.actual_amount > 0) {
+    return taxEntry.actual_amount / 12
+  }
+
   const profile = profileById.get(profileId)
   const incomeConfig = incomeByProfileId.get(profileId)
   if (!profile || !incomeConfig) return 0
@@ -247,6 +262,161 @@ export function sumSavingsGoals(
 ): number {
   if (!goals?.length) return 0
   return goals.reduce((sum, g) => sum + (g.monthly_auto_amount ?? 0), 0)
+}
+
+/* ------------------------------------------------------------------ */
+/*  Early loan repayments by month                                     */
+/* ------------------------------------------------------------------ */
+
+export type EarlyRepaymentRow = {
+  amount: number
+  penalty_amount: number | null
+  date: string
+}
+
+/**
+ * Sum early repayments (amount + penalty) that fall within a given month.
+ */
+export function sumEarlyRepaymentsForMonth(
+  rows: Array<EarlyRepaymentRow> | null,
+  monthStr: string,
+): number {
+  if (!rows?.length) return 0
+  const d = new Date(monthStr)
+  const y = d.getFullYear()
+  const m = d.getMonth()
+  let total = 0
+  for (const r of rows) {
+    const rd = new Date(r.date)
+    if (rd.getFullYear() === y && rd.getMonth() === m) {
+      total += r.amount + (r.penalty_amount ?? 0)
+    }
+  }
+  return total
+}
+
+/* ------------------------------------------------------------------ */
+/*  Manual goal contributions by month                                 */
+/* ------------------------------------------------------------------ */
+
+export type GoalContributionRow = {
+  amount: number
+  created_at: string
+}
+
+/**
+ * Sum manual goal contributions that fall within a given month.
+ */
+export function sumGoalContributionsForMonth(
+  rows: Array<GoalContributionRow> | null,
+  monthStr: string,
+): number {
+  if (!rows?.length) return 0
+  const d = new Date(monthStr)
+  const y = d.getFullYear()
+  const m = d.getMonth()
+  let total = 0
+  for (const r of rows) {
+    const rd = new Date(r.created_at)
+    if (rd.getFullYear() === y && rd.getMonth() === m) {
+      total += r.amount
+    }
+  }
+  return total
+}
+
+/* ------------------------------------------------------------------ */
+/*  One-time ILP premiums by month                                     */
+/* ------------------------------------------------------------------ */
+
+export type OneTimeIlpRow = {
+  monthly_premium: number
+  created_at: string
+}
+
+/**
+ * Sum one-time ILP premiums paid in a given month (using created_at).
+ */
+export function sumOneTimeIlpForMonth(
+  rows: Array<OneTimeIlpRow> | null,
+  monthStr: string,
+): number {
+  if (!rows?.length) return 0
+  const d = new Date(monthStr)
+  const y = d.getFullYear()
+  const m = d.getMonth()
+  let total = 0
+  for (const r of rows) {
+    const rd = new Date(r.created_at)
+    if (rd.getFullYear() === y && rd.getMonth() === m) {
+      total += r.monthly_premium
+    }
+  }
+  return total
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tax relief cash outflows (SRS, CPF top-ups)                        */
+/* ------------------------------------------------------------------ */
+
+const CASH_RELIEF_TYPES = new Set(["srs", "cpf_topup_self", "cpf_topup_family"])
+
+export type TaxReliefCashRow = {
+  relief_type: string
+  amount: number
+  year: number
+}
+
+/**
+ * Monthly proration of cash-based tax reliefs (SRS, CPF voluntary top-ups).
+ * These are real bank outflows, not just tax deductions.
+ */
+export function sumTaxReliefCashForMonth(
+  rows: Array<TaxReliefCashRow> | null,
+  year: number,
+): number {
+  if (!rows?.length) return 0
+  let total = 0
+  for (const r of rows) {
+    if (r.year === year && CASH_RELIEF_TYPES.has(r.relief_type)) {
+      total += r.amount / 12
+    }
+  }
+  return total
+}
+
+/* ------------------------------------------------------------------ */
+/*  Net investment purchases by month                                  */
+/* ------------------------------------------------------------------ */
+
+export type InvestmentTxnRow = {
+  type: string
+  quantity: number
+  price: number
+  created_at: string
+}
+
+/**
+ * Net investment purchases (buys - sells) for a given month.
+ * Returns 0 if net is negative (sold more than bought).
+ */
+export function sumNetInvestmentPurchasesForMonth(
+  rows: Array<InvestmentTxnRow> | null,
+  monthStr: string,
+): number {
+  if (!rows?.length) return 0
+  const d = new Date(monthStr)
+  const y = d.getFullYear()
+  const m = d.getMonth()
+  let net = 0
+  for (const t of rows) {
+    const td = new Date(t.created_at)
+    if (td.getFullYear() === y && td.getMonth() === m) {
+      if (t.type === "buy") net += t.quantity * t.price
+      else if (t.type === "sell") net -= t.quantity * t.price
+    }
+  }
+  return Math.max(0, net)
 }
 
 /* ------------------------------------------------------------------ */

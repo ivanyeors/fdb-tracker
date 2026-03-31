@@ -119,6 +119,43 @@ export async function GET(request: NextRequest) {
       is_manual_override: boolean
     }> = []
 
+    // Fetch use_cpf_oa loans for OA deduction in projections
+    const { data: cpfLoans } = await supabase
+      .from("loans")
+      .select("id, profile_id, principal, rate_pct, tenure_months, split_profile_id, split_pct")
+      .in("profile_id", profileIds)
+      .eq("use_cpf_oa", true)
+
+    // Calculate monthly CPF OA deduction per profile from housing loans
+    const cpfOaDeductionByProfile = new Map<string, number>()
+    for (const loan of cpfLoans ?? []) {
+      const monthlyRate = loan.rate_pct / 100 / 12
+      let monthlyPayment = 0
+      if (monthlyRate > 0 && loan.tenure_months > 0) {
+        monthlyPayment =
+          (loan.principal * monthlyRate) /
+          (1 - Math.pow(1 + monthlyRate, -loan.tenure_months))
+      } else if (loan.tenure_months > 0) {
+        monthlyPayment = loan.principal / loan.tenure_months
+      }
+
+      // Apply spouse split if applicable
+      const primaryPct = (loan.split_pct ?? 100) / 100
+      const primaryPid = loan.profile_id as string
+      const splitPid = loan.split_profile_id as string | null
+
+      cpfOaDeductionByProfile.set(
+        primaryPid,
+        (cpfOaDeductionByProfile.get(primaryPid) ?? 0) + monthlyPayment * primaryPct,
+      )
+      if (splitPid && profileIds.includes(splitPid)) {
+        cpfOaDeductionByProfile.set(
+          splitPid,
+          (cpfOaDeductionByProfile.get(splitPid) ?? 0) + monthlyPayment * (1 - primaryPct),
+        )
+      }
+    }
+
     for (const pid of profileIds) {
       const profile = profileById.get(pid)
       const incomeConfig = incomeByProfile.get(pid)
@@ -131,6 +168,9 @@ export async function GET(request: NextRequest) {
         age,
         currentYear,
       )
+
+      // Monthly CPF OA deduction for housing loan
+      const monthlyOaDeduction = cpfOaDeductionByProfile.get(pid) ?? 0
 
       let runningOa = 0
       let runningSa = 0
@@ -146,14 +186,14 @@ export async function GET(request: NextRequest) {
         const mm = String(d.getMonth() + 1).padStart(2, "0")
         const month = `${yyyy}-${mm}-01`
 
-        runningOa += contribution.oa
+        runningOa += contribution.oa - monthlyOaDeduction
         runningSa += contribution.sa
         runningMa += contribution.ma
 
         allProjected.push({
           profile_id: pid,
           month,
-          oa: Math.round(runningOa * 100) / 100,
+          oa: Math.round(Math.max(0, runningOa) * 100) / 100,
           sa: Math.round(runningSa * 100) / 100,
           ma: Math.round(runningMa * 100) / 100,
           is_manual_override: false,

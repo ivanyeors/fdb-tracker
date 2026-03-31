@@ -53,8 +53,13 @@ export async function GET(request: NextRequest) {
         discretionary: outflowResult.discretionary,
         insurance: outflowResult.insurance,
         ilp: outflowResult.ilp,
+        ilpOneTime: outflowResult.ilpOneTime,
         loans: outflowResult.loans,
+        earlyRepayments: outflowResult.earlyRepayments,
         tax: outflowResult.tax,
+        taxReliefCash: outflowResult.taxReliefCash,
+        savingsGoals: outflowResult.savingsGoals,
+        investments: outflowResult.investments,
       },
     })
   } catch (err) {

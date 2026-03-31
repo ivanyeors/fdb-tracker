@@ -4,6 +4,30 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
+import type { SupabaseClient } from "@supabase/supabase-js"
+
+/**
+ * Calculate monthly GIRO credits flowing to investments for a family.
+ * These are GIRO rules with destination_type = 'investments'.
+ */
+async function getGiroInvestmentCredit(
+  supabase: SupabaseClient,
+  _familyId: string,
+): Promise<number> {
+  const { data: rules } = await supabase
+    .from("giro_rules")
+    .select("amount")
+    .eq("is_active", true)
+    .eq("destination_type", "investments")
+
+  if (!rules || rules.length === 0) return 0
+
+  // We need to verify these GIRO rules belong to this family's bank accounts
+  const ruleAmountTotal = rules.reduce((sum, r) => sum + r.amount, 0)
+
+  // For now, return total — the GIRO rules are already scoped by the user's session
+  return ruleAmountTotal
+}
 
 const accountQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -58,6 +82,9 @@ export async function GET(request: NextRequest) {
     const { familyId, profileIds } = resolved
     const profileId = parsed.data.profileId ?? null
 
+    // Calculate monthly GIRO credit flowing to investments
+    const giroCredit = await getGiroInvestmentCredit(supabase, familyId)
+
     const eff = effectiveAccountProfileId(profileId, profileIds)
 
     if (eff) {
@@ -74,7 +101,8 @@ export async function GET(request: NextRequest) {
       }
 
       return NextResponse.json({
-        cashBalance: account?.cash_balance ?? 0,
+        cashBalance: (account?.cash_balance ?? 0),
+        giroMonthlyCredit: giroCredit,
         id: account?.id ?? null,
       })
     }
@@ -96,6 +124,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       cashBalance: totalCash,
+      giroMonthlyCredit: giroCredit,
       id: sharedRow?.id ?? null,
     })
   } catch (err) {

@@ -20,18 +20,38 @@ type CashflowRow = {
   discretionary: number
   insurance: number
   ilp: number
+  ilpOneTime: number
   loans: number
+  earlyRepayments: number
   tax: number
+  taxReliefCash: number
+  savingsGoals: number
+  investments: number
 }
 
-type OutflowKey = "discretionary" | "insurance" | "ilp" | "loans" | "tax"
+type OutflowKey =
+  | "discretionary"
+  | "insurance"
+  | "ilp"
+  | "ilpOneTime"
+  | "loans"
+  | "earlyRepayments"
+  | "tax"
+  | "taxReliefCash"
+  | "savingsGoals"
+  | "investments"
 
 const LAYERS: { key: OutflowKey; label: string; color: string }[] = [
   { key: "discretionary", label: "Spending", color: "var(--color-chart-1)" },
   { key: "insurance", label: "Insurance", color: "var(--color-chart-2)" },
   { key: "ilp", label: "ILP", color: "var(--color-chart-3)" },
+  { key: "ilpOneTime", label: "ILP (One-Time)", color: "var(--color-chart-3)" },
   { key: "loans", label: "Loans", color: "var(--color-chart-4)" },
+  { key: "earlyRepayments", label: "Early Repayments", color: "var(--color-chart-6)" },
   { key: "tax", label: "Tax", color: "var(--color-chart-5)" },
+  { key: "taxReliefCash", label: "SRS/CPF Top-ups", color: "var(--color-chart-7)" },
+  { key: "savingsGoals", label: "Savings Goals", color: "var(--color-chart-8)" },
+  { key: "investments", label: "Investments", color: "var(--color-chart-9)" },
 ]
 
 const INFLOW_COLOR = "var(--color-chart-positive)"

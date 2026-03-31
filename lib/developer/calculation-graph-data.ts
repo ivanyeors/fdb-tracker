@@ -169,6 +169,36 @@ export const GRAPH_NODES: CalcGraphNode[] = [
     type: "cashflow",
     filePath: "lib/calculations/take-home.ts",
   },
+  {
+    id: "ilp_one_time",
+    label: "ILP One-Time",
+    type: "investment",
+    filePath: "lib/api/effective-outflow.ts",
+  },
+  {
+    id: "tax_relief_cash",
+    label: "SRS/CPF Top-ups",
+    type: "tax",
+    filePath: "lib/api/effective-outflow.ts",
+  },
+  {
+    id: "dividends",
+    label: "Dividends",
+    type: "investment",
+    filePath: "lib/api/effective-inflow.ts",
+  },
+  {
+    id: "investment_purchases",
+    label: "Investment Purchases",
+    type: "investment",
+    filePath: "lib/api/effective-outflow.ts",
+  },
+  {
+    id: "bank_interest",
+    label: "Bank Interest",
+    type: "bank",
+    filePath: "lib/api/effective-inflow.ts",
+  },
 ]
 
 export const GRAPH_LINKS: CalcGraphLink[] = [
@@ -695,6 +725,107 @@ unrealisedPnLPct = (unrealisedPnL / totalCost) × 100
 WAC = (existingUnits × costBasis + newUnits × price) / totalUnits
 
 Investment market value contributes to overall net worth and savings goal tracking.`,
+  },
+  {
+    source: "ilp_one_time",
+    target: "cashflow_out",
+    calculationName: "One-Time ILP Outflow",
+    description:
+      "One-time ILP premium payments are real cash outflows from the bank, recorded in the month they were paid.",
+    filePath: "lib/api/effective-outflow.ts",
+    calculationLogic: `**Logic:**
+For each ILP product with premium_payment_mode = 'one_time':
+  If created_at falls within the target month:
+    outflow += monthly_premium (which is the lump sum amount)
+
+One-time ILPs are excluded from recurring monthly outflow but counted as a one-off cash outflow in the month of purchase.`,
+  },
+  {
+    source: "tax_relief_cash",
+    target: "cashflow_out",
+    calculationName: "Relief Cash Outflow",
+    description:
+      "SRS contributions and CPF voluntary top-ups are real cash leaving the bank, not just tax deductions.",
+    filePath: "lib/api/effective-outflow.ts",
+    calculationLogic: `**Formula:**
+monthlyOutflow = sum(annualAmount / 12) for each relief_type in ('srs', 'cpf_topup_self', 'cpf_topup_family')
+
+These are actual bank outflows that also provide tax relief.
+SRS cap: $15,300/yr. CPF top-up cap: $8,000/yr per type.`,
+  },
+  {
+    source: "tax_relief_cash",
+    target: "tax_reliefs",
+    calculationName: "Tax Relief Benefit",
+    description:
+      "SRS and CPF voluntary top-ups provide tax deductions in addition to being cash outflows.",
+    filePath: "lib/calculations/tax.ts",
+    calculationLogic: `**SRS Relief:** Up to $15,300/yr deductible
+**CPF Top-up (Self):** Up to $8,000/yr deductible
+**CPF Top-up (Family):** Up to $8,000/yr deductible
+
+These amounts reduce chargeable income, lowering tax payable.`,
+  },
+  {
+    source: "dividends",
+    target: "cashflow_in",
+    calculationName: "Dividend Income",
+    description:
+      "Dividends received from investments credit the investment cash balance and count as inflow.",
+    filePath: "lib/api/effective-inflow.ts",
+    calculationLogic: `**Formula:**
+dividendIncome = sum(quantity × price) for all dividend transactions in the month
+
+Dividends credit investment_accounts.cash_balance and appear as inflow in the cashflow breakdown.`,
+  },
+  {
+    source: "investment_purchases",
+    target: "cashflow_out",
+    calculationName: "Net Investment Outflow",
+    description:
+      "Net stock/ETF purchases (buys minus sells) for the month, representing cash deployed into investments.",
+    filePath: "lib/api/effective-outflow.ts",
+    calculationLogic: `**Formula:**
+netPurchases = sum(buy transactions) - sum(sell transactions)
+outflow = max(0, netPurchases)
+
+Only positive net purchases count as outflow. If sells exceed buys, the net is $0 outflow (the proceeds stay in investment cash balance).`,
+  },
+  {
+    source: "early_repayment",
+    target: "cashflow_out",
+    calculationName: "Early Repayment Outflow",
+    description:
+      "Early loan repayments are one-time cash outflows from the bank in the month they occur.",
+    filePath: "lib/api/effective-outflow.ts",
+    calculationLogic: `**Formula:**
+earlyRepaymentOutflow = sum(amount + penalty_amount) for repayments in the target month
+
+Includes any prepayment penalties. CPF-funded early repayments are excluded from cash outflow.`,
+  },
+  {
+    source: "bank_interest",
+    target: "cashflow_in",
+    calculationName: "Interest Income",
+    description:
+      "Estimated monthly bank interest earned from all bank accounts.",
+    filePath: "lib/api/effective-inflow.ts",
+    calculationLogic: `**Formula:**
+monthlyInterest = sum(balance × interest_rate_pct / 100 / 12) for each bank account
+
+Uses the opening_balance and interest_rate_pct from bank_accounts table as a rough monthly estimate.`,
+  },
+  {
+    source: "savings_goals",
+    target: "cashflow_out",
+    calculationName: "Goal Contributions",
+    description:
+      "Both automatic monthly contributions and manual one-off contributions to savings goals.",
+    filePath: "lib/api/effective-outflow.ts",
+    calculationLogic: `**Formula:**
+totalGoalOutflow = sum(monthly_auto_amount) + sum(manual contributions this month)
+
+Auto-contributions are recurring. Manual contributions from goal_contributions table are added for the specific month.`,
   },
 ]
 

@@ -24,6 +24,7 @@ import {
   type IncomeData,
   type InsurancePolicy,
   type ProfileData,
+  type TaxEntryData,
 } from "@/lib/api/cashflow-aggregation"
 import { calculateSavingsRate } from "@/lib/calculations/bank-balance"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
@@ -117,7 +118,8 @@ function computeCashflowForMonth(
     string,
     Array<{ relief_type: string; amount: number }>
   >,
-  sharedIlp: number
+  sharedIlp: number,
+  taxEntryByProfileYear?: Map<string, TaxEntryData>
 ): { inflow: number; outflow: number } {
   const monthStr = normalizeMonthKey(month)
   const year = parseInt(monthStr.slice(0, 4), 10) || new Date().getFullYear()
@@ -173,7 +175,8 @@ function computeCashflowForMonth(
       profileById,
       incomeByProfileId,
       pols,
-      taxReliefByProfileYear.get(`${pid}:${year}`) ?? []
+      taxReliefByProfileYear.get(`${pid}:${year}`) ?? [],
+      taxEntryByProfileYear,
     )
   }
 
@@ -221,7 +224,8 @@ function computeBankTotalFromData(
   taxReliefByProfileYear: Map<
     string,
     Array<{ relief_type: string; amount: number }>
-  >
+  >,
+  taxEntryByProfileYear?: Map<string, TaxEntryData>,
 ): number {
   let total = 0
 
@@ -324,7 +328,8 @@ function computeBankTotalFromData(
           profileById,
           incomeByProfileId,
           pols,
-          taxReliefByProfileYear.get(`${profileId}:${year}`) ?? []
+          taxReliefByProfileYear.get(`${profileId}:${year}`) ?? [],
+          taxEntryByProfileYear,
         )
       }
 
@@ -462,6 +467,20 @@ export async function fetchOverviewData(
     // 15. Investments (NLV + ILP fund values) — uses its own internal queries + external APIs
     computeTotalInvestmentsValue(supabase, familyId, profileId, monthFilter),
   ])
+
+  // Fetch tax entries (actual_amount) for actual vs estimated tax
+  const { data: taxEntriesData } = await supabase
+    .from("tax_entries")
+    .select("profile_id, year, actual_amount")
+    .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
+    .in("year", [currentYear, currentYear - 1])
+
+  const taxEntryByProfileYear = new Map<string, TaxEntryData>()
+  for (const te of taxEntriesData ?? []) {
+    taxEntryByProfileYear.set(`${te.profile_id}:${te.year}`, {
+      actual_amount: te.actual_amount,
+    })
+  }
 
   // ── Build lookup maps ──
   const cashflowByKey = new Map<string, CashflowRow>()
@@ -650,7 +669,8 @@ export async function fetchOverviewData(
     ilpByProfile,
     loansForCashflow,
     savingsGoalsByProfile,
-    taxReliefByProfileYear
+    taxReliefByProfileYear,
+    taxEntryByProfileYear,
   )
 
   // ── CPF Total ──
@@ -817,7 +837,8 @@ export async function fetchOverviewData(
       loansForCashflow,
       savingsGoalsByProfile,
       taxReliefByProfileYear,
-      sharedIlp
+      sharedIlp,
+      taxEntryByProfileYear,
     )
     latestInflow = cf.inflow
     latestOutflow = cf.outflow
@@ -836,7 +857,8 @@ export async function fetchOverviewData(
       loansForCashflow,
       savingsGoalsByProfile,
       taxReliefByProfileYear,
-      sharedIlp
+      sharedIlp,
+      taxEntryByProfileYear,
     )
     previousMonthInflow = prevCf.inflow
     previousMonthOutflow = prevCf.outflow

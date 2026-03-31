@@ -16,7 +16,7 @@ const transactionQuerySchema = z.object({
 
 const createTransactionSchema = z.object({
   symbol: z.string().min(1),
-  type: z.enum(["buy", "sell"]),
+  type: z.enum(["buy", "sell", "dividend"]),
   quantity: z.number().positive(),
   price: z.number().min(0),
   journalText: z.string().optional(),
@@ -230,6 +230,65 @@ export async function POST(request: NextRequest) {
             })
             .eq("id", acctRollback.id)
         }
+        return NextResponse.json({ error: "Failed to create transaction" }, { status: 500 })
+      }
+
+      return NextResponse.json(transaction, { status: 201 })
+    }
+
+    // --- DIVIDEND flow ---
+    if (type === "dividend") {
+      // Credit cash balance with dividend amount (quantity × price = total dividend)
+      const { data: accountRow } = await supabase
+        .from("investment_accounts")
+        .select("id, cash_balance")
+        .match(accountFilter)
+        .maybeSingle()
+
+      if (accountRow) {
+        const { error: cashError } = await supabase
+          .from("investment_accounts")
+          .update({
+            cash_balance: accountRow.cash_balance + amount,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", accountRow.id)
+
+        if (cashError) {
+          return NextResponse.json({ error: "Failed to update cash balance" }, { status: 500 })
+        }
+      } else {
+        const { error: cashError } = await supabase
+          .from("investment_accounts")
+          .insert({
+            family_id: resolved.familyId,
+            profile_id: profileId ?? null,
+            cash_balance: amount,
+            updated_at: new Date().toISOString(),
+          })
+
+        if (cashError) {
+          return NextResponse.json({ error: "Failed to create cash account" }, { status: 500 })
+        }
+      }
+
+      // Insert transaction record
+      const { data: transaction, error: txError } = await supabase
+        .from("investment_transactions")
+        .insert({
+          family_id: resolved.familyId,
+          investment_id: existingHolding?.id ?? null,
+          symbol,
+          type: "dividend",
+          quantity,
+          price,
+          ...(journalText && { journal_text: journalText }),
+          ...(profileId && { profile_id: profileId }),
+        })
+        .select()
+        .single()
+
+      if (txError) {
         return NextResponse.json({ error: "Failed to create transaction" }, { status: 500 })
       }
 

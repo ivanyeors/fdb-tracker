@@ -13,11 +13,17 @@ import {
   sumIlpPremiums,
   sumInsuranceOutflowPremiumsSplit,
   sumLoanMonthlyPayments,
+  sumEarlyRepaymentsForMonth,
+  sumGoalContributionsForMonth,
+  sumOneTimeIlpForMonth,
+  sumTaxReliefCashForMonth,
+  sumNetInvestmentPurchasesForMonth,
   GIRO_OUTFLOW_DESTINATIONS,
   type CashflowRow,
   type IncomeData,
   type InsurancePolicy,
   type ProfileData,
+  type TaxEntryData,
 } from "@/lib/api/cashflow-aggregation"
 
 type SingleMonthResult = {
@@ -29,9 +35,13 @@ type SingleMonthResult = {
     discretionary: number
     insurance: number
     ilp: number
+    ilpOneTime: number
     loans: number
+    earlyRepayments: number
     tax: number
+    taxReliefCash: number
     savingsGoals: number
+    investments: number
   }
   netSavings: number
 }
@@ -91,7 +101,7 @@ export async function fetchSingleMonthCashflow(
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("loans")
-      .select("profile_id, principal, rate_pct, tenure_months, use_cpf_oa")
+      .select("id, profile_id, principal, rate_pct, tenure_months, use_cpf_oa")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("tax_relief_inputs")
@@ -105,9 +115,62 @@ export async function fetchSingleMonthCashflow(
       .is("profile_id", null),
     supabase
       .from("savings_goals")
-      .select("profile_id, monthly_auto_amount")
+      .select("id, profile_id, monthly_auto_amount")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
   ])
+
+  // Additional fetches that depend on first batch results
+  const allLoanIds = (loansRes.data ?? []).map((l) => (l as { id: string }).id)
+  const allGoalIds = (savingsGoalsRes.data ?? []).map((g) => (g as { id: string }).id)
+  const monthDate = new Date(monthStr)
+  const nextMonthDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1)
+  const nextMonthStr = nextMonthDate.toISOString().slice(0, 10)
+
+  const [earlyRepaymentsRes, goalContributionsRes, oneTimeIlpRes, investmentTxnsRes] =
+    await Promise.all([
+      allLoanIds.length > 0
+        ? supabase
+            .from("loan_early_repayments")
+            .select("loan_id, amount, penalty_amount, date")
+            .in("loan_id", allLoanIds)
+            .gte("date", monthStr)
+            .lt("date", nextMonthStr)
+        : Promise.resolve({ data: [] as Array<{ loan_id: string; amount: number; penalty_amount: number | null; date: string }>, error: null }),
+      allGoalIds.length > 0
+        ? supabase
+            .from("goal_contributions")
+            .select("goal_id, amount, created_at")
+            .in("goal_id", allGoalIds)
+            .gte("created_at", monthStr)
+            .lt("created_at", nextMonthStr)
+        : Promise.resolve({ data: [] as Array<{ goal_id: string; amount: number; created_at: string }>, error: null }),
+      supabase
+        .from("ilp_products")
+        .select("profile_id, monthly_premium, created_at")
+        .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
+        .eq("premium_payment_mode", "one_time"),
+      supabase
+        .from("investment_transactions")
+        .select("profile_id, type, quantity, price, created_at")
+        .eq("family_id", familyId)
+        .in("type", ["buy", "sell"])
+        .gte("created_at", monthStr)
+        .lt("created_at", nextMonthStr),
+    ])
+
+  // Fetch tax entries (actual_amount)
+  const { data: taxEntriesData } = await supabase
+    .from("tax_entries")
+    .select("profile_id, year, actual_amount")
+    .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
+    .eq("year", year)
+
+  const taxEntryByProfileYear = new Map<string, TaxEntryData>()
+  for (const te of taxEntriesData ?? []) {
+    taxEntryByProfileYear.set(`${te.profile_id}:${te.year}`, {
+      actual_amount: te.actual_amount,
+    })
+  }
 
   // Build lookup maps
   const cashflowByKey = new Map<string, CashflowRow>()
@@ -212,6 +275,69 @@ export async function fetchSingleMonthCashflow(
     savingsGoalsByProfile.set(pid, (savingsGoalsByProfile.get(pid) ?? 0) + amt)
   }
 
+  // Build lookup maps for new data
+  const loanProfileMap = new Map<string, string>()
+  for (const loan of loansRes.data ?? []) {
+    loanProfileMap.set((loan as { id: string }).id, loan.profile_id as string)
+  }
+
+  const earlyRepaymentsByProfile = new Map<
+    string,
+    Array<{ amount: number; penalty_amount: number | null; date: string }>
+  >()
+  for (const er of earlyRepaymentsRes.data ?? []) {
+    const pid = loanProfileMap.get(er.loan_id)
+    if (!pid) continue
+    const list = earlyRepaymentsByProfile.get(pid) ?? []
+    list.push({ amount: er.amount, penalty_amount: er.penalty_amount, date: er.date })
+    earlyRepaymentsByProfile.set(pid, list)
+  }
+
+  const goalProfileMap = new Map<string, string>()
+  for (const g of savingsGoalsRes.data ?? []) {
+    goalProfileMap.set((g as { id: string }).id, g.profile_id as string)
+  }
+
+  const goalContribsByProfile = new Map<
+    string,
+    Array<{ amount: number; created_at: string }>
+  >()
+  for (const gc of goalContributionsRes.data ?? []) {
+    const pid = goalProfileMap.get(gc.goal_id)
+    if (!pid) continue
+    const list = goalContribsByProfile.get(pid) ?? []
+    list.push({ amount: gc.amount, created_at: gc.created_at })
+    goalContribsByProfile.set(pid, list)
+  }
+
+  const oneTimeIlpByProfile = new Map<
+    string,
+    Array<{ monthly_premium: number; created_at: string }>
+  >()
+  for (const ilpRow of oneTimeIlpRes.data ?? []) {
+    const pid = ilpRow.profile_id as string
+    const list = oneTimeIlpByProfile.get(pid) ?? []
+    list.push({ monthly_premium: ilpRow.monthly_premium, created_at: ilpRow.created_at })
+    oneTimeIlpByProfile.set(pid, list)
+  }
+
+  const investmentTxnsByProfile = new Map<
+    string,
+    Array<{ type: string; quantity: number; price: number; created_at: string }>
+  >()
+  for (const txn of investmentTxnsRes.data ?? []) {
+    const pid = txn.profile_id as string
+    if (!pid) continue
+    const list = investmentTxnsByProfile.get(pid) ?? []
+    list.push({
+      type: txn.type,
+      quantity: txn.quantity,
+      price: txn.price,
+      created_at: txn.created_at,
+    })
+    investmentTxnsByProfile.set(pid, list)
+  }
+
   // Aggregate per profile
   let inflowTotal = 0
   const inflowBreakdown: {
@@ -222,9 +348,13 @@ export async function fetchSingleMonthCashflow(
   let discretionary = 0
   let insurance = 0
   let ilp = 0
+  let ilpOneTime = 0
   let loans = 0
+  let earlyRepayments = 0
   let tax = 0
+  let taxReliefCash = 0
   let savingsGoals = 0
+  let investments = 0
 
   for (const pid of profileIds) {
     // Inflow with breakdown
@@ -280,6 +410,32 @@ export async function fetchSingleMonthCashflow(
     ilp += sumIlpPremiums(ilpByProfile.get(pid) ?? [])
     loans += sumLoanMonthlyPayments(loansByProfile.get(pid) ?? [])
     savingsGoals += savingsGoalsByProfile.get(pid) ?? 0
+    savingsGoals += sumGoalContributionsForMonth(
+      goalContribsByProfile.get(pid) ?? [],
+      monthStr,
+    )
+
+    earlyRepayments += sumEarlyRepaymentsForMonth(
+      earlyRepaymentsByProfile.get(pid) ?? [],
+      monthStr,
+    )
+
+    ilpOneTime += sumOneTimeIlpForMonth(
+      oneTimeIlpByProfile.get(pid) ?? [],
+      monthStr,
+    )
+
+    taxReliefCash += sumTaxReliefCashForMonth(
+      (taxReliefRes.data ?? [])
+        .filter((tr) => tr.profile_id === pid)
+        .map((tr) => ({ relief_type: tr.relief_type, amount: tr.amount, year: tr.year as number })),
+      year,
+    )
+
+    investments += sumNetInvestmentPurchasesForMonth(
+      investmentTxnsByProfile.get(pid) ?? [],
+      monthStr,
+    )
 
     tax += monthlyTaxForProfile(
       pid,
@@ -287,7 +443,8 @@ export async function fetchSingleMonthCashflow(
       profileById,
       incomeByProfileId,
       pols,
-      taxReliefByProfileYear.get(`${pid}:${year}`) ?? []
+      taxReliefByProfileYear.get(`${pid}:${year}`) ?? [],
+      taxEntryByProfileYear,
     )
   }
 
@@ -295,7 +452,16 @@ export async function fetchSingleMonthCashflow(
   ilp += sumIlpPremiums(sharedIlpRes.data)
 
   const outflowTotal =
-    discretionary + insurance + ilp + loans + tax + savingsGoals
+    discretionary +
+    insurance +
+    ilp +
+    ilpOneTime +
+    loans +
+    earlyRepayments +
+    tax +
+    taxReliefCash +
+    savingsGoals +
+    investments
   const netSavings = inflowTotal - outflowTotal
 
   const round = (n: number) => Math.round(n * 100) / 100
@@ -316,9 +482,13 @@ export async function fetchSingleMonthCashflow(
       discretionary: round(discretionary),
       insurance: round(insurance),
       ilp: round(ilp),
+      ilpOneTime: round(ilpOneTime),
       loans: round(loans),
+      earlyRepayments: round(earlyRepayments),
       tax: round(tax),
+      taxReliefCash: round(taxReliefCash),
       savingsGoals: round(savingsGoals),
+      investments: round(investments),
     },
     netSavings: round(netSavings),
   }

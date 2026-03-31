@@ -19,8 +19,13 @@ export type WaterfallData = {
     discretionary: number
     insurance: number
     ilp: number
+    ilpOneTime: number
     loans: number
+    earlyRepayments: number
     tax: number
+    taxReliefCash: number
+    savingsGoals: number
+    investments: number
   }
   netSavings: number
 }
@@ -41,26 +46,24 @@ function buildWaterfallBars(data: WaterfallData): WaterfallBarItem[] {
     cumulative = data.inflowTotal
   }
 
-  const { discretionary, insurance, ilp, loans, tax } = data.outflowBreakdown
-  if (discretionary > 0) {
-    bars.push({ name: "Spending", start: cumulative, end: cumulative - discretionary, value: -discretionary })
-    cumulative -= discretionary
-  }
-  if (insurance > 0) {
-    bars.push({ name: "Insurance", start: cumulative, end: cumulative - insurance, value: -insurance })
-    cumulative -= insurance
-  }
-  if (ilp > 0) {
-    bars.push({ name: "ILP", start: cumulative, end: cumulative - ilp, value: -ilp })
-    cumulative -= ilp
-  }
-  if (loans > 0) {
-    bars.push({ name: "Loans", start: cumulative, end: cumulative - loans, value: -loans })
-    cumulative -= loans
-  }
-  if (tax > 0) {
-    bars.push({ name: "Tax", start: cumulative, end: cumulative - tax, value: -tax })
-    cumulative -= tax
+  const ob = data.outflowBreakdown
+  const outflowItems: { name: string; value: number }[] = [
+    { name: "Spending", value: ob.discretionary },
+    { name: "Insurance", value: ob.insurance },
+    { name: "ILP", value: ob.ilp },
+    { name: "ILP (One-Time)", value: ob.ilpOneTime },
+    { name: "Loans", value: ob.loans },
+    { name: "Early Repayments", value: ob.earlyRepayments },
+    { name: "Tax", value: ob.tax },
+    { name: "SRS/CPF Top-ups", value: ob.taxReliefCash },
+    { name: "Savings Goals", value: ob.savingsGoals },
+    { name: "Investments", value: ob.investments },
+  ]
+  for (const item of outflowItems) {
+    if (item.value > 0) {
+      bars.push({ name: item.name, start: cumulative, end: cumulative - item.value, value: -item.value })
+      cumulative -= item.value
+    }
   }
 
   bars.push({
