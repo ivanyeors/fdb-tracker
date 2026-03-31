@@ -49,6 +49,7 @@ function buildSankeyData(data: WaterfallData): {
     { name: "SRS/CPF Top-ups", value: ob.taxReliefCash },
     { name: "Savings Goals", value: ob.savingsGoals },
     { name: "Investments", value: ob.investments },
+    { name: "GIRO Transfers", value: ob.giroTransfers ?? 0 },
   ].filter((item) => item.value > 0)
 
   const nodes: SankeyNodeDatum[] = [

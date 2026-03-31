@@ -3,7 +3,6 @@
 import { useMemo } from "react"
 import { createPortal } from "react-dom"
 import { Bar } from "@visx/shape"
-import { useChartHeight } from "@/hooks/use-chart-height"
 import { Group } from "@visx/group"
 import { scaleBand, scaleLinear } from "@visx/scale"
 import { AxisBottom, AxisLeft } from "@visx/axis"
@@ -12,8 +11,16 @@ import { ParentSize } from "@visx/responsive"
 
 export type WaterfallData = {
   month: string
+  startingBankBalance?: number
+  endingBankBalance?: number
   inflowTotal: number
-  inflowBreakdown?: { salary?: number; bonus?: number; income?: number }
+  inflowBreakdown?: {
+    salary?: number
+    bonus?: number
+    income?: number
+    bankInterest?: number
+    dividends?: number
+  }
   outflowTotal: number
   outflowBreakdown: {
     discretionary: number
@@ -26,6 +33,7 @@ export type WaterfallData = {
     taxReliefCash: number
     savingsGoals: number
     investments: number
+    giroTransfers?: number
   }
   netSavings: number
 }
@@ -35,17 +43,58 @@ type WaterfallBarItem = {
   start: number
   end: number
   value: number
+  type: "anchor" | "inflow" | "outflow" | "net"
 }
 
 function buildWaterfallBars(data: WaterfallData): WaterfallBarItem[] {
   const bars: WaterfallBarItem[] = []
+  const hasBankBalance = data.startingBankBalance != null
+
   let cumulative = 0
 
-  if (data.inflowTotal > 0) {
-    bars.push({ name: "Total Inflow", start: 0, end: data.inflowTotal, value: data.inflowTotal })
-    cumulative = data.inflowTotal
+  // Starting Bank Balance (anchor)
+  if (hasBankBalance) {
+    bars.push({
+      name: "Starting Balance",
+      start: 0,
+      end: data.startingBankBalance!,
+      value: data.startingBankBalance!,
+      type: "anchor",
+    })
+    cumulative = data.startingBankBalance!
   }
 
+  // Inflow items as individual bars
+  const ib = data.inflowBreakdown
+  const inflowItems: { name: string; value: number }[] = []
+  if (ib) {
+    if (ib.salary && ib.salary > 0) inflowItems.push({ name: "Salary", value: ib.salary })
+    if (ib.bonus && ib.bonus > 0) inflowItems.push({ name: "Bonus", value: ib.bonus })
+    if (ib.bankInterest && ib.bankInterest > 0)
+      inflowItems.push({ name: "Bank Interest", value: ib.bankInterest })
+    if (ib.dividends && ib.dividends > 0)
+      inflowItems.push({ name: "Dividends", value: ib.dividends })
+    if (ib.income && ib.income > 0)
+      inflowItems.push({ name: "Other Income", value: ib.income })
+  }
+
+  // Fallback: single "Total Inflow" bar if no breakdown
+  if (inflowItems.length === 0 && data.inflowTotal > 0) {
+    inflowItems.push({ name: "Total Inflow", value: data.inflowTotal })
+  }
+
+  for (const item of inflowItems) {
+    bars.push({
+      name: item.name,
+      start: cumulative,
+      end: cumulative + item.value,
+      value: item.value,
+      type: "inflow",
+    })
+    cumulative += item.value
+  }
+
+  // Outflow items
   const ob = data.outflowBreakdown
   const outflowItems: { name: string; value: number }[] = [
     { name: "Spending", value: ob.discretionary },
@@ -58,88 +107,101 @@ function buildWaterfallBars(data: WaterfallData): WaterfallBarItem[] {
     { name: "SRS/CPF Top-ups", value: ob.taxReliefCash },
     { name: "Savings Goals", value: ob.savingsGoals },
     { name: "Investments", value: ob.investments },
+    { name: "GIRO Transfers", value: ob.giroTransfers ?? 0 },
   ]
+
   for (const item of outflowItems) {
     if (item.value > 0) {
-      bars.push({ name: item.name, start: cumulative, end: cumulative - item.value, value: -item.value })
+      bars.push({
+        name: item.name,
+        start: cumulative,
+        end: cumulative - item.value,
+        value: -item.value,
+        type: "outflow",
+      })
       cumulative -= item.value
     }
   }
 
-  bars.push({
-    name: "Net Savings",
-    start: 0,
-    end: data.netSavings,
-    value: data.netSavings,
-  })
+  // Ending Bank Balance (anchor) or Net Savings fallback
+  if (hasBankBalance) {
+    bars.push({
+      name: "Ending Balance",
+      start: 0,
+      end: data.endingBankBalance!,
+      value: data.endingBankBalance!,
+      type: "anchor",
+    })
+  } else {
+    bars.push({
+      name: "Net Savings",
+      start: 0,
+      end: data.netSavings,
+      value: data.netSavings,
+      type: "net",
+    })
+  }
 
   return bars
 }
 
 const POSITIVE_FILL = "var(--color-chart-positive)"
 const NEGATIVE_FILL = "var(--color-chart-negative)"
+const NEUTRAL_FILL = "var(--color-muted-foreground)"
 
-const margin = { top: 8, right: 72, left: 100, bottom: 8 }
+const margin = { top: 8, right: 72, left: 120, bottom: 8 }
 
-function formatValue(value: number): string {
+function formatValue(value: number, isAnchor = false): string {
+  if (isAnchor)
+    return `$${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
   return `${value >= 0 ? "+" : ""}$${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 }
 
 function WaterfallTooltipContent({
   bar,
   data,
-  formatValue,
 }: {
   bar: WaterfallBarItem
   data: WaterfallData
-  formatValue: (v: number) => string
 }) {
   const inflow = data.inflowTotal
-  const pctOfInflow = inflow > 0 ? (Math.abs(bar.value) / inflow) * 100 : 0
 
-  if (bar.name === "Total Inflow") {
-    const breakdown = data.inflowBreakdown
-    const hasBreakdown = breakdown && Object.values(breakdown).some((v) => (v ?? 0) > 0)
+  if (bar.type === "anchor") {
     return (
       <>
         <div className="font-medium">{bar.name}</div>
-        <div>{formatValue(bar.value)}</div>
-        {hasBreakdown && breakdown && (
-          <div className="mt-2 space-y-1 border-t border-border pt-2">
-            {breakdown.salary != null && breakdown.salary > 0 && (
-              <div>Salary: {formatValue(breakdown.salary)}</div>
-            )}
-            {breakdown.bonus != null && breakdown.bonus > 0 && (
-              <div>Bonus: {formatValue(breakdown.bonus)}</div>
-            )}
-            {breakdown.income != null && breakdown.income > 0 && (
-              <div>Other income: {formatValue(breakdown.income)}</div>
-            )}
-          </div>
-        )}
+        <div>
+          ${Math.abs(bar.value).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+        </div>
       </>
     )
   }
 
-  if (bar.name === "Net Savings") {
+  if (bar.type === "net") {
     const savingsRate = inflow > 0 ? (bar.value / inflow) * 100 : 0
     return (
       <>
         <div className="font-medium">{bar.name}</div>
         <div>{formatValue(bar.value)}</div>
         {inflow > 0 && (
-          <div className="text-muted-foreground">Saved {savingsRate.toFixed(1)}% of inflow</div>
+          <div className="text-muted-foreground">
+            Saved {savingsRate.toFixed(1)}% of inflow
+          </div>
         )}
       </>
     )
   }
 
+  const pctOfInflow = inflow > 0 ? (Math.abs(bar.value) / inflow) * 100 : 0
+
   return (
     <>
       <div className="font-medium">{bar.name}</div>
       <div>{formatValue(bar.value)}</div>
-      {inflow > 0 && bar.value < 0 && (
-        <div className="text-muted-foreground">{pctOfInflow.toFixed(1)}% of inflow</div>
+      {inflow > 0 && (
+        <div className="text-muted-foreground">
+          {pctOfInflow.toFixed(1)}% of inflow
+        </div>
       )}
     </>
   )
@@ -155,10 +217,14 @@ function WaterfallChartInner({
   height: number
 }) {
   const chartData = useMemo(() => buildWaterfallBars(data), [data])
-  const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } = useTooltip<{
-    bar: WaterfallBarItem
-    data: WaterfallData
-  }>()
+  const {
+    tooltipData,
+    tooltipLeft,
+    tooltipTop,
+    tooltipOpen,
+    showTooltip,
+    hideTooltip,
+  } = useTooltip<{ bar: WaterfallBarItem; data: WaterfallData }>()
 
   const xMax = width - margin.left - margin.right
   const yMax = height - margin.top - margin.bottom
@@ -178,7 +244,7 @@ function WaterfallChartInner({
         domain: xDomain,
         nice: true,
       }),
-    [xMax, xDomain]
+    [xMax, xDomain],
   )
 
   const yScale = useMemo(
@@ -188,17 +254,29 @@ function WaterfallChartInner({
         domain: chartData.map((d) => d.name),
         padding: 0.2,
       }),
-    [yMax, chartData]
+    [yMax, chartData],
   )
 
+  // Connector lines between adjacent non-anchor bars
   const connectors = useMemo(() => {
-    const result: { x: number; yTop: number; yBottom: number }[] = []
+    const result: { x: number; yTop: number; yBottom: number; dashed: boolean }[] = []
     for (let i = 0; i < chartData.length - 1; i++) {
-      const curr = chartData[i]
+      const curr = chartData[i]!
+      const next = chartData[i + 1]!
+      // Skip connector TO anchor/net bars (they start from 0)
+      if (next.type === "anchor" || next.type === "net") continue
+      // Skip connector FROM anchor bars to the first inflow/outflow
+      if (curr.type === "anchor") {
+        const xVal = curr.end
+        const yTop = (yScale(curr.name) ?? 0) + (yScale.bandwidth() ?? 0)
+        const yBottom = yScale(next.name) ?? 0
+        result.push({ x: xScale(xVal) ?? 0, yTop, yBottom, dashed: true })
+        continue
+      }
       const xVal = curr.end
       const yTop = (yScale(curr.name) ?? 0) + (yScale.bandwidth() ?? 0)
-      const yBottom = yScale(chartData[i + 1].name) ?? 0
-      result.push({ x: xScale(xVal) ?? 0, yTop, yBottom })
+      const yBottom = yScale(next.name) ?? 0
+      result.push({ x: xScale(xVal) ?? 0, yTop, yBottom, dashed: false })
     }
     return result
   }, [chartData, yScale, xScale])
@@ -218,7 +296,7 @@ function WaterfallChartInner({
 
   const tickLabelProps = () => ({
     fill: "var(--color-muted-foreground)",
-    fontSize: 12,
+    fontSize: 11,
     textAnchor: "end" as const,
   })
 
@@ -239,23 +317,31 @@ function WaterfallChartInner({
             scale={xScale}
             hideAxisLine
             hideTicks
-            tickFormat={(v) => `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+            tickFormat={(v) =>
+              `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+            }
             stroke="var(--color-border)"
             tickStroke="var(--color-border)"
             tickLabelProps={() => ({
               fill: "var(--color-muted-foreground)",
-              fontSize: 12,
+              fontSize: 11,
               textAnchor: "middle" as const,
             })}
           />
           {chartData.map((bar) => {
             const barHeight = Math.max((yScale.bandwidth() ?? 0) * 0.6, 4)
-            const barY = (yScale(bar.name) ?? 0) + ((yScale.bandwidth() ?? 0) - barHeight) / 2
+            const barY =
+              (yScale(bar.name) ?? 0) + ((yScale.bandwidth() ?? 0) - barHeight) / 2
             const xStart = Math.min(bar.start, bar.end)
             const xEnd = Math.max(bar.start, bar.end)
             const barX = xScale(xStart) ?? 0
             const barWidth = Math.max((xScale(xEnd) ?? 0) - barX, 2)
-            const fill = bar.value >= 0 ? POSITIVE_FILL : NEGATIVE_FILL
+            const isAnchor = bar.type === "anchor"
+            const fill = isAnchor
+              ? NEUTRAL_FILL
+              : bar.value >= 0
+                ? POSITIVE_FILL
+                : NEGATIVE_FILL
 
             return (
               <g key={bar.name}>
@@ -265,6 +351,7 @@ function WaterfallChartInner({
                   width={barWidth}
                   height={barHeight}
                   fill={fill}
+                  fillOpacity={isAnchor ? 0.5 : 1}
                   rx={2}
                   ry={2}
                   onMouseMove={(e) => {
@@ -277,14 +364,18 @@ function WaterfallChartInner({
                   onMouseLeave={hideTooltip}
                 />
                 <text
-                  x={bar.value >= 0 ? barX + barWidth + 6 : barX - 6}
+                  x={
+                    bar.value >= 0 || isAnchor
+                      ? barX + barWidth + 6
+                      : barX - 6
+                  }
                   y={barY + barHeight / 2}
-                  textAnchor={bar.value >= 0 ? "start" : "end"}
+                  textAnchor={bar.value >= 0 || isAnchor ? "start" : "end"}
                   dominantBaseline="middle"
                   fill="var(--color-foreground)"
-                  fontSize={12}
+                  fontSize={11}
                 >
-                  {formatValue(bar.value)}
+                  {formatValue(bar.value, isAnchor)}
                 </text>
               </g>
             )
@@ -298,6 +389,7 @@ function WaterfallChartInner({
               y2={c.yBottom}
               stroke="var(--color-border)"
               strokeWidth={1}
+              strokeDasharray={c.dashed ? "4 3" : undefined}
             />
           ))}
         </Group>
@@ -318,7 +410,10 @@ function WaterfallChartInner({
               fontSize: 12,
             }}
           >
-            <WaterfallTooltipContent bar={tooltipData.bar} data={tooltipData.data} formatValue={formatValue} />
+            <WaterfallTooltipContent
+              bar={tooltipData.bar}
+              data={tooltipData.data}
+            />
           </div>,
           document.body,
         )}
@@ -327,12 +422,18 @@ function WaterfallChartInner({
 }
 
 export function WaterfallChart({ data }: { data: WaterfallData }) {
-  const chartHeight = useChartHeight(300, 220)
+  // Dynamic height based on number of bars
+  const barCount = useMemo(() => buildWaterfallBars(data).length, [data])
+  const chartHeight = Math.max(300, barCount * 28)
   return (
     <div className="w-full" style={{ height: chartHeight }}>
       <ParentSize>
         {({ width, height }) => (
-          <WaterfallChartInner data={data} width={width} height={height ?? chartHeight} />
+          <WaterfallChartInner
+            data={data}
+            width={width}
+            height={height ?? chartHeight}
+          />
         )}
       </ParentSize>
     </div>

@@ -70,7 +70,7 @@ export async function getEffectiveInflowForProfile(
  * Estimate monthly bank interest for a profile's bank accounts.
  * Uses the account balance × interest_rate_pct / 100 / 12.
  */
-async function estimateBankInterestForProfile(
+export async function estimateBankInterestForProfile(
   supabase: SupabaseClient,
   profileId: string,
 ): Promise<number> {

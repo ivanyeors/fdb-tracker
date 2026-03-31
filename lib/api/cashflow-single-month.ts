@@ -5,9 +5,9 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { calculateTakeHome } from "@/lib/calculations/take-home"
+import { computeBankTotal } from "@/lib/calculations/computed-bank-balance"
 import {
   buildGiroOutflowByProfile,
-  discretionaryForProfileMonth,
   monthlyTaxForProfile,
   normalizeMonthKey,
   sumIlpPremiums,
@@ -28,6 +28,8 @@ import {
 
 type SingleMonthResult = {
   month: string
+  startingBankBalance?: number
+  endingBankBalance?: number
   inflowTotal: number
   inflowBreakdown?: Record<string, number>
   outflowTotal: number
@@ -42,6 +44,7 @@ type SingleMonthResult = {
     taxReliefCash: number
     savingsGoals: number
     investments: number
+    giroTransfers: number
   }
   netSavings: number
 }
@@ -126,7 +129,7 @@ export async function fetchSingleMonthCashflow(
   const nextMonthDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1)
   const nextMonthStr = nextMonthDate.toISOString().slice(0, 10)
 
-  const [earlyRepaymentsRes, goalContributionsRes, oneTimeIlpRes, investmentTxnsRes] =
+  const [earlyRepaymentsRes, goalContributionsRes, oneTimeIlpRes, investmentTxnsRes, bankAccountsForInterestRes, dividendTxnsRes] =
     await Promise.all([
       allLoanIds.length > 0
         ? supabase
@@ -154,6 +157,19 @@ export async function fetchSingleMonthCashflow(
         .select("profile_id, type, quantity, price, created_at")
         .eq("family_id", familyId)
         .in("type", ["buy", "sell"])
+        .gte("created_at", monthStr)
+        .lt("created_at", nextMonthStr),
+      // Bank accounts for interest estimation
+      supabase
+        .from("bank_accounts")
+        .select("profile_id, opening_balance, interest_rate_pct")
+        .eq("family_id", familyId),
+      // Dividend transactions for the month
+      supabase
+        .from("investment_transactions")
+        .select("profile_id, quantity, price")
+        .eq("family_id", familyId)
+        .eq("type", "dividend")
         .gte("created_at", monthStr)
         .lt("created_at", nextMonthStr),
     ])
@@ -340,12 +356,9 @@ export async function fetchSingleMonthCashflow(
 
   // Aggregate per profile
   let inflowTotal = 0
-  const inflowBreakdown: {
-    salary?: number
-    bonus?: number
-    income?: number
-  } = {}
+  const inflowBreakdown: Record<string, number | undefined> = {}
   let discretionary = 0
+  let giroTransfers = 0
   let insurance = 0
   let ilp = 0
   let ilpOneTime = 0
@@ -355,6 +368,30 @@ export async function fetchSingleMonthCashflow(
   let taxReliefCash = 0
   let savingsGoals = 0
   let investments = 0
+
+  // Compute bank interest (batched in-memory)
+  let bankInterest = 0
+  for (const acct of bankAccountsForInterestRes.data ?? []) {
+    const rate = acct.interest_rate_pct ?? 0
+    const balance = acct.opening_balance ?? 0
+    if (rate > 0 && balance > 0) {
+      bankInterest += (balance * rate) / 100 / 12
+    }
+  }
+  if (bankInterest > 0) {
+    inflowBreakdown.bankInterest = bankInterest
+    inflowTotal += bankInterest
+  }
+
+  // Compute dividends
+  let dividends = 0
+  for (const txn of dividendTxnsRes.data ?? []) {
+    dividends += txn.quantity * txn.price
+  }
+  if (dividends > 0) {
+    inflowBreakdown.dividends = dividends
+    inflowTotal += dividends
+  }
 
   for (const pid of profileIds) {
     // Inflow with breakdown
@@ -394,13 +431,13 @@ export async function fetchSingleMonthCashflow(
       }
     }
 
-    // Outflow
-    discretionary += discretionaryForProfileMonth(
-      pid,
-      monthStr,
-      cashflowByKey,
-      giroByProfile
-    )
+    // Outflow — discretionary WITHOUT giro (giro tracked separately)
+    const cfKey = `${pid}:${monthStr}`
+    const userOutflow = cashflowByKey.has(cfKey)
+      ? (cashflowByKey.get(cfKey)!.outflow ?? 0)
+      : 0
+    discretionary += userOutflow
+    giroTransfers += giroByProfile.get(pid) ?? 0
 
     const pols = insuranceByProfile.get(pid) ?? []
     const insSplit = sumInsuranceOutflowPremiumsSplit(pols)
@@ -453,6 +490,7 @@ export async function fetchSingleMonthCashflow(
 
   const outflowTotal =
     discretionary +
+    giroTransfers +
     insurance +
     ilp +
     ilpOneTime +
@@ -463,6 +501,16 @@ export async function fetchSingleMonthCashflow(
     savingsGoals +
     investments
   const netSavings = inflowTotal - outflowTotal
+
+  // Bank balance: compute ending, derive starting from net savings
+  const singleProfileId = profileIds.length === 1 ? profileIds[0] ?? null : null
+  const endingBankBalance = await computeBankTotal(
+    supabase,
+    familyId,
+    singleProfileId,
+    monthStr,
+  )
+  const startingBankBalance = endingBankBalance - netSavings
 
   const round = (n: number) => Math.round(n * 100) / 100
 
@@ -475,6 +523,8 @@ export async function fetchSingleMonthCashflow(
 
   return {
     month,
+    startingBankBalance: round(startingBankBalance),
+    endingBankBalance: round(endingBankBalance),
     inflowTotal: round(inflowTotal),
     inflowBreakdown: roundedInflowBreakdown,
     outflowTotal: round(outflowTotal),
@@ -489,6 +539,7 @@ export async function fetchSingleMonthCashflow(
       taxReliefCash: round(taxReliefCash),
       savingsGoals: round(savingsGoals),
       investments: round(investments),
+      giroTransfers: round(giroTransfers),
     },
     netSavings: round(netSavings),
   }
