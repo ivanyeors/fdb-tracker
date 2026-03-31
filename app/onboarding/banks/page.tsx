@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import { Switch } from "@/components/ui/switch"
 import {
   Tooltip,
@@ -298,21 +299,14 @@ export default function BanksPage() {
                     </Tooltip>
                   </TooltipProvider>
                 </div>
-                <Select
+                <ButtonSelect
                   value={account.account_type}
                   onValueChange={(v) => updateAccount(i, "account_type", v)}
-                >
-                  <SelectTrigger id={`account-type-${i}`} className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ACCOUNT_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={ACCOUNT_TYPES.map((t) => ({
+                    value: t.value,
+                    label: t.label,
+                  }))}
+                />
               </div>
             </div>
 

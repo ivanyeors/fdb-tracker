@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input"
 import { CurrencyInput } from "@/components/ui/currency-input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -664,37 +665,29 @@ function ProfileSection({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`gender-${profile.id}`}>Gender</Label>
-            <Select
+            <ButtonSelect
               value={gender || "none"}
               onValueChange={(v) => setGender(v === "none" ? "" : v)}
-            >
-              <SelectTrigger id={`gender-${profile.id}`} className="h-8">
-                <SelectValue placeholder="Not set" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Not set</SelectItem>
-                <SelectItem value="male">Male</SelectItem>
-                <SelectItem value="female">Female</SelectItem>
-              </SelectContent>
-            </Select>
+              options={[
+                { value: "none", label: "Not set" },
+                { value: "male", label: "Male" },
+                { value: "female", label: "Female" },
+              ]}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`marital-${profile.id}`}>Marital Status</Label>
-            <Select
+            <ButtonSelect
               value={maritalStatus || "none"}
               onValueChange={(v) => setMaritalStatus(v === "none" ? "" : v)}
-            >
-              <SelectTrigger id={`marital-${profile.id}`} className="h-8">
-                <SelectValue placeholder="Not set" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Not set</SelectItem>
-                <SelectItem value="single">Single</SelectItem>
-                <SelectItem value="married">Married</SelectItem>
-                <SelectItem value="divorced">Divorced</SelectItem>
-                <SelectItem value="widowed">Widowed</SelectItem>
-              </SelectContent>
-            </Select>
+              options={[
+                { value: "none", label: "Not set" },
+                { value: "single", label: "Single" },
+                { value: "married", label: "Married" },
+                { value: "divorced", label: "Divorced" },
+                { value: "widowed", label: "Widowed" },
+              ]}
+            />
           </div>
           {maritalStatus === "married" && allProfiles && allProfiles.length > 1 && (
             <div className="space-y-1.5">
@@ -752,19 +745,15 @@ function ProfileSection({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`freq-${profile.id}`}>Pay Frequency</Label>
-            <Select
+            <ButtonSelect
               value={payFrequency}
               onValueChange={(v) => setPayFrequency(v as "monthly" | "bi-monthly" | "weekly")}
-            >
-              <SelectTrigger id={`freq-${profile.id}`} className="h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="bi-monthly">Bi-Monthly</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-              </SelectContent>
-            </Select>
+              options={[
+                { value: "monthly", label: "Monthly" },
+                { value: "bi-monthly", label: "Bi-Monthly" },
+                { value: "weekly", label: "Weekly" },
+              ]}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`cpf-${profile.id}`}>Employee CPF %</Label>
@@ -4593,7 +4582,7 @@ function AddFamilyMemberDialog({
             Add a new member to {familyName}. You can configure their financial data after creation.
           </DialogDescription>
         </DialogHeader>
-        <form action={createAction} className="space-y-4">
+        <form action={createAction} className="space-y-4 px-4">
           <input type="hidden" name="familyId" value={familyId} />
           <div className="space-y-2">
             <label htmlFor="add-name" className="text-sm font-medium">
@@ -5064,7 +5053,7 @@ export function FamilyMembersTable({
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <div className="flex min-w-0 items-center gap-2">
               <CardTitle className="min-w-0 truncate">{family.name}</CardTitle>
               <Button
@@ -5118,14 +5107,14 @@ export function FamilyMembersTable({
                 </Dialog>
               )}
             </div>
-            <CardDescription>
+            <CardDescription className="whitespace-normal">
               Choose a family member to edit their profile and financial data. Save or discard before
               switching to another person.
             </CardDescription>
           </div>
           <Button onClick={() => setAddDialogOpen(true)} variant="outline" size="sm" className="shrink-0">
             <UserPlus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add family member</span>
+            Add family member
           </Button>
         </div>
       </CardHeader>

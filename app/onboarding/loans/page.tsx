@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import { Switch } from "@/components/ui/switch"
 import { DatePicker } from "@/components/ui/date-picker"
 import {
@@ -179,21 +180,14 @@ export default function LoansPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Type</Label>
-                <Select
+                <ButtonSelect
                   value={item.type}
                   onValueChange={(v) => updateItem(i, "type", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LOAN_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={LOAN_TYPES.map((t) => ({
+                    value: t.value,
+                    label: t.label,
+                  }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Name</Label>

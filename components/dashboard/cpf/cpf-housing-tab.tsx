@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import {
   Table,
   TableBody,
@@ -297,18 +298,14 @@ export function CpfHousingTab({
             </div>
             <div className="space-y-1">
               <Label>Type</Label>
-              <Select value={usageType} onValueChange={setUsageType}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {USAGE_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ButtonSelect
+                value={usageType}
+                onValueChange={setUsageType}
+                options={USAGE_OPTIONS.map((o) => ({
+                  value: o.value,
+                  label: o.label,
+                }))}
+              />
             </div>
             <Button type="submit" disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}

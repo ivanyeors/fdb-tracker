@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   prepaymentSavingsEstimate,
@@ -187,15 +188,14 @@ export function RepaymentFormSheet({
             {isEarly && selectedLoan?.use_cpf_oa && (
               <div className="space-y-1.5">
                 <Label htmlFor="repay-source">Source</Label>
-                <Select value={source} onValueChange={(v) => setSource(v as "cash" | "cpf_oa")}>
-                  <SelectTrigger id="repay-source" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="cpf_oa">CPF OA</SelectItem>
-                  </SelectContent>
-                </Select>
+                <ButtonSelect
+                  value={source}
+                  onValueChange={(v) => setSource(v as "cash" | "cpf_oa")}
+                  options={[
+                    { value: "cash", label: "Cash" },
+                    { value: "cpf_oa", label: "CPF OA" },
+                  ]}
+                />
               </div>
             )}
 

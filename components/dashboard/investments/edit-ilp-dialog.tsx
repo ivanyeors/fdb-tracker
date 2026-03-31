@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Loader2, Pencil } from "lucide-react"
 import { toast } from "sonner"
@@ -241,20 +242,16 @@ export function EditIlpDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="edit-ilp-premium-mode">Premium payment</Label>
-              <Select
+              <ButtonSelect
                 value={paymentMode}
                 onValueChange={(v) =>
                   setPaymentMode(v as "monthly" | "one_time")
                 }
-              >
-                <SelectTrigger id="edit-ilp-premium-mode" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="monthly">Monthly (recurring)</SelectItem>
-                  <SelectItem value="one_time">One-time</SelectItem>
-                </SelectContent>
-              </Select>
+                options={[
+                  { value: "monthly", label: "Monthly (recurring)" },
+                  { value: "one_time", label: "One-time" },
+                ]}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="edit-ilp-premium">

@@ -19,13 +19,7 @@ import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ScheduleDatePicker } from "@/components/ui/schedule-date-picker"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import {
   useOnboarding,
   pathWithMode,
@@ -118,18 +112,14 @@ export default function RemindersPage() {
                 {!isYearlyOnly && (
                   <div className="space-y-1.5">
                     <Label htmlFor={`freq-${i}`}>Frequency</Label>
-                    <Select
+                    <ButtonSelect
                       value={schedule.frequency}
                       onValueChange={(v) => updateSchedule(i, "frequency", v)}
-                    >
-                      <SelectTrigger id={`freq-${i}`} className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="yearly">Yearly</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      options={[
+                        { value: "monthly", label: "Monthly" },
+                        { value: "yearly", label: "Yearly" },
+                      ]}
+                    />
                   </div>
                 )}
 

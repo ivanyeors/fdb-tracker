@@ -14,13 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import { SymbolPickerDrawer } from "@/components/dashboard/investments/symbol-picker-drawer"
 import { Loader2, Pencil, X } from "lucide-react"
 import { toast } from "sonner"
@@ -136,18 +130,14 @@ export function EditHoldingDialog({ initial, onSuccess }: EditHoldingDialogProps
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="edit-holding-type">Type</Label>
-              <Select value={type} onValueChange={setType}>
-                <SelectTrigger id="edit-holding-type" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {HOLDING_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ButtonSelect
+                value={type}
+                onValueChange={setType}
+                options={HOLDING_TYPES.map((t) => ({
+                  value: t.value,
+                  label: t.label,
+                }))}
+              />
             </div>
 
             <div className="space-y-1.5">

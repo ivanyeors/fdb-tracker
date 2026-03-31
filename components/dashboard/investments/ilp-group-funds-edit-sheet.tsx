@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import {
   ResponsiveSheet as Sheet,
   ResponsiveSheetContent as SheetContent,
@@ -458,18 +459,14 @@ export function IlpGroupFundsEditSheet({
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="ilp-group-premium-mode">Payment</Label>
-                  <Select
+                  <ButtonSelect
                     value={premiumMode}
                     onValueChange={(v) => setPremiumMode(v as "monthly" | "one_time")}
-                  >
-                    <SelectTrigger id="ilp-group-premium-mode" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="monthly">Monthly (recurring)</SelectItem>
-                      <SelectItem value="one_time">One-time</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    options={[
+                      { value: "monthly", label: "Monthly (recurring)" },
+                      { value: "one_time", label: "One-time" },
+                    ]}
+                  />
                 </div>
               </div>
               <div className="flex flex-wrap items-end gap-2">

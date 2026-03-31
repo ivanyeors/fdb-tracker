@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import { Switch } from "@/components/ui/switch"
 import {
   ResponsiveSheet as Sheet,
@@ -326,7 +327,7 @@ export function GiroRulesForm({ familyId }: { familyId: string | null }) {
             </div>
             <div className="space-y-2">
               <Label>Destination</Label>
-              <Select
+              <ButtonSelect
                 value={form.destinationType}
                 onValueChange={(v) =>
                   setForm((f) => ({
@@ -335,18 +336,11 @@ export function GiroRulesForm({ familyId }: { familyId: string | null }) {
                     destinationBankAccountId: "",
                   }))
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DESTINATION_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={DESTINATION_OPTIONS.map((opt) => ({
+                  value: opt.value,
+                  label: opt.label,
+                }))}
+              />
             </div>
             {form.destinationType === "bank_account" && (
               <div className="space-y-2">

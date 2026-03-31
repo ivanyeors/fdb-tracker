@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import { Switch } from "@/components/ui/switch"
 import {
   ResponsiveDialog as Dialog,
@@ -354,16 +355,15 @@ export function DependentsSection({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Relationship</Label>
-                <Select value={formRelationship} onValueChange={setFormRelationship}>
-                  <SelectTrigger className="h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="child">Child</SelectItem>
-                    <SelectItem value="parent">Parent</SelectItem>
-                    <SelectItem value="grandparent">Grandparent</SelectItem>
-                  </SelectContent>
-                </Select>
+                <ButtonSelect
+                  value={formRelationship}
+                  onValueChange={setFormRelationship}
+                  options={[
+                    { value: "child", label: "Child" },
+                    { value: "parent", label: "Parent" },
+                    { value: "grandparent", label: "Grandparent" },
+                  ]}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Relief Claimed By</Label>

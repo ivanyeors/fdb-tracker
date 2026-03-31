@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import {
   useOnboarding,
   pathWithMode,
@@ -154,21 +155,14 @@ export default function TaxReliefsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Relief Type</Label>
-                <Select
+                <ButtonSelect
                   value={item.relief_type}
                   onValueChange={(v) => updateItem(i, "relief_type", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {RELIEF_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={RELIEF_TYPES.map((t) => ({
+                    value: t.value,
+                    label: t.label,
+                  }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Amount ($)</Label>

@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ImpactConfirmationDialog } from "@/components/ui/impact-confirmation-dialog"
 import { useImpactConfirmation } from "@/hooks/use-impact-confirmation"
@@ -230,24 +231,20 @@ export function LoanFormSheet({
             {/* Type */}
             <div className="space-y-1.5">
               <Label htmlFor="loan-type">Type</Label>
-              <Select
+              <ButtonSelect
                 value={type}
                 onValueChange={(v) => {
                   setType(v)
                   if (v === "housing") setUseCpfOa(true)
                   else setUseCpfOa(false)
                 }}
-              >
-                <SelectTrigger id="loan-type" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="housing">Housing</SelectItem>
-                  <SelectItem value="personal">Personal</SelectItem>
-                  <SelectItem value="car">Car</SelectItem>
-                  <SelectItem value="education">Education</SelectItem>
-                </SelectContent>
-              </Select>
+                options={[
+                  { value: "housing", label: "Housing" },
+                  { value: "personal", label: "Personal" },
+                  { value: "car", label: "Car" },
+                  { value: "education", label: "Education" },
+                ]}
+              />
             </div>
 
             {/* Name */}
@@ -337,15 +334,14 @@ export function LoanFormSheet({
                 {/* Property Type */}
                 <div className="space-y-1.5">
                   <Label htmlFor="loan-property-type">Property Type</Label>
-                  <Select value={propertyType} onValueChange={setPropertyType}>
-                    <SelectTrigger id="loan-property-type" className="w-full">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hdb">HDB</SelectItem>
-                      <SelectItem value="private">Private</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <ButtonSelect
+                    value={propertyType}
+                    onValueChange={setPropertyType}
+                    options={[
+                      { value: "hdb", label: "HDB" },
+                      { value: "private", label: "Private" },
+                    ]}
+                  />
                 </div>
 
                 {/* Valuation Limit */}

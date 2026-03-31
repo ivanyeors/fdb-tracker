@@ -5,13 +5,7 @@ import { Button } from "@/components/ui/button"
 import { CurrencyInput } from "@/components/ui/currency-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -84,18 +78,14 @@ export function AddMetalForm({ onSuccess }: AddMetalFormProps) {
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-1.5">
           <Label htmlFor="metal-type">Type</Label>
-          <Select
+          <ButtonSelect
             value={type}
             onValueChange={(v) => setType(v as "gold" | "silver")}
-          >
-            <SelectTrigger id="metal-type" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="gold">Gold</SelectItem>
-              <SelectItem value="silver">Silver</SelectItem>
-            </SelectContent>
-          </Select>
+            options={[
+              { value: "gold", label: "Gold" },
+              { value: "silver", label: "Silver" },
+            ]}
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="metal-units">Units (oz)</Label>

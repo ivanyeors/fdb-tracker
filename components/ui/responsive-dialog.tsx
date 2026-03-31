@@ -58,7 +58,7 @@ function ResponsiveDialogContent({
   if (isMobile) {
     return (
       <DrawerContent
-        className={cn("max-h-[85vh] overflow-y-auto", className)}
+        className={cn("max-h-[85vh]", className)}
         {...(props as React.ComponentProps<typeof DrawerContent>)}
       >
         {children}

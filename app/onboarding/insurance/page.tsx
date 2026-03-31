@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import {
   useOnboarding,
   pathWithMode,
@@ -209,21 +210,14 @@ export default function InsurancePage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Type</Label>
-                <Select
+                <ButtonSelect
                   value={item.type}
                   onValueChange={(v) => updateItemWithTypeReset(i, v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INSURANCE_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={INSURANCE_TYPES.map((t) => ({
+                    value: t.value,
+                    label: t.label,
+                  }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Policy Name</Label>
@@ -243,20 +237,16 @@ export default function InsurancePage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Frequency</Label>
-                <Select
+                <ButtonSelect
                   value={item.frequency}
                   onValueChange={(v) =>
                     updateItem(i, "frequency", v as "monthly" | "yearly")
                   }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="yearly">Yearly</SelectItem>
-                  </SelectContent>
-                </Select>
+                  options={[
+                    { value: "monthly", label: "Monthly" },
+                    { value: "yearly", label: "Yearly" },
+                  ]}
+                />
               </div>
               {(() => {
                 const fields = getFieldsForInsurancePolicyRow(item.type, item.frequency)

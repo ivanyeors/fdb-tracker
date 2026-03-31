@@ -13,13 +13,7 @@ import {
 } from "@/components/ui/card"
 import { CurrencyInput } from "@/components/ui/currency-input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import {
   Tooltip,
   TooltipContent,
@@ -218,21 +212,14 @@ export default function IncomePage() {
 
             <div className="space-y-1.5">
               <Label htmlFor={`freq-${i}`}>Pay Frequency</Label>
-              <Select
+              <ButtonSelect
                 value={config.pay_frequency}
                 onValueChange={(v) => updateIncome(i, "pay_frequency", v)}
-              >
-                <SelectTrigger id={`freq-${i}`} className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAY_FREQUENCIES.map((f) => (
-                    <SelectItem key={f.value} value={f.value}>
-                      {f.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={PAY_FREQUENCIES.map((f) => ({
+                  value: f.value,
+                  label: f.label,
+                }))}
+              />
             </div>
           </div>
         ))}

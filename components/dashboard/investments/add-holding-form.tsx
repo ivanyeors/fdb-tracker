@@ -6,13 +6,7 @@ import { CurrencyInput } from "@/components/ui/currency-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { ButtonSelect } from "@/components/ui/button-select"
 import { DatePicker } from "@/components/ui/date-picker"
 import { SymbolPickerDrawer } from "@/components/dashboard/investments/symbol-picker-drawer"
 import { useActiveProfile } from "@/hooks/use-active-profile"
@@ -113,23 +107,16 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="holding-type">Type</Label>
-          <Select
+          <ButtonSelect
             value={type}
             onValueChange={(v) =>
               setType(v as "stock" | "etf" | "gold" | "silver" | "bond")
             }
-          >
-            <SelectTrigger id="holding-type" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {HOLDING_TYPES.map((t) => (
-                <SelectItem key={t.value} value={t.value}>
-                  {t.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            options={HOLDING_TYPES.map((t) => ({
+              value: t.value,
+              label: t.label,
+            }))}
+          />
         </div>
 
         <div className="space-y-1.5">
