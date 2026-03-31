@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
+import { SourceBadge } from "@/components/ui/source-badge"
 
 const MONEY_FLOW: Record<string, string> = {
   earned_income: "N/A (auto)",
@@ -83,16 +83,7 @@ export function ReliefBreakdown({
                 {formatReliefType(relief.relief_type)}
               </TableCell>
               <TableCell>
-                <Badge
-                  variant={relief.source === "auto" ? "secondary" : "outline"}
-                  className={
-                    relief.source === "auto"
-                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                      : "bg-blue-500/15 text-blue-700 dark:text-blue-400"
-                  }
-                >
-                  {relief.source ?? "manual"}
-                </Badge>
+                <SourceBadge source={relief.source ?? "manual"} />
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 ${formatCurrency(relief.amount)}

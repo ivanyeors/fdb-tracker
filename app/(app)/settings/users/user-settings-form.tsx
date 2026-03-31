@@ -83,6 +83,8 @@ import {
 } from "../actions"
 import { calculateMonthlyAuto } from "@/lib/calculations/savings-goals"
 import { DependentsSection } from "@/components/settings/dependents-section"
+import { ImpactConfirmationDialog } from "@/components/ui/impact-confirmation-dialog"
+import { useImpactConfirmation } from "@/hooks/use-impact-confirmation"
 import { toast } from "sonner"
 import { Loader2, Trash2, UserPlus, ExternalLink, Plus, X, Pencil, ChevronRight } from "lucide-react"
 import type { ProfileWithIncome } from "./types"
@@ -535,7 +537,20 @@ function ProfileSection({
     spouseProfileId,
   ])
 
-  useUserSettingsSaveRegistration(`user-settings-profile-${profile.id}`, isDirty, saveProfile)
+  const profileImpactNodes = useMemo(() => {
+    const incomeChanged =
+      annualSalary !== (profile.income_config?.annual_salary ?? 0) ||
+      bonusEstimate !== (profile.income_config?.bonus_estimate ?? 0)
+    if (!incomeChanged) return undefined
+    const nodes: import("@/lib/impact-graph").ImpactNodeId[] = []
+    if (annualSalary !== (profile.income_config?.annual_salary ?? 0))
+      nodes.push("income.annual_salary")
+    if (bonusEstimate !== (profile.income_config?.bonus_estimate ?? 0))
+      nodes.push("income.bonus")
+    return nodes.length > 0 ? nodes : undefined
+  }, [annualSalary, bonusEstimate, profile.income_config?.annual_salary, profile.income_config?.bonus_estimate])
+
+  useUserSettingsSaveRegistration(`user-settings-profile-${profile.id}`, isDirty, saveProfile, profileImpactNodes)
 
   useEffect(() => {
     onDirtyChange?.(isDirty)
@@ -1628,7 +1643,11 @@ function CPFSection({
     }
   }, [profileId, familyId, currentMonth, oa, sa, ma])
 
-  useUserSettingsSaveRegistration(`user-settings-cpf-${profileId}`, cpfDirty, persistCpf)
+  const cpfImpactNodes = useMemo(
+    () => (cpfDirty ? (["cpf.balance_manual"] as import("@/lib/impact-graph").ImpactNodeId[]) : undefined),
+    [cpfDirty],
+  )
+  useUserSettingsSaveRegistration(`user-settings-cpf-${profileId}`, cpfDirty, persistCpf, cpfImpactNodes)
 
   return (
     <>
@@ -1690,6 +1709,7 @@ function MonthlyLogSection({
     FinancialDataByFamily["monthlyCashflow"][0] | null
   >(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const cashflowImpact = useImpactConfirmation("cashflow.inflow")
 
   const profileLogs = logs.filter((l) => l.profile_id === profileId)
 
@@ -1863,7 +1883,7 @@ function MonthlyLogSection({
                     <Button
                       size="sm"
                       disabled={savingMonth != null}
-                      onClick={() => void saveMonth()}
+                      onClick={() => cashflowImpact.requestChange(() => void saveMonth())}
                     >
                       {savingMonth === expandedMonth && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                       Save
@@ -1913,6 +1933,7 @@ function MonthlyLogSection({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ImpactConfirmationDialog {...cashflowImpact.dialogProps} />
     </>
   )
 }
@@ -2654,7 +2675,11 @@ function LoansSection({
     }
   }, [loans, editing])
 
-  useUserSettingsSaveRegistration(`user-settings-loans-${profileId}`, loansDirty, persistLoans)
+  const loanImpactNodes = useMemo(
+    () => (loansDirty ? (["loan.details"] as import("@/lib/impact-graph").ImpactNodeId[]) : undefined),
+    [loansDirty],
+  )
+  useUserSettingsSaveRegistration(`user-settings-loans-${profileId}`, loansDirty, persistLoans, loanImpactNodes)
 
   const addLoanDialog = (
     <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -3472,7 +3497,11 @@ function InsuranceSection({
     }
   }, [policies, editing])
 
-  useUserSettingsSaveRegistration(`user-settings-insurance-${profileId}`, insuranceDirty, persistInsurance)
+  const insuranceImpactNodes = useMemo(
+    () => (insuranceDirty ? (["insurance.policies"] as import("@/lib/impact-graph").ImpactNodeId[]) : undefined),
+    [insuranceDirty],
+  )
+  useUserSettingsSaveRegistration(`user-settings-insurance-${profileId}`, insuranceDirty, persistInsurance, insuranceImpactNodes)
 
   const addInsuranceDialog = (
     <Dialog open={addOpen} onOpenChange={setAddOpen}>

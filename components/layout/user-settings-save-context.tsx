@@ -12,10 +12,13 @@ import {
 } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import type { ImpactNodeId } from "@/lib/impact-graph"
 
 export type UserSettingsSaveEntry = {
   isDirty: () => boolean
   save: () => Promise<void>
+  /** Impact graph nodes affected when this section is saved */
+  impactNodeIds?: ImpactNodeId[]
 }
 
 type UserSettingsSaveContextValue = {
@@ -26,6 +29,8 @@ type UserSettingsSaveContextValue = {
   isProfileDirty: (profileId: string) => boolean
   saveAll: () => Promise<void>
   isSaving: boolean
+  /** Collect all impact node IDs from dirty sections */
+  getDirtyImpactNodeIds: () => ImpactNodeId[]
 }
 
 const UserSettingsSaveContext = createContext<UserSettingsSaveContextValue | null>(null)
@@ -69,6 +74,16 @@ export function UserSettingsSaveProvider({ children }: { children: ReactNode }) 
     [generation]
   )
 
+  const getDirtyImpactNodeIds = useCallback((): ImpactNodeId[] => {
+    const ids: ImpactNodeId[] = []
+    for (const entry of registry.current.values()) {
+      if (entry.isDirty() && entry.impactNodeIds) {
+        ids.push(...entry.impactNodeIds)
+      }
+    }
+    return [...new Set(ids)]
+  }, [])
+
   const saveAll = useCallback(async () => {
     const sorted = [...registry.current.entries()].sort(([a], [b]) => a.localeCompare(b))
     const toRun = sorted.filter(([, e]) => e.isDirty())
@@ -97,8 +112,9 @@ export function UserSettingsSaveProvider({ children }: { children: ReactNode }) 
       isProfileDirty,
       saveAll,
       isSaving,
+      getDirtyImpactNodeIds,
     }),
-    [register, unregister, bumpDirty, aggregateDirty, isProfileDirty, saveAll, isSaving]
+    [register, unregister, bumpDirty, aggregateDirty, isProfileDirty, saveAll, isSaving, getDirtyImpactNodeIds]
   )
 
   return (
@@ -118,7 +134,12 @@ export function useOptionalUserSettingsSave() {
   return useContext(UserSettingsSaveContext)
 }
 
-export function useUserSettingsSaveRegistration(id: string, isDirty: boolean, save: () => Promise<void>) {
+export function useUserSettingsSaveRegistration(
+  id: string,
+  isDirty: boolean,
+  save: () => Promise<void>,
+  impactNodeIds?: ImpactNodeId[],
+) {
   const ctx = useOptionalUserSettingsSave()
   const register = ctx?.register
   const unregister = ctx?.unregister
@@ -137,9 +158,10 @@ export function useUserSettingsSaveRegistration(id: string, isDirty: boolean, sa
     register(id, {
       isDirty: () => isDirtyRef.current,
       save: () => saveRef.current(),
+      impactNodeIds,
     })
     return () => unregister(id)
-  }, [id, register, unregister])
+  }, [id, register, unregister, impactNodeIds])
 
   useEffect(() => {
     bumpDirty?.()

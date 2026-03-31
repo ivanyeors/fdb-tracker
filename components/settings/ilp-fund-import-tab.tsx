@@ -21,6 +21,8 @@ import { MonthYearPicker } from "@/components/ui/month-year-picker"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Input } from "@/components/ui/input"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import { ImpactConfirmationDialog } from "@/components/ui/impact-confirmation-dialog"
+import { useImpactConfirmation } from "@/hooks/use-impact-confirmation"
 import type { IlpFundReportSnapshot } from "@/lib/ilp-import/types"
 import { stripMhtmlToHtmlOnly } from "@/lib/ilp-import/strip-mhtml-client"
 import {
@@ -139,6 +141,7 @@ export function IlpFundImportTab({
   variant?: "card" | "inline"
 }) {
   const { activeFamilyId, activeProfileId, profiles } = useActiveProfile()
+  const ilpImpact = useImpactConfirmation("ilp.fund_value_manual")
   const familyId = activeFamilyId ?? familyIdProp
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const effectiveProfileId = selectedProfileId ?? activeProfileId
@@ -1111,12 +1114,14 @@ export function IlpFundImportTab({
   }
 
   const handleCommit = () => {
-    if (isMulti) {
-      if (saveMultiAsIndividual) void handleCommitMultiIndividual()
-      else void handleCommitMultiGroup()
-    } else {
-      void handleCommitSingle()
-    }
+    ilpImpact.requestChange(() => {
+      if (isMulti) {
+        if (saveMultiAsIndividual) void handleCommitMultiIndividual()
+        else void handleCommitMultiGroup()
+      } else {
+        void handleCommitSingle()
+      }
+    })
   }
 
   const onDrop = (e: React.DragEvent) => {
@@ -2230,8 +2235,10 @@ export function IlpFundImportTab({
     </>
   )
 
+  const impactDialog = <ImpactConfirmationDialog {...ilpImpact.dialogProps} />
+
   if (variant === "inline") {
-    return <div className="space-y-4">{inner}</div>
+    return <div className="space-y-4">{inner}{impactDialog}</div>
   }
 
   return (
@@ -2244,6 +2251,7 @@ export function IlpFundImportTab({
         </CardDescription>
       </CardHeader>
       <CardContent>{inner}</CardContent>
+      {impactDialog}
     </Card>
   )
 }

@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/select"
 import { Plus, Loader2, Trash2 } from "lucide-react"
 import { toast } from "sonner"
+import { ImpactConfirmationDialog } from "@/components/ui/impact-confirmation-dialog"
+import { useImpactConfirmation } from "@/hooks/use-impact-confirmation"
 
 const RELIEF_TYPES = [
   { value: "srs", label: "SRS Contribution" },
@@ -59,6 +61,7 @@ export function ManualReliefForm({
   )
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const reliefImpact = useImpactConfirmation("tax.reliefs_manual")
 
   useEffect(() => {
     setItems(reliefs.length > 0 ? reliefs : [])
@@ -188,10 +191,11 @@ export function ManualReliefForm({
             </div>
           ))}
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button onClick={handleSave} disabled={isLoading}>
+          <Button onClick={() => reliefImpact.requestChange(handleSave)} disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
             Save reliefs
           </Button>
+          <ImpactConfirmationDialog {...reliefImpact.dialogProps} />
         </div>
       )}
     </div>

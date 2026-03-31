@@ -4,7 +4,9 @@ import { ArrowUp, ArrowDown } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
+import { SourceBadge } from "@/components/ui/source-badge"
 import { TOOLTIPS } from "@/lib/tooltips"
+import type { ImpactNodeId } from "@/lib/impact-graph"
 import { cn, formatCurrency } from "@/lib/utils"
 
 interface MetricCardProps {
@@ -16,6 +18,10 @@ interface MetricCardProps {
   trend?: number
   trendLabel?: string
   tooltipId?: keyof typeof TOOLTIPS
+  /** Show an "Auto" or "Manual" source badge next to the label */
+  source?: "auto" | "manual"
+  /** Impact graph node for tooltip lookup on the source badge */
+  sourceNodeId?: ImpactNodeId
   className?: string
   loading?: boolean
 }
@@ -29,6 +35,8 @@ export function MetricCard({
   trend,
   trendLabel,
   tooltipId,
+  source,
+  sourceNodeId,
   className,
   loading = false,
 }: MetricCardProps) {
@@ -49,6 +57,7 @@ export function MetricCard({
         <div className="flex items-center gap-1.5">
           <p className="truncate text-sm text-muted-foreground">{label}</p>
           {tooltipId && <InfoTooltip id={tooltipId} />}
+          {source && <SourceBadge source={source} nodeId={sourceNodeId} />}
         </div>
         <p className="mt-1 truncate text-2xl font-bold tracking-tight">
           {prefix}

@@ -1,12 +1,14 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { ChevronRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { useUserSettingsSave } from "@/components/layout/user-settings-save-context"
+import { CombinedImpactConfirmationDialog } from "@/components/ui/combined-impact-confirmation-dialog"
+import type { ImpactNodeId } from "@/lib/impact-graph"
 import { cn } from "@/lib/utils"
 
 const segmentLabels: Record<string, string> = {
@@ -73,8 +75,26 @@ export function Header() {
   const searchParams = useSearchParams()
   const profileIdFromUrl = searchParams.get("profileId")
   const { setActiveProfileId, profiles } = useActiveProfile()
-  const { aggregateDirty, saveAll, isSaving } = useUserSettingsSave()
+  const { aggregateDirty, saveAll, isSaving, getDirtyImpactNodeIds } = useUserSettingsSave()
   const isUserSettings = pathname === "/settings/users"
+  const [impactDialogOpen, setImpactDialogOpen] = useState(false)
+  const [pendingImpactNodeIds, setPendingImpactNodeIds] = useState<ImpactNodeId[]>([])
+
+  const handleSaveClick = useCallback(() => {
+    const dirtyNodeIds = getDirtyImpactNodeIds()
+    if (dirtyNodeIds.length > 0) {
+      setPendingImpactNodeIds(dirtyNodeIds)
+      setImpactDialogOpen(true)
+    } else {
+      void saveAll()
+    }
+  }, [getDirtyImpactNodeIds, saveAll])
+
+  const handleImpactConfirm = useCallback(() => {
+    setImpactDialogOpen(false)
+    setPendingImpactNodeIds([])
+    void saveAll()
+  }, [saveAll])
 
   const lastSyncedDashboardProfileUrl = useRef<string | null | undefined>(undefined)
 
@@ -139,7 +159,7 @@ export function Header() {
               type="button"
               size="sm"
               disabled={!aggregateDirty || isSaving}
-              onClick={() => void saveAll()}
+              onClick={handleSaveClick}
             >
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Save
@@ -147,6 +167,12 @@ export function Header() {
           </div>
         )}
       </div>
+      <CombinedImpactConfirmationDialog
+        open={impactDialogOpen}
+        onOpenChange={setImpactDialogOpen}
+        sourceNodeIds={pendingImpactNodeIds}
+        onConfirm={handleImpactConfirm}
+      />
     </header>
   )
 }

@@ -24,6 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { ImpactConfirmationDialog } from "@/components/ui/impact-confirmation-dialog"
+import { useImpactConfirmation } from "@/hooks/use-impact-confirmation"
 import type { Profile } from "@/hooks/use-active-profile"
 
 export type LoanFormData = {
@@ -92,6 +94,7 @@ export function LoanFormSheet({
     loan?.max_annual_prepayment_pct ?? null,
   )
   const [saving, setSaving] = useState(false)
+  const loanImpact = useImpactConfirmation("loan.details")
 
   // Reset form when loan changes
   useEffect(() => {
@@ -453,11 +456,12 @@ export function LoanFormSheet({
         </ScrollArea>
 
         <ResponsiveSheetFooter className="px-4 pb-4">
-          <Button onClick={handleSave} disabled={saving} className="w-full">
+          <Button onClick={() => loanImpact.requestChange(handleSave)} disabled={saving} className="w-full">
             {saving ? "Saving..." : isEdit ? "Update Loan" : "Add Loan"}
           </Button>
         </ResponsiveSheetFooter>
       </ResponsiveSheetContent>
+      <ImpactConfirmationDialog {...loanImpact.dialogProps} />
     </ResponsiveSheet>
   )
 }
