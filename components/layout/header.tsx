@@ -6,6 +6,8 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { ChevronRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import { useScrollDirection } from "@/hooks/use-scroll-direction"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { useUserSettingsSave } from "@/components/layout/user-settings-save-context"
 import { CombinedImpactConfirmationDialog } from "@/components/ui/combined-impact-confirmation-dialog"
 import type { ImpactNodeId } from "@/lib/impact-graph"
@@ -76,6 +78,9 @@ export function Header() {
   const profileIdFromUrl = searchParams.get("profileId")
   const { setActiveProfileId, profiles } = useActiveProfile()
   const { aggregateDirty, saveAll, isSaving, getDirtyImpactNodeIds } = useUserSettingsSave()
+  const scrollDir = useScrollDirection()
+  const isMobile = useIsMobile()
+  const mobileCollapsed = isMobile && scrollDir === "down"
   const isUserSettings = pathname === "/settings/users"
   const [impactDialogOpen, setImpactDialogOpen] = useState(false)
   const [pendingImpactNodeIds, setPendingImpactNodeIds] = useState<ImpactNodeId[]>([])
@@ -124,8 +129,10 @@ export function Header() {
   return (
     <header
       className={cn(
-        "shrink-0 border-b bg-background px-3 sm:px-4",
+        "shrink-0 border-b bg-background px-3 transition-[max-height] duration-200 sm:px-4",
+        mobileCollapsed ? "max-h-0 overflow-hidden border-b-0" : "max-h-10",
         isUserSettings &&
+          !mobileCollapsed &&
           "sticky top-0 z-30 supports-backdrop-filter:bg-background/95 supports-backdrop-filter:backdrop-blur-sm"
       )}
     >

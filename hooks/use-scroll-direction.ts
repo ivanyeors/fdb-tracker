@@ -12,15 +12,23 @@ export function useScrollDirection(
 
   useEffect(() => {
     const el = document.getElementById(containerId)
-    if (!el) return
+    // On desktop the container scrolls; on mobile the viewport scrolls instead.
+    // Detect by checking if the container is actually height-constrained.
+    const isContainerScrollable =
+      el != null && el.clientHeight > 0 && el.scrollHeight > el.clientHeight
+    const target = isContainerScrollable ? el : null
 
-    lastY.current = el.scrollTop
+    function getScrollTop() {
+      return target ? target.scrollTop : window.scrollY
+    }
+
+    lastY.current = getScrollTop()
 
     function onScroll() {
       if (ticking.current) return
       ticking.current = true
       requestAnimationFrame(() => {
-        const y = el!.scrollTop
+        const y = getScrollTop()
         const delta = y - lastY.current
         if (Math.abs(delta) >= threshold) {
           setDirection(delta > 0 ? "down" : "up")
@@ -30,8 +38,9 @@ export function useScrollDirection(
       })
     }
 
-    el.addEventListener("scroll", onScroll, { passive: true })
-    return () => el.removeEventListener("scroll", onScroll)
+    const listenTarget: EventTarget = target || window
+    listenTarget.addEventListener("scroll", onScroll, { passive: true })
+    return () => listenTarget.removeEventListener("scroll", onScroll)
   }, [containerId, threshold])
 
   return direction

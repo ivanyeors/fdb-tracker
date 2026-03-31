@@ -52,7 +52,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <SidebarProvider>
             <TopNav />
             <SidebarNav />
-            <SidebarInset className="min-h-0 pt-(--top-nav-height)">
+            <SidebarInset className="min-h-0 pt-(--top-nav-height) transition-[padding-top] duration-200">
               <AppMainChrome>{children}</AppMainChrome>
             </SidebarInset>
           </SidebarProvider>

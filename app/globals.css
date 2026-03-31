@@ -49,6 +49,12 @@
   }
 }
 
+@media (max-width: 767px) {
+  :root[data-mobile-nav-collapsed="true"] {
+    --top-nav-height: 36px;
+  }
+}
+
 .dark {
     --background: oklch(0.147 0.004 49.25);
     --foreground: oklch(0.985 0.001 106.423);
