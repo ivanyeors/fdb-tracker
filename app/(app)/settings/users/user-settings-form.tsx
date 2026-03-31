@@ -5124,7 +5124,7 @@ export function FamilyMembersTable({
             </CardDescription>
           </div>
           <Button onClick={() => setAddDialogOpen(true)} variant="outline" size="sm" className="shrink-0">
-            <UserPlus className="h-4 w-4 sm:mr-2" />
+            <UserPlus className="h-4 w-4" />
             <span className="hidden sm:inline">Add family member</span>
           </Button>
         </div>
