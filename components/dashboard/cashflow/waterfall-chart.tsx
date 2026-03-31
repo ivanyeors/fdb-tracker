@@ -38,7 +38,7 @@ export type WaterfallData = {
   netSavings: number
 }
 
-type WaterfallBarItem = {
+export type WaterfallBarItem = {
   name: string
   start: number
   end: number
@@ -46,7 +46,28 @@ type WaterfallBarItem = {
   type: "anchor" | "inflow" | "outflow" | "net"
 }
 
-function buildWaterfallBars(data: WaterfallData): WaterfallBarItem[] {
+export type InvestmentWaterfallSection = {
+  startingValue: number
+  endingValue: number
+  dividends: number
+  buys: number
+  sells: number
+  marketGain: number
+}
+
+export type CpfWaterfallSection = {
+  startingBalance: number
+  endingBalance: number
+  contributions: number
+  housing: number
+}
+
+export type WaterfallDataV2 = WaterfallData & {
+  investments?: InvestmentWaterfallSection
+  cpf?: CpfWaterfallSection
+}
+
+export function buildWaterfallBars(data: WaterfallData): WaterfallBarItem[] {
   const bars: WaterfallBarItem[] = []
   const hasBankBalance = data.startingBankBalance != null
 
@@ -257,25 +278,25 @@ function WaterfallChartInner({
     [yMax, chartData],
   )
 
-  // Connector lines between adjacent non-anchor bars
+  // Connector lines — connect bar bottom edge to next bar top edge (no padding gap)
   const connectors = useMemo(() => {
     const result: { x: number; yTop: number; yBottom: number; dashed: boolean }[] = []
+    const bw = yScale.bandwidth() ?? 0
+    const barH = Math.max(bw * 0.6, 4)
+    const barOffset = (bw - barH) / 2
+
     for (let i = 0; i < chartData.length - 1; i++) {
       const curr = chartData[i]!
       const next = chartData[i + 1]!
       // Skip connector TO anchor/net bars (they start from 0)
       if (next.type === "anchor" || next.type === "net") continue
-      // Skip connector FROM anchor bars to the first inflow/outflow
+      const xVal = curr.end
+      const yTop = (yScale(curr.name) ?? 0) + barOffset + barH
+      const yBottom = (yScale(next.name) ?? 0) + barOffset
       if (curr.type === "anchor") {
-        const xVal = curr.end
-        const yTop = (yScale(curr.name) ?? 0) + (yScale.bandwidth() ?? 0)
-        const yBottom = yScale(next.name) ?? 0
         result.push({ x: xScale(xVal) ?? 0, yTop, yBottom, dashed: true })
         continue
       }
-      const xVal = curr.end
-      const yTop = (yScale(curr.name) ?? 0) + (yScale.bandwidth() ?? 0)
-      const yBottom = yScale(next.name) ?? 0
       result.push({ x: xScale(xVal) ?? 0, yTop, yBottom, dashed: false })
     }
     return result
@@ -387,7 +408,8 @@ function WaterfallChartInner({
               y1={c.yTop}
               x2={c.x}
               y2={c.yBottom}
-              stroke="var(--color-border)"
+              stroke="var(--color-foreground)"
+              strokeOpacity={0.3}
               strokeWidth={1}
               strokeDasharray={c.dashed ? "4 3" : undefined}
             />

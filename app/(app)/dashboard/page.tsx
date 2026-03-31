@@ -19,7 +19,7 @@ import { CpfCard } from "@/components/dashboard/cpf/cpf-card"
 import { IlpCard } from "@/components/dashboard/investments/ilp-card"
 import { IlpGroupSummaryCard } from "@/components/dashboard/investments/ilp-group-summary-card"
 import { fundValueForAllocation } from "@/lib/investments/ilp-fund-value-for-allocation"
-import type { WaterfallData } from "@/components/dashboard/cashflow/waterfall-chart"
+import type { WaterfallDataV2 } from "@/components/dashboard/cashflow/waterfall-chart"
 import {
   JournalList,
   type JournalEntry,
@@ -33,10 +33,10 @@ import { Progress } from "@/components/ui/progress"
 import { ChartSkeleton } from "@/components/loading"
 import { Skeleton } from "@/components/ui/skeleton"
 
-const WaterfallChart = dynamic(
+const SectionedWaterfall = dynamic(
   () =>
-    import("@/components/dashboard/cashflow/waterfall-chart").then(
-      (m) => m.WaterfallChart
+    import("@/components/dashboard/cashflow/sectioned-waterfall").then(
+      (m) => m.SectionedWaterfall
     ),
   { ssr: false, loading: () => <ChartSkeleton className="h-[300px]" /> }
 )
@@ -223,7 +223,7 @@ export default function OverviewPage() {
   const waterfallUrl = effectiveMonth
     ? `/api/cashflow?month=${effectiveMonth}${qs ? `&${qs}` : ""}`
     : null
-  const { data: waterfallData } = useApi<WaterfallData>(waterfallUrl)
+  const { data: waterfallData } = useApi<WaterfallDataV2>(waterfallUrl)
 
   // ILP products
   const ilpUrl = `/api/investments/ilp${qs ? `?${qs}` : ""}`
@@ -835,7 +835,7 @@ export default function OverviewPage() {
                   No cashflow data for this month
                 </div>
               ) : waterfallData ? (
-                <WaterfallChart data={waterfallData} />
+                <SectionedWaterfall data={waterfallData} />
               ) : effectiveMonth ? (
                 <ChartSkeleton height={300} />
               ) : (

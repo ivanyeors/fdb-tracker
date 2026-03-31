@@ -6,6 +6,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { calculateTakeHome } from "@/lib/calculations/take-home"
 import { computeBankTotal } from "@/lib/calculations/computed-bank-balance"
+import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
+import type {
+  InvestmentWaterfallSection,
+  CpfWaterfallSection,
+} from "@/components/dashboard/cashflow/waterfall-chart"
 import {
   buildGiroOutflowByProfile,
   monthlyTaxForProfile,
@@ -47,6 +52,8 @@ type SingleMonthResult = {
     giroTransfers: number
   }
   netSavings: number
+  investments?: InvestmentWaterfallSection
+  cpf?: CpfWaterfallSection
 }
 
 export async function fetchSingleMonthCashflow(
@@ -129,7 +136,10 @@ export async function fetchSingleMonthCashflow(
   const nextMonthDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1)
   const nextMonthStr = nextMonthDate.toISOString().slice(0, 10)
 
-  const [earlyRepaymentsRes, goalContributionsRes, oneTimeIlpRes, investmentTxnsRes, bankAccountsForInterestRes, dividendTxnsRes] =
+  const prevMonthDate = new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1)
+  const prevMonthStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}-01`
+
+  const [earlyRepaymentsRes, goalContributionsRes, oneTimeIlpRes, investmentTxnsRes, bankAccountsForInterestRes, dividendTxnsRes, invSnapshotStartRes, invSnapshotEndRes, cpfBalancesRes] =
     await Promise.all([
       allLoanIds.length > 0
         ? supabase
@@ -172,6 +182,28 @@ export async function fetchSingleMonthCashflow(
         .eq("type", "dividend")
         .gte("created_at", monthStr)
         .lt("created_at", nextMonthStr),
+      // Investment snapshot: last entry before month start
+      supabase
+        .from("investment_snapshots")
+        .select("total_value")
+        .eq("family_id", familyId)
+        .lt("date", monthStr)
+        .order("date", { ascending: false })
+        .limit(1),
+      // Investment snapshot: last entry before month end
+      supabase
+        .from("investment_snapshots")
+        .select("total_value")
+        .eq("family_id", familyId)
+        .lt("date", nextMonthStr)
+        .order("date", { ascending: false })
+        .limit(1),
+      // CPF balances for prev month and target month
+      supabase
+        .from("cpf_balances")
+        .select("profile_id, month, oa, sa, ma")
+        .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
+        .in("month", [prevMonthStr, monthStr]),
     ])
 
   // Fetch tax entries (actual_amount)
@@ -514,6 +546,101 @@ export async function fetchSingleMonthCashflow(
 
   const round = (n: number) => Math.round(n * 100) / 100
 
+  // ── Investment section ──
+  let investmentSection: InvestmentWaterfallSection | undefined
+  const invStartSnapshot = invSnapshotStartRes.data?.[0]
+  const invEndSnapshot = invSnapshotEndRes.data?.[0]
+  if (invStartSnapshot || invEndSnapshot) {
+    const invStartVal = invStartSnapshot?.total_value ?? 0
+    const invEndVal = invEndSnapshot?.total_value ?? 0
+
+    // Sum buys, sells, dividends from already-fetched transaction data
+    let totalBuys = 0
+    let totalSells = 0
+    for (const txn of investmentTxnsRes.data ?? []) {
+      const amt = txn.quantity * txn.price
+      if (txn.type === "buy") totalBuys += amt
+      else if (txn.type === "sell") totalSells += amt
+    }
+
+    const invMarketGain = invEndVal - invStartVal - dividends - totalSells + totalBuys
+
+    investmentSection = {
+      startingValue: round(invStartVal),
+      endingValue: round(invEndVal),
+      dividends: round(dividends),
+      buys: round(totalBuys),
+      sells: round(totalSells),
+      marketGain: round(invMarketGain),
+    }
+  }
+
+  // ── CPF section ──
+  let cpfSection: CpfWaterfallSection | undefined
+  const cpfRows = cpfBalancesRes.data ?? []
+  if (cpfRows.length > 0 || profileIds.length > 0) {
+    // Aggregate CPF balances by month
+    let cpfStartOa = 0, cpfStartSa = 0, cpfStartMa = 0
+    let cpfEndOa = 0, cpfEndSa = 0, cpfEndMa = 0
+    let hasEndBalance = false
+
+    for (const row of cpfRows) {
+      const m = typeof row.month === "string" ? row.month.slice(0, 10) : ""
+      const oa = Number(row.oa) || 0
+      const sa = Number(row.sa) || 0
+      const ma = Number(row.ma) || 0
+      if (m === prevMonthStr) {
+        cpfStartOa += oa; cpfStartSa += sa; cpfStartMa += ma
+      } else if (m === monthStr) {
+        cpfEndOa += oa; cpfEndSa += sa; cpfEndMa += ma
+        hasEndBalance = true
+      }
+    }
+
+    // Compute monthly contributions from income
+    let totalContributions = 0
+    for (const pid of profileIds) {
+      const profile = profileById.get(pid)
+      const incomeConfig = incomeByProfileId.get(pid)
+      if (!profile || !incomeConfig || incomeConfig.annual_salary <= 0) continue
+      const age = getAge(profile.birth_year, year)
+      const monthlyGross = incomeConfig.annual_salary / 12
+      const contrib = calculateCpfContribution(monthlyGross, age, year)
+      totalContributions += contrib.total
+    }
+
+    // CPF OA housing deductions (use_cpf_oa loans)
+    let cpfHousing = 0
+    for (const pid of profileIds) {
+      const profileLoans = loansByProfile.get(pid) ?? []
+      for (const loan of profileLoans) {
+        if (!loan.use_cpf_oa) continue
+        const monthlyRate = loan.rate_pct / 100 / 12
+        let payment = 0
+        if (monthlyRate > 0 && loan.tenure_months > 0) {
+          payment = (loan.principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -loan.tenure_months))
+        } else if (loan.tenure_months > 0) {
+          payment = loan.principal / loan.tenure_months
+        }
+        cpfHousing += payment
+      }
+    }
+
+    const cpfStart = cpfStartOa + cpfStartSa + cpfStartMa
+    const cpfEnd = hasEndBalance
+      ? cpfEndOa + cpfEndSa + cpfEndMa
+      : cpfStart + totalContributions - cpfHousing
+
+    if (cpfStart > 0 || cpfEnd > 0 || totalContributions > 0) {
+      cpfSection = {
+        startingBalance: round(cpfStart),
+        endingBalance: round(cpfEnd),
+        contributions: round(totalContributions),
+        housing: round(cpfHousing),
+      }
+    }
+  }
+
   const roundedInflowBreakdown =
     Object.keys(inflowBreakdown).length > 0
       ? Object.fromEntries(
@@ -542,5 +669,7 @@ export async function fetchSingleMonthCashflow(
       giroTransfers: round(giroTransfers),
     },
     netSavings: round(netSavings),
+    investments: investmentSection,
+    cpf: cpfSection,
   }
 }
