@@ -85,7 +85,8 @@ export default async function CashflowPage() {
       supabase
         .from("outflow_categories")
         .select("id, name, icon")
-        .order("name", { ascending: true }),
+        .eq("household_id", accountId)
+        .order("sort_order", { ascending: true }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any)
         .from("category_rules")
