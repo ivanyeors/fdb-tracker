@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
+import { AppIcon } from "@/components/ui/app-icon"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -51,7 +52,8 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-svh items-center justify-center p-4">
       <Card className="w-full max-w-sm">
-        <CardHeader>
+        <CardHeader className="items-center">
+          <AppIcon className="size-10" />
           <CardTitle className="text-center text-xl font-semibold tracking-tight">
             fdb-tracker
           </CardTitle>

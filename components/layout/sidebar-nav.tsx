@@ -40,6 +40,7 @@ import { createSupabaseClient } from "@/lib/supabase/client"
 import { CompleteSetupNav } from "@/components/layout/complete-setup-nav"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
+import { AppIcon } from "@/components/ui/app-icon"
 
 const dashboardItems = [
   { title: "Overview", href: "/dashboard", icon: BarChart3 },
@@ -89,9 +90,7 @@ export function SidebarNav() {
   return (
     <Sidebar>
       <SidebarHeader className="px-4 py-2">
-        <span className="text-sm font-semibold tracking-tight text-muted-foreground">
-          fdb-tracker
-        </span>
+        <AppIcon className="size-6" />
       </SidebarHeader>
       <SidebarContent>
         <CompleteSetupNav />
