@@ -146,9 +146,13 @@
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
     touch-action: manipulation;
-    -webkit-user-select: none;
-    user-select: none;
     }
+  @media (pointer: coarse) {
+    body {
+      -webkit-user-select: none;
+      user-select: none;
+    }
+  }
   html {
     @apply font-sans;
     }

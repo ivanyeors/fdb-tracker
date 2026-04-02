@@ -18,8 +18,6 @@ const historyQuerySchema = z.object({
   days: z.coerce.number().int().min(1).max(90).optional(),
 })
 
-const BACKFILL_THRESHOLD = 7
-
 /** Generate YYYY-MM-DD dates from start to end (inclusive). */
 function dateRange(startStr: string, endStr: string): string[] {
   const out: string[] = []
@@ -281,13 +279,17 @@ export async function GET(request: NextRequest) {
       data.sort((a, b) => a.date.localeCompare(b.date))
     }
 
-    if (data.length < BACKFILL_THRESHOLD) {
-      const backfilled = await backfillHistory(supabase, fid, pid, startStr, endStr)
-      const snapshotMap = new Map(data.map((d) => [d.date, d.value]))
+    // Always backfill so that newly added ILP products (with past entries)
+    // are reflected in the chart line, even when snapshots already exist.
+    // Backfilled values override snapshots because snapshots are point-in-time
+    // and don't include retroactively added positions.
+    const backfilled = await backfillHistory(supabase, fid, pid, startStr, endStr)
+    if (backfilled.length > 0) {
+      const merged = new Map(data.map((d) => [d.date, d.value]))
       for (const b of backfilled) {
-        if (!snapshotMap.has(b.date)) snapshotMap.set(b.date, b.value)
+        merged.set(b.date, b.value)
       }
-      data = Array.from(snapshotMap.entries())
+      data = Array.from(merged.entries())
         .map(([date, value]) => ({ date, value }))
         .sort((a, b) => a.date.localeCompare(b.date))
     }

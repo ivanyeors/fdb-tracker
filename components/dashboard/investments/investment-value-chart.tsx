@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect, useMemo, useId, useCallback } from "react"
+import { useState, useMemo, useId, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { LinePath, AreaClosed } from "@visx/shape"
+import { useApi } from "@/hooks/use-api"
 import { useChartHeight } from "@/hooks/use-chart-height"
 import { curveMonotoneX } from "@visx/curve"
 import { scalePoint, scaleLinear } from "@visx/scale"
@@ -22,6 +23,10 @@ interface InvestmentValueChartProps {
   profileId?: string | null
   familyId?: string | null
   className?: string
+  /** Live portfolio total from SWR-managed data; used for the headline
+   *  number so it reflects intra-day mutations without waiting for the
+   *  next cron snapshot. */
+  liveTotal?: number
   /** Optional breakdown matching portfolio total (listed + cash + ILP). */
   breakdown?: {
     holdingsLive: number
@@ -253,45 +258,27 @@ export function InvestmentValueChart({
   profileId,
   familyId,
   className = "",
+  liveTotal,
   breakdown,
 }: InvestmentValueChartProps) {
   const chartHeight = useChartHeight(192, 160)
   const { effectiveDisplayCurrency, sgdPerUsd, formatMoney } =
     useInvestmentsDisplayCurrency()
   const [days, setDays] = useState<30 | 60 | 90>(30)
-  const [history, setHistory] = useState<DailyData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    if (!profileId && !familyId) return
-
-    let cancelled = false
+  const historyKey = useMemo(() => {
+    if (!profileId && !familyId) return null
     const params = new URLSearchParams()
     if (profileId) params.set("profileId", profileId)
     else if (familyId) params.set("familyId", familyId)
-
-    void Promise.resolve().then(() => {
-      if (!cancelled) setIsLoading(true)
-    })
-
-    fetch(`/api/investments/history?days=${days}&${params}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => {
-        if (cancelled) return
-        if (json?.data) setHistory(json.data)
-        else setHistory([])
-      })
-      .catch(() => {
-        if (!cancelled) setHistory([])
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
+    params.set("days", String(days))
+    return `/api/investments/history?${params}`
   }, [profileId, familyId, days])
+
+  const { data: historyRaw, isLoading } = useApi<{ data: DailyData[] }>(
+    historyKey,
+  )
+  const history = historyRaw?.data ?? []
 
   const series = useMemo(
     () =>
@@ -304,7 +291,7 @@ export function InvestmentValueChart({
     [history, effectiveDisplayCurrency, sgdPerUsd],
   )
 
-  const latestValueSgd = history[history.length - 1]?.value ?? 0
+  const latestValueSgd = liveTotal ?? (history[history.length - 1]?.value ?? 0)
   const firstValueSgd = history[0]?.value ?? 0
   const trend =
     firstValueSgd > 0

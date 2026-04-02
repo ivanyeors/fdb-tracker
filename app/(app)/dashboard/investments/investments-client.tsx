@@ -719,6 +719,7 @@ export function InvestmentsClient({
             profileId={activeProfileId}
             familyId={activeFamilyId}
             className="min-h-0"
+            liveTotal={!isLoading ? fullPortfolioTotal : undefined}
             breakdown={
               !isLoading
                 ? {
