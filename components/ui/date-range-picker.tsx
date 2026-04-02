@@ -63,7 +63,11 @@ export function DateRangePicker({
           {displayValue}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 overflow-visible" align="start">
+      <PopoverContent
+        className="w-auto max-w-none p-0 overflow-visible"
+        align="start"
+        avoidCollisions={false}
+      >
         <Calendar
           mode="range"
           month={displayMonth}

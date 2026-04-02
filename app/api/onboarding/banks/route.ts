@@ -100,6 +100,7 @@ export async function POST(request: Request) {
           family_id: familyId,
           bank_name: acc.bank_name,
           account_type: acc.account_type,
+          account_number: acc.account_number ?? null,
           profile_id: profileId,
           opening_balance: acc.opening_balance ?? 0,
         })

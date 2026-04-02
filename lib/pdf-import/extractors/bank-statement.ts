@@ -1,65 +1,18 @@
 import type {
   BankStatementExtractionResult,
+  BankTransaction,
   ExtractionWarning,
 } from "@/lib/pdf-import/types"
-
-function parseAmount(str: string): number | null {
-  const cleaned = str.replace(/[$,\s]/g, "")
-  const num = parseFloat(cleaned)
-  return isNaN(num) ? null : num
-}
-
-const BANK_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
-  { pattern: /\bDBS\b/g, name: "DBS" },
-  { pattern: /\bPOSB\b/g, name: "POSB" },
-  { pattern: /\bOCBC\b/g, name: "OCBC" },
-  { pattern: /\bUOB\b/g, name: "UOB" },
-  { pattern: /standard\s+chartered/i, name: "Standard Chartered" },
-  { pattern: /\bCIMB\b/g, name: "CIMB" },
-  { pattern: /\bHSBC\b/g, name: "HSBC" },
-  { pattern: /maybank/i, name: "Maybank" },
-  { pattern: /citibank/i, name: "Citibank" },
-]
-
-function detectBank(text: string): string | null {
-  for (const { pattern, name } of BANK_PATTERNS) {
-    if (pattern.test(text)) {
-      pattern.lastIndex = 0
-      return name
-    }
-    pattern.lastIndex = 0
-  }
-  return null
-}
-
-const MONTH_MAP: Record<string, string> = {
-  jan: "01", january: "01", feb: "02", february: "02", mar: "03", march: "03",
-  apr: "04", april: "04", may: "05", jun: "06", june: "06", jul: "07", july: "07",
-  aug: "08", august: "08", sep: "09", september: "09", oct: "10", october: "10",
-  nov: "11", november: "11", dec: "12", december: "12",
-}
-
-function extractMonth(text: string): string | null {
-  // "Statement for January 2026" or "Statement Period: 01 Jan 2026 to 31 Jan 2026"
-  const stmtFor = text.match(
-    /statement\s+(?:for|period)[^]*?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i
-  )
-  if (stmtFor) {
-    const mm = MONTH_MAP[stmtFor[1].toLowerCase()]
-    if (mm) return `${stmtFor[2]}-${mm}-01`
-  }
-
-  // "DD Mon YYYY" date pattern near "statement" keyword
-  const datePattern = text.match(
-    /(\d{1,2})\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i
-  )
-  if (datePattern) {
-    const mm = MONTH_MAP[datePattern[2].toLowerCase()]
-    if (mm) return `${datePattern[3]}-${mm}-01`
-  }
-
-  return null
-}
+import {
+  parseAmount,
+  detectBank,
+  extractMonth,
+} from "@/lib/pdf-import/parsers/common"
+import {
+  parseOcbcBankStatement,
+  categorizeTransaction,
+  type CategoryRule,
+} from "@/lib/pdf-import/parsers/ocbc-transaction-parser"
 
 function extractBalance(text: string, patterns: RegExp[]): number | null {
   for (const pat of patterns) {
@@ -80,7 +33,10 @@ function extractBalance(text: string, patterns: RegExp[]): number | null {
   return null
 }
 
-export function extractBankStatement(text: string): BankStatementExtractionResult {
+export function extractBankStatement(
+  text: string,
+  pages?: string[],
+): BankStatementExtractionResult {
   const warnings: ExtractionWarning[] = []
 
   const bankName = detectBank(text)
@@ -89,20 +45,67 @@ export function extractBankStatement(text: string): BankStatementExtractionResul
   const month = extractMonth(text)
   if (!month) warnings.push({ field: "month", message: "Could not determine statement month" })
 
-  const openingBalance = extractBalance(text, [
+  // Existing balance extraction (works on merged text)
+  let openingBalance = extractBalance(text, [
     /opening\s+balance/i,
     /beginning\s+balance/i,
     /balance\s+brought?\s+forward/i,
   ])
-  if (openingBalance === null) {
-    warnings.push({ field: "openingBalance", message: "Could not extract opening balance" })
-  }
-
-  const closingBalance = extractBalance(text, [
+  let closingBalance = extractBalance(text, [
     /closing\s+balance/i,
     /ending\s+balance/i,
     /balance\s+carried?\s+forward/i,
   ])
+
+  // Transaction parsing (requires per-page text)
+  let transactions: BankTransaction[] = []
+  let accountNumber: string | null = null
+  let totalDebit: number | null = null
+  let totalCredit: number | null = null
+
+  if (pages && pages.length > 0 && bankName === "OCBC") {
+    const result = parseOcbcBankStatement(pages)
+    accountNumber = result.accountNumber
+    transactions = result.transactions.map((t) => ({
+      date: t.date,
+      valueDate: t.valueDate,
+      description: t.description,
+      amount: t.amount,
+      balance: t.balance,
+      txnType: t.txnType,
+      categoryName: t.categoryName,
+      foreignCurrency: t.foreignCurrency,
+      excludeFromSpending: t.excludeFromSpending,
+      rawText: t.rawText,
+    }))
+
+    // Use parser's balances if our regex extraction missed them
+    if (openingBalance === null && result.openingBalance !== null) {
+      openingBalance = result.openingBalance
+    }
+    if (closingBalance === null && result.closingBalance !== null) {
+      closingBalance = result.closingBalance
+    }
+
+    // Auto-categorize (empty rules — real rules loaded at save time)
+    const defaultRules: CategoryRule[] = []
+    for (const txn of transactions) {
+      if (!txn.categoryName) {
+        txn.categoryName = categorizeTransaction(txn.description, defaultRules)
+      }
+    }
+
+    totalDebit = transactions
+      .filter((t) => t.txnType === "debit")
+      .reduce((sum, t) => sum + t.amount, 0) || null
+    totalCredit = transactions
+      .filter((t) => t.txnType === "credit")
+      .reduce((sum, t) => sum + t.amount, 0) || null
+  }
+
+  if (openingBalance === null) {
+    warnings.push({ field: "openingBalance", message: "Could not extract opening balance" })
+  }
   if (closingBalance === null) {
     warnings.push({ field: "closingBalance", message: "Could not extract closing balance" })
   }
@@ -113,6 +116,10 @@ export function extractBankStatement(text: string): BankStatementExtractionResul
     month,
     openingBalance,
     closingBalance,
+    accountNumber,
+    transactions,
+    totalDebit,
+    totalCredit,
     warnings,
   }
 }

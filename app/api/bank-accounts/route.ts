@@ -9,6 +9,7 @@ import { computeAccountBalance } from "@/lib/calculations/computed-bank-balance"
 const createAccountSchema = z.object({
   bankName: z.string().min(1),
   accountType: z.string().min(1),
+  accountNumber: z.string().optional(),
   profileId: z.string().uuid().optional(),
   familyId: z.string().uuid().optional(),
   interestRatePct: z.number().min(0).optional(),
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { bankName, accountType, profileId, familyId, interestRatePct, openingBalance, lockedAmount } = parsed.data
+    const { bankName, accountType, accountNumber, profileId, familyId, interestRatePct, openingBalance, lockedAmount } = parsed.data
     const supabase = createSupabaseAdmin()
 
     let targetFamilyId: string
@@ -202,6 +203,7 @@ export async function POST(request: NextRequest) {
         bank_name: bankName,
         account_type: accountType,
         ...(profileId && { profile_id: profileId }),
+        ...(accountNumber && { account_number: accountNumber }),
         ...(interestRatePct !== undefined && { interest_rate_pct: interestRatePct }),
         ...(openingBalance !== undefined && { opening_balance: openingBalance }),
         ...(lockedAmount !== undefined && { locked_amount: lockedAmount }),

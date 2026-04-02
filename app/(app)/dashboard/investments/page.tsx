@@ -1216,7 +1216,7 @@ export default function InvestmentsDetailPage() {
             </div>
           ) : (
             <div className="max-w-lg">
-              <PreciousMetals metals={metalsHoldings} />
+              <PreciousMetals metals={metalsHoldings} onSellSuccess={handleMutation} />
             </div>
           )}
         </TabsContent>

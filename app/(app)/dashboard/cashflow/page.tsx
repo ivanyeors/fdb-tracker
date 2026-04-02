@@ -7,6 +7,8 @@ import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { ChartSkeleton } from "@/components/loading"
+import Link from "next/link"
+import { ArrowRight } from "lucide-react"
 
 const CashflowChart = dynamic(
   () =>
@@ -186,6 +188,27 @@ export default function CashflowPage() {
               </CardContent>
             </Card>
           )}
+          {/* Transactions link */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between text-base">
+                Spending Breakdown
+                <Link
+                  href="/dashboard/cashflow/transactions"
+                  className="inline-flex items-center gap-1 text-sm font-normal text-primary hover:underline"
+                >
+                  View Transactions
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Upload bank and credit card statements to see a detailed
+                spending breakdown by category.
+              </p>
+            </CardContent>
+          </Card>
         </>
       )}
     </div>

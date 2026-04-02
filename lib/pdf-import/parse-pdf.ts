@@ -3,6 +3,8 @@ import { extractText } from "unpdf"
 export interface PdfParseResult {
   text: string
   pageCount: number
+  /** Per-page text (preserves line breaks within each page). */
+  pages: string[]
 }
 
 /**
@@ -11,9 +13,15 @@ export interface PdfParseResult {
  * (no DOMMatrix or browser APIs required).
  */
 export async function parsePdf(buffer: Buffer): Promise<PdfParseResult> {
-  const result = await extractText(new Uint8Array(buffer), { mergePages: true })
+  const merged = await extractText(new Uint8Array(buffer), {
+    mergePages: true,
+  })
+  const perPage = await extractText(new Uint8Array(buffer), {
+    mergePages: false,
+  })
   return {
-    text: result.text,
-    pageCount: result.totalPages,
+    text: merged.text,
+    pageCount: merged.totalPages,
+    pages: perPage.text as unknown as string[],
   }
 }

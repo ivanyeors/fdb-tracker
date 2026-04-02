@@ -26,10 +26,11 @@ export interface SellHoldingInitial {
 
 interface SellHoldingDialogProps {
   initial: SellHoldingInitial
+  defaultPrice?: number | null
   onSuccess?: () => void
 }
 
-export function SellHoldingDialog({ initial, onSuccess }: SellHoldingDialogProps) {
+export function SellHoldingDialog({ initial, defaultPrice, onSuccess }: SellHoldingDialogProps) {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const [open, setOpen] = useState(false)
   const [quantity, setQuantity] = useState("")
@@ -40,9 +41,9 @@ export function SellHoldingDialog({ initial, onSuccess }: SellHoldingDialogProps
   useEffect(() => {
     if (!open) return
     setQuantity("")
-    setPrice(null)
+    setPrice(defaultPrice ?? null)
     setJournalText("")
-  }, [open, initial.symbol, initial.maxUnits])
+  }, [open, initial.symbol, initial.maxUnits, defaultPrice])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

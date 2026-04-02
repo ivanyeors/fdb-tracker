@@ -1,5 +1,22 @@
-import type { ExtractionResult } from "@/lib/pdf-import/types"
+import type { ExtractionResult, BankTransaction } from "@/lib/pdf-import/types"
 import { DOCUMENT_TYPE_LABELS } from "@/lib/pdf-import/types"
+
+function buildCategoryBreakdown(
+  transactions: BankTransaction[],
+): Array<{ name: string; count: number; total: number }> {
+  const map = new Map<string, { count: number; total: number }>()
+  for (const txn of transactions) {
+    if (txn.excludeFromSpending) continue
+    const name = txn.categoryName || "Others"
+    const existing = map.get(name) ?? { count: 0, total: 0 }
+    existing.count++
+    existing.total += Math.abs(txn.amount)
+    map.set(name, existing)
+  }
+  return Array.from(map.entries())
+    .map(([name, data]) => ({ name, ...data }))
+    .sort((a, b) => b.total - a.total)
+}
 
 function fmtAmt(n: number): string {
   return (
@@ -59,8 +76,37 @@ export function formatExtractionSummary(
     case "bank_statement":
       if (result.bankName) fields.push({ label: "Bank", value: result.bankName })
       if (result.month) fields.push({ label: "Month", value: result.month })
+      if (result.accountNumber) fields.push({ label: "Account", value: `...${result.accountNumber.slice(-4)}` })
       if (result.openingBalance !== null) fields.push({ label: "Opening Bal.", value: fmtAmt(result.openingBalance) })
       if (result.closingBalance !== null) fields.push({ label: "Closing Bal.", value: fmtAmt(result.closingBalance) })
+      if (result.transactions.length > 0) {
+        fields.push({ label: "Transactions", value: `${result.transactions.length} found` })
+        if (result.totalDebit !== null) fields.push({ label: "Total Withdrawals", value: fmtAmt(Math.abs(result.totalDebit)) })
+        if (result.totalCredit !== null) fields.push({ label: "Total Deposits", value: fmtAmt(result.totalCredit) })
+        // Category breakdown
+        const bankCatBreakdown = buildCategoryBreakdown(result.transactions)
+        for (const entry of bankCatBreakdown.slice(0, 6)) {
+          fields.push({ label: `  ${entry.name}`, value: `${entry.count} txns (${fmtAmt(entry.total)})` })
+        }
+      }
+      break
+
+    case "cc_statement":
+      if (result.bankName) fields.push({ label: "Bank", value: result.bankName })
+      if (result.month) fields.push({ label: "Month", value: result.month })
+      if (result.cardNumber) fields.push({ label: "Card", value: `...${result.cardNumber.slice(-4)}` })
+      if (result.totalAmountDue !== null) fields.push({ label: "Amount Due", value: fmtAmt(result.totalAmountDue) })
+      if (result.minimumPayment !== null) fields.push({ label: "Min. Payment", value: fmtAmt(result.minimumPayment) })
+      if (result.transactions.length > 0) {
+        fields.push({ label: "Transactions", value: `${result.transactions.length} found` })
+        if (result.totalDebit !== null) fields.push({ label: "Total Charges", value: fmtAmt(Math.abs(result.totalDebit)) })
+        if (result.totalCredit !== null) fields.push({ label: "Total Credits", value: fmtAmt(result.totalCredit) })
+        // Category breakdown
+        const ccCatBreakdown = buildCategoryBreakdown(result.transactions)
+        for (const entry of ccCatBreakdown.slice(0, 6)) {
+          fields.push({ label: `  ${entry.name}`, value: `${entry.count} txns (${fmtAmt(entry.total)})` })
+        }
+      }
       break
 
     case "tax_noa":

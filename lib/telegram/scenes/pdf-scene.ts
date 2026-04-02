@@ -83,7 +83,7 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
 
       // Parse PDF (dynamic import to avoid loading pdfjs-dist at module level)
       const { parsePdf } = await import("@/lib/pdf-import/parse-pdf")
-      const { text, pageCount } = await parsePdf(buffer)
+      const { text, pageCount, pages } = await parsePdf(buffer)
 
       if (!text || text.trim().length < 50) {
         await ctx.reply(
@@ -100,8 +100,8 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
       ctx.scene.session.pdfDocType = classification.type
       ctx.scene.session.pdfConfidence = classification.confidence
 
-      // Run extraction immediately
-      const extracted = extractDocument(text, classification.type)
+      // Run extraction immediately (pass pages for transaction-level parsing)
+      const extracted = extractDocument(text, classification.type, pages)
       ctx.scene.session.pdfExtracted = extracted as unknown as Record<string, unknown>
 
       // Show classification result
@@ -433,23 +433,41 @@ async function saveExtractedData(
       if (!extracted.month) throw new Error("Month is required for bank statement")
       if (!familyId) throw new Error("Family ID is required")
 
-      // Try to match bank account by bank name
+      // Try to match bank account: account number first, then bank name
       const { data: accounts } = await supabase
         .from("bank_accounts")
-        .select("id, bank_name")
+        .select("id, bank_name, account_type, account_number")
         .eq("family_id", familyId)
 
       let accountId: string | null = null
-      if (accounts && extracted.bankName) {
-        const match = accounts.find(
-          (a) => a.bank_name.toLowerCase() === extracted.bankName!.toLowerCase(),
-        )
-        if (match) accountId = match.id
+      if (accounts) {
+        // 1. Try account number match (last 4 digits)
+        if (extracted.accountNumber) {
+          const last4 = extracted.accountNumber.replace(/[-\s]/g, "").slice(-4)
+          const numMatch = accounts.find(
+            (a) => a.account_number && a.account_number.slice(-4) === last4,
+          )
+          if (numMatch) accountId = numMatch.id
+        }
+
+        // 2. Fallback: bank name + account type
+        if (!accountId && extracted.bankName) {
+          const bankAccounts = accounts.filter(
+            (a) => a.bank_name.toLowerCase() === extracted.bankName!.toLowerCase(),
+          )
+          const match =
+            bankAccounts.find((a) => a.account_type === "savings") ??
+            bankAccounts.find((a) => a.account_type === "basic") ??
+            bankAccounts.find((a) => a.account_type === "ocbc_360") ??
+            bankAccounts[0]
+          if (match) accountId = match.id
+        }
       }
 
       if (!accountId) {
+        const acctNum = extracted.accountNumber ? ` (${extracted.accountNumber})` : ""
         throw new Error(
-          `No matching bank account found for "${extracted.bankName ?? "unknown"}". ` +
+          `No matching bank account found for "${extracted.bankName ?? "unknown"}"${acctNum}. ` +
             "Please create the bank account in the dashboard first.",
         )
       }
@@ -464,6 +482,97 @@ async function saveExtractedData(
         { onConflict: "account_id,month" },
       )
       if (error) throw new Error(error.message)
+
+      // Save parsed transactions if available
+      if (extracted.transactions && extracted.transactions.length > 0) {
+        const txnRows = extracted.transactions.map((txn) => ({
+          profile_id: profileId,
+          family_id: familyId,
+          account_id: accountId,
+          month: extracted.month!,
+          txn_date: txn.date,
+          value_date: txn.valueDate ?? null,
+          description: txn.description,
+          amount: txn.amount,
+          balance: txn.balance,
+          txn_type: txn.txnType,
+          statement_type: "bank" as const,
+          foreign_currency: txn.foreignCurrency ?? null,
+          exclude_from_spending: txn.excludeFromSpending,
+          source: "telegram" as const,
+          raw_text: txn.rawText,
+        }))
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: txnError } = await (supabase as any)
+          .from("bank_transactions")
+          .upsert(txnRows, {
+            onConflict: "profile_id,month,txn_date,description,amount,statement_type",
+          })
+        if (txnError) {
+          console.error("[pdf-scene] Failed to save transactions:", txnError.message)
+        }
+      }
+      break
+    }
+
+    case "cc_statement": {
+      if (!extracted.month) throw new Error("Month is required for CC statement")
+      if (!familyId) throw new Error("Family ID is required")
+
+      // Try to match bank account: card number first, then bank name
+      const { data: ccAccounts } = await supabase
+        .from("bank_accounts")
+        .select("id, bank_name, account_number")
+        .eq("family_id", familyId)
+
+      let ccAccountId: string | null = null
+      if (ccAccounts) {
+        // 1. Try card number match (last 4 digits)
+        if (extracted.cardNumber) {
+          const last4 = extracted.cardNumber.replace(/[-\s]/g, "").slice(-4)
+          const numMatch = ccAccounts.find(
+            (a) => a.account_number && a.account_number.slice(-4) === last4,
+          )
+          if (numMatch) ccAccountId = numMatch.id
+        }
+
+        // 2. Fallback: bank name
+        if (!ccAccountId && extracted.bankName) {
+          const match = ccAccounts.find(
+            (a) => a.bank_name.toLowerCase() === extracted.bankName!.toLowerCase(),
+          )
+          if (match) ccAccountId = match.id
+        }
+      }
+
+      // Save transactions
+      if (extracted.transactions && extracted.transactions.length > 0) {
+        const txnRows = extracted.transactions.map((txn) => ({
+          profile_id: profileId,
+          family_id: familyId,
+          account_id: ccAccountId,
+          month: extracted.month!,
+          txn_date: txn.date,
+          description: txn.description,
+          amount: txn.amount,
+          balance: txn.balance,
+          txn_type: txn.txnType,
+          statement_type: "cc" as const,
+          foreign_currency: txn.foreignCurrency ?? null,
+          exclude_from_spending: txn.excludeFromSpending,
+          source: "telegram" as const,
+          raw_text: txn.rawText,
+        }))
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: ccTxnError } = await (supabase as any)
+          .from("bank_transactions")
+          .upsert(txnRows, {
+            onConflict: "profile_id,month,txn_date,description,amount,statement_type",
+          })
+        if (ccTxnError) throw new Error(ccTxnError.message)
+      }
       break
     }
 

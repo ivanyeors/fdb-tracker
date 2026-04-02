@@ -212,7 +212,7 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = createSupabaseAdmin()
-    const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.example.com"
+    const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://dollar.ivanyeo.com"
 
     const { data: schedules, error: schedError } = await supabase
       .from("prompt_schedule")
@@ -289,7 +289,7 @@ export async function GET(request: NextRequest) {
 
       const chatTargets =
         profileChats.length > 0
-          ? profileChats
+          ? [...new Set(profileChats)]
           : [account.telegram_chat_id]
 
       for (const chatTarget of chatTargets) {
@@ -345,7 +345,7 @@ export async function GET(request: NextRequest) {
 
           const targets =
             profileChats.length > 0
-              ? profileChats
+              ? [...new Set(profileChats)]
               : [hh.telegram_chat_id as string]
 
           for (const chatTarget of targets) {

@@ -2,6 +2,7 @@ export const DOCUMENT_TYPES = [
   "cpf_statement",
   "insurance_policy",
   "bank_statement",
+  "cc_statement",
   "tax_noa",
   "loan_letter",
   "ilp_statement",
@@ -14,6 +15,7 @@ export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   cpf_statement: "CPF Statement",
   insurance_policy: "Insurance Policy",
   bank_statement: "Bank Statement",
+  cc_statement: "Credit Card Statement",
   tax_noa: "Tax Notice of Assessment",
   loan_letter: "Loan Letter",
   ilp_statement: "ILP Statement",
@@ -76,12 +78,43 @@ export interface InsuranceExtractionResult extends BaseExtractionResult {
   maturityValue: number | null
 }
 
+export interface BankTransaction {
+  date: string
+  valueDate?: string
+  description: string
+  amount: number
+  balance: number | null
+  txnType: "debit" | "credit"
+  categoryName: string
+  foreignCurrency?: string
+  excludeFromSpending: boolean
+  rawText: string
+}
+
 export interface BankStatementExtractionResult extends BaseExtractionResult {
   docType: "bank_statement"
   bankName: string | null
   month: string | null
   openingBalance: number | null
   closingBalance: number | null
+  accountNumber: string | null
+  transactions: BankTransaction[]
+  totalDebit: number | null
+  totalCredit: number | null
+}
+
+export interface CcStatementExtractionResult extends BaseExtractionResult {
+  docType: "cc_statement"
+  bankName: string | null
+  month: string | null
+  cardNumber: string | null
+  statementDate: string | null
+  paymentDueDate: string | null
+  totalAmountDue: number | null
+  minimumPayment: number | null
+  transactions: BankTransaction[]
+  totalDebit: number | null
+  totalCredit: number | null
 }
 
 export interface TaxExtractionResult extends BaseExtractionResult {
@@ -126,6 +159,7 @@ export type ExtractionResult =
   | CpfExtractionResult
   | InsuranceExtractionResult
   | BankStatementExtractionResult
+  | CcStatementExtractionResult
   | TaxExtractionResult
   | LoanExtractionResult
   | IlpExtractionResult

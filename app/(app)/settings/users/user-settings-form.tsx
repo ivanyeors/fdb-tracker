@@ -157,6 +157,7 @@ export type FinancialDataByFamily = {
     id: string
     bank_name: string
     account_type: string
+    account_number: string | null
     opening_balance: number
     interest_rate_pct: number | null
     locked_amount?: number
@@ -866,6 +867,7 @@ function BanksSection({
   const [newBank, setNewBank] = useState({
     bank_name: "",
     account_type: "savings" as const,
+    account_number: "",
     opening_balance: 0,
     interest_rate_pct: 0,
     locked_amount: 0,
@@ -896,6 +898,7 @@ function BanksSection({
         body: JSON.stringify({
           bankName: newBank.bank_name,
           accountType: newBank.account_type,
+          accountNumber: newBank.account_number || undefined,
           profileId,
           familyId,
           openingBalance: newBank.opening_balance,
@@ -908,7 +911,7 @@ function BanksSection({
         throw new Error(data.error ?? "Failed to add")
       }
       toast.success("Bank account added")
-      setNewBank({ bank_name: "", account_type: "savings", opening_balance: 0, interest_rate_pct: 0, locked_amount: 0 })
+      setNewBank({ bank_name: "", account_type: "savings", account_number: "", opening_balance: 0, interest_rate_pct: 0, locked_amount: 0 })
       setAddOpen(false)
       onMutate()
       router.refresh()
@@ -943,6 +946,7 @@ function BanksSection({
         body: JSON.stringify({
           bankName: e.bank_name,
           accountType: e.account_type,
+          accountNumber: e.account_number ?? null,
           profileId: e.profile_id,
           openingBalance: e.opening_balance,
           interestRatePct: e.interest_rate_pct ?? 0,
@@ -989,6 +993,14 @@ function BanksSection({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Account number (optional)</Label>
+            <Input
+              placeholder="e.g. 595427493001"
+              value={newBank.account_number}
+              onChange={(e) => setNewBank((p) => ({ ...p, account_number: e.target.value }))}
+            />
           </div>
           <div className="space-y-2">
             <Label>Opening balance</Label>

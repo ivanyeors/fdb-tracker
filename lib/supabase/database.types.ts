@@ -267,6 +267,7 @@ export type Database = {
           profile_id: string | null
           bank_name: string
           account_type: string
+          account_number: string | null
           interest_rate_pct: number | null
           opening_balance: number
           created_at: string
@@ -277,6 +278,7 @@ export type Database = {
           profile_id?: string | null
           bank_name: string
           account_type?: string
+          account_number?: string | null
           interest_rate_pct?: number | null
           opening_balance?: number
           created_at?: string
@@ -287,6 +289,7 @@ export type Database = {
           profile_id?: string | null
           bank_name?: string
           account_type?: string
+          account_number?: string | null
           interest_rate_pct?: number | null
           opening_balance?: number
           created_at?: string
