@@ -37,11 +37,9 @@ import { HoldingDetailSheet } from "@/components/dashboard/investments/holding-d
 import { groupHoldings } from "@/lib/investments/group-holdings"
 import { IlpCard } from "@/components/dashboard/investments/ilp-card"
 import { IlpGroupSummaryCard } from "@/components/dashboard/investments/ilp-group-summary-card"
-import { PreciousMetals } from "@/components/dashboard/investments/precious-metals"
 import { AddHoldingForm } from "@/components/dashboard/investments/add-holding-form"
 import { InvestmentAccountBalance } from "@/components/dashboard/investments/investment-account-balance"
 import { AddIlpSheetContent } from "@/components/dashboard/investments/add-ilp-sheet-content"
-import { AddMetalForm } from "@/components/dashboard/investments/add-metal-form"
 import { ChartSkeleton } from "@/components/loading"
 import {
   JournalList,
@@ -55,7 +53,6 @@ import {
   currentMonthYm,
   ilpEntryMonthKey,
 } from "@/lib/investments/ilp-chart"
-import { valuateGold, valuateSilver } from "@/lib/calculations/precious-metals"
 import { calculateRebalancing, type RebalanceSuggestion } from "@/lib/calculations/rebalancing"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -146,7 +143,6 @@ const INVESTMENTS_TAB_SET = new Set([
   "holdings",
   "allocation",
   "ilp",
-  "metals",
   "activity",
 ])
 
@@ -160,9 +156,6 @@ export default function InvestmentsDetailPage() {
   const { dataVersion, triggerRefresh } = useDataRefresh()
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [ilpProducts, setIlpProducts] = useState<IlpProductWithEntries[]>([])
-  const [metalsPrices, setMetalsPrices] = useState<
-    { metalType: string; buyPriceSgd: number; sellPriceSgd: number }[]
-  >([])
   const [cashBalance, setCashBalance] = useState(0)
   const [accountRowId, setAccountRowId] = useState<string | null>(null)
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
@@ -211,10 +204,9 @@ export default function InvestmentsDetailPage() {
       if (activeProfileId) params.set("profileId", activeProfileId)
       else if (activeFamilyId) params.set("familyId", activeFamilyId)
 
-      const [invRes, ilpRes, pricesRes, accountRes, txRes] = await Promise.all([
+      const [invRes, ilpRes, accountRes, txRes] = await Promise.all([
         fetch(`/api/investments?${params}`),
         fetch(`/api/investments/ilp?${params}`),
-        fetch("/api/prices?metals=true"),
         fetch(`/api/investments/account?${params}`),
         fetch(`/api/investments/transactions?${params}&limit=100`),
       ])
@@ -350,23 +342,6 @@ export default function InvestmentsDetailPage() {
         setIlpProducts(productsWithEntries)
       }
 
-      if (pricesRes.ok) {
-        const { metals } = await pricesRes.json()
-        setMetalsPrices(
-          (metals ?? []).map(
-            (m: {
-              metalType: string
-              buyPriceSgd: number
-              sellPriceSgd: number
-            }) => ({
-              metalType: m.metalType,
-              buyPriceSgd: m.buyPriceSgd,
-              sellPriceSgd: m.sellPriceSgd,
-            }),
-          ),
-        )
-      }
-
       if (accountRes.ok) {
         const acc = await accountRes.json()
         setCashBalance(acc.cashBalance ?? 0)
@@ -484,44 +459,6 @@ export default function InvestmentsDetailPage() {
       ),
     [ilpProducts],
   )
-
-  const metalsHoldings = useMemo(() => {
-    const goldSilver = holdings.filter(
-      (h) => h.type === "gold" || h.type === "silver",
-    )
-    return goldSilver.map((h) => {
-      const priceData = metalsPrices.find(
-        (m) => m.metalType.toLowerCase() === h.type.toLowerCase(),
-      )
-      const sellPrice = priceData?.sellPriceSgd ?? h.currentPrice ?? 0
-      const buyFromFeed = priceData?.buyPriceSgd ?? null
-      const valuation =
-        h.type === "gold"
-          ? valuateGold(h.units, sellPrice, h.costBasis, buyFromFeed)
-          : valuateSilver(h.units, sellPrice, h.costBasis, buyFromFeed)
-      return {
-        type: h.type as "gold" | "silver",
-        unitsOz: h.units,
-        buyPrice: valuation.buyPriceSgdPerOz,
-        sellPrice: valuation.sellPriceSgdPerOz,
-        currentValue: valuation.currentValueSgd,
-        costBasis: valuation.totalCostBasisSgd,
-        pnl: valuation.pnlSgd,
-        pnlPct: valuation.pnlPct,
-        lastUpdated: priceData
-          ? new Date().toLocaleString("en-SG", {
-              dateStyle: "short",
-              timeStyle: "short",
-            })
-          : "—",
-        dateAdded: h.createdAt
-          ? new Date(h.createdAt).toLocaleString("en-SG", {
-              dateStyle: "long",
-            })
-          : "—",
-      }
-    })
-  }, [holdings, metalsPrices])
 
   const ilpCardsData = useMemo(() => {
     return ilpProducts.map((p: IlpProductWithEntries) => {
@@ -892,7 +829,6 @@ export default function InvestmentsDetailPage() {
             <TabsTrigger value="holdings">Holdings</TabsTrigger>
             <TabsTrigger value="allocation">Allocation</TabsTrigger>
             <TabsTrigger value="ilp">ILP</TabsTrigger>
-            <TabsTrigger value="metals">Precious Metals</TabsTrigger>
             <TabsTrigger value="activity">Activity</TabsTrigger>
           </TabsList>
         </div>
@@ -1199,24 +1135,6 @@ export default function InvestmentsDetailPage() {
                   }}
                 />
               ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="metals" className="mt-4 space-y-4">
-          <div className="max-w-lg rounded-xl border p-4">
-            <h3 className="mb-4 text-sm font-medium">Add Precious Metal</h3>
-            <AddMetalForm onSuccess={handleMutation} />
-          </div>
-          {isLoading ? (
-            <ChartSkeleton height={192} className="max-w-lg rounded-xl" />
-          ) : metalsHoldings.length === 0 ? (
-            <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-              No precious metals holdings. Add gold or silver above to get started.
-            </div>
-          ) : (
-            <div className="max-w-lg">
-              <PreciousMetals metals={metalsHoldings} onSellSuccess={handleMutation} />
             </div>
           )}
         </TabsContent>

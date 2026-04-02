@@ -212,6 +212,7 @@ export function HoldingsTable({
                           symbol: singleLot.symbol,
                           maxUnits: singleLot.units,
                         }}
+                        defaultPrice={singleLot.currentPrice}
                         onSuccess={onChanged}
                       />
                     ) : null}

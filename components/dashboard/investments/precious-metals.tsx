@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { cn } from "@/lib/utils"
 import { useInvestmentsDisplayCurrency } from "@/components/dashboard/investments/investments-display-currency"
-import { SellHoldingDialog } from "@/components/dashboard/investments/sell-holding-dialog"
 
 interface MetalHolding {
   type: "gold" | "silver"
@@ -22,7 +21,6 @@ interface MetalHolding {
 
 interface PreciousMetalsProps {
   metals: MetalHolding[]
-  onSellSuccess?: () => void
 }
 
 function fmt(n: number): string {
@@ -32,7 +30,7 @@ function fmt(n: number): string {
   })
 }
 
-export function PreciousMetals({ metals, onSellSuccess }: PreciousMetalsProps) {
+export function PreciousMetals({ metals }: PreciousMetalsProps) {
   const { formatMoney } = useInvestmentsDisplayCurrency()
   const lastUpdated = metals[0]?.lastUpdated ?? "—"
 
@@ -62,19 +60,7 @@ export function PreciousMetals({ metals, onSellSuccess }: PreciousMetalsProps) {
               />
               <div className="flex-1 space-y-1 text-sm">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <span className="font-semibold capitalize">{m.type}</span>
-                    {m.unitsOz > 0 && (
-                      <SellHoldingDialog
-                        initial={{
-                          symbol: m.type === "gold" ? "Gold" : "Silver",
-                          maxUnits: m.unitsOz,
-                        }}
-                        defaultPrice={m.sellPrice}
-                        onSuccess={onSellSuccess}
-                      />
-                    )}
-                  </div>
+                  <span className="font-semibold capitalize">{m.type}</span>
                   <span className="text-muted-foreground">
                     {fmt(m.unitsOz)} oz
                   </span>
