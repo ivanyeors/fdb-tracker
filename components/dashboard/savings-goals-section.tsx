@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useMemo } from "react"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { formatCurrency } from "@/lib/utils"
 import { calculateMonthlyAuto } from "@/lib/calculations/savings-goals"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { useActiveProfile } from "@/hooks/use-active-profile"
-import { useDataRefresh } from "@/hooks/use-data-refresh"
+import { useApi } from "@/hooks/use-api"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -40,36 +40,14 @@ interface Goal {
 
 export function SavingsGoalsSection() {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
-  const { dataVersion } = useDataRefresh()
-  const [goals, setGoals] = useState<Goal[]>([])
-  const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    async function fetchGoals() {
-      if (!activeProfileId && !activeFamilyId) {
-        setIsLoading(false)
-        return
-      }
+  const apiPath = activeProfileId
+    ? `/api/goals?profileId=${activeProfileId}`
+    : activeFamilyId
+      ? `/api/goals?familyId=${activeFamilyId}`
+      : null
 
-      setIsLoading(true)
-      try {
-        const url = new URL("/api/goals", window.location.origin)
-        if (activeProfileId) url.searchParams.set("profileId", activeProfileId)
-        else if (activeFamilyId) url.searchParams.set("familyId", activeFamilyId)
-
-        const res = await fetch(url)
-        if (res.ok) {
-          const json = await res.json()
-          setGoals(json)
-        }
-      } catch (error) {
-        console.error("Failed to fetch goals:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    void fetchGoals()
-  }, [activeProfileId, activeFamilyId, dataVersion])
+  const { data: goals = [], isLoading } = useApi<Goal[]>(apiPath)
 
   const totalTarget = useMemo(
     () => goals.reduce((sum, g) => sum + g.target_amount, 0),

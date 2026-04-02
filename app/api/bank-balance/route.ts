@@ -113,48 +113,72 @@ export async function GET(request: NextRequest) {
       getGiroCreditForAccount(supabase, bankAccountId),
     ])
 
-    const monthlyData = await Promise.all(
-      monthRange.map(async (month) => {
-        const cf = cashflowMap[month] ?? { inflow: 0, outflow: 0 }
+    // Fetch inflow and outflow for all profile+month combos in parallel
+    // instead of sequential per-profile loops inside each month
+    const profileMonthPairs = profileIds.flatMap((pid) =>
+      monthRange.map((month) => ({ pid, month })),
+    )
 
-        // Resolve inflow and fixed costs across all relevant profiles
-        let resolvedInflow = 0
-        let insurancePremiums = 0
-        let ilpPremiums = 0
-        let loanRepayments = 0
-        let taxProvision = 0
-        let savingsGoals = 0
+    const [inflowResults, outflowResults] = await Promise.all([
+      Promise.all(
+        profileMonthPairs.map(({ pid, month }) =>
+          getEffectiveInflowForProfile(supabase, pid, month),
+        ),
+      ),
+      Promise.all(
+        profileMonthPairs.map(({ pid, month }) =>
+          getEffectiveOutflowForProfile(supabase, pid, month),
+        ),
+      ),
+    ])
 
-        for (const pid of profileIds) {
-          resolvedInflow += await getEffectiveInflowForProfile(
-            supabase,
-            pid,
-            month,
-          )
-          const eff = await getEffectiveOutflowForProfile(supabase, pid, month)
+    // Build lookup maps: "profileId:month" -> value
+    const inflowMap = new Map<string, number>()
+    const outflowMap = new Map<string, Awaited<ReturnType<typeof getEffectiveOutflowForProfile>>>()
+    profileMonthPairs.forEach(({ pid, month }, i) => {
+      const key = `${pid}:${month}`
+      inflowMap.set(key, inflowResults[i]!)
+      outflowMap.set(key, outflowResults[i]!)
+    })
+
+    const monthlyData = monthRange.map((month) => {
+      const cf = cashflowMap[month] ?? { inflow: 0, outflow: 0 }
+
+      let resolvedInflow = 0
+      let insurancePremiums = 0
+      let ilpPremiums = 0
+      let loanRepayments = 0
+      let taxProvision = 0
+      let savingsGoals = 0
+
+      for (const pid of profileIds) {
+        const key = `${pid}:${month}`
+        resolvedInflow += inflowMap.get(key) ?? 0
+        const eff = outflowMap.get(key)
+        if (eff) {
           insurancePremiums += eff.insurance
           ilpPremiums += eff.ilp
           loanRepayments += eff.loans
           taxProvision += eff.tax
           savingsGoals += eff.savingsGoals
         }
+      }
 
-        // If no profiles resolved (edge case), fall back to raw cashflow
-        if (profileIds.length === 0) {
-          resolvedInflow = cf.inflow
-        }
+      // If no profiles resolved (edge case), fall back to raw cashflow
+      if (profileIds.length === 0) {
+        resolvedInflow = cf.inflow
+      }
 
-        return {
-          month,
-          inflow: resolvedInflow + giroCredit,
-          discretionaryOutflow: cf.outflow + giroDebit + savingsGoals,
-          insurancePremiums,
-          ilpPremiums,
-          loanRepayments,
-          taxProvision,
-        }
-      }),
-    )
+      return {
+        month,
+        inflow: resolvedInflow + giroCredit,
+        discretionaryOutflow: cf.outflow + giroDebit + savingsGoals,
+        insurancePremiums,
+        ilpPremiums,
+        loanRepayments,
+        taxProvision,
+      }
+    })
 
     // Use most recent reconciliation snapshot as baseline, or fall back to opening_balance
     let openingBalance: number

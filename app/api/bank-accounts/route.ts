@@ -4,7 +4,7 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { fetchOcbc360DerivedForAccount } from "@/lib/api/ocbc360-derived"
-import { computeAccountBalance } from "@/lib/calculations/computed-bank-balance"
+import { computeAccountBalancesBulk } from "@/lib/calculations/computed-bank-balance"
 
 const createAccountSchema = z.object({
   bankName: z.string().min(1),
@@ -82,9 +82,7 @@ export async function GET(request: NextRequest) {
             .select("*")
             .in("account_id", ocbcAccountIds)
         : Promise.resolve({ data: null }),
-      Promise.all(
-        accounts.map((a) => computeAccountBalance(supabase, a.id)),
-      ),
+      computeAccountBalancesBulk(supabase, accounts),
     ])
 
     const ocbcConfigs: Record<string, Record<string, unknown>> = {}
@@ -95,7 +93,7 @@ export async function GET(request: NextRequest) {
     }
 
     const balanceByAccount = new Map(
-      computedBalances.map((b) => [b.accountId, b.balance]),
+      computedBalances.map((b) => [b.accountId, b.balance] as const),
     )
 
     const result = await Promise.all(

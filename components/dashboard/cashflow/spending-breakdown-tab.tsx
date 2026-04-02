@@ -16,6 +16,7 @@ import {
   type ParsedResult,
 } from "@/components/dashboard/cashflow/import-preview-dialog"
 import { CategoryManagerButton } from "@/components/dashboard/cashflow/category-manager"
+import { CategoryBreakdownChart } from "@/components/dashboard/cashflow/category-breakdown-chart"
 
 const STATEMENT_TYPE_OPTIONS = [
   { value: "all", label: "All" },
@@ -101,6 +102,22 @@ export function SpendingBreakdownTab({
   )
 
   const txnList = useMemo(() => transactions ?? [], [transactions])
+
+  const categoryBreakdown = useMemo(() => {
+    const byCategory = new Map<string, { count: number; total: number }>()
+    for (const txn of txnList) {
+      if (txn.exclude_from_spending || txn.txn_type === "credit") continue
+      const cat = txn.outflow_categories
+      const name = cat?.name ?? "Uncategorized"
+      const existing = byCategory.get(name) ?? { count: 0, total: 0 }
+      existing.count++
+      existing.total += Math.abs(txn.amount)
+      byCategory.set(name, existing)
+    }
+    return Array.from(byCategory.entries())
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.total - a.total)
+  }, [txnList])
 
   // When parent provides new parsed results, open the preview dialog
   const lastResultCount = useMemo(() => parsedResults.length, [parsedResults])
@@ -226,6 +243,15 @@ export function SpendingBreakdownTab({
         />
         <CategoryManagerButton />
       </div>
+
+      {/* Spending by category donut chart */}
+      {!isLoading && categoryBreakdown.length > 0 && (
+        <Card>
+          <CardContent className="p-6">
+            <CategoryBreakdownChart data={categoryBreakdown} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Main Content */}
       {isLoading && !txnList.length ? (

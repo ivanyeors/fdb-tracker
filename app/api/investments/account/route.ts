@@ -12,21 +12,18 @@ import type { SupabaseClient } from "@supabase/supabase-js"
  */
 async function getGiroInvestmentCredit(
   supabase: SupabaseClient,
-  _familyId: string,
+  familyId: string,
 ): Promise<number> {
   const { data: rules } = await supabase
     .from("giro_rules")
     .select("amount")
+    .eq("family_id", familyId)
     .eq("is_active", true)
     .eq("destination_type", "investments")
 
   if (!rules || rules.length === 0) return 0
 
-  // We need to verify these GIRO rules belong to this family's bank accounts
-  const ruleAmountTotal = rules.reduce((sum, r) => sum + r.amount, 0)
-
-  // For now, return total — the GIRO rules are already scoped by the user's session
-  return ruleAmountTotal
+  return rules.reduce((sum, r) => sum + r.amount, 0)
 }
 
 const accountQuerySchema = z.object({

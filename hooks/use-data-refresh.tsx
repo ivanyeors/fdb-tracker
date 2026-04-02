@@ -1,12 +1,13 @@
 "use client"
 
 import * as React from "react"
+import { useSWRConfig } from "swr"
 
 type DataRefreshContextValue = {
-  /** Monotonically increasing counter — include in useEffect deps to refetch on mutation */
-  dataVersion: number
-  /** Call after any successful create/update/delete to notify all pages */
-  triggerRefresh: () => void
+  /** Call after any successful create/update/delete to revalidate SWR caches.
+   *  Pass a scope string (e.g. "cashflow", "investments") to only revalidate
+   *  matching API paths, or omit for a full revalidation. */
+  triggerRefresh: (scope?: string) => void
 }
 
 const DataRefreshContext = React.createContext<DataRefreshContextValue | null>(
@@ -18,16 +19,30 @@ export function DataRefreshProvider({
 }: {
   children: React.ReactNode
 }) {
-  const [dataVersion, setDataVersion] = React.useState(0)
+  const { mutate } = useSWRConfig()
 
-  const triggerRefresh = React.useCallback(() => {
-    setDataVersion((v) => v + 1)
-  }, [])
-
-  const value = React.useMemo(
-    () => ({ dataVersion, triggerRefresh }),
-    [dataVersion, triggerRefresh],
+  const triggerRefresh = React.useCallback(
+    (scope?: string) => {
+      if (scope) {
+        // Revalidate only keys whose path contains the scope
+        mutate(
+          (key) => typeof key === "string" && key.includes(scope),
+          undefined,
+          { revalidate: true },
+        )
+      } else {
+        // Global revalidation: revalidate all keys
+        mutate(
+          (key) => typeof key === "string" && key.startsWith("/api/"),
+          undefined,
+          { revalidate: true },
+        )
+      }
+    },
+    [mutate],
   )
+
+  const value = React.useMemo(() => ({ triggerRefresh }), [triggerRefresh])
 
   return (
     <DataRefreshContext.Provider value={value}>

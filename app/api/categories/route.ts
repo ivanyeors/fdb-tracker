@@ -19,24 +19,25 @@ export async function GET(request: NextRequest) {
 
   const supabase = createSupabaseAdmin()
 
-  // Fetch categories with rule count
-  const { data: categories, error } = await supabase
-    .from("outflow_categories")
-    .select("id, name, icon, sort_order, is_system, created_at")
-    .eq("household_id", householdId)
-    .order("sort_order", { ascending: true })
+  // Fetch categories and rule counts in parallel
+  const [categoriesResult, ruleCountsResult] = await Promise.all([
+    supabase
+      .from("outflow_categories")
+      .select("id, name, icon, sort_order, is_system, created_at")
+      .eq("household_id", householdId)
+      .order("sort_order", { ascending: true }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from("category_rules")
+      .select("category_id")
+      .eq("household_id", householdId),
+  ])
 
+  const { data: categories, error } = categoriesResult
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Get rule counts per category
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: ruleCounts } = await (supabase as any)
-    .from("category_rules")
-    .select("category_id")
-    .eq("household_id", householdId)
-
   const ruleCountMap = new Map<string, number>()
-  for (const row of ruleCounts ?? []) {
+  for (const row of ruleCountsResult.data ?? []) {
     ruleCountMap.set(
       row.category_id,
       (ruleCountMap.get(row.category_id) ?? 0) + 1

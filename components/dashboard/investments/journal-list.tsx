@@ -161,7 +161,6 @@ export function JournalList({ entries }: JournalListProps) {
                       alt={`${entry.symbol} screenshot`}
                       width={800}
                       height={600}
-                      unoptimized
                       className="h-48 w-auto max-w-full rounded-md border object-cover"
                     />
                   )}

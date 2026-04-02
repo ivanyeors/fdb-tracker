@@ -57,10 +57,6 @@ export default function LoginPage() {
           <CardTitle className="text-center text-xl font-semibold tracking-tight">
             fdb-tracker
           </CardTitle>
-          <CardDescription className="text-center">
-            Send /otp in your Telegram channel to get your code, then enter it
-            below.
-          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="grid gap-2">

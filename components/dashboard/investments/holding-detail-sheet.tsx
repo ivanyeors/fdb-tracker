@@ -302,7 +302,6 @@ function TxTable({
                     alt="Attachment"
                     width={400}
                     height={300}
-                    unoptimized
                     className="mt-2 h-32 w-auto max-w-full rounded border object-cover"
                   />
                 ) : null}

@@ -5,7 +5,21 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -20,8 +34,7 @@ import {
   Trash2,
   Lock,
   X,
-  ChevronDown,
-  Loader2,
+  Check,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -65,31 +78,24 @@ export function CategoryManagerPage({
     }
     return map
   })
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(
+    initialCategories[0]?.id ?? null
+  )
+  const [editingName, setEditingName] = useState(false)
   const [editName, setEditName] = useState("")
   const [newCategoryName, setNewCategoryName] = useState("")
   const [isAddingCategory, setIsAddingCategory] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [nameError, setNameError] = useState<string | null>(null)
-  const [newRulePatterns, setNewRulePatterns] = useState<Map<string, string>>(
-    new Map()
-  )
+  const [newRulePattern, setNewRulePattern] = useState("")
+
+  const activeCategory = categories.find((c) => c.id === activeCategoryId)
+  const activeRules = activeCategoryId
+    ? rulesMap.get(activeCategoryId) ?? []
+    : []
 
   function getRuleCount(categoryId: string): number {
     return rulesMap.get(categoryId)?.length ?? 0
-  }
-
-  function toggleExpand(categoryId: string) {
-    setExpandedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(categoryId)) {
-        next.delete(categoryId)
-      } else {
-        next.add(categoryId)
-      }
-      return next
-    })
   }
 
   function isDuplicateName(name: string, excludeId?: string): boolean {
@@ -129,18 +135,20 @@ export function CategoryManagerPage({
         toast.error(json.error || "Failed to create category")
         return
       }
+      const created = await res.json()
       toast.success(`Created category "${newCategoryName.trim()}"`)
       setNewCategoryName("")
       setIsAddingCategory(false)
-      fetchCategories()
+      await fetchCategories()
+      setActiveCategoryId(created.id)
     } catch {
       toast.error("Failed to create category")
     }
   }
 
-  async function handleSaveEdit(id: string) {
-    if (!editName.trim()) return
-    if (isDuplicateName(editName, id)) {
+  async function handleSaveEdit() {
+    if (!activeCategoryId || !editName.trim()) return
+    if (isDuplicateName(editName, activeCategoryId)) {
       setNameError("A category with this name already exists")
       return
     }
@@ -149,7 +157,7 @@ export function CategoryManagerPage({
       const res = await fetch("/api/categories", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, name: editName.trim() }),
+        body: JSON.stringify({ id: activeCategoryId, name: editName.trim() }),
       })
       if (!res.ok) {
         const json = await res.json()
@@ -157,7 +165,7 @@ export function CategoryManagerPage({
         return
       }
       toast.success("Category updated")
-      setEditingId(null)
+      setEditingName(false)
       fetchCategories()
     } catch {
       toast.error("Failed to update category")
@@ -178,16 +186,14 @@ export function CategoryManagerPage({
       }
       toast.success("Category deleted")
       setDeleteConfirm(null)
-      setExpandedIds((prev) => {
-        const next = new Set(prev)
-        next.delete(id)
-        return next
-      })
       setRulesMap((prev) => {
         const next = new Map(prev)
         next.delete(id)
         return next
       })
+      // Select the next available category
+      const remaining = categories.filter((c) => c.id !== id)
+      setActiveCategoryId(remaining[0]?.id ?? null)
       fetchCategories()
     } catch {
       toast.error("Failed to delete category")
@@ -220,9 +226,8 @@ export function CategoryManagerPage({
     }
   }
 
-  async function handleAddRule(categoryId: string) {
-    const pattern = newRulePatterns.get(categoryId)?.trim()
-    if (!pattern) return
+  async function handleAddRule() {
+    if (!activeCategoryId || !newRulePattern.trim()) return
 
     try {
       const res = await fetch("/api/categories/rules", {
@@ -230,8 +235,8 @@ export function CategoryManagerPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           householdId,
-          categoryId,
-          matchPattern: pattern,
+          categoryId: activeCategoryId,
+          matchPattern: newRulePattern.trim(),
         }),
       })
 
@@ -242,303 +247,387 @@ export function CategoryManagerPage({
       }
 
       const newRule = await res.json()
-      toast.success(`Added rule "${pattern.toUpperCase()}"`)
+      toast.success(`Added rule "${newRulePattern.trim().toUpperCase()}"`)
 
       setRulesMap((prev) => {
         const next = new Map(prev)
-        const rules = [...(next.get(categoryId) ?? []), newRule]
-        next.set(categoryId, rules)
+        const rules = [...(next.get(activeCategoryId!) ?? []), newRule]
+        next.set(activeCategoryId!, rules)
         return next
       })
-      setNewRulePatterns((prev) => {
-        const next = new Map(prev)
-        next.delete(categoryId)
-        return next
-      })
+      setNewRulePattern("")
     } catch {
       toast.error("Failed to add rule")
     }
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-2 sm:p-4">
+    <div className="mx-auto max-w-6xl space-y-6 p-2 sm:p-4">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard/cashflow">
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
+      <div>
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard/cashflow">
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
             <h1 className="text-2xl font-semibold">
               Manage Spending Categories
             </h1>
+            <p className="hidden text-muted-foreground sm:block">
+              Select a category to view and edit its matching rules.
+            </p>
           </div>
-          <p className="ml-11 text-muted-foreground">
-            Create categories and define keyword rules that automatically
-            classify transactions during import.
-          </p>
         </div>
       </div>
 
-      {/* Add Category */}
-      <div>
-        {isAddingCategory ? (
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Input
-                value={newCategoryName}
-                onChange={(e) => {
-                  setNewCategoryName(e.target.value)
-                  setNameError(null)
-                }}
-                placeholder="Category name"
-                className={cn("h-9 max-w-sm", nameError && "border-destructive")}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAddCategory()
-                  if (e.key === "Escape") {
-                    setIsAddingCategory(false)
+      {/* Main layout: left nav + right panel */}
+      <Card>
+        <CardHeader className="px-4 pb-4 sm:px-6">
+          <CardTitle>Categories</CardTitle>
+          <CardDescription className="hidden sm:block">
+            Rules auto-classify transactions during import.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6">
+          {categories.length > 0 && (
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-8">
+              {/* Mobile: dropdown + add button */}
+              <div className="flex items-center gap-2 lg:hidden">
+                <Select
+                  value={activeCategoryId ?? ""}
+                  onValueChange={(id) => {
+                    setActiveCategoryId(id)
+                    setEditingName(false)
+                    setNameError(null)
+                    setNewRulePattern("")
+                  }}
+                >
+                  <SelectTrigger className="h-10 flex-1">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => {
+                      const rc = getRuleCount(c.id)
+                      return (
+                        <SelectItem key={c.id} value={c.id}>
+                          <span className="flex items-center gap-2">
+                            {c.name}
+                            {c.is_system && (
+                              <Lock className="h-3 w-3 text-muted-foreground" />
+                            )}
+                            {rc > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                ({rc})
+                              </span>
+                            )}
+                          </span>
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 shrink-0"
+                  onClick={() => {
+                    setIsAddingCategory(true)
                     setNewCategoryName("")
                     setNameError(null)
-                  }
-                }}
-                autoFocus
-              />
-              <Button
-                size="sm"
-                onClick={handleAddCategory}
-                disabled={!newCategoryName.trim()}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setIsAddingCategory(false)
-                  setNewCategoryName("")
-                  setNameError(null)
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-            {nameError && (
-              <p className="text-xs text-destructive">{nameError}</p>
-            )}
-          </div>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsAddingCategory(true)}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Category
-          </Button>
-        )}
-      </div>
-
-      {/* Category List */}
-      <div className="space-y-2">
-        {categories.map((cat) => {
-          const isExpanded = expandedIds.has(cat.id)
-          const rules = rulesMap.get(cat.id) ?? []
-          const ruleCount = getRuleCount(cat.id)
-          const rulePattern = newRulePatterns.get(cat.id) ?? ""
-
-          return (
-            <Card key={cat.id}>
-              <CardContent className="p-0">
-                {/* Category header row */}
-                <div
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-3",
-                    isExpanded && "border-b"
-                  )}
+                  }}
                 >
-                  <button
-                    className="flex-shrink-0 text-muted-foreground hover:text-foreground"
-                    onClick={() => toggleExpand(cat.id)}
-                  >
-                    <ChevronDown
-                      className={cn(
-                        "h-4 w-4 transition-transform",
-                        isExpanded && "rotate-180"
-                      )}
-                    />
-                  </button>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
 
-                  {editingId === cat.id ? (
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={editName}
-                          onChange={(e) => {
-                            setEditName(e.target.value)
-                            setNameError(null)
-                          }}
-                          className={cn(
-                            "h-8 max-w-sm text-sm",
-                            nameError && "border-destructive"
-                          )}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleSaveEdit(cat.id)
-                            if (e.key === "Escape") {
-                              setEditingId(null)
-                              setNameError(null)
-                            }
-                          }}
-                          autoFocus
-                        />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleSaveEdit(cat.id)}
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setEditingId(null)
-                            setNameError(null)
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                      {nameError && (
-                        <p className="text-xs text-destructive">{nameError}</p>
+              {/* Desktop: left sidebar nav */}
+              <div className="hidden w-64 shrink-0 flex-col gap-1 lg:flex">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mb-2 w-full"
+                  onClick={() => {
+                    setIsAddingCategory(true)
+                    setNewCategoryName("")
+                    setNameError(null)
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Category
+                </Button>
+                <nav
+                  className="flex max-h-[65vh] flex-col gap-1 overflow-y-auto"
+                  aria-label="Categories"
+                >
+                {categories.map((c) => {
+                  const isActive = activeCategoryId === c.id
+                  const ruleCount = getRuleCount(c.id)
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveCategoryId(c.id)
+                        setEditingName(false)
+                        setNameError(null)
+                        setNewRulePattern("")
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
+                        isActive
+                          ? "bg-muted font-medium text-foreground ring-1 ring-foreground/10"
+                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                       )}
-                    </div>
-                  ) : (
-                    <>
-                      <button
-                        className="flex-1 text-left text-sm font-medium"
-                        onClick={() => toggleExpand(cat.id)}
-                      >
-                        {cat.name}
-                      </button>
-                      {cat.is_system && (
-                        <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                    >
+                      <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                      {c.is_system && (
+                        <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />
                       )}
                       {ruleCount > 0 && (
                         <Badge
                           variant="secondary"
-                          className="text-xs tabular-nums"
+                          className="shrink-0 text-[10px] tabular-nums"
                         >
-                          {ruleCount} {ruleCount === 1 ? "rule" : "rules"}
+                          {ruleCount}
                         </Badge>
                       )}
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        onClick={() => {
-                          setEditingId(cat.id)
-                          setEditName(cat.name)
-                          setNameError(null)
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      {!cat.is_system && (
+                    </button>
+                  )
+                })}
+                </nav>
+              </div>
+
+              {/* Right panel: category detail */}
+              <div className="min-w-0 flex-1">
+                {activeCategory ? (
+                  <div className="space-y-6">
+                    {/* Category name + actions */}
+                    <div className="flex items-start justify-between gap-3">
+                      {editingName ? (
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={editName}
+                              onChange={(e) => {
+                                setEditName(e.target.value)
+                                setNameError(null)
+                              }}
+                              className={cn(
+                                "h-9",
+                                nameError && "border-destructive"
+                              )}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleSaveEdit()
+                                if (e.key === "Escape") {
+                                  setEditingName(false)
+                                  setNameError(null)
+                                }
+                              }}
+                              autoFocus
+                            />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-9 w-9 shrink-0"
+                              onClick={handleSaveEdit}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-9 w-9 shrink-0"
+                              onClick={() => {
+                                setEditingName(false)
+                                setNameError(null)
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          {nameError && (
+                            <p className="text-xs text-destructive">
+                              {nameError}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-lg font-semibold">
+                            {activeCategory.name}
+                          </h2>
+                          {activeCategory.is_system && (
+                            <Badge variant="outline" className="text-[10px]">
+                              System
+                            </Badge>
+                          )}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              setEditingName(true)
+                              setEditName(activeCategory.name)
+                              setNameError(null)
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+
+                      {!activeCategory.is_system && !editingName && (
                         <Button
-                          size="icon"
+                          size="sm"
                           variant="ghost"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteConfirm(cat.id)}
+                          className="shrink-0 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteConfirm(activeCategory.id)}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="mr-2 h-3.5 w-3.5" />
+                          Delete
                         </Button>
                       )}
-                    </>
-                  )}
-                </div>
+                    </div>
 
-                {/* Expanded rules panel */}
-                {isExpanded && (
-                  <div className="space-y-2 px-4 py-3 pl-11">
-                    {rules.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        No matching rules yet. Add keywords below or assign
-                        transactions to this category to auto-learn patterns.
-                      </p>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {rules.map((rule) => (
-                          <div
-                            key={rule.id}
-                            className="flex items-center gap-2"
-                          >
-                            <code className="rounded bg-muted px-2 py-0.5 text-sm">
-                              {rule.match_pattern}
-                            </code>
-                            <Badge
-                              variant="outline"
-                              className="text-[10px]"
-                            >
-                              {rule.source}
-                            </Badge>
-                            {rule.source === "user" && (
-                              <button
-                                className="text-muted-foreground hover:text-destructive"
-                                onClick={() =>
-                                  handleDeleteRule(rule.id, cat.id)
-                                }
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                    {/* Matching Rules section */}
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-sm font-medium">
+                          Matching Rules
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Keywords matched against transaction descriptions
+                          during import. Wildcards supported (e.g.
+                          GRAB*TRANSPORT).
+                        </p>
                       </div>
-                    )}
 
-                    {/* Add rule input */}
-                    <div className="flex items-center gap-2 pt-2">
-                      <Input
-                        value={rulePattern}
-                        onChange={(e) =>
-                          setNewRulePatterns((prev) => {
-                            const next = new Map(prev)
-                            next.set(cat.id, e.target.value)
-                            return next
-                          })
-                        }
-                        placeholder="Type a keyword (e.g. GRABFOOD)"
-                        className="h-8 max-w-sm text-sm"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleAddRule(cat.id)
-                        }}
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleAddRule(cat.id)}
-                        disabled={!rulePattern.trim()}
-                      >
-                        <Plus className="mr-1 h-3.5 w-3.5" />
-                        Add Rule
-                      </Button>
+                      {/* Add rule form — top on mobile for easy access */}
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={newRulePattern}
+                          onChange={(e) => setNewRulePattern(e.target.value)}
+                          placeholder="Type a keyword (e.g. GRABFOOD)"
+                          className="h-10 text-sm sm:h-9"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleAddRule()
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleAddRule}
+                          disabled={!newRulePattern.trim()}
+                          className="h-10 shrink-0 sm:h-9"
+                        >
+                          <Plus className="mr-1 h-3.5 w-3.5" />
+                          Add
+                        </Button>
+                      </div>
+
+                      {activeRules.length === 0 ? (
+                        <p className="rounded-md border border-dashed py-6 text-center text-sm text-muted-foreground">
+                          No rules yet. Add keywords above or assign
+                          transactions to this category to auto-learn patterns.
+                        </p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {activeRules.map((rule) => (
+                            <div
+                              key={rule.id}
+                              className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 sm:py-1.5"
+                            >
+                              <code className="min-w-0 flex-1 truncate text-sm">
+                                {rule.match_pattern}
+                              </code>
+                              <Badge
+                                variant="outline"
+                                className="shrink-0 text-[10px]"
+                              >
+                                {rule.source}
+                              </Badge>
+                              {rule.source === "user" && (
+                                <button
+                                  className="shrink-0 p-1 text-muted-foreground hover:text-destructive"
+                                  onClick={() =>
+                                    handleDeleteRule(
+                                      rule.id,
+                                      activeCategory.id
+                                    )
+                                  }
+                                >
+                                  <X className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
+                ) : (
+                  <div className="flex items-center justify-center py-12">
+                    <p className="text-sm text-muted-foreground">
+                      Select a category to view its rules.
+                    </p>
+                  </div>
                 )}
-              </CardContent>
-            </Card>
-          )
-        })}
+              </div>
+            </div>
+          )}
 
-        {categories.length === 0 && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          {categories.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No categories yet. Click &quot;Add Category&quot; to create one.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add category dialog */}
+      <Dialog open={isAddingCategory} onOpenChange={setIsAddingCategory}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add Category</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Category name</Label>
+            <Input
+              value={newCategoryName}
+              onChange={(e) => {
+                setNewCategoryName(e.target.value)
+                setNameError(null)
+              }}
+              placeholder="e.g. Groceries"
+              className={cn(nameError && "border-destructive")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAddCategory()
+              }}
+              autoFocus
+            />
+            {nameError && (
+              <p className="text-xs text-destructive">{nameError}</p>
+            )}
           </div>
-        )}
-      </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsAddingCategory(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddCategory}
+              disabled={!newCategoryName.trim()}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation dialog */}
       <Dialog
