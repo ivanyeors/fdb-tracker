@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useMemo, useCallback } from "react"
 import {
   projectCpfGrowth,
   type CpfProjectionPoint,
@@ -97,14 +97,18 @@ function buildInitialState(seed: SimulatorSeedData): CpfSimulatorState {
 export function useCpfSimulator(
   seed: SimulatorSeedData | null,
 ): CpfSimulatorResult | null {
-  const [state, setState] = useState<CpfSimulatorState | null>(null)
+  const [state, setState] = useState<CpfSimulatorState | null>(() =>
+    seed ? buildInitialState(seed) : null,
+  )
+  const [prevSeed, setPrevSeed] = useState(seed)
 
-  // Reseed when API data changes
-  useEffect(() => {
+  // Reseed when API data changes (sync during render)
+  if (seed !== prevSeed) {
+    setPrevSeed(seed)
     if (seed) {
       setState(buildInitialState(seed))
     }
-  }, [seed])
+  }
 
   const setAnnualSalary = useCallback(
     (v: number) => setState((s) => (s ? { ...s, annualSalary: v } : s)),
@@ -254,7 +258,10 @@ export function useCpfSimulator(
     })
   }, [state, seed])
 
-  const baselineProjection = seed?.extendedProjection ?? []
+  const baselineProjection = useMemo(
+    () => seed?.extendedProjection ?? [],
+    [seed?.extendedProjection],
+  )
 
   const deltaAt55 = useMemo(() => {
     const simAt55 = simulatedProjection.find((p) => p.age === 55)

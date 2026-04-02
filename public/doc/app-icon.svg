@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- PLACEHOLDER: Replace this file with your actual app icon SVG -->
+  <rect width="512" height="512" rx="64" fill="#1c1917"/>
+  <text x="256" y="300" font-family="system-ui, sans-serif" font-size="240" font-weight="700" fill="#fafaf9" text-anchor="middle">F</text>
+</svg>

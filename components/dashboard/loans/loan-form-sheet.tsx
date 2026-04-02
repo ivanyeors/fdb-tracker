@@ -81,7 +81,7 @@ export function LoanFormSheet({
   const [valuationLimit, setValuationLimit] = useState<number | null>(
     loan?.valuation_limit ?? null,
   )
-  const [splitProfileId, setSplitProfileId] = useState(loan?.split_profile_id ?? "")
+  const [splitProfileId, setSplitProfileId] = useState(loan?.split_profile_id || "none")
   const [splitPct, setSplitPct] = useState(loan?.split_pct?.toString() ?? "100")
   const [rateIncreasePct, setRateIncreasePct] = useState<number | null>(
     loan?.rate_increase_pct ?? null,
@@ -110,7 +110,7 @@ export function LoanFormSheet({
       setLender(loan?.lender ?? "")
       setUseCpfOa(loan?.use_cpf_oa ?? (loan?.type ?? "housing") === "housing")
       setValuationLimit(loan?.valuation_limit ?? null)
-      setSplitProfileId(loan?.split_profile_id ?? "")
+      setSplitProfileId(loan?.split_profile_id || "none")
       setSplitPct(loan?.split_pct?.toString() ?? "100")
       setRateIncreasePct(loan?.rate_increase_pct ?? null)
       setPropertyType(loan?.property_type ?? "")
@@ -149,7 +149,7 @@ export function LoanFormSheet({
         body.valuationLimit = valuationLimit || null
         body.propertyType = propertyType || null
         body.rateIncreasePct = rateIncreasePct || null
-        if (splitProfileId) {
+        if (splitProfileId && splitProfileId !== "none") {
           body.splitProfileId = splitProfileId
           body.splitPct = parseInt(splitPct) || 100
         } else {
@@ -384,7 +384,7 @@ export function LoanFormSheet({
                           <SelectValue placeholder="None" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
                           {profiles
                             .filter((p) => p.id !== profileId)
                             .map((p) => (
@@ -395,7 +395,7 @@ export function LoanFormSheet({
                         </SelectContent>
                       </Select>
                     </div>
-                    {splitProfileId && (
+                    {splitProfileId && splitProfileId !== "none" && (
                       <div className="space-y-1.5">
                         <Label htmlFor="loan-split-pct">Your Share (%)</Label>
                         <Input

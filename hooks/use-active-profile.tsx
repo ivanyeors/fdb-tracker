@@ -74,8 +74,11 @@ export function ActiveProfileProvider({
       try {
         if (id) {
           localStorage.setItem(ACTIVE_PROFILE_KEY, id)
+          document.cookie = `fdb-active-profile-id=${id}; path=/; max-age=31536000; SameSite=Lax`
         } else {
           localStorage.removeItem(ACTIVE_PROFILE_KEY)
+          document.cookie =
+            "fdb-active-profile-id=; path=/; max-age=0; SameSite=Lax"
         }
       } catch {
         // ignore
@@ -115,6 +118,7 @@ export function ActiveProfileProvider({
       const stored = localStorage.getItem(ACTIVE_PROFILE_KEY)
       if (stored && profiles.some((p) => p.id === stored)) {
         setActiveProfileId(stored)
+        document.cookie = `fdb-active-profile-id=${stored}; path=/; max-age=31536000; SameSite=Lax`
       }
     } catch {
       // ignore

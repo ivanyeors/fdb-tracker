@@ -7,7 +7,6 @@ import {
   buildConfirmationMessage,
   buildConfirmationKeyboard,
   errorMsg,
-  fmtAmt,
 } from "@/lib/telegram/scene-helpers"
 
 import { classifyDocument } from "@/lib/pdf-import/classify"
@@ -21,8 +20,6 @@ import {
 } from "@/lib/pdf-import/types"
 
 const TOTAL_STEPS = 4 // user-visible: upload → type → profile → confirm
-const STEP_TYPE_CONFIRM = 1
-const STEP_PROFILE = 2
 const STEP_PROFILE_CB = 3
 const STEP_CONFIRM = 4
 
@@ -330,7 +327,6 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
   },
 )
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = ReturnType<typeof createSupabaseAdmin>
 
 async function saveExtractedData(

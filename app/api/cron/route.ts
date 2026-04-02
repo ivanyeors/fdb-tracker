@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { getEffectiveInflowForProfile } from "@/lib/api/effective-inflow"
 import { getEffectiveOutflowForProfile } from "@/lib/api/effective-outflow"
-import { loanMonthlyPayment, splitPayment, estimateOutstandingPrincipal } from "@/lib/calculations/loans"
+import { loanMonthlyPayment, estimateOutstandingPrincipal } from "@/lib/calculations/loans"
 
 function getPreviousMonth(): string {
   const now = new Date()

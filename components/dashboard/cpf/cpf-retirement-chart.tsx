@@ -138,7 +138,7 @@ function ChartInner({
         tooltipTop: e.clientY,
       })
     },
-    [data, xScale, comparisonMap, simulatedMap, showTooltip],
+    [data, xScale, comparisonMap, simulatedMap, showTooltip, referenceLines],
   )
 
   if (width < 10 || data.length === 0) return null

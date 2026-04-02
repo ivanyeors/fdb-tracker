@@ -332,7 +332,7 @@ export function TransactionTable({
  */
 function extractMerchantKeyword(description: string): string | null {
   // Remove common prefixes
-  let cleaned = description
+  const cleaned = description
     .replace(/^(DEBIT PURCHASE|FAST PAYMENT|BILL PAYMENT INB?|NETS QR|GIRO|FUND TRANSFER|IBG GIRO)\s*/i, "")
     .replace(/\d{2}\/\d{2}\/\d{2}\s*/g, "") // dates
     .replace(/xx-\d{4}\s*/g, "") // card refs

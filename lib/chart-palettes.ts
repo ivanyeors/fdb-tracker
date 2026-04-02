@@ -29,7 +29,7 @@ export type ChartPalette = {
 // ---------------------------------------------------------------------------
 
 function lerpHue(from: number, to: number, t: number): number {
-  let diff = ((to - from + 540) % 360) - 180
+  const diff = ((to - from + 540) % 360) - 180
   return ((from + diff * t) % 360 + 360) % 360
 }
 

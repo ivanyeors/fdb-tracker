@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { CurrencyInput } from "@/components/ui/currency-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
@@ -18,6 +20,14 @@ import {
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Loader2, TrendingDown } from "lucide-react"
 import { toast } from "sonner"
+import { format } from "date-fns"
+
+interface StockNote {
+  id: string
+  type: string
+  journal_text: string
+  created_at: string
+}
 
 export interface SellHoldingInitial {
   symbol: string
@@ -37,6 +47,7 @@ export function SellHoldingDialog({ initial, defaultPrice, onSuccess }: SellHold
   const [price, setPrice] = useState<number | null>(null)
   const [journalText, setJournalText] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [notes, setNotes] = useState<StockNote[]>([])
 
   useEffect(() => {
     if (!open) return
@@ -44,6 +55,22 @@ export function SellHoldingDialog({ initial, defaultPrice, onSuccess }: SellHold
     setPrice(defaultPrice ?? null)
     setJournalText("")
   }, [open, initial.symbol, initial.maxUnits, defaultPrice])
+
+  useEffect(() => {
+    if (!open) {
+      setNotes([])
+      return
+    }
+    const params = new URLSearchParams({ symbol: initial.symbol })
+    if (activeProfileId) params.set("profileId", activeProfileId)
+    if (activeFamilyId && !activeProfileId)
+      params.set("familyId", activeFamilyId)
+
+    fetch(`/api/investments/transactions/notes?${params}`)
+      .then((r) => (r.ok ? r.json() : { notes: [] }))
+      .then((d) => setNotes(d.notes ?? []))
+      .catch(() => setNotes([]))
+  }, [open, initial.symbol, activeProfileId, activeFamilyId])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -118,6 +145,32 @@ export function SellHoldingDialog({ initial, defaultPrice, onSuccess }: SellHold
             {initial.maxUnits} units.
           </DialogDescription>
         </DialogHeader>
+        {notes.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-muted-foreground text-sm font-medium">
+              Your notes for {initial.symbol}
+            </p>
+            <ScrollArea className="max-h-40 rounded-md border">
+              <div className="space-y-3 p-3">
+                {notes.map((note) => (
+                  <div key={note.id} className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground text-xs">
+                        {format(new Date(note.created_at), "d MMM yyyy")}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                        {note.type.charAt(0).toUpperCase() + note.type.slice(1)}
+                      </Badge>
+                    </div>
+                    <p className="text-muted-foreground text-sm leading-snug">
+                      {note.journal_text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="sell-qty">Quantity</Label>

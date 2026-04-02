@@ -70,7 +70,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch bank accounts" }, { status: 500 })
     }
 
-    const accountIds = accounts.map((a) => a.id)
     const ocbcAccountIds = accounts
       .filter((a) => a.account_type === "ocbc_360")
       .map((a) => a.id)

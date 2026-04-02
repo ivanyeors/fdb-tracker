@@ -380,15 +380,11 @@ function IlpInvestedVsValueBar({
     { key: "current", label: "Current", value: currentValue },
   ]
 
-  const yScale = useMemo(
-    () =>
-      scaleBand<string>({
-        domain: data.map((d) => d.key),
-        range: [0, innerHeight],
-        padding: 0.3,
-      }),
-    [innerHeight],
-  )
+  const yScale = scaleBand<string>({
+    domain: data.map((d) => d.key),
+    range: [0, innerHeight],
+    padding: 0.3,
+  })
 
   const barAreaWidth = innerWidth - HBAR_LABEL_WIDTH
 

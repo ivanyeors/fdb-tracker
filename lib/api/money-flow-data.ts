@@ -472,7 +472,7 @@ export async function fetchMoneyFlowData(
   let totalEffectiveInflow = 0
   let totalEffectiveOutflow = 0
   let totalIlpOneTime = 0
-  let totalEarlyRepaymentOutflow = 0
+  let _totalEarlyRepaymentOutflow = 0
   let totalTaxReliefCashOutflow = 0
   let totalInvestmentPurchases = 0
   let totalGoalContributions = 0
@@ -603,7 +603,7 @@ export async function fetchMoneyFlowData(
 
     // New categories
     const earlyRep = sumEarlyRepaymentsForMonth(earlyRepsByProfile.get(pid) ?? [], monthStr)
-    totalEarlyRepaymentOutflow += earlyRep
+    _totalEarlyRepaymentOutflow += earlyRep
     totalEffectiveOutflow += earlyRep
 
     const goalContrib = sumGoalContributionsForMonth(goalContribsByProfile.get(pid) ?? [], monthStr)

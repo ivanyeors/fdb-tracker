@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useCallback, useEffect, useState } from "react"
+import { useActionState, useCallback, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -188,38 +188,6 @@ export function DependentsSection({
     deleteAction(fd)
   }, [deleteTarget, familyId, deleteAction])
 
-  // Handle create/update success
-  useEffect(() => {
-    if (createState.success) {
-      toast.success("Dependent added")
-      setDialogOpen(false)
-      // Refetch by adding optimistic entry
-      fetchDependents()
-    } else if (createState.error) {
-      toast.error(createState.error)
-    }
-  }, [createState])
-
-  useEffect(() => {
-    if (updateState.success) {
-      toast.success("Dependent updated")
-      setDialogOpen(false)
-      fetchDependents()
-    } else if (updateState.error) {
-      toast.error(updateState.error)
-    }
-  }, [updateState])
-
-  useEffect(() => {
-    if (deleteState.success) {
-      toast.success("Dependent removed")
-      setDeleteTarget(null)
-      fetchDependents()
-    } else if (deleteState.error) {
-      toast.error(deleteState.error)
-    }
-  }, [deleteState])
-
   async function fetchDependents() {
     try {
       const res = await fetch(`/api/dependents?familyId=${familyId}`)
@@ -229,6 +197,43 @@ export function DependentsSection({
       }
     } catch {
       // silent
+    }
+  }
+
+  // Handle create/update/delete success (sync during render)
+  const [prevCreateState, setPrevCreateState] = useState(createState)
+  if (createState !== prevCreateState) {
+    setPrevCreateState(createState)
+    if (createState.success) {
+      toast.success("Dependent added")
+      setDialogOpen(false)
+      fetchDependents()
+    } else if (createState.error) {
+      toast.error(createState.error)
+    }
+  }
+
+  const [prevUpdateState, setPrevUpdateState] = useState(updateState)
+  if (updateState !== prevUpdateState) {
+    setPrevUpdateState(updateState)
+    if (updateState.success) {
+      toast.success("Dependent updated")
+      setDialogOpen(false)
+      fetchDependents()
+    } else if (updateState.error) {
+      toast.error(updateState.error)
+    }
+  }
+
+  const [prevDeleteState, setPrevDeleteState] = useState(deleteState)
+  if (deleteState !== prevDeleteState) {
+    setPrevDeleteState(deleteState)
+    if (deleteState.success) {
+      toast.success("Dependent removed")
+      setDeleteTarget(null)
+      fetchDependents()
+    } else if (deleteState.error) {
+      toast.error(deleteState.error)
     }
   }
 

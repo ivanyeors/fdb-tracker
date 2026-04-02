@@ -23,6 +23,8 @@ const GlobalMonthContext = React.createContext<GlobalMonthContextValue | null>(n
 export function GlobalMonthProvider({ children }: { children: React.ReactNode }) {
   const { activeFamilyId } = useActiveProfile()
 
+  const [mounted, setMounted] = React.useState(false)
+
   const [selectedMonth, setSelectedMonthState] = React.useState<string | null>(() => {
     if (typeof window === "undefined") return null
     try {
@@ -47,6 +49,10 @@ export function GlobalMonthProvider({ children }: { children: React.ReactNode })
     }
   }, [])
 
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
   // Reset selected month when family changes
   const prevFamilyRef = React.useRef(activeFamilyId)
   React.useEffect(() => {
@@ -57,7 +63,7 @@ export function GlobalMonthProvider({ children }: { children: React.ReactNode })
     prevFamilyRef.current = activeFamilyId
   }, [activeFamilyId, setSelectedMonth])
 
-  const effectiveMonth = selectedMonth ?? availableMonths[0] ?? getCurrentMonth()
+  const effectiveMonth = selectedMonth ?? availableMonths[0] ?? (mounted ? getCurrentMonth() : "")
 
   const value = React.useMemo<GlobalMonthContextValue>(
     () => ({

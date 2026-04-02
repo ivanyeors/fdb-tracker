@@ -1,6 +1,15 @@
+import type { Metadata } from "next"
 import localFont from "next/font/local"
 
 import "./globals.css"
+
+export const metadata: Metadata = {
+  title: "FDB Tracker",
+  description: "Personal finance dashboard for Singapore households",
+  icons: {
+    icon: "/icon.svg",
+  },
+}
 
 export const viewport = {
   width: "device-width",

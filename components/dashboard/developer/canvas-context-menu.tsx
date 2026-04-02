@@ -1,9 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 import { useReactFlow, type Node } from "@xyflow/react"
 import type { CalcNodeData } from "@/lib/developer/graph-adapter"
-import { Maximize2, Eye, EyeOff, FileCode, Copy, Focus } from "lucide-react"
+import { Maximize2, Eye, FileCode, Copy, Focus } from "lucide-react"
 import { toast } from "sonner"
 
 interface ContextMenuState {
@@ -23,7 +23,7 @@ export function CanvasContextMenu({
   onClose,
   onSelectNode,
 }: CanvasContextMenuProps) {
-  const { fitView, setCenter, getZoom } = useReactFlow()
+  const { fitView, setCenter } = useReactFlow()
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {

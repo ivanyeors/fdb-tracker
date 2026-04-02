@@ -1,3 +1,5 @@
+"use server"
+
 import { calculatePnL } from "@/lib/calculations/investments"
 import {
   getMultipleStockPrices,

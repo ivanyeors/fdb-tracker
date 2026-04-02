@@ -77,11 +77,61 @@ async function promptSymbolStep(ctx: MyContext) {
 }
 
 /**
+ * Fetch and display previous journal notes for a symbol before selling.
+ */
+async function showStockNotes(ctx: MyContext): Promise<void> {
+  const s = ctx.scene.session
+  if (s.type !== "sell" || !s.profileId || !s.symbol) return
+
+  const supabase = createSupabaseAdmin()
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("family_id")
+    .eq("id", s.profileId)
+    .single()
+
+  if (!profile) return
+
+  const { data: notes } = await supabase
+    .from("investment_transactions")
+    .select("type, journal_text, created_at")
+    .eq("family_id", profile.family_id)
+    .eq("symbol", s.symbol)
+    .not("journal_text", "is", null)
+    .neq("journal_text", "")
+    .order("created_at", { ascending: true })
+    .limit(10)
+
+  if (!notes || notes.length === 0) return
+
+  const maxDisplay = 5
+  const displayed = notes.slice(0, maxDisplay)
+  const lines = displayed.map((n) => {
+    const date = new Date(n.created_at).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    })
+    const typeTag = (n.type as string).charAt(0).toUpperCase() + (n.type as string).slice(1)
+    return `📅 ${date} (${typeTag})\n${n.journal_text}`
+  })
+
+  let msg = `📒 Your notes for ${s.symbol}:\n\n${lines.join("\n\n")}`
+  if (notes.length > maxDisplay) {
+    msg += `\n\n… and ${notes.length - maxDisplay} more note${notes.length - maxDisplay === 1 ? "" : "s"}. View all on dashboard.`
+  }
+
+  await ctx.reply(msg)
+}
+
+/**
  * Shared transition from symbol → quantity step (or back to confirmation if editing).
  */
 async function proceedFromSymbol(ctx: MyContext): Promise<boolean> {
   const returned = await advanceOrReturn(ctx, STEP_CONFIRM, sendConfirmation)
   if (returned) return true
+
+  await showStockNotes(ctx)
 
   const s = ctx.scene.session
   const header = progressHeader(

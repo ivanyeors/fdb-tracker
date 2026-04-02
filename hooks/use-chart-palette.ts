@@ -68,29 +68,35 @@ export function applyChartPalette() {
 // React hook
 // ---------------------------------------------------------------------------
 
-export function useChartPalette() {
-  const [paletteId, setPaletteIdState] = useState<string>("green")
-  const [randomColors, setRandomColors] = useState<
-    ChartPalette["colors"] | null
-  >(null)
+function readPaletteId(): string {
+  try {
+    return localStorage.getItem(LS_PALETTE_KEY) ?? "green"
+  } catch {
+    return "green"
+  }
+}
 
-  // Hydrate from localStorage on mount + observe dark mode toggles
-  useEffect(() => {
-    const id = localStorage.getItem(LS_PALETTE_KEY) ?? "green"
-    setPaletteIdState(id)
-
+function readRandomColors(): ChartPalette["colors"] | null {
+  try {
+    const id = localStorage.getItem(LS_PALETTE_KEY)
     if (id === "random") {
       const raw = localStorage.getItem(LS_PALETTE_COLORS_KEY)
-      if (raw) {
-        try {
-          const p = JSON.parse(raw) as ChartPalette
-          setRandomColors(p.colors)
-        } catch {
-          // ignore
-        }
-      }
+      if (raw) return (JSON.parse(raw) as ChartPalette).colors
     }
+  } catch {
+    // ignore
+  }
+  return null
+}
 
+export function useChartPalette() {
+  const [paletteId, setPaletteIdState] = useState<string>(readPaletteId)
+  const [randomColors, setRandomColors] = useState<
+    ChartPalette["colors"] | null
+  >(readRandomColors)
+
+  // Apply palette on mount + observe dark mode toggles
+  useEffect(() => {
     applyChartPalette()
 
     // Re-apply when dark/light mode toggles (class change on <html>)

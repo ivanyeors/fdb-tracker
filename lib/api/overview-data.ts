@@ -18,7 +18,6 @@ import {
   sumIlpPremiums,
   sumInsuranceOutflowPremiumsSplit,
   sumLoanMonthlyPayments,
-  sumSavingsGoals,
   GIRO_OUTFLOW_DESTINATIONS,
   type CashflowRow,
   type IncomeData,

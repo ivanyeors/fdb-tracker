@@ -70,7 +70,6 @@ import {
   DEFAULT_COVERAGES_BY_POLICY,
   ALLOWED_COVERAGES_BY_POLICY,
   SUGGESTED_BENEFITS_BY_POLICY,
-  mapBenefitToStandardCoverage,
   BENEFIT_UNITS,
   type InsuranceType,
   type CoverageType,
@@ -252,12 +251,6 @@ export type FinancialDataByFamily = {
     inflow: number
     outflow: number
   }>
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h3 className="text-sm font-semibold mb-2 mt-6 first:mt-0">{children}</h3>
-  )
 }
 
 function SectionGroupLabel({ children }: { children: React.ReactNode }) {

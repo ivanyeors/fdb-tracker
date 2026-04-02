@@ -40,11 +40,13 @@ export function FamilySwitcherPopover() {
       return
     }
     setActiveFamilyId(familyId)
-    try {
-      document.cookie = `fdb-active-family-id=${familyId}; path=/; max-age=31536000; SameSite=Lax`
-    } catch {
-      // ignore
-    }
+    queueMicrotask(() => {
+      try {
+        document.cookie = `fdb-active-family-id=${familyId}; path=/; max-age=31536000; SameSite=Lax`
+      } catch {
+        // ignore
+      }
+    })
     setOpen(false)
     router.refresh()
   }

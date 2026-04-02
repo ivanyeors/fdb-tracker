@@ -45,16 +45,20 @@ export function TopNav() {
             <Separator orientation="vertical" className="!h-5 shrink-0" />
             <FamilySwitcherPopover />
             <Separator orientation="vertical" className="!h-5 shrink-0" />
-            <MonthYearPicker
-              value={effectiveMonth}
-              onChange={setSelectedMonth}
-              maxMonth={getCurrentMonth()}
-              highlightedMonths={
-                availableMonths.length > 0 ? availableMonths : undefined
-              }
-              placeholder="Month"
-              className="h-8 w-[110px] text-xs"
-            />
+            {effectiveMonth ? (
+              <MonthYearPicker
+                value={effectiveMonth}
+                onChange={setSelectedMonth}
+                maxMonth={getCurrentMonth()}
+                highlightedMonths={
+                  availableMonths.length > 0 ? availableMonths : undefined
+                }
+                placeholder="Month"
+                className="h-8 w-[110px] text-xs"
+              />
+            ) : (
+              <div className="h-8 w-[110px]" />
+            )}
           </div>
 
           {/* Right section — profile toggle (desktop) */}

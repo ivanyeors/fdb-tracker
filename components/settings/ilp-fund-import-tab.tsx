@@ -31,7 +31,6 @@ import {
   mergeMultiGroupAllocationItems,
   split100Across,
   sumAllocationPcts,
-  sumNonZeroAllocationPcts,
 } from "@/lib/investments/ilp-group-allocation"
 import { cn } from "@/lib/utils"
 
@@ -292,7 +291,6 @@ export function IlpFundImportTab({
     setMultiGroupTotalFundValue(draft.multiGroupTotalFundValue)
     setRestoredFromDraft(true)
     toast.success("Restored draft — pick files again if you need to re-extract.")
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const isMulti = parsedBundles.length >= 2
@@ -1944,7 +1942,7 @@ export function IlpFundImportTab({
                         />
                         <p className="text-xs text-muted-foreground">
                           Per-file fund values are auto-calculated from this total and
-                          each file's allocation %.
+                          each file&apos;s allocation %.
                         </p>
                       </div>
                     </div>

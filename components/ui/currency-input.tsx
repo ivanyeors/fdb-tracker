@@ -35,13 +35,13 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
     },
     ref,
   ) => {
-    const isFocused = React.useRef(false)
+    const [isFocused, setIsFocused] = React.useState(false)
     const [localValue, setLocalValue] = React.useState<string | undefined>(
       undefined,
     )
 
     const displayValue =
-      isFocused.current && localValue !== undefined
+      isFocused && localValue !== undefined
         ? localValue
         : normalizedValue(value)
 
@@ -57,21 +57,21 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
         )}
         value={displayValue}
         onValueChange={(val, _name, values) => {
-          if (isFocused.current) {
+          if (isFocused) {
             setLocalValue(val ?? "")
           }
           const f = values?.float
           onChange?.(f != null && Number.isFinite(f) ? f : null)
         }}
         onFocus={(e) => {
-          isFocused.current = true
+          setIsFocused(true)
           setLocalValue(
             value != null && Number.isFinite(value) ? String(value) : "",
           )
           onFocus?.(e)
         }}
         onBlur={(e) => {
-          isFocused.current = false
+          setIsFocused(false)
           setLocalValue(undefined)
           onBlur?.(e)
         }}

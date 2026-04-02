@@ -75,7 +75,7 @@ const CC_TXN_START = /^\s+(\d{2})\/(\d{2})\s+/
 const AMOUNT_RE = /([\d,]+\.\d{2})/g
 
 /** Matches parenthesized amounts like "(28.57)" */
-const PAREN_AMOUNT_RE = /\(([\d,]+\.\d{2})\)/
+const _PAREN_AMOUNT_RE = /\(([\d,]+\.\d{2})\)/
 
 // ── Stop / skip markers ──
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { createPortal } from "react-dom"
 import { Group } from "@visx/group"
 import { useChartHeight } from "@/hooks/use-chart-height"
@@ -40,12 +40,6 @@ function splitLabel(label: string): string[] {
   return [label]
 }
 
-function genAngles(length: number) {
-  return [...Array(length + 1)].map((_, i) => ({
-    angle: i * (360 / length) + (length % 2 === 0 ? 0 : -90),
-  }))
-}
-
 function genPoint(length: number, index: number, radius: number): Point {
   const step = (Math.PI * 2) / length
   const angle = index * step - Math.PI / 2
@@ -80,7 +74,6 @@ function RadarChartInner({
   const [hoveredAxis, setHoveredAxis] = useState<number | null>(null)
 
   const numAxes = axes.length
-  const angles = useMemo(() => genAngles(numAxes), [numAxes])
 
   const size = Math.min(width, height)
   if (size < 60) return null
