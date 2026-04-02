@@ -110,7 +110,7 @@ function computeCashflowForMonth(
   >,
   loansByProfile: Map<
     string,
-    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean }>
+    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean; start_date?: string | null }>
   >,
   savingsGoalsByProfile: Map<string, number>,
   taxReliefByProfileYear: Map<
@@ -162,7 +162,7 @@ function computeCashflowForMonth(
     totalOutflow += sumIlpPremiums(ilpByProfile.get(pid) ?? [])
 
     // Loans
-    totalOutflow += sumLoanMonthlyPayments(loansByProfile.get(pid) ?? [])
+    totalOutflow += sumLoanMonthlyPayments(loansByProfile.get(pid) ?? [], monthStr)
 
     // Savings goals
     totalOutflow += savingsGoalsByProfile.get(pid) ?? 0
@@ -217,7 +217,7 @@ function computeBankTotalFromData(
   >,
   loansByProfile: Map<
     string,
-    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean }>
+    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean; start_date?: string | null }>
   >,
   savingsGoalsByProfile: Map<string, number>,
   taxReliefByProfileYear: Map<
@@ -319,7 +319,7 @@ function computeBankTotalFromData(
         const insSplit = sumInsuranceOutflowPremiumsSplit(pols)
         outflow += insSplit.insurance + insSplit.ilpFromLegacyPolicies
         outflow += sumIlpPremiums(ilpByProfile.get(profileId) ?? [])
-        outflow += sumLoanMonthlyPayments(loansByProfile.get(profileId) ?? [])
+        outflow += sumLoanMonthlyPayments(loansByProfile.get(profileId) ?? [], monthStr)
         outflow += savingsGoalsByProfile.get(profileId) ?? 0
         outflow += monthlyTaxForProfile(
           profileId,
@@ -580,10 +580,10 @@ export async function fetchOverviewData(
     loansByProfile.set(pid, list)
   }
 
-  // For cashflow aggregation, we need loans without id/start_date
+  // For cashflow aggregation, we need loans without id
   const loansForCashflow = new Map<
     string,
-    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean }>
+    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean; start_date?: string | null }>
   >()
   for (const [pid, loans] of loansByProfile) {
     loansForCashflow.set(
@@ -593,6 +593,7 @@ export async function fetchOverviewData(
         rate_pct: l.rate_pct,
         tenure_months: l.tenure_months,
         use_cpf_oa: l.use_cpf_oa,
+        start_date: l.start_date,
       }))
     )
   }

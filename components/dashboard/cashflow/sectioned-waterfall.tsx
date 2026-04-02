@@ -95,14 +95,6 @@ function buildInvestmentBars(data: InvestmentWaterfallSection): WaterfallBarItem
     bars.push({ name: "Dividends", start: cumulative, end: cumulative + data.dividends, value: data.dividends, type: "inflow" })
     cumulative += data.dividends
   }
-  if (data.sells > 0) {
-    bars.push({ name: "Sells", start: cumulative, end: cumulative + data.sells, value: data.sells, type: "inflow" })
-    cumulative += data.sells
-  }
-  if (data.buys > 0) {
-    bars.push({ name: "Buys", start: cumulative, end: cumulative - data.buys, value: -data.buys, type: "outflow" })
-    cumulative -= data.buys
-  }
   if (data.marketGain !== 0) {
     const label = data.marketGain >= 0 ? "Market Gain" : "Market Loss"
     const type = data.marketGain >= 0 ? "inflow" : "outflow"

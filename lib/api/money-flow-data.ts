@@ -588,7 +588,9 @@ export async function fetchMoneyFlowData(
         rate_pct: l.rate_pct,
         tenure_months: l.tenure_months,
         use_cpf_oa: l.use_cpf_oa,
-      }))
+        start_date: l.start_date,
+      })),
+      monthStr,
     )
     totalEffectiveOutflow += savingsGoalsByProfile.get(pid) ?? 0
     totalEffectiveOutflow += monthlyTaxForProfile(

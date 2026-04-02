@@ -111,7 +111,7 @@ export async function fetchSingleMonthCashflow(
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("loans")
-      .select("id, profile_id, principal, rate_pct, tenure_months, use_cpf_oa")
+      .select("id, profile_id, principal, rate_pct, tenure_months, start_date, use_cpf_oa")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("tax_relief_inputs")
@@ -162,42 +162,60 @@ export async function fetchSingleMonthCashflow(
         .select("profile_id, monthly_premium, created_at")
         .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
         .eq("premium_payment_mode", "one_time"),
-      supabase
-        .from("investment_transactions")
-        .select("profile_id, type, quantity, price, created_at")
-        .eq("family_id", familyId)
-        .in("type", ["buy", "sell"])
-        .gte("created_at", monthStr)
-        .lt("created_at", nextMonthStr),
+      (() => {
+        let q = supabase
+          .from("investment_transactions")
+          .select("profile_id, type, quantity, price, created_at")
+          .eq("family_id", familyId)
+          .in("type", ["buy", "sell"])
+          .gte("created_at", monthStr)
+          .lt("created_at", nextMonthStr)
+        if (profileIds.length === 1) q = q.eq("profile_id", profileIds[0]!)
+        return q
+      })(),
       // Bank accounts for interest estimation
       supabase
         .from("bank_accounts")
         .select("profile_id, opening_balance, interest_rate_pct")
         .eq("family_id", familyId),
       // Dividend transactions for the month
-      supabase
-        .from("investment_transactions")
-        .select("profile_id, quantity, price")
-        .eq("family_id", familyId)
-        .eq("type", "dividend")
-        .gte("created_at", monthStr)
-        .lt("created_at", nextMonthStr),
+      (() => {
+        let q = supabase
+          .from("investment_transactions")
+          .select("profile_id, quantity, price")
+          .eq("family_id", familyId)
+          .eq("type", "dividend")
+          .gte("created_at", monthStr)
+          .lt("created_at", nextMonthStr)
+        if (profileIds.length === 1) q = q.eq("profile_id", profileIds[0]!)
+        return q
+      })(),
       // Investment snapshot: last entry before month start
-      supabase
-        .from("investment_snapshots")
-        .select("total_value")
-        .eq("family_id", familyId)
-        .lt("date", monthStr)
-        .order("date", { ascending: false })
-        .limit(1),
+      (() => {
+        let q = supabase
+          .from("investment_snapshots")
+          .select("total_value")
+          .eq("family_id", familyId)
+          .lt("date", monthStr)
+          .order("date", { ascending: false })
+          .limit(1)
+        if (profileIds.length === 1) q = q.eq("profile_id", profileIds[0]!)
+        else q = q.is("profile_id", null)
+        return q
+      })(),
       // Investment snapshot: last entry before month end
-      supabase
-        .from("investment_snapshots")
-        .select("total_value")
-        .eq("family_id", familyId)
-        .lt("date", nextMonthStr)
-        .order("date", { ascending: false })
-        .limit(1),
+      (() => {
+        let q = supabase
+          .from("investment_snapshots")
+          .select("total_value")
+          .eq("family_id", familyId)
+          .lt("date", nextMonthStr)
+          .order("date", { ascending: false })
+          .limit(1)
+        if (profileIds.length === 1) q = q.eq("profile_id", profileIds[0]!)
+        else q = q.is("profile_id", null)
+        return q
+      })(),
       // CPF balances for prev month and target month
       supabase
         .from("cpf_balances")
@@ -291,7 +309,7 @@ export async function fetchSingleMonthCashflow(
 
   const loansByProfile = new Map<
     string,
-    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean }>
+    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean; start_date?: string | null }>
   >()
   for (const row of loansRes.data ?? []) {
     const pid = row.profile_id as string
@@ -301,6 +319,7 @@ export async function fetchSingleMonthCashflow(
       rate_pct: row.rate_pct,
       tenure_months: row.tenure_months,
       use_cpf_oa: !!row.use_cpf_oa,
+      start_date: row.start_date,
     })
     loansByProfile.set(pid, list)
   }
@@ -477,7 +496,7 @@ export async function fetchSingleMonthCashflow(
     ilp += insSplit.ilpFromLegacyPolicies
 
     ilp += sumIlpPremiums(ilpByProfile.get(pid) ?? [])
-    loans += sumLoanMonthlyPayments(loansByProfile.get(pid) ?? [])
+    loans += sumLoanMonthlyPayments(loansByProfile.get(pid) ?? [], monthStr)
     savingsGoals += savingsGoalsByProfile.get(pid) ?? 0
     savingsGoals += sumGoalContributionsForMonth(
       goalContribsByProfile.get(pid) ?? [],
@@ -554,23 +573,12 @@ export async function fetchSingleMonthCashflow(
     const invStartVal = invStartSnapshot?.total_value ?? 0
     const invEndVal = invEndSnapshot?.total_value ?? 0
 
-    // Sum buys, sells, dividends from already-fetched transaction data
-    let totalBuys = 0
-    let totalSells = 0
-    for (const txn of investmentTxnsRes.data ?? []) {
-      const amt = txn.quantity * txn.price
-      if (txn.type === "buy") totalBuys += amt
-      else if (txn.type === "sell") totalSells += amt
-    }
-
-    const invMarketGain = invEndVal - invStartVal - dividends - totalSells + totalBuys
+    const invMarketGain = invEndVal - invStartVal - dividends
 
     investmentSection = {
       startingValue: round(invStartVal),
       endingValue: round(invEndVal),
       dividends: round(dividends),
-      buys: round(totalBuys),
-      sells: round(totalSells),
       marketGain: round(invMarketGain),
     }
   }
@@ -615,6 +623,7 @@ export async function fetchSingleMonthCashflow(
       const profileLoans = loansByProfile.get(pid) ?? []
       for (const loan of profileLoans) {
         if (!loan.use_cpf_oa) continue
+        if (loan.start_date && loan.start_date > monthStr) continue
         const monthlyRate = loan.rate_pct / 100 / 12
         let payment = 0
         if (monthlyRate > 0 && loan.tenure_months > 0) {

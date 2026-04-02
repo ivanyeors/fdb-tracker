@@ -50,8 +50,6 @@ export type InvestmentWaterfallSection = {
   startingValue: number
   endingValue: number
   dividends: number
-  buys: number
-  sells: number
   marketGain: number
 }
 

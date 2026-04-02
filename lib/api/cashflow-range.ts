@@ -153,7 +153,7 @@ export async function fetchCashflowRangeSeries(
       .in("profile_id", profileIds),
     supabase
       .from("loans")
-      .select("id, profile_id, principal, rate_pct, tenure_months, use_cpf_oa")
+      .select("id, profile_id, principal, rate_pct, tenure_months, start_date, use_cpf_oa")
       .in("profile_id", profileIds),
     supabase
       .from("tax_relief_inputs")
@@ -417,7 +417,7 @@ export async function fetchCashflowRangeSeries(
 
   const loansByProfile = new Map<
     string,
-    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean }>
+    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean; start_date?: string | null }>
   >()
   for (const row of loansRes.data ?? []) {
     const pid = row.profile_id as string
@@ -427,6 +427,7 @@ export async function fetchCashflowRangeSeries(
       rate_pct: row.rate_pct,
       tenure_months: row.tenure_months,
       use_cpf_oa: !!row.use_cpf_oa,
+      start_date: row.start_date,
     })
     loansByProfile.set(pid, list)
   }
@@ -495,7 +496,7 @@ export async function fetchCashflowRangeSeries(
 
       ilp += sumIlpPremiums(ilpByProfile.get(pid) ?? [])
 
-      loans += sumLoanMonthlyPayments(loansByProfile.get(pid) ?? [])
+      loans += sumLoanMonthlyPayments(loansByProfile.get(pid) ?? [], monthStr)
 
       savingsGoals += savingsGoalsByProfile.get(pid) ?? 0
       savingsGoals += sumGoalContributionsForMonth(
