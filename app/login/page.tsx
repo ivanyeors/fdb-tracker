@@ -52,7 +52,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-svh items-center justify-center p-4">
       <Card className="w-full max-w-sm">
-        <CardHeader className="items-center">
+        <CardHeader className="items-center justify-items-center">
           <AppIcon className="size-10" />
           <CardTitle className="text-center text-xl font-semibold tracking-tight">
             fdb-tracker

@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   description: "Personal finance dashboard for Singapore households",
   icons: {
     icon: "/icon.svg",
+    apple: "/apple-icon",
   },
 }
 
