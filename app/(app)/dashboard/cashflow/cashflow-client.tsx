@@ -68,11 +68,9 @@ function buildCashflowUrl(
 export function CashflowClient({
   initialData,
   initialTransactionsData,
-  householdId,
 }: {
   initialData: CashflowEntry[]
   initialTransactionsData: SpendingBreakdownInitialData
-  householdId: string
 }) {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const searchParams = useSearchParams()
@@ -286,7 +284,6 @@ export function CashflowClient({
               initialData={initialTransactionsData}
               parsedResults={parsedResults}
               onImportComplete={handleImportComplete}
-              householdId={householdId}
             />
           </div>
         </TabsContent>

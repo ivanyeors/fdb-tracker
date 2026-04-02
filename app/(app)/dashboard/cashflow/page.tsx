@@ -32,7 +32,6 @@ export default async function CashflowPage() {
       <CashflowClient
         initialData={[]}
         initialTransactionsData={EMPTY_TRANSACTIONS}
-        householdId=""
       />
     )
 
@@ -52,7 +51,6 @@ export default async function CashflowPage() {
       <CashflowClient
         initialData={[]}
         initialTransactionsData={EMPTY_TRANSACTIONS}
-        householdId={accountId}
       />
     )
 
@@ -104,7 +102,6 @@ export default async function CashflowPage() {
         categories: catResult.data ?? [],
         categoryRules: rulesResult.data ?? [],
       }}
-      householdId={accountId}
     />
   )
 }

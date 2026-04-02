@@ -6,7 +6,6 @@ import { LoansClient, type LoansInitialData } from "./loans-client"
 
 const EMPTY: LoansInitialData = {
   loans: [],
-  housing: null,
   repayments: [],
   earlyRepayments: [],
 }
@@ -87,7 +86,6 @@ export default async function LoansPage() {
       <LoansClient
         initialData={{
           loans: loanList,
-          housing: null,
           repayments,
           earlyRepayments,
         }}

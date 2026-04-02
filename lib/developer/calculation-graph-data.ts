@@ -119,13 +119,13 @@ export const GRAPH_NODES: CalcGraphNode[] = [
     id: "cashflow_in",
     label: "Monthly Inflow",
     type: "cashflow",
-    filePath: "lib/calculations/outflow.ts",
+    filePath: "lib/api/effective-inflow.ts",
   },
   {
     id: "cashflow_out",
     label: "Monthly Outflow",
     type: "cashflow",
-    filePath: "lib/calculations/outflow.ts",
+    filePath: "lib/api/effective-outflow.ts",
   },
   {
     id: "ilp_premium",
@@ -198,6 +198,12 @@ export const GRAPH_NODES: CalcGraphNode[] = [
     label: "Bank Interest",
     type: "bank",
     filePath: "lib/api/effective-inflow.ts",
+  },
+  {
+    id: "giro_transfers",
+    label: "GIRO Transfers",
+    type: "cashflow",
+    filePath: "lib/api/giro-amounts.ts",
   },
 ]
 
@@ -440,14 +446,20 @@ Tax is estimated separately and not deducted from monthly take-home.`,
     target: "cashflow_in",
     calculationName: "Monthly Inflow",
     description:
-      "Take-home pay is the primary monthly inflow for cashflow tracking.",
-    filePath: "lib/calculations/outflow.ts",
-    calculationLogic: `**Logic:**
-monthlyInflow = takeHomePay
+      "Take-home pay plus bank interest and dividends form the total monthly inflow.",
+    filePath: "lib/api/effective-inflow.ts",
+    calculationLogic: `**Formula:**
+total = monthlyIncome + bankInterest + dividends
 
-Take-home pay (gross minus CPF employee contribution) flows directly into the monthly inflow figure.
+Where:
+monthlyIncome = annualTakeHome / 12 (or manual override from monthly_cashflow.inflow)
+bankInterest = sum(balance × interest_rate_pct / 100 / 12) for each bank account
+dividends = sum(quantity × price) for dividend transactions in the month
 
-Additional income sources (freelance, rental, etc.) can be added as separate inflow entries.`,
+**Breakdown returned:**
+{ total, salary?, bonus?, bankInterest?, dividends? }
+
+If manual override exists: { total, income, bankInterest?, dividends? }`,
   },
   {
     source: "cashflow_out",
@@ -613,11 +625,21 @@ interestSaved = earlyAmount × (annualRate/100/12) × remainingMonths (approxima
     calculationName: "Loan Deduction",
     description:
       "Monthly loan repayment is a recurring outflow in cashflow tracking.",
-    filePath: "lib/calculations/outflow.ts",
-    calculationLogic: `**Formula:**
-effectiveOutflow = discretionary + insuranceTotal + ilpPremiums + loanRepayments + taxProvision
+    filePath: "lib/api/effective-outflow.ts",
+    calculationLogic: `**Effective Outflow Formula (10 categories):**
+total = discretionary + insurance + ilp + ilpOneTime + loans + earlyRepayments + tax + taxReliefCash + savingsGoals + investments
 
-The monthly loan payment (from amortization) is included as a recurring outflow in the total effective monthly outflow calculation.`,
+Where:
+discretionary = userReportedOutflow + giroOutflow
+insurance = sum(monthlyEquivalent) for active non-ILP policies
+ilp = sum(monthlyPremium) for recurring ILP products + ILP-type insurance policies
+ilpOneTime = sum(lumpSum) for one-time ILP products created this month
+loans = sum(amortizedPayment) for non-CPF-OA loans
+earlyRepayments = sum(amount + penalty) for early repayments this month
+tax = actual_amount/12 if recorded, else calculated estimate / 12
+taxReliefCash = sum(annualAmount/12) for SRS + CPF top-up reliefs
+savingsGoals = sum(monthly_auto_amount) + manual contributions this month
+investments = max(0, buys - sells) for investment transactions this month`,
   },
   {
     source: "ilp_premium",
@@ -826,6 +848,51 @@ Uses the opening_balance and interest_rate_pct from bank_accounts table as a rou
 totalGoalOutflow = sum(monthly_auto_amount) + sum(manual contributions this month)
 
 Auto-contributions are recurring. Manual contributions from goal_contributions table are added for the specific month.`,
+  },
+  {
+    source: "giro_transfers",
+    target: "cashflow_out",
+    calculationName: "GIRO Auto-Debit",
+    description:
+      "GIRO standing instructions auto-debit from bank accounts into outflow categories (spending, investments, SRS, CPF investments).",
+    filePath: "lib/api/giro-amounts.ts",
+    calculationLogic: `**Formula:**
+giroOutflow = sum(amount) for active giro_rules where destination_type in ('outflow', 'investments', 'cpf_investments', 'srs')
+
+Rules are attributed to a profile via source_bank_account.profile_id.
+
+**In effective outflow:**
+discretionary = userReportedOutflow + giroOutflow
+
+GIRO transfers are also shown as a separate line item in the waterfall and Sankey charts.`,
+  },
+  {
+    source: "bank_interest",
+    target: "bank_balance",
+    calculationName: "Interest Accumulation",
+    description:
+      "Bank interest earned each month accumulates into the bank account balance.",
+    filePath: "lib/calculations/bank-interest.ts",
+    calculationLogic: `**Formula:**
+newBalance = previousBalance + monthlyInterest
+
+Where:
+monthlyInterest = balance × (interest_rate_pct / 100 / 12)
+
+Interest is credited to the account balance monthly, increasing the base for the next month's interest calculation.`,
+  },
+  {
+    source: "investments",
+    target: "dividends",
+    calculationName: "Dividend Distribution",
+    description:
+      "Holdings in the investment portfolio generate dividend income, recorded as dividend transactions.",
+    filePath: "lib/api/effective-inflow.ts",
+    calculationLogic: `**Formula:**
+dividendIncome = sum(quantity × price) for investment_transactions where type = 'dividend'
+
+Dividends are generated by held positions (stocks, ETFs, REITs) and recorded as transactions.
+They flow into monthly inflow as a separate line item alongside take-home pay and bank interest.`,
   },
 ]
 

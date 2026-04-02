@@ -9,7 +9,7 @@ import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Plus, Receipt, Pencil, Trash2 } from "lucide-react"
+import { Plus, Receipt, Pencil, Trash2, ExternalLink } from "lucide-react"
 import {
   effectiveRate,
   estimateOutstandingPrincipal,
@@ -49,18 +49,10 @@ interface Loan {
   created_at: string
 }
 
-type HousingData = {
-  oaUsed: number
-  accruedInterest: number
-  refundDue: number
-  vlRemaining: number | null
-}
-
 type RepaymentRow = { loan_id: string; amount: number; date: string }
 
 export type LoansInitialData = {
   loans: Loan[]
-  housing: HousingData | null
   repayments: RepaymentRow[]
   earlyRepayments: RepaymentRow[]
 }
@@ -131,16 +123,11 @@ export function LoansClient({
   const [deletingLoan, setDeletingLoan] = useState<{ id: string; name: string } | null>(null)
 
   const loansUrl = buildUrl("/api/loans", activeProfileId, activeFamilyId)
-  const housingUrl = buildUrl("/api/cpf/housing", activeProfileId, activeFamilyId)
   const repayUrl = buildUrl("/api/loans/repayments", activeProfileId, activeFamilyId)
 
   const { data: loansData, isLoading: loansLoading } = useApi<Loan[]>(
     loansUrl,
     { fallbackData: initialData.loans }
-  )
-  const { data: housingData } = useApi<HousingData>(
-    housingUrl,
-    { fallbackData: initialData.housing ?? undefined }
   )
   const { data: repayData } = useApi<{
     repayments?: RepaymentRow[]
@@ -181,11 +168,6 @@ export function LoansClient({
           : fullMonthly)
       }, 0),
     [loans, activeProfileId],
-  )
-
-  const hasCpfLoans = useMemo(
-    () => loans.some((l) => l.use_cpf_oa),
-    [loans],
   )
 
   const { scheduledByLoan, earlyByLoan } = useMemo(() => {
@@ -285,57 +267,6 @@ export function LoansClient({
             />
             <MetricCard label="Active Loans" value={`${loans.length}`} />
           </div>
-
-          {hasCpfLoans && (
-            <div className="space-y-4">
-              <SectionHeader
-                title="CPF Housing"
-                description="CPF OA used for housing and refund due on sale."
-              />
-              <p className="text-sm text-muted-foreground">
-                Tranches, accrued interest, and 120% VL are on the{" "}
-                <Link
-                  href="/dashboard/cpf?tab=housing"
-                  className="font-medium text-foreground underline underline-offset-4"
-                >
-                  CPF Housing tab
-                </Link>
-                .
-              </p>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <MetricCard
-                  label="CPF OA Used"
-                  value={housingData?.oaUsed ?? 0}
-                  prefix="$"
-                  tooltipId="CPF_HOUSING_REFUND"
-                />
-                <MetricCard
-                  label="Accrued Interest"
-                  value={housingData?.accruedInterest ?? 0}
-                  prefix="$"
-                  tooltipId="CPF_HOUSING_REFUND"
-                />
-                <MetricCard
-                  label="Total Refund Due"
-                  value={housingData?.refundDue ?? 0}
-                  prefix="$"
-                  tooltipId="CPF_HOUSING_REFUND"
-                />
-                <MetricCard
-                  label="120% VL headroom"
-                  value={
-                    housingData?.vlRemaining != null
-                      ? housingData.vlRemaining
-                      : "Add VL on loan"
-                  }
-                  prefix={
-                    housingData?.vlRemaining != null ? "$" : undefined
-                  }
-                  tooltipId="CPF_HOUSING_REFUND"
-                />
-              </div>
-            </div>
-          )}
 
           <div className="overflow-hidden rounded-xl border">
             <div className="overflow-x-auto">
@@ -522,7 +453,15 @@ export function LoansClient({
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {loan.use_cpf_oa ? "✓" : "—"}
+                          {loan.use_cpf_oa ? (
+                            <Link
+                              href="/dashboard/cpf?tab=housing"
+                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                              title="View CPF details"
+                            >
+                              CPF <ExternalLink className="h-3 w-3" />
+                            </Link>
+                          ) : "—"}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1">

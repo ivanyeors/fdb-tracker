@@ -64,8 +64,31 @@ export async function POST(request: Request) {
       )
     }
 
-    // Save transactions
+    // Check for existing transactions to report accurate new vs. duplicate counts
+    let newCount = body.transactions.length
+    let skippedCount = 0
+
     if (body.transactions.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: existing } = await (supabase as any)
+        .from("bank_transactions")
+        .select("txn_date, description, amount")
+        .eq("profile_id", body.profileId)
+        .eq("month", body.month)
+        .eq("statement_type", body.statementType)
+
+      if (existing && existing.length > 0) {
+        const existingSet = new Set(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          existing.map((t: any) => `${t.txn_date}|${t.description}|${t.amount}`)
+        )
+        skippedCount = body.transactions.filter((txn) =>
+          existingSet.has(`${txn.date}|${txn.description}|${txn.amount}`)
+        ).length
+        newCount = body.transactions.length - skippedCount
+      }
+
+      // Save transactions (upsert handles duplicates gracefully)
       const txnRows = body.transactions.map((txn) => ({
         profile_id: body.profileId,
         family_id: body.familyId,
@@ -126,7 +149,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({
-      saved: body.transactions.length,
+      saved: newCount,
+      skipped: skippedCount,
       month: body.month,
     })
   } catch (err) {

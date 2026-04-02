@@ -332,6 +332,7 @@ function bankRowDirty(
   return (
     e.bank_name !== b.bank_name ||
     e.account_type !== b.account_type ||
+    (e.account_number ?? null) !== (b.account_number ?? null) ||
     e.opening_balance !== b.opening_balance ||
     (e.interest_rate_pct ?? null) !== (b.interest_rate_pct ?? null) ||
     (e.locked_amount ?? 0) !== (b.locked_amount ?? 0) ||
@@ -1068,11 +1069,12 @@ function BanksSection({
         </Select>
         <InfoTooltip id="PRIMARY_BANK_ACCOUNT" />
       </div>
-      <ScrollableTableWrapper minWidth="640px">
+      <ScrollableTableWrapper minWidth="780px">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Bank - Name</TableHead>
+            <TableHead>Account No.</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Balance</TableHead>
             <TableHead>Locked</TableHead>
@@ -1095,6 +1097,22 @@ function BanksSection({
                       }))
                     }
                     className="h-8 w-32"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    value={e.account_number ?? ""}
+                    onChange={(ev) =>
+                      setEditing((p) => ({
+                        ...p,
+                        [b.id]: {
+                          ...(p[b.id] ?? b),
+                          account_number: ev.target.value || null,
+                        },
+                      }))
+                    }
+                    className="h-8 w-32"
+                    placeholder="e.g. 595427493001"
                   />
                 </TableCell>
                 <TableCell>

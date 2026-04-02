@@ -6,7 +6,6 @@ const EMPTY_DATA: CpfInitialData = {
   balances: [],
   retirement: null,
   housing: null,
-  loans: [],
 }
 
 export default async function CpfPage() {
@@ -32,7 +31,7 @@ export default async function CpfPage() {
 
   let data: CpfInitialData = EMPTY_DATA
   try {
-    const [balancesRes, retirementRes, housingRes, loansRes] =
+    const [balancesRes, retirementRes, housingRes] =
       await Promise.all([
         fetch(`${baseUrl}/api/cpf/balances?${qs}`, {
           headers,
@@ -46,17 +45,12 @@ export default async function CpfPage() {
           headers,
           cache: "no-store",
         }),
-        fetch(`${baseUrl}/api/loans?${qs}`, {
-          headers,
-          cache: "no-store",
-        }),
       ])
 
     data = {
       balances: balancesRes.ok ? ((await balancesRes.json()) ?? []) : [],
       retirement: retirementRes.ok ? await retirementRes.json() : null,
       housing: housingRes.ok ? await housingRes.json() : null,
-      loans: loansRes.ok ? ((await loansRes.json()) ?? []) : [],
     }
   } catch {
     // fall through with empty data

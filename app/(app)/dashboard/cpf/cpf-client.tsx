@@ -8,10 +8,6 @@ import {
   CpfHousingTab,
   type CpfHousingApiResponse,
 } from "@/components/dashboard/cpf/cpf-housing-tab"
-import {
-  CpfLoansTab,
-  type CpfLoanRow,
-} from "@/components/dashboard/cpf/cpf-loans-tab"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
@@ -37,6 +33,14 @@ const CpfOverviewChart = dynamic(
       (m) => m.CpfOverviewChart
     ),
   { ssr: false, loading: () => <ChartSkeleton className="h-[300px]" /> }
+)
+
+const CpfTrendChart = dynamic(
+  () =>
+    import("@/components/dashboard/cpf/cpf-trend-chart").then(
+      (m) => m.CpfTrendChart
+    ),
+  { ssr: false, loading: () => <ChartSkeleton className="h-[280px]" /> }
 )
 
 const CpfRetirementChart = dynamic(
@@ -94,7 +98,6 @@ export type CpfInitialData = {
   balances: CpfBalanceRow[]
   retirement: RetirementData | null
   housing: CpfHousingApiResponse | null
-  loans: CpfLoanRow[]
 }
 
 function buildApiUrl(
@@ -112,16 +115,19 @@ function buildApiUrl(
 function OverviewTab({
   data,
   dps,
-  housingDeduction,
 }: {
   data: CpfBalanceRow[]
   dps?: RetirementData["dps"]
-  housingDeduction?: {
-    total: number
-    loans: { monthly: number; loanName: string; remainingMonths: number }[]
-  } | null
 }) {
   const latest = data[data.length - 1] || { oa: 0, sa: 0, ma: 0 }
+
+  const sortedData = useMemo(
+    () =>
+      [...data].sort(
+        (a, b) => new Date(a.month).getTime() - new Date(b.month).getTime(),
+      ),
+    [data],
+  )
 
   const chartData = useMemo(() => {
     const monthNames = [
@@ -138,19 +144,54 @@ function OverviewTab({
       "Nov",
       "Dec",
     ]
-    return [...data]
-      .sort(
-        (a, b) => new Date(a.month).getTime() - new Date(b.month).getTime()
-      )
-      .slice(-6)
-      .map((d) => {
-        const date = new Date(d.month)
-        return {
-          ...d,
-          month: `${monthNames[date.getMonth()]} ${date.getFullYear()}`,
-        }
+    return sortedData.slice(-6).map((d) => {
+      const date = new Date(d.month)
+      return {
+        ...d,
+        month: `${monthNames[date.getMonth()]} ${date.getFullYear()}`,
+      }
+    })
+  }, [sortedData])
+
+  const trendData = useMemo(() => {
+    if (sortedData.length < 2) return []
+    const rows = sortedData.slice(-13) // 13 rows = 12 month-on-month deltas
+    const result: Array<{
+      month: string
+      inflow: number
+      inflowOa: number
+      inflowSa: number
+      inflowMa: number
+      outflow: number
+    }> = []
+
+    for (let i = 1; i < rows.length; i++) {
+      const prev = rows[i - 1]
+      const curr = rows[i]
+      const dOa = curr.oa - prev.oa
+      const dSa = curr.sa - prev.sa
+      const dMa = curr.ma - prev.ma
+
+      // Positive deltas = inflow (contributions + interest)
+      // Negative deltas = outflow (housing deductions, etc.)
+      const inflowOa = Math.max(0, dOa)
+      const inflowSa = Math.max(0, dSa)
+      const inflowMa = Math.max(0, dMa)
+      const outflowOa = Math.abs(Math.min(0, dOa))
+      const outflowSa = Math.abs(Math.min(0, dSa))
+      const outflowMa = Math.abs(Math.min(0, dMa))
+
+      result.push({
+        month: curr.month,
+        inflow: inflowOa + inflowSa + inflowMa,
+        inflowOa,
+        inflowSa,
+        inflowMa,
+        outflow: outflowOa + outflowSa + outflowMa,
       })
-  }, [data])
+    }
+    return result
+  }, [sortedData])
 
   return (
     <div className="space-y-6">
@@ -174,39 +215,6 @@ function OverviewTab({
           tooltipId="CPF_OA_SA_MA"
         />
       </div>
-
-      {housingDeduction && housingDeduction.total > 0 && (
-        <Card>
-          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-base">
-              Housing Loan Deduction
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold tabular-nums">
-              ~${formatCurrency(housingDeduction.total)}
-              <span className="text-sm font-normal text-muted-foreground">
-                /mo from OA
-              </span>
-            </p>
-            <div className="mt-1 space-y-0.5">
-              {housingDeduction.loans.map((h) => (
-                <p
-                  key={h.loanName}
-                  className="text-xs text-muted-foreground"
-                >
-                  {h.loanName} — ${formatCurrency(h.monthly)}/mo ·{" "}
-                  {Math.ceil(h.remainingMonths / 12)}y remaining
-                </p>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              CPF OA is used to service these housing loans. This reduces
-              your OA growth but is not a cash outflow.
-            </p>
-          </CardContent>
-        </Card>
-      )}
 
       {dps?.included && dps.estimatedAnnualPremium != null && (
         <Card>
@@ -236,14 +244,34 @@ function OverviewTab({
         </p>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Monthly Contribution Projections (6 Months)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <CpfOverviewChart data={chartData} />
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Contribution Breakdown (6 Months)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CpfOverviewChart data={chartData} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Monthly Inflow vs Outflow
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {trendData.length > 0 ? (
+              <CpfTrendChart data={trendData} />
+            ) : (
+              <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+                Need at least 2 months of balance data to show trends.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
@@ -567,7 +595,7 @@ function RetirementTab({
   )
 }
 
-const CPF_TAB_SET = new Set(["overview", "housing", "loans", "retirement"])
+const CPF_TAB_SET = new Set(["overview", "housing", "retirement"])
 
 export function CpfClient({
   initialData,
@@ -595,12 +623,6 @@ export function CpfClient({
     activeProfileId,
     activeFamilyId
   )
-  const loansUrl = buildApiUrl(
-    "/api/loans",
-    activeProfileId,
-    activeFamilyId
-  )
-
   const { data: cpfData, isLoading: balancesLoading } = useApi<
     CpfBalanceRow[]
   >(balancesUrl, { fallbackData: initialData.balances })
@@ -617,10 +639,6 @@ export function CpfClient({
     fallbackData: initialData.housing ?? undefined,
   })
 
-  const { data: loansData } = useApi<CpfLoanRow[]>(loansUrl, {
-    fallbackData: initialData.loans,
-  })
-
   const isLoading = balancesLoading && !cpfData
 
   const refreshHousing = useCallback(async () => {
@@ -631,7 +649,7 @@ export function CpfClient({
     <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
         title="CPF"
-        description="OA/SA/MA, CPF housing usage, loans, retirement benchmarking."
+        description="OA/SA/MA balances, housing usage, and retirement benchmarking."
       />
 
       {isLoading ? (
@@ -658,7 +676,6 @@ export function CpfClient({
             <TabsList className="inline-flex w-fit flex-nowrap">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="housing">Housing</TabsTrigger>
-              <TabsTrigger value="loans">Loans</TabsTrigger>
               <TabsTrigger value="retirement">Retirement</TabsTrigger>
             </TabsList>
           </div>
@@ -667,15 +684,6 @@ export function CpfClient({
             <OverviewTab
               data={cpfData ?? []}
               dps={retirementData?.dps}
-              housingDeduction={
-                retirementData?.housingOaDeduction &&
-                retirementData.totalMonthlyHousingDeduction
-                  ? {
-                      total: retirementData.totalMonthlyHousingDeduction,
-                      loans: retirementData.housingOaDeduction,
-                    }
-                  : null
-              }
             />
           </TabsContent>
           <TabsContent value="housing" className="mt-4">
@@ -684,10 +692,9 @@ export function CpfClient({
               isLoading={housingLoading && !housingData}
               onRefresh={refreshHousing}
               isFamilyView={!activeProfileId}
+              housingDeductions={retirementData?.housingOaDeduction}
+              totalMonthlyDeduction={retirementData?.totalMonthlyHousingDeduction}
             />
-          </TabsContent>
-          <TabsContent value="loans" className="mt-4">
-            <CpfLoansTab loans={loansData ?? []} />
           </TabsContent>
           <TabsContent value="retirement" className="mt-4">
             <RetirementTab

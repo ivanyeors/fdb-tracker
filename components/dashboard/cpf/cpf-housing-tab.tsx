@@ -71,16 +71,26 @@ const USAGE_OPTIONS = [
   { value: "other", label: "Other" },
 ] as const
 
+type HousingLoanDeduction = {
+  monthly: number
+  loanName: string
+  remainingMonths: number
+}
+
 export function CpfHousingTab({
   data,
   isLoading,
   onRefresh,
   isFamilyView,
+  housingDeductions,
+  totalMonthlyDeduction,
 }: {
   data: CpfHousingApiResponse | null
   isLoading: boolean
   onRefresh: () => void
   isFamilyView?: boolean
+  housingDeductions?: HousingLoanDeduction[] | null
+  totalMonthlyDeduction?: number | null
 }) {
   const { profiles } = useActiveProfile()
   const [loanId, setLoanId] = useState<string>("")
@@ -212,6 +222,39 @@ export function CpfHousingTab({
         </a>{" "}
         figures. As of {data.asOf}.
       </p>
+
+      {housingDeductions && housingDeductions.length > 0 && totalMonthlyDeduction != null && totalMonthlyDeduction > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-base">
+              Monthly CPF OA Loan Deduction
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold tabular-nums">
+              ~${formatCurrency(totalMonthlyDeduction)}
+              <span className="text-sm font-normal text-muted-foreground">
+                /mo from OA
+              </span>
+            </p>
+            <div className="mt-1 space-y-0.5">
+              {housingDeductions.map((h) => (
+                <p
+                  key={h.loanName}
+                  className="text-xs text-muted-foreground"
+                >
+                  {h.loanName} — ${formatCurrency(h.monthly)}/mo ·{" "}
+                  {Math.ceil(h.remainingMonths / 12)}y remaining
+                </p>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              CPF OA is used to service these housing loans. This reduces
+              your OA growth but is not a cash outflow.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard

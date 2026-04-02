@@ -69,12 +69,10 @@ export function SpendingBreakdownTab({
   initialData,
   parsedResults,
   onImportComplete,
-  householdId,
 }: {
   initialData: SpendingBreakdownInitialData
   parsedResults: ParsedResult[]
   onImportComplete: () => void
-  householdId: string
 }) {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const { triggerRefresh } = useDataRefresh()
@@ -147,6 +145,7 @@ export function SpendingBreakdownTab({
     if (!activeProfileId || !activeFamilyId) return
 
     let totalSaved = 0
+    let totalSkipped = 0
     try {
       for (const file of parsedFiles) {
         const extracted = file.result?.extracted
@@ -192,10 +191,19 @@ export function SpendingBreakdownTab({
 
         const json = await res.json()
         totalSaved += json.saved
+        totalSkipped += json.skipped ?? 0
       }
 
-      if (totalSaved > 0) {
+      if (totalSaved > 0 && totalSkipped > 0) {
+        toast.success(
+          `Imported ${totalSaved} new transactions (${totalSkipped} already existed)`
+        )
+      } else if (totalSaved > 0) {
         toast.success(`Imported ${totalSaved} transactions`)
+      } else if (totalSkipped > 0) {
+        toast.info(
+          `All ${totalSkipped} transactions were already imported`
+        )
       }
       setShowPreview(false)
       setParsedFiles([])
@@ -216,12 +224,7 @@ export function SpendingBreakdownTab({
           onValueChange={setStatementType}
           options={STATEMENT_TYPE_OPTIONS}
         />
-        {householdId && (
-          <CategoryManagerButton
-            householdId={householdId}
-            onCategoriesChanged={() => triggerRefresh()}
-          />
-        )}
+        <CategoryManagerButton />
       </div>
 
       {/* Main Content */}
