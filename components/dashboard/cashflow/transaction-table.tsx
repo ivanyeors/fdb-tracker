@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { Save } from "lucide-react"
+import { Save, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/utils"
@@ -46,15 +46,52 @@ interface Category {
   icon: string | null
 }
 
+export interface CategoryRule {
+  match_pattern: string
+  category_id: string
+  source: string
+  priority: number
+}
+
 interface TransactionTableProps {
   transactions: Transaction[]
   categories: Category[]
+  categoryRules?: CategoryRule[]
   onSaved?: () => void
+}
+
+/**
+ * Match a description against category rules (same logic as server-side categorizeTransaction).
+ * Returns the best-matching category_id or null.
+ */
+function suggestCategory(
+  description: string,
+  rules: CategoryRule[]
+): string | null {
+  const desc = description.toUpperCase()
+
+  // Sort by priority descending
+  const sorted = [...rules].sort((a, b) => b.priority - a.priority)
+
+  for (const rule of sorted) {
+    const pattern = rule.match_pattern.toUpperCase()
+    if (pattern.includes("*")) {
+      // Wildcard matching
+      const parts = pattern.split("*").filter(Boolean)
+      if (parts.every((part) => desc.includes(part))) {
+        return rule.category_id
+      }
+    } else if (desc.includes(pattern)) {
+      return rule.category_id
+    }
+  }
+  return null
 }
 
 export function TransactionTable({
   transactions,
   categories,
+  categoryRules = [],
   onSaved,
 }: TransactionTableProps) {
   const [changes, setChanges] = useState<Map<string, string | null>>(new Map())
@@ -62,6 +99,18 @@ export function TransactionTable({
   const [isSaving, setIsSaving] = useState(false)
 
   const hasChanges = changes.size > 0
+
+  // Pre-compute suggestions for uncategorized transactions
+  const suggestions = useMemo(() => {
+    if (categoryRules.length === 0) return new Map<string, string>()
+    const map = new Map<string, string>()
+    for (const txn of transactions) {
+      if (txn.category_id) continue // already categorized
+      const suggested = suggestCategory(txn.description, categoryRules)
+      if (suggested) map.set(txn.id, suggested)
+    }
+    return map
+  }, [transactions, categoryRules])
 
   function handleCategoryChange(txnId: string, categoryId: string | null) {
     setChanges((prev) => {
@@ -87,6 +136,17 @@ export function TransactionTable({
     setChanges(next)
   }
 
+  function handleApplySuggestions() {
+    const next = new Map(changes)
+    for (const [id, categoryId] of suggestions) {
+      if (!changes.has(id)) {
+        next.set(id, categoryId)
+      }
+    }
+    setChanges(next)
+    toast.success(`Applied ${suggestions.size} category suggestions`)
+  }
+
   async function handleSave() {
     if (!hasChanges) return
     setIsSaving(true)
@@ -98,21 +158,27 @@ export function TransactionTable({
       }))
 
       // Auto-extract merchant keywords for category rules
-      const categoryRules: Array<{ pattern: string; categoryId: string }> = []
+      const categoryRulesPayload: Array<{
+        pattern: string
+        categoryId: string
+      }> = []
       for (const [id, categoryId] of changes.entries()) {
         if (!categoryId) continue
         const txn = transactions.find((t) => t.id === id)
         if (!txn) continue
         const keyword = extractMerchantKeyword(txn.description)
         if (keyword) {
-          categoryRules.push({ pattern: keyword, categoryId })
+          categoryRulesPayload.push({ pattern: keyword, categoryId })
         }
       }
 
       const res = await fetch("/api/transactions", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ updates, categoryRules }),
+        body: JSON.stringify({
+          updates,
+          categoryRules: categoryRulesPayload,
+        }),
       })
 
       if (!res.ok) {
@@ -121,7 +187,26 @@ export function TransactionTable({
         return
       }
 
-      toast.success(`Updated ${updates.length} transactions`)
+      // Show rule learning feedback
+      if (categoryRulesPayload.length > 0) {
+        const ruleNames = categoryRulesPayload
+          .slice(0, 3)
+          .map((r) => {
+            const cat = categories.find((c) => c.id === r.categoryId)
+            return `${r.pattern} → ${cat?.name ?? "?"}`
+          })
+          .join(", ")
+        const suffix =
+          categoryRulesPayload.length > 3
+            ? ` +${categoryRulesPayload.length - 3} more`
+            : ""
+        toast.success(
+          `Updated ${updates.length} transactions. Rules learned: ${ruleNames}${suffix}`
+        )
+      } else {
+        toast.success(`Updated ${updates.length} transactions`)
+      }
+
       setChanges(new Map())
       setSelected(new Set())
       onSaved?.()
@@ -154,13 +239,13 @@ export function TransactionTable({
     return Array.from(byCategory.entries())
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.total - a.total)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions, changes])
 
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {selected.size > 0 && (
           <Select onValueChange={(v) => handleBulkCategory(v)}>
             <SelectTrigger className="w-[180px]">
@@ -174,6 +259,16 @@ export function TransactionTable({
               ))}
             </SelectContent>
           </Select>
+        )}
+        {suggestions.size > 0 && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={handleApplySuggestions}
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            Apply {suggestions.size} suggestions
+          </Button>
         )}
         {hasChanges && (
           <Button size="sm" onClick={handleSave} disabled={isSaving}>
@@ -208,6 +303,10 @@ export function TransactionTable({
               const cat = getCategoryForTxn(txn)
               const isExcluded = txn.exclude_from_spending
               const isChanged = changes.has(txn.id)
+              const suggestedCatId = suggestions.get(txn.id)
+              const suggestedCat = suggestedCatId
+                ? categories.find((c) => c.id === suggestedCatId)
+                : null
 
               return (
                 <TableRow
@@ -225,10 +324,10 @@ export function TransactionTable({
                       }}
                     />
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-sm">
+                  <TableCell className="text-sm whitespace-nowrap">
                     {new Date(txn.txn_date + "T00:00:00").toLocaleDateString(
                       "en-SG",
-                      { day: "2-digit", month: "short" },
+                      { day: "2-digit", month: "short" }
                     )}
                   </TableCell>
                   <TableCell>
@@ -252,7 +351,7 @@ export function TransactionTable({
                       onValueChange={(v) =>
                         handleCategoryChange(
                           txn.id,
-                          v === "uncategorized" ? null : v,
+                          v === "uncategorized" ? null : v
                         )
                       }
                     >
@@ -260,9 +359,19 @@ export function TransactionTable({
                         className={cn(
                           "h-8 text-xs",
                           isChanged && "border-blue-500",
+                          !cat &&
+                            suggestedCat &&
+                            !isChanged &&
+                            "border-dashed border-amber-400"
                         )}
                       >
-                        <SelectValue />
+                        <SelectValue
+                          placeholder={
+                            suggestedCat
+                              ? `${suggestedCat.name} (suggested)`
+                              : undefined
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="uncategorized">
@@ -281,7 +390,7 @@ export function TransactionTable({
                       "text-right font-mono text-sm",
                       txn.txn_type === "credit"
                         ? "text-green-600"
-                        : "text-red-600",
+                        : "text-red-600"
                     )}
                   >
                     {txn.txn_type === "credit" ? "+" : ""}
@@ -333,7 +442,10 @@ export function TransactionTable({
 function extractMerchantKeyword(description: string): string | null {
   // Remove common prefixes
   const cleaned = description
-    .replace(/^(DEBIT PURCHASE|FAST PAYMENT|BILL PAYMENT INB?|NETS QR|GIRO|FUND TRANSFER|IBG GIRO)\s*/i, "")
+    .replace(
+      /^(DEBIT PURCHASE|FAST PAYMENT|BILL PAYMENT INB?|NETS QR|GIRO|FUND TRANSFER|IBG GIRO)\s*/i,
+      ""
+    )
     .replace(/\d{2}\/\d{2}\/\d{2}\s*/g, "") // dates
     .replace(/xx-\d{4}\s*/g, "") // card refs
     .replace(/\d{8,}\s*/g, "") // reference numbers

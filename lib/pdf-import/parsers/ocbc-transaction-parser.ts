@@ -69,7 +69,7 @@ const BALANCE_VALUEDATE_DESC =
   /([\d,]+\.\d{2})(\d{2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(.*)/i
 
 /** Matches "DD/MM" at line start (with optional leading spaces) — CC transaction start */
-const CC_TXN_START = /^\s+(\d{2})\/(\d{2})\s+/
+const CC_TXN_START = /^\s*(\d{2})\/(\d{2})\s+/
 
 /** Matches dollar amounts like "3,635.15" or "967.51" */
 const AMOUNT_RE = /([\d,]+\.\d{2})/g
@@ -504,11 +504,17 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
 
       if (!inTxnSection) continue
 
-      // Stop markers
+      // Stop markers — also check after stripping a leading mashed amount
+      // (unpdf produces "470.11SUBTOTAL" instead of "SUBTOTAL")
+      const withoutLeadingAmount = trimmed.replace(/^[\d,]+\.\d{2}/, "")
       if (
-        CC_STOP_MARKERS.some((m) =>
-          trimmed.toUpperCase().startsWith(m.toUpperCase())
-        )
+        CC_STOP_MARKERS.some((m) => {
+          const upper = m.toUpperCase()
+          return (
+            trimmed.toUpperCase().startsWith(upper) ||
+            withoutLeadingAmount.toUpperCase().startsWith(upper)
+          )
+        })
       ) {
         if (currentTxn) {
           transactions.push(finalizeCcTxn(currentTxn))
@@ -538,24 +544,49 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
         const month = ccMatch[2]
         const rest = line.slice(ccMatch[0].length).trim()
 
-        // Extract amount (last number on line)
-        const parenMatch = rest.match(/\(([\d,]+\.\d{2})\)\s*$/)
+        // Extract amount + description.
+        // unpdf produces amount-before-description (mashed):
+        //   Credit: "(53.25PAYMENT BY INTERNET )"
+        //   Debit:  "29.20-5563 CURSOR, AI POWERED"
+        // Old/test format had amount-after-description — keep as fallback.
         let amount: number
         let isCredit: boolean
         let descPart: string
 
-        if (parenMatch) {
-          // Parenthesized = credit
-          amount = parseAmount(parenMatch[1]) ?? 0
+        // New format: credit with amount mashed inside parens
+        const newCreditMatch = rest.match(/^\(([\d,]+\.\d{2})(.*?)\)\s*$/)
+        // Old format: credit with amount at end in parens
+        const oldCreditMatch = rest.match(/\(([\d,]+\.\d{2})\)\s*$/)
+
+        if (newCreditMatch) {
+          amount = parseAmount(newCreditMatch[1]) ?? 0
+          isCredit = true
+          descPart = newCreditMatch[2].trim()
+        } else if (oldCreditMatch) {
+          amount = parseAmount(oldCreditMatch[1]) ?? 0
           isCredit = true
           descPart = rest.slice(0, rest.lastIndexOf("(")).trim()
         } else {
-          const amountMatch = rest.match(/([\d,]+\.\d{2})\s*$/)
-          amount = amountMatch ? (parseAmount(amountMatch[1]) ?? 0) : 0
-          isCredit = false
-          descPart = amountMatch
-            ? rest.slice(0, rest.lastIndexOf(amountMatch[1])).trim()
-            : rest
+          // Debit: try amount-before-description first
+          const newDebitMatch = rest.match(/^([\d,]+\.\d{2})(.+)$/)
+          // Fallback: amount-after-description
+          const oldDebitMatch = rest.match(/([\d,]+\.\d{2})\s*$/)
+
+          if (newDebitMatch) {
+            amount = parseAmount(newDebitMatch[1]) ?? 0
+            isCredit = false
+            descPart = newDebitMatch[2].trim()
+          } else if (oldDebitMatch) {
+            amount = parseAmount(oldDebitMatch[1]) ?? 0
+            isCredit = false
+            descPart = rest
+              .slice(0, rest.lastIndexOf(oldDebitMatch[1]))
+              .trim()
+          } else {
+            amount = 0
+            isCredit = false
+            descPart = rest
+          }
         }
 
         const dateStr = `${day}/${month}`
