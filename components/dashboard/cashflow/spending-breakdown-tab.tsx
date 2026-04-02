@@ -16,7 +16,7 @@ import {
   type ParsedResult,
 } from "@/components/dashboard/cashflow/import-preview-dialog"
 import { CategoryManagerButton } from "@/components/dashboard/cashflow/category-manager"
-import { CategoryBreakdownChart } from "@/components/dashboard/cashflow/category-breakdown-chart"
+import { MonthlySpendingGrid } from "@/components/dashboard/cashflow/monthly-spending-grid"
 
 const STATEMENT_TYPE_OPTIONS = [
   { value: "all", label: "All" },
@@ -49,6 +49,28 @@ export interface SpendingBreakdownInitialData {
 function getCurrentMonth() {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
+}
+
+function getDateRange() {
+  const now = new Date()
+  const endMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
+  const start = new Date(now.getFullYear(), now.getMonth() - 11, 1)
+  const startMonth = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-01`
+  return { startMonth, endMonth }
+}
+
+function buildCategorySummaryUrl(
+  profileId: string | null,
+  familyId: string | null
+): string | null {
+  if (!profileId && !familyId) return null
+  const { startMonth, endMonth } = getDateRange()
+  const params = new URLSearchParams()
+  if (profileId) params.set("profileId", profileId)
+  else if (familyId) params.set("familyId", familyId)
+  params.set("startMonth", startMonth)
+  params.set("endMonth", endMonth)
+  return `/api/transactions/category-summary?${params.toString()}`
 }
 
 function buildTransactionsUrl(
@@ -103,21 +125,17 @@ export function SpendingBreakdownTab({
 
   const txnList = useMemo(() => transactions ?? [], [transactions])
 
-  const categoryBreakdown = useMemo(() => {
-    const byCategory = new Map<string, { count: number; total: number }>()
-    for (const txn of txnList) {
-      if (txn.exclude_from_spending || txn.txn_type === "credit") continue
-      const cat = txn.outflow_categories
-      const name = cat?.name ?? "Uncategorized"
-      const existing = byCategory.get(name) ?? { count: 0, total: 0 }
-      existing.count++
-      existing.total += Math.abs(txn.amount)
-      byCategory.set(name, existing)
-    }
-    return Array.from(byCategory.entries())
-      .map(([name, data]) => ({ name, ...data }))
-      .sort((a, b) => b.total - a.total)
-  }, [txnList])
+  // 12-month category summary for donut grid
+  const categorySummaryUrl = buildCategorySummaryUrl(
+    activeProfileId,
+    activeFamilyId
+  )
+  const { data: categorySummary } = useApi<
+    Array<{
+      month: string
+      categories: Array<{ name: string; total: number; count: number }>
+    }>
+  >(categorySummaryUrl, { fallbackData: [] })
 
   // When parent provides new parsed results, open the preview dialog
   const lastResultCount = useMemo(() => parsedResults.length, [parsedResults])
@@ -244,11 +262,11 @@ export function SpendingBreakdownTab({
         <CategoryManagerButton />
       </div>
 
-      {/* Spending by category donut chart */}
-      {!isLoading && categoryBreakdown.length > 0 && (
+      {/* 12-month spending donut grid */}
+      {(categorySummary ?? []).length > 0 && (
         <Card>
-          <CardContent className="p-6">
-            <CategoryBreakdownChart data={categoryBreakdown} />
+          <CardContent className="p-0">
+            <MonthlySpendingGrid data={categorySummary ?? []} />
           </CardContent>
         </Card>
       )}

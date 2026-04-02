@@ -275,6 +275,7 @@ export function AllocationTab({
             <AllocationChart
               data={allocationByType}
               title="By Asset Class"
+              legendMaxItems={3}
               height={360}
             />
           </div>
@@ -282,6 +283,7 @@ export function AllocationTab({
             <AllocationChart
               data={allocationByMarket}
               title="By Market"
+              legendMaxItems={3}
               height={360}
             />
           </div>
@@ -289,6 +291,7 @@ export function AllocationTab({
             <AllocationChart
               data={allocationByCurrencyData}
               title="By Currency"
+              legendMaxItems={3}
               height={360}
             />
           </div>
@@ -296,7 +299,7 @@ export function AllocationTab({
             <AllocationChart
               data={allocationByHolding}
               title="By Instrument"
-              legendMaxItems={8}
+              legendMaxItems={3}
               height={360}
             />
           </div>

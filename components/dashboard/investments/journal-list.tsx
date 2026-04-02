@@ -41,17 +41,12 @@ function isInDateRange(
   return entryDate >= range.from
 }
 
-const defaultDateRange: DateRange = {
-  from: new Date(new Date().getFullYear(), 0, 12),
-  to: addDays(new Date(new Date().getFullYear(), 0, 12), 30),
-}
-
 export function JournalList({ entries }: JournalListProps) {
   const { formatMoney } = useInvestmentsDisplayCurrency()
   const [filter, setFilter] = useState("")
   const [typeFilter, setTypeFilter] = useState<"all" | "buy" | "sell">("all")
   const [dateRange, setDateRange] = useState<DateRange | undefined>(
-    defaultDateRange
+    undefined
   )
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
