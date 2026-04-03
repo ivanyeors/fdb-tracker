@@ -183,3 +183,142 @@ export function calculateAnnualCpf(
     monthlyContribution,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Multi-employer support
+// ---------------------------------------------------------------------------
+
+export type EmploymentPeriod = {
+  employerName: string;
+  monthlySalary: number;
+  startDate: string; // YYYY-MM-DD
+  endDate: string | null; // null = ongoing
+};
+
+/**
+ * Get the active employer(s) for a given month.
+ * A period is active if its start_date <= month and (end_date is null OR end_date >= month).
+ */
+export function getActiveEmployersForMonth(
+  periods: EmploymentPeriod[],
+  year: number,
+  month: number, // 0-indexed (0 = Jan)
+): EmploymentPeriod[] {
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 0); // last day of month
+
+  return periods.filter((p) => {
+    const start = new Date(p.startDate);
+    const end = p.endDate ? new Date(p.endDate) : null;
+    return start <= monthEnd && (end === null || end >= monthStart);
+  });
+}
+
+/**
+ * Calculate month-by-month CPF contributions from multiple employers across a year.
+ * Enforces the Annual Wage (AW) ceiling of $102,000 across all employers.
+ *
+ * Returns per-month contribution breakdowns and annual totals.
+ */
+export function calculateMultiEmployerAnnualCpf(
+  periods: EmploymentPeriod[],
+  age: number,
+  year: number,
+): {
+  monthly: Array<{
+    month: number;
+    employers: string[];
+    employee: number;
+    employer: number;
+    total: number;
+    oa: number;
+    sa: number;
+    ma: number;
+  }>;
+  totalEmployee: number;
+  totalEmployer: number;
+  total: number;
+  oa: number;
+  sa: number;
+  ma: number;
+} {
+  const rates = getCpfRates(age, year);
+  const allocation = getCpfAllocation(age, year);
+
+  let cumulativeOw = 0;
+  const monthlyResults: Array<{
+    month: number;
+    employers: string[];
+    employee: number;
+    employer: number;
+    total: number;
+    oa: number;
+    sa: number;
+    ma: number;
+  }> = [];
+
+  for (let m = 0; m < 12; m++) {
+    const active = getActiveEmployersForMonth(periods, year, m);
+    if (active.length === 0) {
+      monthlyResults.push({
+        month: m,
+        employers: [],
+        employee: 0,
+        employer: 0,
+        total: 0,
+        oa: 0,
+        sa: 0,
+        ma: 0,
+      });
+      continue;
+    }
+
+    let monthEmployee = 0;
+    let monthEmployer = 0;
+    const employerNames: string[] = [];
+
+    for (const emp of active) {
+      employerNames.push(emp.employerName);
+      const cpfableWage = Math.min(emp.monthlySalary, rates.owCeiling);
+
+      // Check AW ceiling: total OW contributed this year cannot exceed $102,000
+      const remainingAw = Math.max(0, 102000 - cumulativeOw);
+      const effectiveWage = Math.min(cpfableWage, remainingAw);
+
+      if (effectiveWage <= 0) continue;
+
+      cumulativeOw += effectiveWage;
+      monthEmployee += roundToCent(effectiveWage * rates.employeeRate);
+      monthEmployer += roundToCent(effectiveWage * rates.employerRate);
+    }
+
+    const total = roundToCent(monthEmployee + monthEmployer);
+    const oa = roundToCent(total * allocation.oa);
+    const sa = roundToCent(total * allocation.sa);
+    const ma = roundToCent(total - oa - sa);
+
+    monthlyResults.push({
+      month: m,
+      employers: employerNames,
+      employee: roundToCent(monthEmployee),
+      employer: roundToCent(monthEmployer),
+      total,
+      oa,
+      sa,
+      ma,
+    });
+  }
+
+  const totalEmployee = roundToCent(
+    monthlyResults.reduce((s, r) => s + r.employee, 0),
+  );
+  const totalEmployer = roundToCent(
+    monthlyResults.reduce((s, r) => s + r.employer, 0),
+  );
+  const total = roundToCent(totalEmployee + totalEmployer);
+  const oa = roundToCent(monthlyResults.reduce((s, r) => s + r.oa, 0));
+  const sa = roundToCent(monthlyResults.reduce((s, r) => s + r.sa, 0));
+  const ma = roundToCent(total - oa - sa);
+
+  return { monthly: monthlyResults, totalEmployee, totalEmployer, total, oa, sa, ma };
+}

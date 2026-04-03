@@ -85,6 +85,14 @@ export type CpfProjectionParams = {
   getMonthlyMaDeduction?: (age: number, calendarYear: number) => number;
 };
 
+/**
+ * Project CPF growth using the actual CPF interest crediting model:
+ * - Contributions and deductions are applied monthly
+ * - Interest is calculated on the sum of monthly closing balances and credited once at year-end
+ *   (interest = sum of monthly closing balances × annual rate / 12)
+ * - Extra interest (1% on first $60k, with first $20k from OA) applied on average balance
+ * - Age ≥ 55 bonus: additional 2% on first $30k + 1% on next $30k of extra-eligible balance
+ */
 export function projectCpfGrowth(params: CpfProjectionParams): CpfProjectionPoint[] {
   const {
     currentOa,
@@ -103,6 +111,7 @@ export function projectCpfGrowth(params: CpfProjectionParams): CpfProjectionPoin
   const OA_RATE = 0.025;
   const SA_RATE = 0.04;
   const MA_RATE = 0.04;
+  const EXTRA_RATE = 0.01;
 
   let oa = currentOa;
   let sa = currentSa;
@@ -127,64 +136,74 @@ export function projectCpfGrowth(params: CpfProjectionParams): CpfProjectionPoin
     }
 
     const monthlyDps = getMonthlyOaDeduction?.(age, year) ?? 0;
+    const monthlyHealthcare = getMonthlyMaDeduction?.(age, year) ?? 0;
+
+    // Accumulate monthly closing balances for year-end interest calculation
+    let sumOaClosing = 0;
+    let sumSaClosing = 0;
+    let sumMaClosing = 0;
 
     for (let month = 0; month < 12; month++) {
+      // Add contributions
       oa += currentMonthlyOa;
       sa += currentMonthlySa;
       ma += currentMonthlyMa;
 
+      // Apply OA deductions (DPS, housing)
       if (monthlyDps > 0) {
         oa = roundToCent(Math.max(0, oa - monthlyDps));
       }
 
-      const monthlyHealthcare = getMonthlyMaDeduction?.(age, year) ?? 0;
+      // Apply MA deductions (healthcare)
       if (monthlyHealthcare > 0) {
         ma = roundToCent(Math.max(0, ma - monthlyHealthcare));
       }
 
-      const monthlyOaRate = OA_RATE / 12;
-      const monthlySaRate = SA_RATE / 12;
-      const monthlyMaRate = MA_RATE / 12;
+      // Record closing balance for interest calculation
+      sumOaClosing += oa;
+      sumSaClosing += sa;
+      sumMaClosing += ma;
+    }
 
-      oa = roundToCent(oa * (1 + monthlyOaRate));
-      sa = roundToCent(sa * (1 + monthlySaRate));
-      ma = roundToCent(ma * (1 + monthlyMaRate));
+    // Year-end interest crediting (CPF actual method)
+    // interest = sum of monthly closing balances × annual rate / 12
+    const oaInterest = roundToCent((sumOaClosing * OA_RATE) / 12);
+    const saInterest = roundToCent((sumSaClosing * SA_RATE) / 12);
+    const maInterest = roundToCent((sumMaClosing * MA_RATE) / 12);
 
-      const oaForExtra = Math.min(oa, 20000);
-      const remainingCap = 60000 - oaForExtra;
-      const saForExtra = Math.min(sa, remainingCap);
-      const maForExtra = Math.min(ma, Math.max(remainingCap - saForExtra, 0));
-      const extraBase = oaForExtra + saForExtra + maForExtra;
+    oa = roundToCent(oa + oaInterest);
+    sa = roundToCent(sa + saInterest);
+    ma = roundToCent(ma + maInterest);
 
-      const monthlyExtraRate = 0.01 / 12;
-      const extraInterest = roundToCent(extraBase * monthlyExtraRate);
+    // Extra interest on first $60k combined (first $20k from OA)
+    // Calculated on average monthly balance
+    const avgOa = sumOaClosing / 12;
+    const avgSa = sumSaClosing / 12;
+    const avgMa = sumMaClosing / 12;
 
-      if (age >= 55) {
-        const secondTierBase = Math.min(extraBase, 30000);
-        const thirdTierBase = Math.min(Math.max(extraBase - 30000, 0), 30000);
-        const bonus55Interest = roundToCent(
-          secondTierBase * (0.02 / 12) + thirdTierBase * (0.01 / 12),
-        );
+    const oaForExtra = Math.min(avgOa, 20000);
+    const remainingCap = 60000 - oaForExtra;
+    const saForExtra = Math.min(avgSa, remainingCap);
+    const maForExtra = Math.min(avgMa, Math.max(remainingCap - saForExtra, 0));
+    const extraBase = oaForExtra + saForExtra + maForExtra;
 
-        const totalExtra = extraInterest + bonus55Interest;
-        if (oaForExtra + saForExtra + maForExtra > 0) {
-          const oaProportion = oaForExtra / (oaForExtra + saForExtra + maForExtra);
-          const saProportion = saForExtra / (oaForExtra + saForExtra + maForExtra);
-          const maProportion = maForExtra / (oaForExtra + saForExtra + maForExtra);
-          oa = roundToCent(oa + totalExtra * oaProportion);
-          sa = roundToCent(sa + totalExtra * saProportion);
-          ma = roundToCent(ma + totalExtra * maProportion);
-        }
-      } else {
-        if (oaForExtra + saForExtra + maForExtra > 0) {
-          const oaProportion = oaForExtra / (oaForExtra + saForExtra + maForExtra);
-          const saProportion = saForExtra / (oaForExtra + saForExtra + maForExtra);
-          const maProportion = maForExtra / (oaForExtra + saForExtra + maForExtra);
-          oa = roundToCent(oa + extraInterest * oaProportion);
-          sa = roundToCent(sa + extraInterest * saProportion);
-          ma = roundToCent(ma + extraInterest * maProportion);
-        }
-      }
+    let extraInterest = roundToCent(extraBase * EXTRA_RATE);
+
+    // Age ≥ 55 bonus interest
+    if (age >= 55) {
+      const secondTier = Math.min(extraBase, 30000);
+      const thirdTier = Math.min(Math.max(extraBase - 30000, 0), 30000);
+      extraInterest += roundToCent(secondTier * 0.02 + thirdTier * 0.01);
+    }
+
+    // Distribute extra interest proportionally across accounts
+    if (extraBase > 0 && extraInterest > 0) {
+      const oaProp = oaForExtra / extraBase;
+      const saProp = saForExtra / extraBase;
+      const maProp = maForExtra / extraBase;
+      oa = roundToCent(oa + extraInterest * oaProp);
+      sa = roundToCent(sa + extraInterest * saProp);
+      ma = roundToCent(ma + extraInterest * maProp);
     }
 
     points.push({

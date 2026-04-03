@@ -4,7 +4,14 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
-import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
+import {
+  getAge,
+  getCpfRates,
+  getCpfAllocation,
+  calculateCpfContribution,
+  getActiveEmployersForMonth,
+  type EmploymentPeriod,
+} from "@/lib/calculations/cpf"
 import {
   getMonthlyHealthcareMaDeduction,
   type CpfHealthcareConfig,
@@ -96,7 +103,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Project from income when no manual data - support single or multi-profile
-    const [{ data: profiles }, { data: incomeConfigs }, { data: healthcareConfigs }] = await Promise.all([
+    const [{ data: profiles }, { data: incomeConfigs }, { data: healthcareConfigs }, { data: incomeHistoryRows }] = await Promise.all([
       supabase
         .from("profiles")
         .select("id, birth_year")
@@ -109,12 +116,30 @@ export async function GET(request: NextRequest) {
         .from("cpf_healthcare_config")
         .select("*")
         .in("profile_id", profileIds),
+      supabase
+        .from("income_history")
+        .select("*")
+        .in("profile_id", profileIds)
+        .order("start_date", { ascending: true }),
     ])
 
     const incomeByProfile = new Map(
       incomeConfigs?.map((ic) => [ic.profile_id, ic]) ?? [],
     )
     const profileById = new Map(profiles?.map((p) => [p.id, p]) ?? [])
+    // Group income history by profile for multi-employer support
+    const incomeHistoryByProfile = new Map<string, EmploymentPeriod[]>()
+    for (const row of incomeHistoryRows ?? []) {
+      const periods = incomeHistoryByProfile.get(row.profile_id) ?? []
+      periods.push({
+        employerName: row.employer_name,
+        monthlySalary: Number(row.monthly_salary),
+        startDate: row.start_date,
+        endDate: row.end_date,
+      })
+      incomeHistoryByProfile.set(row.profile_id, periods)
+    }
+
     const healthcareByProfile = new Map<string, CpfHealthcareConfig | null>(
       (healthcareConfigs ?? []).map((hc) => [
         hc.profile_id,
@@ -182,15 +207,21 @@ export async function GET(request: NextRequest) {
     for (const pid of profileIds) {
       const profile = profileById.get(pid)
       const incomeConfig = incomeByProfile.get(pid)
-      if (!profile || !incomeConfig || incomeConfig.annual_salary <= 0) continue
+      const employmentPeriods = incomeHistoryByProfile.get(pid)
+      const hasHistory = employmentPeriods && employmentPeriods.length > 0
+
+      // Need either income_config or income_history to project
+      if (!profile) continue
+      if (!hasHistory && (!incomeConfig || incomeConfig.annual_salary <= 0)) continue
 
       const age = getAge(profile.birth_year, currentYear)
-      const monthlyGross = incomeConfig.annual_salary / 12
-      const contribution = calculateCpfContribution(
-        monthlyGross,
-        age,
-        currentYear,
-      )
+      const rates = getCpfRates(age, currentYear)
+      const allocation = getCpfAllocation(age, currentYear)
+
+      // Fallback single-employer contribution (from income_config)
+      const fallbackContribution = incomeConfig && incomeConfig.annual_salary > 0
+        ? calculateCpfContribution(incomeConfig.annual_salary / 12, age, currentYear)
+        : null
 
       // Monthly CPF OA deduction for housing loan
       const monthlyOaDeduction = cpfOaDeductionByProfile.get(pid) ?? 0
@@ -215,18 +246,44 @@ export async function GET(request: NextRequest) {
         )
         const yyyy = d.getFullYear()
         const mm = String(d.getMonth() + 1).padStart(2, "0")
-        const month = `${yyyy}-${mm}-01`
+        const monthStr = `${yyyy}-${mm}-01`
+        const monthIdx = d.getMonth()
 
-        runningOa += contribution.oa - monthlyOaDeduction
-        runningSa += contribution.sa
-        runningMa += contribution.ma - monthlyMaDeduction
+        let monthOa: number
+        let monthSa: number
+        let monthMa: number
+
+        if (hasHistory) {
+          // Multi-employer: sum contributions from all active employers this month
+          const active = getActiveEmployersForMonth(employmentPeriods, yyyy, monthIdx)
+          let totalContrib = 0
+          for (const emp of active) {
+            const cpfableWage = Math.min(emp.monthlySalary, rates.owCeiling)
+            const employee = Math.round(cpfableWage * rates.employeeRate * 100) / 100
+            const employer = Math.round(cpfableWage * rates.employerRate * 100) / 100
+            totalContrib += employee + employer
+          }
+          monthOa = Math.round(totalContrib * allocation.oa * 100) / 100
+          monthSa = Math.round(totalContrib * allocation.sa * 100) / 100
+          monthMa = Math.round((totalContrib - monthOa - monthSa) * 100) / 100
+        } else if (fallbackContribution) {
+          monthOa = fallbackContribution.oa
+          monthSa = fallbackContribution.sa
+          monthMa = fallbackContribution.ma
+        } else {
+          continue
+        }
+
+        runningOa += monthOa - monthlyOaDeduction
+        runningSa += monthSa
+        runningMa += monthMa - monthlyMaDeduction
 
         allProjected.push({
           profile_id: pid,
-          month,
+          month: monthStr,
           oa: Math.round(Math.max(0, runningOa) * 100) / 100,
           sa: Math.round(runningSa * 100) / 100,
-          ma: Math.round(runningMa * 100) / 100,
+          ma: Math.round(Math.max(0, runningMa) * 100) / 100,
           is_manual_override: false,
         })
       }

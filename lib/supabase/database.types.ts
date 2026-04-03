@@ -1305,6 +1305,50 @@ export type Database = {
           },
         ]
       }
+      income_history: {
+        Row: {
+          id: string
+          profile_id: string
+          employer_name: string
+          monthly_salary: number
+          start_date: string
+          end_date: string | null
+          is_primary: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          employer_name: string
+          monthly_salary: number
+          start_date: string
+          end_date?: string | null
+          is_primary?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          employer_name?: string
+          monthly_salary?: number
+          start_date?: string
+          end_date?: string | null
+          is_primary?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "income_history_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       income_config: {
         Row: {
           id: string

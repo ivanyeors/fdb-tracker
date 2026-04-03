@@ -18,6 +18,7 @@ import {
   getMonthlyHealthcareMaDeduction,
   type CpfHealthcareConfig,
 } from "@/lib/calculations/cpf-healthcare"
+import { estimateAnnualInterest } from "@/lib/calculations/cpf-interest"
 
 const retirementQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -219,6 +220,9 @@ export async function GET(request: NextRequest) {
 
     const dpsAnnual = getDpsAnnualPremium(currentAge, currentYear)
 
+    // Phase 2: Interest breakdown (Government inflow)
+    const interestBreakdown = estimateAnnualInterest(currentOa, currentSa, currentMa, currentAge)
+
     return NextResponse.json({
       profileId: singleProfileId,
       profileName: profile.name ?? null,
@@ -236,6 +240,10 @@ export async function GET(request: NextRequest) {
         breakdown: healthcareBreakdown,
         monthlyMaDeduction: Math.round((healthcareBreakdown.total / 12) * 100) / 100,
         note: "Healthcare premiums (MSL, CSL, ISP) are deducted from MediSave. Configure in CPF Healthcare settings.",
+      },
+      interest: {
+        breakdown: interestBreakdown,
+        note: "Estimated annual interest on current balances. CPF credits interest as a lump sum on 31 Dec.",
       },
       currentCpf: { oa: currentOa, sa: currentSa, ma: currentMa, total: cpfTotal },
       projectionToAge55: projection,

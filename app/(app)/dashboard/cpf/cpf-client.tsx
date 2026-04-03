@@ -88,6 +88,16 @@ type RetirementData = {
     monthlyMaDeduction: number
     note: string
   }
+  interest?: {
+    breakdown: {
+      oaBase: number
+      saBase: number
+      maBase: number
+      extraInterest: number
+      total: number
+    }
+    note: string
+  }
   housingOaDeduction?: {
     monthly: number
     loanName: string
@@ -129,10 +139,12 @@ function OverviewTab({
   data,
   dps,
   healthcare,
+  interest,
 }: {
   data: CpfBalanceRow[]
   dps?: RetirementData["dps"]
   healthcare?: RetirementData["healthcare"]
+  interest?: RetirementData["interest"]
 }) {
   const latest = data[data.length - 1] || { oa: 0, sa: 0, ma: 0 }
 
@@ -297,6 +309,43 @@ function OverviewTab({
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               {healthcare.note}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {interest && interest.breakdown.total > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-base">
+              Government (Interest Earned)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold tabular-nums">
+              ~${formatCurrency(interest.breakdown.total)}
+              <span className="text-sm font-normal text-muted-foreground">
+                /yr (est.)
+              </span>
+            </p>
+            <div className="mt-2 space-y-0.5">
+              <p className="text-xs text-muted-foreground">
+                OA base interest — ${formatCurrency(interest.breakdown.oaBase)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                SA base interest — ${formatCurrency(interest.breakdown.saBase)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                MA base interest — ${formatCurrency(interest.breakdown.maBase)}
+              </p>
+              {interest.breakdown.extraInterest > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Extra interest — ${formatCurrency(interest.breakdown.extraInterest)}
+                </p>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {interest.note}
             </p>
           </CardContent>
         </Card>
@@ -784,6 +833,7 @@ export function CpfClient({
               data={cpfData ?? []}
               dps={retirementData?.dps}
               healthcare={retirementData?.healthcare}
+              interest={retirementData?.interest}
             />
           </TabsContent>
           <TabsContent value="housing" className="mt-4">
