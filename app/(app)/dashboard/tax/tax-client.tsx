@@ -30,6 +30,9 @@ import { MonthlyTaxDialog } from "@/components/dashboard/tax/monthly-tax-dialog"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import type { TaxSnapshot } from "@/lib/tax/tax-snapshot"
 import { ReliefsBracketSummaryCard } from "@/components/dashboard/tax/reliefs-bracket-summary-card"
+import { NoaComparison, type NoaData } from "@/components/dashboard/tax/noa-comparison"
+import { GiroTimeline, type GiroInstalment } from "@/components/dashboard/tax/giro-timeline"
+import { QuickTaxInput } from "@/components/dashboard/tax/quick-tax-input"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
@@ -86,6 +89,35 @@ interface SuggestedRelief {
   label: string
 }
 
+interface NoaDataRow {
+  profile_id: string
+  year: number
+  employment_income: number | null
+  chargeable_income: number | null
+  total_deductions: number | null
+  donations_deduction: number | null
+  reliefs_total: number | null
+  tax_payable: number | null
+  payment_due_date: string | null
+  reliefs_json: Array<{ type: string; label: string; amount: number }>
+  bracket_summary_json: Array<{
+    label: string
+    income: number
+    rate: number | null
+    tax: number
+  }>
+  is_on_giro: boolean
+}
+
+interface GiroScheduleRow {
+  profile_id: string
+  year: number
+  schedule: GiroInstalment[]
+  total_payable: number | null
+  outstanding_balance: number
+  source: string
+}
+
 export interface TaxData {
   entries: TaxEntry[]
   reliefs: TaxRelief[]
@@ -94,6 +126,8 @@ export interface TaxData {
   taxSnapshots?: Record<string, TaxSnapshot>
   taxSnapshotsNextYa?: Record<string, TaxSnapshot>
   suggestedReliefs?: SuggestedRelief[]
+  noaData?: Record<string, NoaDataRow>
+  giroSchedules?: Record<string, GiroScheduleRow>
 }
 
 const currentYear = new Date().getFullYear()
@@ -178,14 +212,37 @@ export function TaxClient({ initialData }: { initialData: TaxData }) {
         .reduce((s, r) => s + r.amount, 0),
     [reliefsForYear]
   )
+  // Use GIRO schedule if available, otherwise fall back to tax/12
+  const primaryProfileId = entriesForYear[0]?.profile_id ?? null
+  const primaryGiro = primaryProfileId
+    ? data.giroSchedules?.[primaryProfileId]
+    : null
+  const primaryNoa = primaryProfileId
+    ? data.noaData?.[primaryProfileId]
+    : null
+
   const monthlyPayment = useMemo(() => {
+    // If GIRO schedule exists, show the regular monthly amount
+    if (primaryGiro && Array.isArray(primaryGiro.schedule) && primaryGiro.schedule.length > 0) {
+      // Find the most common amount (the "regular" monthly)
+      const amounts = primaryGiro.schedule.map((g: GiroInstalment) => g.amount)
+      const freq = new Map<number, number>()
+      for (const a of amounts) freq.set(a, (freq.get(a) ?? 0) + 1)
+      let maxCount = 0
+      let regularAmount = amounts[0]
+      for (const [a, c] of freq) {
+        if (c > maxCount) { maxCount = c; regularAmount = a }
+      }
+      return regularAmount
+    }
+    // Fallback: yearly tax / 12
     const yearly = entriesForYear.reduce((s, e) => {
       const part =
         e.actual_amount != null ? e.actual_amount : e.calculated_amount
       return s + part
     }, 0)
     return Math.round((yearly / 12) * 100) / 100
-  }, [entriesForYear])
+  }, [entriesForYear, primaryGiro])
 
   const reliefsByProfile = useMemo(() => {
     const map = new Map<string, TaxRelief[]>()
@@ -355,8 +412,17 @@ export function TaxClient({ initialData }: { initialData: TaxData }) {
           </div>
         </div>
       ) : !hasData ? (
-        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
-          No tax data found for this profile.
+        <div className="space-y-4">
+          <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
+            No tax data found for this profile.
+          </div>
+          {data.profiles.length > 0 && (
+            <QuickTaxInput
+              year={selectedYear}
+              profiles={data.profiles}
+              onSuccess={triggerRefresh}
+            />
+          )}
         </div>
       ) : (
         <>
@@ -390,9 +456,33 @@ export function TaxClient({ initialData }: { initialData: TaxData }) {
                       ${formatCurrency(monthlyPayment)}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Yearly tax ÷ 12 (actual IRAS total when entered, else
-                      estimate).
+                      {primaryGiro
+                        ? "From GIRO schedule (regular monthly)."
+                        : "Yearly tax ÷ 12 (actual IRAS total when entered, else estimate)."}
                     </p>
+                    {primaryNoa?.payment_due_date && (() => {
+                      const due = new Date(primaryNoa.payment_due_date)
+                      const daysLeft = Math.ceil(
+                        (due.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+                      )
+                      return (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "mt-2 text-xs",
+                            daysLeft > 30
+                              ? "text-green-600 dark:text-green-400"
+                              : daysLeft > 0
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-red-600 dark:text-red-400"
+                          )}
+                        >
+                          {daysLeft > 0
+                            ? `Due ${due.toLocaleDateString("en-SG", { day: "numeric", month: "short" })} (${daysLeft}d)`
+                            : `Overdue`}
+                        </Badge>
+                      )
+                    })()}
                   </div>
                 </CardContent>
               </Card>
@@ -437,6 +527,45 @@ export function TaxClient({ initialData }: { initialData: TaxData }) {
               ) : null}
             </div>
           </div>
+
+          {/* NOA Comparison — shown when NOA data imported */}
+          {primaryNoa && primaryEntry && data.taxSnapshots?.[primaryEntry.profile_id] && (
+            <NoaComparison
+              noaData={primaryNoa as NoaData}
+              estimate={{
+                employmentIncome:
+                  data.taxSnapshots[primaryEntry.profile_id]?.employmentIncome ?? 0,
+                totalReliefs:
+                  data.taxSnapshots[primaryEntry.profile_id]?.totalReliefs ?? 0,
+                chargeableIncome:
+                  data.taxSnapshots[primaryEntry.profile_id]?.chargeableIncome ?? 0,
+                taxPayable:
+                  data.taxSnapshots[primaryEntry.profile_id]?.taxPayable ?? 0,
+                reliefBreakdown: reliefsForYear.map((r) => ({
+                  type: r.relief_type,
+                  amount: r.amount,
+                  source: (r.source ?? "manual") as "auto" | "manual",
+                })),
+              }}
+            />
+          )}
+
+          {/* GIRO Timeline */}
+          {primaryGiro &&
+            Array.isArray(primaryGiro.schedule) &&
+            primaryGiro.schedule.length > 0 && (
+              <GiroTimeline
+                schedule={primaryGiro.schedule}
+                totalPayable={primaryGiro.total_payable ?? 0}
+                outstandingBalance={primaryGiro.outstanding_balance}
+                source={
+                  primaryGiro.source as
+                    | "calculated"
+                    | "manual"
+                    | "pdf_import"
+                }
+              />
+            )}
 
           {entriesForYear.length > 0 && (
             <div className="space-y-4">

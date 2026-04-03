@@ -140,6 +140,15 @@ export function countedManualReliefForType(
       return Math.max(0, Math.min(amount, 8000));
     case "spouse":
       return Math.max(0, Math.min(amount, 2000));
+    case "donations_employer":
+      // Employer-channeled donations — already at deduction value, no 250% multiplier
+      return Math.max(0, amount);
+    case "cpf":
+      // Manual CPF override (e.g. from NOA import) — pass through as-is
+      return Math.max(0, amount);
+    case "life_insurance":
+      // Manual life insurance override — pass through
+      return Math.max(0, amount);
     case "qcr":
     case "wmcr":
     case "parent":
@@ -378,17 +387,22 @@ export function getAutoReliefs(
   total += earnedIncome;
   breakdown.push({ type: "earned_income", amount: earnedIncome, source: "auto" });
 
-  if (incomeConfig) {
+  // CPF relief — skip auto-calc when user has manual override (e.g. from NOA import)
+  let autoCpfAmount = 0;
+  if (!manualTypes.has("cpf") && incomeConfig) {
     const { totalEmployee } = calculateAnnualCpf(
       incomeConfig.annual_salary,
       incomeConfig.bonus_estimate,
       age,
       year
     );
-    const cpf = cpfRelief(totalEmployee);
-    total += cpf;
-    breakdown.push({ type: "cpf", amount: cpf, source: "auto" });
+    autoCpfAmount = cpfRelief(totalEmployee);
+    total += autoCpfAmount;
+    breakdown.push({ type: "cpf", amount: autoCpfAmount, source: "auto" });
+  }
 
+  // Life insurance relief — skip when manual override exists
+  if (!manualTypes.has("life_insurance") && incomeConfig) {
     const lifePolicies = insurancePolicies.filter(
       (p) =>
         p.is_active &&
@@ -403,7 +417,9 @@ export function getAutoReliefs(
         (sum, p) => sum + (p.coverage_amount ?? 0),
         0
       );
-      const life = lifeInsuranceRelief(totalPremium, cpf, totalInsured);
+      // Use manual CPF amount if overridden, otherwise auto-calculated
+      const cpfForLifeCap = manualTypes.has("cpf") ? 0 : autoCpfAmount;
+      const life = lifeInsuranceRelief(totalPremium, cpfForLifeCap, totalInsured);
       total += life;
       breakdown.push({ type: "life_insurance", amount: life, source: "auto" });
     }
@@ -674,4 +690,150 @@ export function solveBonusForTargetTaxPayable(params: {
     error:
       "Could not converge on a bonus estimate for this target tax—try entering annual tax directly under Enter IRAS actual.",
   };
+}
+
+/** IRAS-style bracket summary line */
+export type IrasBracketSummaryLine = {
+  label: string;
+  tax: number;
+};
+
+/**
+ * Collapse bracket allocation into IRAS NOA display format.
+ * Merges all fully-consumed bands into "First $X → $Y",
+ * then shows the partial band as "Next $Z @ R% → $W".
+ *
+ * Example: For chargeable income $56,350:
+ *   "First $40,000" → $550
+ *   "Next $16,350 @ 7%" → $1,144.50
+ */
+export function getIrasStyleBracketSummary(
+  bracketAllocation: ProgressiveBracketBand[]
+): IrasBracketSummaryLine[] {
+  if (bracketAllocation.length === 0) return [];
+
+  const result: IrasBracketSummaryLine[] = [];
+
+  // Find the last fully-filled band
+  let lastFullIndex = -1;
+  for (let i = 0; i < bracketAllocation.length; i++) {
+    const band = bracketAllocation[i];
+    const bandWidth = (Number.isFinite(band.bandTo) ? band.bandTo : Infinity) - band.bandFrom;
+    if (band.incomeInBand >= bandWidth - 0.01) {
+      lastFullIndex = i;
+    }
+  }
+
+  if (lastFullIndex >= 0) {
+    // "First $X" — collapse all fully-filled bands
+    let cumulativeIncome = 0;
+    let cumulativeTax = 0;
+    for (let i = 0; i <= lastFullIndex; i++) {
+      cumulativeIncome += bracketAllocation[i].incomeInBand;
+      cumulativeTax += bracketAllocation[i].taxInBand;
+    }
+    result.push({
+      label: `First ${formatBracketAmount(cumulativeIncome)}`,
+      tax: roundToCent(cumulativeTax),
+    });
+
+    // "Next $Y @ Z%" — the partial band after fully-filled ones
+    if (lastFullIndex < bracketAllocation.length - 1) {
+      const partial = bracketAllocation[lastFullIndex + 1];
+      result.push({
+        label: `Next ${formatBracketAmount(partial.incomeInBand)} @ ${formatBracketRate(partial.rate)}`,
+        tax: roundToCent(partial.taxInBand),
+      });
+    }
+  } else {
+    // No fully-filled band — all income is in first partial band
+    const band = bracketAllocation[0];
+    if (band.rate === 0) {
+      result.push({
+        label: `First ${formatBracketAmount(band.incomeInBand)}`,
+        tax: 0,
+      });
+    } else {
+      result.push({
+        label: `Next ${formatBracketAmount(band.incomeInBand)} @ ${formatBracketRate(band.rate)}`,
+        tax: roundToCent(band.taxInBand),
+      });
+    }
+  }
+
+  return result;
+}
+
+function formatBracketAmount(amount: number): string {
+  return amount.toLocaleString("en-SG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatBracketRate(rate: number): string {
+  const pct = rate * 100;
+  return pct % 1 === 0 ? `${pct}%` : `${pct.toFixed(1)}%`
+}
+
+/**
+ * Back-calculate chargeable income from tax payable amount.
+ * Inverse of applyProgressiveBrackets(): given tax, find the chargeable income.
+ * Deterministic — walks brackets, no binary search needed.
+ */
+export function chargeableIncomeFromTax(
+  taxPayable: number,
+  year: number = 2026
+): number {
+  if (taxPayable <= 0) return 0;
+
+  // First undo any rebate to get tax before rebate
+  let taxBeforeRebate = taxPayable;
+  if (year === 2025) {
+    // Rebate: min(tax * 0.6, 200), so taxPayable = taxBefore - rebate
+    // If taxPayable >= taxBefore - 200, rebate was capped at 200
+    // taxBefore = taxPayable + min(taxBefore * 0.6, 200)
+    // Case 1: rebate = taxBefore * 0.6 → taxPayable = taxBefore * 0.4 → taxBefore = taxPayable / 0.4
+    // Case 2: rebate = 200 → taxBefore = taxPayable + 200
+    const candidate1 = taxPayable / 0.4;
+    const candidate2 = taxPayable + 200;
+    // If candidate1's rebate <= 200, use it. Otherwise capped.
+    if (candidate1 * 0.6 <= 200 + 0.01) {
+      taxBeforeRebate = candidate1;
+    } else {
+      taxBeforeRebate = candidate2;
+    }
+  }
+
+  // Walk brackets to find chargeable income from taxBeforeRebate
+  let remainingTax = taxBeforeRebate;
+  let chargeableIncome = 0;
+  let prevThreshold = 0;
+
+  for (const { threshold, rate } of BRACKETS) {
+    const bandWidth = threshold === Infinity ? Infinity : threshold - prevThreshold;
+
+    if (rate === 0) {
+      // 0% band contributes no tax, add full width
+      chargeableIncome += bandWidth;
+      prevThreshold = threshold;
+      continue;
+    }
+
+    const maxTaxInBand = bandWidth === Infinity ? Infinity : roundToCent(bandWidth * rate);
+
+    if (remainingTax <= maxTaxInBand + 0.005) {
+      // Remaining tax falls within this band
+      chargeableIncome += roundToCent(remainingTax / rate);
+      remainingTax = 0;
+      break;
+    }
+
+    // Consume full band
+    chargeableIncome += bandWidth;
+    remainingTax = roundToCent(remainingTax - maxTaxInBand);
+    prevThreshold = threshold;
+  }
+
+  return roundToCent(chargeableIncome);
 }

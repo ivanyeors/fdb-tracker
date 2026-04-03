@@ -136,15 +136,17 @@ export function taxYearlyReminder(
 ): string {
   const taxLine =
     calculatedTax !== null
-      ? `Your calculated tax: $${calculatedTax}`
+      ? `Your calculated tax: $${calculatedTax.toLocaleString("en-SG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
       : "Your calculated tax: not yet computed"
 
   return [
-    `📋 Year-end tax review for YA ${year}.`,
+    `📋 Tax review for YA ${year}.`,
     "",
     taxLine,
-    "Review relief inputs on the dashboard.",
     "",
-    `Dashboard: ${ctx.dashboardUrl}`,
+    "💡 Got your IRAS NOA? Upload the PDF on the dashboard or use /tax to record your assessment.",
+    "Your GIRO schedule, relief comparison, and due date will be auto-calculated.",
+    "",
+    `Dashboard: ${ctx.dashboardUrl}/dashboard/tax`,
   ].join("\n")
 }

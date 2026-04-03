@@ -23,6 +23,7 @@ export const BOT_COMMANDS = [
   { command: "repay", description: "Log loan repayment" },
   { command: "earlyrepay", description: "Log early loan repayment" },
   { command: "pdf", description: "Upload a PDF to extract financial data" },
+  { command: "tax", description: "Record IRAS tax assessment (/tax 1694.50)" },
 ] as const
 
 const SCOPES = [

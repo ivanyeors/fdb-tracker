@@ -44,6 +44,8 @@ export interface MySessionData extends Scenes.WizardSessionData {
   pdfConfidence?: string
   /** PDF import: first 200 chars of raw text for debugging. */
   pdfRawTextPreview?: string
+  /** Tax scene: year of assessment. */
+  year?: number
 }
 
 /** Ephemeral keys on ctx.state (set before entering a scene). Telegraf types state as Record<string | symbol, any>. */
@@ -63,6 +65,8 @@ export interface BotWebhookState {
   symbol?: string
   /** Trailing text after `/in` or `/out` for optional one-line amount + memo (parsed in scene). */
   cashflowCommandRest?: string
+  /** Trailing text after a command (e.g. "/tax 1694.50" → "1694.50"). */
+  rest?: string
 }
 
 export function botState(ctx: MyContext): BotWebhookState {

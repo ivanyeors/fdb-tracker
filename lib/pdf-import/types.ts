@@ -117,10 +117,36 @@ export interface CcStatementExtractionResult extends BaseExtractionResult {
   totalCredit: number | null
 }
 
+export interface TaxNoaReliefBreakdown {
+  /** Normalized type key: "earned_income", "nsman", "cpf_life_insurance", "srs", etc. */
+  type: string
+  /** Original label from the PDF, e.g. "Provident Fund/ Life Insurance" */
+  label: string
+  amount: number
+}
+
+export interface TaxNoaBracketLine {
+  /** Display label, e.g. "First 40,000.00" or "Next 16,350.00 @ 7%" */
+  label: string
+  income: number
+  /** Rate as decimal (0.07), null for the cumulative "First X" line */
+  rate: number | null
+  tax: number
+}
+
 export interface TaxExtractionResult extends BaseExtractionResult {
   docType: "tax_noa"
   year: number | null
   taxPayable: number | null
+  employmentIncome: number | null
+  chargeableIncome: number | null
+  totalDeductions: number | null
+  donationsDeduction: number | null
+  reliefsTotal: number | null
+  paymentDueDate: string | null
+  reliefs: TaxNoaReliefBreakdown[]
+  bracketSummary: TaxNoaBracketLine[]
+  isOnGiro: boolean
 }
 
 export interface LoanExtractionResult extends BaseExtractionResult {

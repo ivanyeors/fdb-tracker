@@ -24,6 +24,7 @@ import { authScene } from "@/lib/telegram/scenes/auth-scene"
 import { linkApiScene } from "@/lib/telegram/scenes/link-api-scene"
 import { otpScene } from "@/lib/telegram/scenes/otp-scene"
 import { pdfScene } from "@/lib/telegram/scenes/pdf-scene"
+import { taxScene } from "@/lib/telegram/scenes/tax-scene"
 
 type CommandHandler = (accountId: string, text: string) => Promise<string>
 
@@ -165,6 +166,7 @@ function ensureHandlers() {
     linkApiScene,
     otpScene,
     pdfScene,
+    taxScene,
   ])
 
   bot.use(session({ store: supabaseSessionStore }))
@@ -390,6 +392,13 @@ function ensureHandlers() {
     if (parsed.command === "pdf") {
       setBotContext()
       await ctx.scene.enter("pdf_upload_wizard")
+      return
+    }
+
+    if (parsed.command === "tax") {
+      setBotContext()
+      botState(ctx).rest = parsed.rest || undefined
+      await ctx.scene.enter("tax_wizard")
       return
     }
 

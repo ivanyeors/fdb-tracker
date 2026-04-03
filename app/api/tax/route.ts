@@ -360,6 +360,32 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Fetch NOA data for comparison view
+    const { data: noaDataRows } = await supabase
+      .from("tax_noa_data")
+      .select("*")
+      .in("profile_id", profileIds)
+      .eq("year", currentYear)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const noaData: Record<string, any> = {}
+    for (const row of noaDataRows ?? []) {
+      noaData[row.profile_id] = row
+    }
+
+    // Fetch GIRO schedules
+    const { data: giroRows } = await supabase
+      .from("tax_giro_schedule")
+      .select("*")
+      .in("profile_id", profileIds)
+      .eq("year", currentYear)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const giroSchedules: Record<string, any> = {}
+    for (const row of giroRows ?? []) {
+      giroSchedules[row.profile_id] = row
+    }
+
     return NextResponse.json({
       entries: entries.sort((a, b) => b.year - a.year),
       reliefs,
@@ -368,6 +394,8 @@ export async function GET(request: NextRequest) {
       taxSnapshots,
       taxSnapshotsNextYa,
       suggestedReliefs,
+      noaData,
+      giroSchedules,
     })
   } catch (err) {
     console.error("[api/tax] Error:", err)

@@ -24,6 +24,10 @@ const RELIEF_HELP: Record<string, string> = {
   qcr: "Qualifying Child Relief — $4,000–$12,000 per child based on birth year and order. Auto-calculated from dependents.",
   wmcr: "Working Mother’s Child Relief — percentage or fixed amount per child. Auto-calculated for female profiles with children.",
   nsman: "NSman relief — varies by activity level. Self $1,500–$5,000, Wife $750, Parent $750–$3,500.",
+  donations_employer:
+    "Employer-channeled donations — already at deduction value from IRAS PIDS (no 250% multiplier).",
+  cpf_life_insurance:
+    "Combined CPF/Provident Fund and Life Insurance relief as shown on IRAS NOA.",
   other: "Other reliefs you entered manually.",
 }
 

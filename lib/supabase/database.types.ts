@@ -658,6 +658,235 @@ export type Database = {
           },
         ]
       }
+      investment_tabs: {
+        Row: {
+          id: string
+          family_id: string
+          tab_type: string
+          tab_label: string
+          sort_order: number
+          is_visible: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          tab_type: string
+          tab_label: string
+          sort_order?: number
+          is_visible?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          tab_type?: string
+          tab_label?: string
+          sort_order?: number
+          is_visible?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investment_tabs_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collectible_cards: {
+        Row: {
+          id: string
+          family_id: string
+          profile_id: string
+          tab_id: string
+          name: string
+          type_label: string
+          purchase_price: number
+          current_value: number | null
+          value_updated_at: string | null
+          set_name: string | null
+          franchise: string | null
+          language: string | null
+          edition: string | null
+          card_number: string | null
+          grading_company: string | null
+          grade: number | null
+          cert_number: string | null
+          condition: string | null
+          rarity: string | null
+          quantity: number
+          purchase_date: string | null
+          notes: string | null
+          image_url: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          profile_id: string
+          tab_id: string
+          name: string
+          type_label?: string
+          purchase_price: number
+          current_value?: number | null
+          value_updated_at?: string | null
+          set_name?: string | null
+          franchise?: string | null
+          language?: string | null
+          edition?: string | null
+          card_number?: string | null
+          grading_company?: string | null
+          grade?: number | null
+          cert_number?: string | null
+          condition?: string | null
+          rarity?: string | null
+          quantity?: number
+          purchase_date?: string | null
+          notes?: string | null
+          image_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          profile_id?: string
+          tab_id?: string
+          name?: string
+          type_label?: string
+          purchase_price?: number
+          current_value?: number | null
+          value_updated_at?: string | null
+          set_name?: string | null
+          franchise?: string | null
+          language?: string | null
+          edition?: string | null
+          card_number?: string | null
+          grading_company?: string | null
+          grade?: number | null
+          cert_number?: string | null
+          condition?: string | null
+          rarity?: string | null
+          quantity?: number
+          purchase_date?: string | null
+          notes?: string | null
+          image_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collectible_cards_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collectible_cards_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collectible_cards_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "investment_tabs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collectible_others: {
+        Row: {
+          id: string
+          family_id: string
+          profile_id: string
+          tab_id: string
+          name: string
+          type_label: string
+          purchase_price: number
+          current_value: number | null
+          value_updated_at: string | null
+          brand: string | null
+          description: string | null
+          condition: string | null
+          quantity: number
+          purchase_date: string | null
+          notes: string | null
+          image_url: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          profile_id: string
+          tab_id: string
+          name: string
+          type_label?: string
+          purchase_price: number
+          current_value?: number | null
+          value_updated_at?: string | null
+          brand?: string | null
+          description?: string | null
+          condition?: string | null
+          quantity?: number
+          purchase_date?: string | null
+          notes?: string | null
+          image_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          profile_id?: string
+          tab_id?: string
+          name?: string
+          type_label?: string
+          purchase_price?: number
+          current_value?: number | null
+          value_updated_at?: string | null
+          brand?: string | null
+          description?: string | null
+          condition?: string | null
+          quantity?: number
+          purchase_date?: string | null
+          notes?: string | null
+          image_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collectible_others_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collectible_others_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collectible_others_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "investment_tabs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       investment_snapshots: {
         Row: {
           id: string
@@ -1174,6 +1403,106 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "tax_relief_auto_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_noa_data: {
+        Row: {
+          id: string
+          profile_id: string
+          year: number
+          employment_income: number | null
+          chargeable_income: number | null
+          total_deductions: number | null
+          donations_deduction: number | null
+          reliefs_total: number | null
+          tax_payable: number | null
+          payment_due_date: string | null
+          reliefs_json: unknown
+          bracket_summary_json: unknown
+          is_on_giro: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          year: number
+          employment_income?: number | null
+          chargeable_income?: number | null
+          total_deductions?: number | null
+          donations_deduction?: number | null
+          reliefs_total?: number | null
+          tax_payable?: number | null
+          payment_due_date?: string | null
+          reliefs_json?: unknown
+          bracket_summary_json?: unknown
+          is_on_giro?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          year?: number
+          employment_income?: number | null
+          chargeable_income?: number | null
+          total_deductions?: number | null
+          donations_deduction?: number | null
+          reliefs_total?: number | null
+          tax_payable?: number | null
+          payment_due_date?: string | null
+          reliefs_json?: unknown
+          bracket_summary_json?: unknown
+          is_on_giro?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_noa_data_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_giro_schedule: {
+        Row: {
+          id: string
+          profile_id: string
+          year: number
+          schedule: unknown
+          total_payable: number | null
+          outstanding_balance: number
+          source: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          year: number
+          schedule?: unknown
+          total_payable?: number | null
+          outstanding_balance?: number
+          source?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          year?: number
+          schedule?: unknown
+          total_payable?: number | null
+          outstanding_balance?: number
+          source?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_giro_schedule_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"

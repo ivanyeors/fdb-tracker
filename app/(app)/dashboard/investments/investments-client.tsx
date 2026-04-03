@@ -65,6 +65,20 @@ import {
   InvestmentsCurrencyToggle,
 } from "@/components/dashboard/investments/investments-display-currency"
 import { AllocationTab } from "@/components/dashboard/investments/allocation-tab"
+import {
+  CardsTab,
+  type CollectibleCard,
+} from "@/components/dashboard/investments/cards-tab"
+import {
+  OthersTab,
+  type CollectibleOther,
+} from "@/components/dashboard/investments/others-tab"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Plus, CreditCard, Package } from "lucide-react"
 
 const AllocationChart = dynamic(
   () =>
@@ -186,12 +200,17 @@ function holdingDonutLabel(symbol: string, type: string): string {
   return mapToCategoryLabel(type)
 }
 
-const INVESTMENTS_TAB_SET = new Set([
-  "holdings",
-  "allocation",
-  "ilp",
-  "activity",
-])
+const BASE_TAB_SET = new Set(["holdings", "allocation", "ilp", "activity"])
+
+type InvestmentTab = {
+  id: string
+  family_id: string
+  tab_type: "cards" | "others"
+  tab_label: string
+  sort_order: number
+  is_visible: boolean
+  created_at: string
+}
 
 function buildUrl(
   base: string,
@@ -314,8 +333,6 @@ export function InvestmentsClient({
 }) {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")
-  const defaultTab =
-    tabParam && INVESTMENTS_TAB_SET.has(tabParam) ? tabParam : "holdings"
 
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const { triggerRefresh } = useDataRefresh()
@@ -364,6 +381,76 @@ export function InvestmentsClient({
     {
       fallbackData: initialData.fx ?? undefined,
     }
+  )
+
+  // --- Dynamic collectible tabs ---
+  const tabsPath = activeFamilyId
+    ? `/api/investments/tabs?familyId=${activeFamilyId}`
+    : null
+  const { data: dynamicTabs, isLoading: tabsLoading } =
+    useApi<InvestmentTab[]>(tabsPath)
+
+  const investmentTabs = useMemo(() => dynamicTabs ?? [], [dynamicTabs])
+
+  // Resolve the default tab (base tabs + dynamic tab IDs are valid)
+  const allTabIds = useMemo(() => {
+    const set = new Set(BASE_TAB_SET)
+    for (const t of investmentTabs) set.add(`tab-${t.id}`)
+    return set
+  }, [investmentTabs])
+
+  const defaultTab =
+    tabParam && allTabIds.has(tabParam) ? tabParam : "holdings"
+
+  // Fetch collectible data for each active tab
+  const cardsTab = investmentTabs.find((t) => t.tab_type === "cards")
+  const othersTab = investmentTabs.find((t) => t.tab_type === "others")
+
+  const cardsPath = cardsTab
+    ? buildUrl("/api/investments/cards", activeProfileId, activeFamilyId, {
+        tabId: cardsTab.id,
+      })
+    : null
+  const othersPath = othersTab
+    ? buildUrl("/api/investments/others", activeProfileId, activeFamilyId, {
+        tabId: othersTab.id,
+      })
+    : null
+
+  const { data: cardsData, isLoading: cardsLoading } =
+    useApi<CollectibleCard[]>(cardsPath)
+  const { data: othersData, isLoading: othersLoading } =
+    useApi<CollectibleOther[]>(othersPath)
+
+  const collectibleCards = useMemo(() => cardsData ?? [], [cardsData])
+  const collectibleOthers = useMemo(() => othersData ?? [], [othersData])
+
+  const [addTabOpen, setAddTabOpen] = useState(false)
+  const [addingTab, setAddingTab] = useState(false)
+
+  const handleAddTab = useCallback(
+    async (tabType: "cards" | "others") => {
+      if (!activeFamilyId) return
+      setAddingTab(true)
+      try {
+        const res = await fetch("/api/investments/tabs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ familyId: activeFamilyId, tabType }),
+        })
+        if (!res.ok) throw new Error("Failed to create tab")
+        toast.success(
+          `Added ${tabType === "cards" ? "Cards" : "Others"} tab`,
+        )
+        setAddTabOpen(false)
+        triggerRefresh()
+      } catch {
+        toast.error("Failed to add tab")
+      } finally {
+        setAddingTab(false)
+      }
+    },
+    [activeFamilyId, triggerRefresh],
   )
 
   const isLoading = invLoading || ilpLoading || accountLoading || txLoading
@@ -417,10 +504,22 @@ export function InvestmentsClient({
     [ilpProducts]
   )
 
-  /** Matches computeTotalInvestmentsValue: cash + live holdings + ILP. */
+  const collectiblesTotal = useMemo(() => {
+    const cardsTotal = collectibleCards.reduce(
+      (s, i) => s + (i.current_value ?? i.purchase_price) * i.quantity,
+      0,
+    )
+    const othersTotal = collectibleOthers.reduce(
+      (s, i) => s + (i.current_value ?? i.purchase_price) * i.quantity,
+      0,
+    )
+    return cardsTotal + othersTotal
+  }, [collectibleCards, collectibleOthers])
+
+  /** Matches computeTotalInvestmentsValue: cash + live holdings + ILP + collectibles. */
   const fullPortfolioTotal = useMemo(
-    () => cashBalance + totalValue + ilpTotalSum,
-    [cashBalance, totalValue, ilpTotalSum]
+    () => cashBalance + totalValue + ilpTotalSum + collectiblesTotal,
+    [cashBalance, totalValue, ilpTotalSum, collectiblesTotal],
   )
 
   const holdingGroups = useMemo(() => groupHoldings(holdings), [holdings])
@@ -836,14 +935,62 @@ export function InvestmentsClient({
           </Card>
         )}
 
-        <Tabs key={defaultTab} defaultValue={defaultTab}>
+        <Tabs key={`${defaultTab}-${investmentTabs.length}`} defaultValue={defaultTab}>
           <div className="-mx-1 min-w-0 overflow-x-auto no-scrollbar [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
             <TabsList className="inline-flex w-fit flex-nowrap">
               <TabsTrigger value="holdings">Holdings</TabsTrigger>
               <TabsTrigger value="allocation">Allocation</TabsTrigger>
+              {investmentTabs.map((tab) => (
+                <TabsTrigger key={tab.id} value={`tab-${tab.id}`}>
+                  {tab.tab_label}
+                </TabsTrigger>
+              ))}
               <TabsTrigger value="ilp">ILP</TabsTrigger>
               <TabsTrigger value="activity">Activity</TabsTrigger>
             </TabsList>
+            {activeFamilyId && (
+              <Popover open={addTabOpen} onOpenChange={setAddTabOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="ml-1 inline-flex size-8 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    aria-label="Add investment tab"
+                  >
+                    <Plus className="size-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-1" align="start">
+                  <button
+                    type="button"
+                    disabled={addingTab || !!cardsTab}
+                    onClick={() => void handleAddTab("cards")}
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
+                  >
+                    <CreditCard className="size-4" />
+                    Cards
+                    {cardsTab && (
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        Added
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={addingTab || !!othersTab}
+                    onClick={() => void handleAddTab("others")}
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
+                  >
+                    <Package className="size-4" />
+                    Others
+                    {othersTab && (
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        Added
+                      </span>
+                    )}
+                  </button>
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
 
           <TabsContent value="holdings" className="mt-4 space-y-4">
@@ -951,6 +1098,32 @@ export function InvestmentsClient({
               isLoading={isLoading}
             />
           </TabsContent>
+
+          {cardsTab && (
+            <TabsContent value={`tab-${cardsTab.id}`} className="mt-4">
+              <CardsTab
+                tabId={cardsTab.id}
+                items={collectibleCards}
+                isLoading={cardsLoading}
+                profileId={activeProfileId}
+                familyId={activeFamilyId}
+                onMutation={handleMutation}
+              />
+            </TabsContent>
+          )}
+
+          {othersTab && (
+            <TabsContent value={`tab-${othersTab.id}`} className="mt-4">
+              <OthersTab
+                tabId={othersTab.id}
+                items={collectibleOthers}
+                isLoading={othersLoading}
+                profileId={activeProfileId}
+                familyId={activeFamilyId}
+                onMutation={handleMutation}
+              />
+            </TabsContent>
+          )}
 
           <TabsContent value="ilp" className="mt-4 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
