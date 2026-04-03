@@ -81,6 +81,8 @@ export type CpfProjectionParams = {
   incomeGrowthRate?: number;
   /** OA deduction per month (e.g. DPS premium spread). Called with (age, calendarYear) for band updates. */
   getMonthlyOaDeduction?: (age: number, calendarYear: number) => number;
+  /** MA deduction per month (e.g. MSL, CSL, ISP healthcare premiums). Called with (age, calendarYear). */
+  getMonthlyMaDeduction?: (age: number, calendarYear: number) => number;
 };
 
 export function projectCpfGrowth(params: CpfProjectionParams): CpfProjectionPoint[] {
@@ -93,6 +95,7 @@ export function projectCpfGrowth(params: CpfProjectionParams): CpfProjectionPoin
     targetAge,
     incomeGrowthRate = 0.03,
     getMonthlyOaDeduction,
+    getMonthlyMaDeduction,
   } = params;
 
   if (targetAge <= currentAge) return [];
@@ -132,6 +135,11 @@ export function projectCpfGrowth(params: CpfProjectionParams): CpfProjectionPoin
 
       if (monthlyDps > 0) {
         oa = roundToCent(Math.max(0, oa - monthlyDps));
+      }
+
+      const monthlyHealthcare = getMonthlyMaDeduction?.(age, year) ?? 0;
+      if (monthlyHealthcare > 0) {
+        ma = roundToCent(Math.max(0, ma - monthlyHealthcare));
       }
 
       const monthlyOaRate = OA_RATE / 12;

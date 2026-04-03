@@ -13,6 +13,11 @@ import {
 } from "@/lib/calculations/cpf-retirement"
 import { getDpsAnnualPremium, getDpsMonthlyOaDeduction } from "@/lib/calculations/cpf-dps"
 import { loanMonthlyPayment } from "@/lib/calculations/loans"
+import {
+  getAnnualHealthcareMaDeduction,
+  getMonthlyHealthcareMaDeduction,
+  type CpfHealthcareConfig,
+} from "@/lib/calculations/cpf-healthcare"
 
 const retirementQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -93,12 +98,33 @@ export async function GET(request: NextRequest) {
     const includeDps = profile.dps_include_in_projection !== false
     const birthYear = profile.birth_year
 
-    // Fetch CPF OA loans for housing deduction
-    const { data: cpfLoans } = await supabase
-      .from("loans")
-      .select("id, name, principal, rate_pct, tenure_months, start_date")
-      .eq("profile_id", singleProfileId)
-      .eq("use_cpf_oa", true)
+    // Fetch CPF OA loans and healthcare config in parallel
+    const [{ data: cpfLoans }, { data: healthcareRow }] = await Promise.all([
+      supabase
+        .from("loans")
+        .select("id, name, principal, rate_pct, tenure_months, start_date")
+        .eq("profile_id", singleProfileId)
+        .eq("use_cpf_oa", true),
+      supabase
+        .from("cpf_healthcare_config")
+        .select("*")
+        .eq("profile_id", singleProfileId)
+        .maybeSingle(),
+    ])
+
+    const healthcareConfig: CpfHealthcareConfig | null = healthcareRow
+      ? {
+          id: healthcareRow.id,
+          profileId: healthcareRow.profile_id,
+          mslAnnualOverride:
+            healthcareRow.msl_annual_override != null
+              ? Number(healthcareRow.msl_annual_override)
+              : null,
+          cslAnnual: Number(healthcareRow.csl_annual),
+          cslSupplementAnnual: Number(healthcareRow.csl_supplement_annual),
+          ispAnnual: Number(healthcareRow.isp_annual),
+        }
+      : null
 
     const now = new Date()
     const currentMonth = now.getFullYear() * 12 + now.getMonth()
@@ -134,6 +160,12 @@ export async function GET(request: NextRequest) {
       return dps + housing
     }
 
+    // Healthcare MA deduction callback
+    const getMaDeduction = (_age: number, calendarYear: number) =>
+      getMonthlyHealthcareMaDeduction(birthYear, calendarYear, healthcareConfig)
+
+    const healthcareBreakdown = getAnnualHealthcareMaDeduction(currentAge, healthcareConfig)
+
     const cohortYear = profile.birth_year + 55
     const retirementSums = getRetirementSums(cohortYear)
 
@@ -145,6 +177,7 @@ export async function GET(request: NextRequest) {
       currentAge,
       targetAge: 55,
       getMonthlyOaDeduction: getFullOaDeduction,
+      getMonthlyMaDeduction: getMaDeduction,
     })
 
     const projectedAt55 = projection.length > 0
@@ -163,6 +196,7 @@ export async function GET(request: NextRequest) {
       currentAge,
       targetAge: 70,
       getMonthlyOaDeduction: getFullOaDeduction,
+      getMonthlyMaDeduction: getMaDeduction,
     })
 
     // Compute comparison projection without housing (DPS only) when loans exist
@@ -175,6 +209,7 @@ export async function GET(request: NextRequest) {
           currentAge,
           targetAge: 70,
           getMonthlyOaDeduction: getDpsOnly,
+          getMonthlyMaDeduction: getMaDeduction,
         })
       : null
 
@@ -196,6 +231,11 @@ export async function GET(request: NextRequest) {
         estimatedAnnualPremium: dpsAnnual,
         note:
           "DPS premiums are deducted from CPF OA (estimate from age band). Turn off in User Settings if you opted out.",
+      },
+      healthcare: {
+        breakdown: healthcareBreakdown,
+        monthlyMaDeduction: Math.round((healthcareBreakdown.total / 12) * 100) / 100,
+        note: "Healthcare premiums (MSL, CSL, ISP) are deducted from MediSave. Configure in CPF Healthcare settings.",
       },
       currentCpf: { oa: currentOa, sa: currentSa, ma: currentMa, total: cpfTotal },
       projectionToAge55: projection,

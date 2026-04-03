@@ -1264,6 +1264,47 @@ export type Database = {
           },
         ]
       }
+      cpf_healthcare_config: {
+        Row: {
+          id: string
+          profile_id: string
+          msl_annual_override: number | null
+          csl_annual: number
+          csl_supplement_annual: number
+          isp_annual: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          msl_annual_override?: number | null
+          csl_annual?: number
+          csl_supplement_annual?: number
+          isp_annual?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          msl_annual_override?: number | null
+          csl_annual?: number
+          csl_supplement_annual?: number
+          isp_annual?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cpf_healthcare_config_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       income_config: {
         Row: {
           id: string

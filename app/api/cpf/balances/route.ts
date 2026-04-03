@@ -5,6 +5,10 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
+import {
+  getMonthlyHealthcareMaDeduction,
+  type CpfHealthcareConfig,
+} from "@/lib/calculations/cpf-healthcare"
 
 const balancesQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -92,7 +96,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Project from income when no manual data - support single or multi-profile
-    const [{ data: profiles }, { data: incomeConfigs }] = await Promise.all([
+    const [{ data: profiles }, { data: incomeConfigs }, { data: healthcareConfigs }] = await Promise.all([
       supabase
         .from("profiles")
         .select("id, birth_year")
@@ -101,12 +105,31 @@ export async function GET(request: NextRequest) {
         .from("income_config")
         .select("profile_id, annual_salary, bonus_estimate")
         .in("profile_id", profileIds),
+      supabase
+        .from("cpf_healthcare_config")
+        .select("*")
+        .in("profile_id", profileIds),
     ])
 
     const incomeByProfile = new Map(
       incomeConfigs?.map((ic) => [ic.profile_id, ic]) ?? [],
     )
     const profileById = new Map(profiles?.map((p) => [p.id, p]) ?? [])
+    const healthcareByProfile = new Map<string, CpfHealthcareConfig | null>(
+      (healthcareConfigs ?? []).map((hc) => [
+        hc.profile_id,
+        {
+          profileId: hc.profile_id,
+          mslAnnualOverride:
+            hc.msl_annual_override != null
+              ? Number(hc.msl_annual_override)
+              : null,
+          cslAnnual: Number(hc.csl_annual),
+          cslSupplementAnnual: Number(hc.csl_supplement_annual),
+          ispAnnual: Number(hc.isp_annual),
+        },
+      ]),
+    )
 
     const now = new Date()
     const currentYear = now.getFullYear()
@@ -172,6 +195,14 @@ export async function GET(request: NextRequest) {
       // Monthly CPF OA deduction for housing loan
       const monthlyOaDeduction = cpfOaDeductionByProfile.get(pid) ?? 0
 
+      // Monthly MA deduction for healthcare (MSL, CSL, ISP)
+      const hcConfig = healthcareByProfile.get(pid) ?? null
+      const monthlyMaDeduction = getMonthlyHealthcareMaDeduction(
+        profile.birth_year,
+        currentYear,
+        hcConfig,
+      )
+
       let runningOa = 0
       let runningSa = 0
       let runningMa = 0
@@ -188,7 +219,7 @@ export async function GET(request: NextRequest) {
 
         runningOa += contribution.oa - monthlyOaDeduction
         runningSa += contribution.sa
-        runningMa += contribution.ma
+        runningMa += contribution.ma - monthlyMaDeduction
 
         allProjected.push({
           profile_id: pid,

@@ -62,6 +62,14 @@ type ProjectionPoint = {
   total: number
 }
 
+type HealthcareBreakdown = {
+  msl: number
+  csl: number
+  sup: number
+  pmi: number
+  total: number
+}
+
 type RetirementData = {
   currentCpf: { oa: number; sa: number; ma: number; total: number }
   currentAge: number
@@ -73,6 +81,11 @@ type RetirementData = {
   dps?: {
     included: boolean
     estimatedAnnualPremium: number | null
+    note: string
+  }
+  healthcare?: {
+    breakdown: HealthcareBreakdown
+    monthlyMaDeduction: number
     note: string
   }
   housingOaDeduction?: {
@@ -115,9 +128,11 @@ function buildApiUrl(
 function OverviewTab({
   data,
   dps,
+  healthcare,
 }: {
   data: CpfBalanceRow[]
   dps?: RetirementData["dps"]
+  healthcare?: RetirementData["healthcare"]
 }) {
   const latest = data[data.length - 1] || { oa: 0, sa: 0, ma: 0 }
 
@@ -242,6 +257,49 @@ function OverviewTab({
         <p className="text-sm text-muted-foreground">
           DPS is excluded from projections for this profile (User Settings).
         </p>
+      )}
+
+      {healthcare && healthcare.breakdown.total > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-base">
+              Healthcare (MA Deductions)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold tabular-nums">
+              ${formatCurrency(healthcare.breakdown.total)}
+              <span className="text-sm font-normal text-muted-foreground">
+                /yr from MediSave
+              </span>
+            </p>
+            <div className="mt-2 space-y-0.5">
+              {healthcare.breakdown.msl > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  MediShield Life — ${formatCurrency(healthcare.breakdown.msl)}/yr
+                </p>
+              )}
+              {healthcare.breakdown.csl > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  CareShield Life — ${formatCurrency(healthcare.breakdown.csl)}/yr
+                </p>
+              )}
+              {healthcare.breakdown.sup > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  CareShield Life Supplement — ${formatCurrency(healthcare.breakdown.sup)}/yr
+                </p>
+              )}
+              {healthcare.breakdown.pmi > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Integrated Shield Plan — ${formatCurrency(healthcare.breakdown.pmi)}/yr
+                </p>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {healthcare.note}
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -453,6 +511,7 @@ function RetirementTab({
   )
 
   const dps = data?.dps
+  const healthcare = data?.healthcare
   const housing = data?.housingOaDeduction
   const totalMonthlyHousing = data?.totalMonthlyHousingDeduction
 
@@ -547,6 +606,46 @@ function RetirementTab({
               The dashed line on the chart shows your projection without this
               loan deduction.
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {healthcare && healthcare.breakdown.total > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-base">
+              Healthcare (MA deductions in projection)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold tabular-nums">
+              ${formatCurrency(healthcare.monthlyMaDeduction)}
+              <span className="text-sm font-normal text-muted-foreground">
+                /mo from MediSave
+              </span>
+            </p>
+            <div className="mt-1 space-y-0.5">
+              {healthcare.breakdown.msl > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  MediShield Life — ${formatCurrency(healthcare.breakdown.msl)}/yr
+                </p>
+              )}
+              {healthcare.breakdown.csl > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  CareShield Life — ${formatCurrency(healthcare.breakdown.csl)}/yr
+                </p>
+              )}
+              {healthcare.breakdown.sup > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  CareShield Life Supplement — ${formatCurrency(healthcare.breakdown.sup)}/yr
+                </p>
+              )}
+              {healthcare.breakdown.pmi > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Integrated Shield Plan — ${formatCurrency(healthcare.breakdown.pmi)}/yr
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -684,6 +783,7 @@ export function CpfClient({
             <OverviewTab
               data={cpfData ?? []}
               dps={retirementData?.dps}
+              healthcare={retirementData?.healthcare}
             />
           </TabsContent>
           <TabsContent value="housing" className="mt-4">
