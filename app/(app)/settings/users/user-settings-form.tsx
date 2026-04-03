@@ -1696,6 +1696,143 @@ function CPFSection({
   )
 }
 
+function CpfHealthcareSection({ profileId }: { profileId: string }) {
+  const [mslOverride, setMslOverride] = useState<number | null>(null)
+  const [cslAnnual, setCslAnnual] = useState(0)
+  const [cslSupplementAnnual, setCslSupplementAnnual] = useState(0)
+  const [ispAnnual, setIspAnnual] = useState(0)
+
+  // Baseline for dirty tracking
+  const [baseline, setBaseline] = useState<{
+    mslOverride: number | null
+    cslAnnual: number
+    cslSupplementAnnual: number
+    ispAnnual: number
+  }>({ mslOverride: null, cslAnnual: 0, cslSupplementAnnual: 0, ispAnnual: 0 })
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/cpf/healthcare?profileId=${profileId}`)
+      .then((r) => r.json())
+      .then((data: Array<{ profileId: string; config: { mslAnnualOverride: number | null; cslAnnual: number; cslSupplementAnnual: number; ispAnnual: number } | null }>) => {
+        if (cancelled) return
+        const entry = data.find((d) => d.profileId === profileId)
+        const c = entry?.config
+        if (c) {
+          setMslOverride(c.mslAnnualOverride)
+          setCslAnnual(c.cslAnnual)
+          setCslSupplementAnnual(c.cslSupplementAnnual)
+          setIspAnnual(c.ispAnnual)
+          setBaseline({
+            mslOverride: c.mslAnnualOverride,
+            cslAnnual: c.cslAnnual,
+            cslSupplementAnnual: c.cslSupplementAnnual,
+            ispAnnual: c.ispAnnual,
+          })
+        }
+        setLoaded(true)
+      })
+      .catch(() => setLoaded(true))
+    return () => { cancelled = true }
+  }, [profileId])
+
+  const dirty =
+    loaded &&
+    (mslOverride !== baseline.mslOverride ||
+      cslAnnual !== baseline.cslAnnual ||
+      cslSupplementAnnual !== baseline.cslSupplementAnnual ||
+      ispAnnual !== baseline.ispAnnual)
+
+  const persist = useCallback(async () => {
+    const res = await fetch("/api/cpf/healthcare", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profileId,
+        mslAnnualOverride: mslOverride,
+        cslAnnual,
+        cslSupplementAnnual,
+        ispAnnual,
+      }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error((data as { error?: string }).error ?? "Failed to save healthcare config")
+    }
+    setBaseline({ mslOverride, cslAnnual, cslSupplementAnnual, ispAnnual })
+  }, [profileId, mslOverride, cslAnnual, cslSupplementAnnual, ispAnnual])
+
+  useUserSettingsSaveRegistration(
+    `user-settings-cpf-healthcare-${profileId}`,
+    dirty,
+    persist,
+  )
+
+  return (
+    <>
+      <p className="text-xs text-muted-foreground mb-3">
+        Annual premiums deducted from MediSave. Enter values from your CPF Yearly Statement.
+      </p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor={`hc-msl-${profileId}`}>MediShield Life (MSL)</Label>
+          <div className="flex items-center gap-2">
+            <CurrencyInput
+              id={`hc-msl-${profileId}`}
+              value={mslOverride ?? 0}
+              onChange={(v) => setMslOverride(v && v > 0 ? v : null)}
+              placeholder="Auto (age-based)"
+              className="h-8"
+            />
+            {mslOverride != null && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs"
+                onClick={() => setMslOverride(null)}
+              >
+                Auto
+              </Button>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Leave blank to use age-based estimate
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`hc-csl-${profileId}`}>CareShield Life (CSL)</Label>
+          <CurrencyInput
+            id={`hc-csl-${profileId}`}
+            value={cslAnnual}
+            onChange={(v) => setCslAnnual(v ?? 0)}
+            className="h-8"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`hc-sup-${profileId}`}>CareShield Life Supplement</Label>
+          <CurrencyInput
+            id={`hc-sup-${profileId}`}
+            value={cslSupplementAnnual}
+            onChange={(v) => setCslSupplementAnnual(v ?? 0)}
+            className="h-8"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`hc-isp-${profileId}`}>Integrated Shield Plan (ISP)</Label>
+          <CurrencyInput
+            id={`hc-isp-${profileId}`}
+            value={ispAnnual}
+            onChange={(v) => setIspAnnual(v ?? 0)}
+            className="h-8"
+          />
+        </div>
+      </div>
+    </>
+  )
+}
+
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 function MonthlyLogSection({
@@ -4866,6 +5003,9 @@ function FamilyMemberSettingsPanels({
         badge={cpfData ? "Set" : "Not set"}
       >
         <CPFSection profileId={p.id} cpfData={cpfData} familyId={family.id} />
+      </CollapsibleSection>
+      <CollapsibleSection title="CPF Healthcare" badge="MA Deductions">
+        <CpfHealthcareSection profileId={p.id} />
       </CollapsibleSection>
       <CollapsibleSection
         title="Investments"

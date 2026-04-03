@@ -44,7 +44,14 @@ import {
   type ProfileForTax,
   type InsurancePolicyForTax,
   type ManualReliefInput,
+  type DependentForTax,
+  type SpouseForTax,
 } from "@/lib/calculations/tax"
+import {
+  getAnnualHealthcareMaDeduction,
+  type CpfHealthcareConfig,
+} from "@/lib/calculations/cpf-healthcare"
+import { calculateGiroSchedule, getNextGiroPaymentIndex } from "@/lib/calculations/tax-giro"
 
 export type MoneyFlowParams = {
   profileIds: string[]
@@ -94,6 +101,9 @@ export async function fetchMoneyFlowData(
     cpfRes,
     bankAccountsRes,
     investmentsResult,
+    dependentsRes,
+    healthcareConfigRes,
+    taxGiroRes,
   ] = await Promise.all([
     supabase
       .from("monthly_cashflow")
@@ -152,6 +162,19 @@ export async function fetchMoneyFlowData(
       .select("id, profile_id, opening_balance, locked_amount, family_id")
       .eq("family_id", familyId),
     computeTotalInvestmentsValue(supabase, familyId, profileId, null),
+    supabase
+      .from("dependents")
+      .select("id, name, birth_year, relationship, claimed_by_profile_id, annual_income, in_full_time_education, living_with_claimant, is_handicapped")
+      .eq("family_id", familyId),
+    supabase
+      .from("cpf_healthcare_config")
+      .select("profile_id, msl_annual_override, csl_annual, csl_supplement_annual, isp_annual")
+      .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
+    supabase
+      .from("tax_giro_schedule")
+      .select("profile_id, year, schedule, total_payable, outstanding_balance, source")
+      .in("profile_id", targetProfileIds.length > 0 ? targetProfileIds : ["__none__"])
+      .eq("year", currentYear),
   ])
 
   // ── Build lookup maps (same pattern as overview-data.ts) ──
@@ -283,6 +306,30 @@ export async function fetchMoneyFlowData(
 
   const sharedIlp = sumIlpPremiums(sharedIlpRes.data)
 
+  // Dependents
+  const familyDependents: DependentForTax[] = (dependentsRes.data ?? []).map((d) => ({
+    name: d.name,
+    birth_year: d.birth_year,
+    relationship: d.relationship as "child" | "parent" | "grandparent",
+    annual_income: Number(d.annual_income ?? 0),
+    in_full_time_education: !!d.in_full_time_education,
+    living_with_claimant: !!d.living_with_claimant,
+    is_handicapped: !!d.is_handicapped,
+    claimed_by_profile_id: d.claimed_by_profile_id,
+  }))
+
+  // Healthcare config by profile
+  const healthcareByProfile = new Map<string, CpfHealthcareConfig | null>()
+  for (const hc of healthcareConfigRes.data ?? []) {
+    healthcareByProfile.set(hc.profile_id as string, {
+      profileId: hc.profile_id as string,
+      mslAnnualOverride: hc.msl_annual_override != null ? Number(hc.msl_annual_override) : null,
+      cslAnnual: Number(hc.csl_annual),
+      cslSupplementAnnual: Number(hc.csl_supplement_annual),
+      ispAnnual: Number(hc.isp_annual),
+    })
+  }
+
   // ── Compute aggregated values across targeted profiles ──
   let totalGrossMonthly = 0
   let totalBonus = 0
@@ -306,6 +353,13 @@ export async function fetchMoneyFlowData(
   let totalCpfBalanceOa = 0
   let totalCpfBalanceSa = 0
   let totalCpfBalanceMa = 0
+  let totalHealthcareMsl = 0
+  let totalHealthcareCsl = 0
+  let totalHealthcarePmi = 0
+  let totalHealthcareAnnual = 0
+  let totalDependentReliefs = 0
+  let dependentChildCount = 0
+  let dependentParentCount = 0
 
   for (const pid of targetProfileIds) {
     const profile = profileById.get(pid)
@@ -370,14 +424,31 @@ export async function fetchMoneyFlowData(
       marital_status: profile.marital_status,
     }
 
+    // Spouse data for tax
+    let spouseData: SpouseForTax | null = null
+    if (profile.spouse_profile_id) {
+      const spouseIncome = incomeByProfileId.get(profile.spouse_profile_id)
+      if (spouseIncome) {
+        spouseData = { annual_income: spouseIncome.annual_salary + (spouseIncome.bonus_estimate ?? 0) }
+      }
+    }
+
     const taxResult = calculateTax({
       profile: profileForTax,
       profileId: pid,
       incomeConfig: { annual_salary: income.annual_salary, bonus_estimate: income.bonus_estimate ?? 0 },
       insurancePolicies: polsForTax,
       manualReliefs,
+      spouse: spouseData,
+      dependents: familyDependents,
       year: currentYear,
     })
+
+    // Track dependent relief contribution for this profile
+    const dependentBreakdown = taxResult.reliefBreakdown?.filter(
+      (r) => ["qcr", "wmcr", "parent", "spouse"].includes(r.type) && r.source === "auto"
+    ) ?? []
+    totalDependentReliefs += dependentBreakdown.reduce((s, r) => s + r.amount, 0)
 
     totalTaxPayable += taxResult.taxPayable
     totalTaxReliefs += taxResult.totalReliefs
@@ -397,6 +468,20 @@ export async function fetchMoneyFlowData(
       totalCpfBalanceSa += cpf.sa * monthsElapsed
       totalCpfBalanceMa += cpf.ma * monthsElapsed
     }
+
+    // Healthcare MA deductions
+    const hcConfig = healthcareByProfile.get(pid) ?? null
+    const hcBreakdown = getAnnualHealthcareMaDeduction(age, hcConfig)
+    totalHealthcareMsl += hcBreakdown.msl
+    totalHealthcareCsl += hcBreakdown.csl
+    totalHealthcarePmi += hcBreakdown.pmi
+    totalHealthcareAnnual += hcBreakdown.total
+  }
+
+  // Count dependents by type
+  for (const d of familyDependents) {
+    if (d.relationship === "child") dependentChildCount++
+    else dependentParentCount++
   }
 
   // Add shared ILP to total
@@ -858,6 +943,62 @@ export async function fetchMoneyFlowData(
     period: "monthly",
   }
 
+  // Healthcare MA deductions
+  const healthcareMonthly = Math.round((totalHealthcareAnnual / 12) * 100) / 100
+  nodes["cpf_healthcare"] = {
+    amount: totalHealthcareAnnual > 0 ? `${fmt(totalHealthcareAnnual)}/yr` : "$0",
+    breakdown: totalHealthcareAnnual > 0
+      ? `MSL ${fmt(totalHealthcareMsl)} / CSL ${fmt(totalHealthcareCsl)} / ISP ${fmt(totalHealthcarePmi)} · ${fmt(healthcareMonthly)}/mth from MA`
+      : "No healthcare config",
+    rawAmount: totalHealthcareAnnual,
+    period: "annual",
+  }
+
+  // Tax GIRO schedule
+  const giroScheduleRows = taxGiroRes.data ?? []
+  let giroMonthlyBase = 0
+  let giroNextLabel = ""
+  if (giroScheduleRows.length > 0) {
+    // Sum across profiles
+    let giroTotal = 0
+    for (const row of giroScheduleRows) {
+      giroTotal += Number(row.total_payable ?? 0)
+    }
+    giroMonthlyBase = Math.floor((giroTotal / 12) * 100) / 100
+    // Use first profile's schedule for next-payment display
+    const firstSchedule = giroScheduleRows[0]?.schedule as Array<{ month: string; amount: number }> | null
+    if (firstSchedule) {
+      const nextIdx = getNextGiroPaymentIndex(firstSchedule)
+      giroNextLabel = nextIdx >= 0 ? `Next: ${firstSchedule[nextIdx].month}` : "All paid"
+    }
+  } else if (totalTaxPayable > 0) {
+    // No stored schedule — calculate from tax payable
+    const computed = calculateGiroSchedule({ taxPayable: totalTaxPayable, year: currentYear })
+    giroMonthlyBase = computed.monthlyBase
+    const nextIdx = getNextGiroPaymentIndex(computed.schedule)
+    giroNextLabel = nextIdx >= 0 ? `Next: ${computed.schedule[nextIdx].month}` : "All paid"
+  }
+  nodes["tax_giro"] = {
+    amount: giroMonthlyBase > 0 ? `${fmt(giroMonthlyBase)}/mth × 12` : "$0",
+    breakdown: giroNextLabel || "No GIRO schedule",
+    rawAmount: giroMonthlyBase,
+    period: "monthly",
+  }
+
+  // Family dependents
+  const depTotal = dependentChildCount + dependentParentCount
+  nodes["dependents"] = {
+    amount: depTotal > 0 ? `${depTotal} dependent${depTotal !== 1 ? "s" : ""}` : "None",
+    breakdown: depTotal > 0
+      ? [
+          dependentChildCount > 0 ? `${dependentChildCount} child${dependentChildCount !== 1 ? "ren" : ""}` : "",
+          dependentParentCount > 0 ? `${dependentParentCount} parent${dependentParentCount !== 1 ? "s" : ""}` : "",
+        ].filter(Boolean).join(", ") + (totalDependentReliefs > 0 ? ` · ${fmt(totalDependentReliefs)}/yr relief` : "")
+      : undefined,
+    rawAmount: totalDependentReliefs,
+    period: "annual",
+  }
+
   // ── Build edge flow formulas ──
   const edges: Record<string, MoneyFlowEdgeData> = {}
 
@@ -892,6 +1033,11 @@ export async function fetchMoneyFlowData(
         insurancePremium: totalInsurancePremium,
         ilpPremium: totalIlpPremium,
         monthlyTax: monthlyTax,
+        healthcareMonthly,
+        dependentReliefs: totalDependentReliefs,
+        giroMonthlyBase,
+        childCount: dependentChildCount,
+        parentCount: dependentParentCount,
       }
     )
 
@@ -933,6 +1079,11 @@ function generateEdgeFormula(
     insurancePremium: number
     ilpPremium: number
     monthlyTax: number
+    healthcareMonthly: number
+    dependentReliefs: number
+    giroMonthlyBase: number
+    childCount: number
+    parentCount: number
   }
 ): MoneyFlowEdgeData {
   const key = `${sourceId}->${targetId}`
@@ -1077,6 +1228,39 @@ function generateEdgeFormula(
       return {
         flowFormula: `${fmt(sourceData.rawAmount)} investment value`,
         rawAmount: sourceData.rawAmount,
+      }
+    case "cpf_healthcare->cpf_balance":
+      return {
+        flowFormula: ctx.healthcareMonthly > 0
+          ? `${fmt(ctx.healthcareMonthly)}/mth deducted from MA`
+          : "No healthcare deductions",
+        rawAmount: ctx.healthcareMonthly,
+      }
+    case "cpf_healthcare->cpf_retirement":
+      return {
+        flowFormula: ctx.healthcareMonthly > 0
+          ? `${fmt(ctx.healthcareMonthly)}/mth reduces MA projection`
+          : "No healthcare deductions",
+        rawAmount: ctx.healthcareMonthly,
+      }
+    case "tax_payable->tax_giro":
+      return {
+        flowFormula: ctx.giroMonthlyBase > 0
+          ? `${fmt(ctx.taxPayable)} ÷ 12 = ${fmt(ctx.giroMonthlyBase)}/mth GIRO`
+          : "No GIRO schedule",
+        rawAmount: ctx.giroMonthlyBase,
+      }
+    case "dependents->tax_reliefs":
+      return {
+        flowFormula: ctx.dependentReliefs > 0
+          ? `${fmt(ctx.dependentReliefs)}/yr from ${[ctx.childCount > 0 ? `${ctx.childCount} child${ctx.childCount !== 1 ? "ren" : ""}` : "", ctx.parentCount > 0 ? `${ctx.parentCount} parent${ctx.parentCount !== 1 ? "s" : ""}` : ""].filter(Boolean).join(" + ")}`
+          : "No dependent reliefs",
+        rawAmount: ctx.dependentReliefs,
+      }
+    case "income->tax_reliefs":
+      return {
+        flowFormula: `Spouse relief: $2,000 (if eligible)`,
+        rawAmount: 2000,
       }
     default:
       return {

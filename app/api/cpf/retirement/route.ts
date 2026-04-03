@@ -239,7 +239,7 @@ export async function GET(request: NextRequest) {
       healthcare: {
         breakdown: healthcareBreakdown,
         monthlyMaDeduction: Math.round((healthcareBreakdown.total / 12) * 100) / 100,
-        note: "Healthcare premiums (MSL, CSL, ISP) are deducted from MediSave. Configure in CPF Healthcare settings.",
+        note: "Healthcare premiums (MSL, CSL, ISP) are deducted from MediSave. Configure in User Settings → CPF Healthcare.",
       },
       interest: {
         breakdown: interestBreakdown,

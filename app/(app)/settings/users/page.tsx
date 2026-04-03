@@ -10,11 +10,6 @@ import type { ProfileWithIncome } from "./types"
 import type { FinancialDataByFamily } from "./user-settings-form"
 import { enrichInvestmentsWithLivePrices } from "@/lib/investments/enrich-with-live-prices"
 
-function getCurrentMonth(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-}
-
 async function fetchFinancialDataForFamily(
   supabase: ReturnType<typeof createSupabaseAdmin>,
   familyId: string,
@@ -59,14 +54,11 @@ async function fetchFinancialDataForFamily(
           .order("created_at", { ascending: true })
       : Promise.resolve({ data: [] }),
     profileIds.length > 0
-      ? (() => {
-          const currentMonth = getCurrentMonth()
-          return supabase
-            .from("cpf_balances")
-            .select("*")
-            .in("profile_id", profileIds)
-            .eq("month", currentMonth)
-        })()
+      ? supabase
+          .from("cpf_balances")
+          .select("*")
+          .in("profile_id", profileIds)
+          .order("month", { ascending: false })
       : Promise.resolve({ data: [] }),
     profileIds.length > 0
       ? supabase
