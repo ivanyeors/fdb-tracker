@@ -1,5 +1,15 @@
 import { cookies } from "next/headers"
 import { getSessionFromCookies } from "@/lib/auth/session"
+import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
+import { fetchOverviewData } from "@/lib/api/overview-data"
+import { fetchCashflowRangeSeries } from "@/lib/api/cashflow-range"
+import { fetchSingleMonthCashflow } from "@/lib/api/cashflow-single-month"
+import { fetchIlpProducts } from "@/lib/api/ilp-data"
+import { fetchGoals } from "@/lib/api/goals-data"
+import { fetchInsurancePolicies } from "@/lib/api/insurance-data"
+import { fetchTransactions } from "@/lib/api/transactions-data"
+import { fetchInvestmentHistory } from "@/lib/api/investment-history-data"
 import {
   OverviewClient,
   type OverviewInitialData,
@@ -29,23 +39,6 @@ function getDateRange() {
   return { startMonth, endMonth }
 }
 
-async function fetchInternal(
-  path: string,
-  token: string | undefined
-): Promise<Response | null> {
-  const base =
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-  try {
-    const res = await fetch(`${base}${path}`, {
-      headers: token ? { Cookie: `fdb-session=${token}` } : {},
-      cache: "no-store",
-    })
-    return res.ok ? res : null
-  } catch {
-    return null
-  }
-}
-
 export default async function OverviewPage() {
   const cookieStore = await cookies()
   const accountId = await getSessionFromCookies(cookieStore)
@@ -57,12 +50,14 @@ export default async function OverviewPage() {
   if (!familyId && !profileId)
     return <OverviewClient initialData={EMPTY} />
 
-  const token = cookieStore.get("fdb-session")?.value
-
-  const params = new URLSearchParams()
-  if (profileId) params.set("profileId", profileId)
-  else if (familyId) params.set("familyId", familyId)
-  const qs = params.toString()
+  const supabase = createSupabaseAdmin()
+  const resolved = await resolveFamilyAndProfiles(
+    supabase,
+    accountId,
+    profileId,
+    familyId
+  )
+  if (!resolved) return <OverviewClient initialData={EMPTY} />
 
   const currentMonth = getCurrentMonth()
   const { startMonth, endMonth } = getDateRange()
@@ -70,45 +65,64 @@ export default async function OverviewPage() {
   let data: OverviewInitialData = EMPTY
   try {
     const [
-      overviewRes,
-      cashflowRangeRes,
-      waterfallRes,
-      ilpRes,
-      goalsRes,
-      insuranceRes,
-      txRes,
-      historyRes,
+      overview,
+      cashflowRange,
+      waterfall,
+      ilp,
+      goals,
+      insurance,
+      transactions,
+      investmentHistory,
     ] = await Promise.all([
-      fetchInternal(`/api/overview?${qs}&month=${currentMonth}`, token),
-      fetchInternal(
-        `/api/cashflow?startMonth=${startMonth}&endMonth=${endMonth}&${qs}`,
-        token
-      ),
-      fetchInternal(`/api/cashflow?month=${currentMonth}&${qs}`, token),
-      fetchInternal(`/api/investments/ilp?${qs}`, token),
-      fetchInternal(`/api/goals?${qs}`, token),
-      fetchInternal(`/api/insurance?${qs}`, token),
-      fetchInternal(
-        `/api/investments/transactions?${qs}&limit=100`,
-        token
-      ),
-      fetchInternal(
-        `/api/investments/history?days=30&${qs}`,
-        token
-      ),
+      fetchOverviewData(supabase, {
+        profileIds: resolved.profileIds,
+        familyId: resolved.familyId,
+        profileId,
+        monthFilter: currentMonth,
+      }).catch(() => null),
+      fetchCashflowRangeSeries(supabase, {
+        profileIds: resolved.profileIds,
+        familyId: resolved.familyId,
+        startMonth,
+        endMonth,
+      }).catch(() => null),
+      fetchSingleMonthCashflow(supabase, {
+        profileIds: resolved.profileIds,
+        familyId: resolved.familyId,
+        month: currentMonth,
+      }).catch(() => null),
+      fetchIlpProducts(supabase, {
+        familyId: resolved.familyId,
+        profileId,
+      }).catch(() => null),
+      fetchGoals(supabase, {
+        familyId: resolved.familyId,
+        profileId,
+      }).catch(() => null),
+      fetchInsurancePolicies(supabase, {
+        profileIds: resolved.profileIds,
+      }).catch(() => null),
+      fetchTransactions(supabase, {
+        familyId: resolved.familyId,
+        profileId,
+        limit: 100,
+      }).catch(() => null),
+      fetchInvestmentHistory(supabase, {
+        familyId: resolved.familyId,
+        profileId,
+        days: 30,
+      }).catch(() => null),
     ])
 
     data = {
-      overview: overviewRes ? await overviewRes.json() : null,
-      cashflowRange: cashflowRangeRes
-        ? await cashflowRangeRes.json()
-        : null,
-      waterfall: waterfallRes ? await waterfallRes.json() : null,
-      ilp: ilpRes ? await ilpRes.json() : null,
-      goals: goalsRes ? await goalsRes.json() : null,
-      insurance: insuranceRes ? await insuranceRes.json() : null,
-      transactions: txRes ? await txRes.json() : null,
-      investmentHistory: historyRes ? await historyRes.json() : null,
+      overview,
+      cashflowRange,
+      waterfall,
+      ilp,
+      goals,
+      insurance,
+      transactions,
+      investmentHistory,
     }
   } catch {
     // fall through with empty data

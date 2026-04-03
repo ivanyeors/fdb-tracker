@@ -5,6 +5,7 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { calculateWeightedAverageCost } from "@/lib/calculations/investments"
+import { fetchTransactions } from "@/lib/api/transactions-data"
 
 const transactionQuerySchema = z.object({
   symbol: z.string().optional(),
@@ -58,26 +59,14 @@ export async function GET(request: NextRequest) {
     if (!resolved) {
       return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
-    const { familyId: resolvedFamilyId } = resolved
 
-    let query = supabase
-      .from("investment_transactions")
-      .select("*")
-      .eq("family_id", resolvedFamilyId)
-      .order("created_at", { ascending: false })
-      .limit(limit)
-
-    if (symbol) query = query.eq("symbol", symbol)
-    if (type) query = query.eq("type", type)
-    if (profileId) {
-      query = query.or(`profile_id.eq.${profileId},profile_id.is.null`)
-    }
-
-    const { data, error } = await query
-
-    if (error) {
-      return NextResponse.json({ error: "Failed to fetch transactions" }, { status: 500 })
-    }
+    const data = await fetchTransactions(supabase, {
+      familyId: resolved.familyId,
+      profileId: profileId ?? null,
+      limit,
+      symbol,
+      type,
+    })
 
     return NextResponse.json(data)
   } catch {

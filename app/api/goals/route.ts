@@ -4,6 +4,7 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
+import { fetchGoals } from "@/lib/api/goals-data"
 
 const goalsQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -38,26 +39,13 @@ export async function GET(request: NextRequest) {
     if (!resolved) {
       return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
-    const { familyId } = resolved
-    const profileId = parsed.data.profileId ?? null
 
-    let query = supabase
-      .from("savings_goals")
-      .select("*, goal_contributions(id, amount, source, created_at)")
-      .eq("family_id", familyId)
-      .order("created_at", { ascending: true })
+    const goals = await fetchGoals(supabase, {
+      familyId: resolved.familyId,
+      profileId: parsed.data.profileId ?? null,
+    })
 
-    if (profileId) {
-      query = query.or(`profile_id.eq.${profileId},profile_id.is.null`)
-    }
-
-    const { data: goals, error } = await query
-
-    if (error) {
-      return NextResponse.json({ error: "Failed to fetch goals" }, { status: 500 })
-    }
-
-    return NextResponse.json(goals || [])
+    return NextResponse.json(goals)
   } catch (err) {
     console.error("[api/goals] Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

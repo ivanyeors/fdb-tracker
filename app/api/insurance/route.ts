@@ -5,6 +5,7 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { getCoverageType, COVERAGE_TYPES } from "@/lib/insurance/coverage-config"
+import { fetchInsurancePolicies } from "@/lib/api/insurance-data"
 
 const insuranceQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -41,25 +42,12 @@ export async function GET(request: NextRequest) {
     if (!resolved) {
       return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
-    const { profileIds } = resolved
 
-    const { data: policies, error } = await supabase
-      .from("insurance_policies")
-      .select("*, insurance_policy_coverages(id, coverage_type, coverage_amount, benefit_name, benefit_premium, renewal_bonus, benefit_expiry_date, benefit_unit, sort_order)")
-      .in("profile_id", profileIds)
-      .order("created_at", { ascending: true })
+    const policies = await fetchInsurancePolicies(supabase, {
+      profileIds: resolved.profileIds,
+    })
 
-    if (error) {
-      return NextResponse.json({ error: "Failed to fetch policies" }, { status: 500 })
-    }
-
-    const mapped = (policies || []).map((p) => ({
-      ...p,
-      coverages: p.insurance_policy_coverages ?? [],
-      insurance_policy_coverages: undefined,
-    }))
-
-    return NextResponse.json(mapped)
+    return NextResponse.json(policies)
   } catch (err) {
     console.error("[api/insurance] Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
