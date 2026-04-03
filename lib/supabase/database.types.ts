@@ -811,6 +811,7 @@ export type Database = {
           group_premium_amount: number | null
           premium_payment_mode: string
           profile_id: string | null
+          total_invested: number | null
           created_at: string
         }
         Insert: {
@@ -820,6 +821,7 @@ export type Database = {
           group_premium_amount?: number | null
           premium_payment_mode?: string
           profile_id?: string | null
+          total_invested?: number | null
           created_at?: string
         }
         Update: {
@@ -829,6 +831,7 @@ export type Database = {
           group_premium_amount?: number | null
           premium_payment_mode?: string
           profile_id?: string | null
+          total_invested?: number | null
           created_at?: string
         }
         Relationships: [

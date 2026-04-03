@@ -37,6 +37,8 @@ export default function IlpFundGroupDetailPage() {
   const [fxLoading, setFxLoading] = useState(true)
   const [premiumInput, setPremiumInput] = useState<number | null>(null)
   const [premiumSaving, setPremiumSaving] = useState(false)
+  const [totalInvestedInput, setTotalInvestedInput] = useState<number | null>(null)
+  const [totalInvestedSaving, setTotalInvestedSaving] = useState(false)
   const [groupProfileId, setGroupProfileId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -205,6 +207,25 @@ export default function IlpFundGroupDetailPage() {
     }
   }, [premiumInput, activeFamilyId, groupId, fetchIlp])
 
+  const handleTotalInvestedUpdate = useCallback(async () => {
+    if (totalInvestedInput == null || totalInvestedInput < 0 || !activeFamilyId) return
+    setTotalInvestedSaving(true)
+    try {
+      const res = await fetch(`/api/investments/ilp/groups/${groupId}/total-invested`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ familyId: activeFamilyId, totalInvested: totalInvestedInput }),
+      })
+      if (!res.ok) throw new Error("Failed to update")
+      toast.success("Total invested updated and individual premiums paid recalculated")
+      void fetchIlp()
+    } catch {
+      toast.error("Failed to update total invested")
+    } finally {
+      setTotalInvestedSaving(false)
+    }
+  }, [totalInvestedInput, activeFamilyId, groupId, fetchIlp])
+
   if (!activeProfileId && !activeFamilyId) {
     return (
       <InvestmentsDisplayCurrencyProvider
@@ -310,6 +331,30 @@ export default function IlpFundGroupDetailPage() {
                 trend={0}
                 trendLabel=""
               />
+            </div>
+
+            {/* Total Invested Update */}
+            <div className="rounded-xl border bg-card p-4 sm:p-5">
+              <h2 className="text-sm font-medium text-foreground">Total Invested</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Update the total premiums paid across the group. Each fund&apos;s premiums paid will be recalculated based on their allocation %.
+              </p>
+              <div className="mt-3 flex items-end gap-3">
+                <div className="flex-1 max-w-[200px]">
+                  <CurrencyInput
+                    value={totalInvestedInput ?? (groupSummary.totalPremiumsPaid > 0 ? groupSummary.totalPremiumsPaid : null)}
+                    onChange={(v) => setTotalInvestedInput(v ?? null)}
+                    placeholder={groupSummary.totalPremiumsPaid > 0 ? `$${formatCurrency(groupSummary.totalPremiumsPaid)}` : "0.00"}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleTotalInvestedUpdate}
+                  disabled={totalInvestedSaving || totalInvestedInput == null || totalInvestedInput < 0}
+                >
+                  {totalInvestedSaving ? <RefreshCw className="size-4 animate-spin" /> : "Update"}
+                </Button>
+              </div>
             </div>
 
             {/* Monthly Premium Update */}
