@@ -23,14 +23,8 @@ const GlobalMonthContext = React.createContext<GlobalMonthContextValue | null>(n
 export function GlobalMonthProvider({ children }: { children: React.ReactNode }) {
   const { activeFamilyId } = useActiveProfile()
 
-  const [selectedMonth, setSelectedMonthState] = React.useState<string | null>(() => {
-    if (typeof window === "undefined") return null
-    try {
-      return localStorage.getItem(STORAGE_KEY)
-    } catch {
-      return null
-    }
-  })
+  const [selectedMonth, setSelectedMonthState] = React.useState<string | null>(null)
+  const [mounted, setMounted] = React.useState(false)
 
   const [availableMonths, setAvailableMonths] = React.useState<string[]>([])
 
@@ -47,6 +41,17 @@ export function GlobalMonthProvider({ children }: { children: React.ReactNode })
     }
   }, [])
 
+  // Hydrate from localStorage after mount to avoid SSR mismatch
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) setSelectedMonthState(stored)
+    } catch {
+      // ignore
+    }
+    setMounted(true)
+  }, [])
+
   // Reset selected month when family changes
   const prevFamilyRef = React.useRef(activeFamilyId)
   React.useEffect(() => {
@@ -57,7 +62,9 @@ export function GlobalMonthProvider({ children }: { children: React.ReactNode })
     prevFamilyRef.current = activeFamilyId
   }, [activeFamilyId, setSelectedMonth])
 
-  const effectiveMonth = selectedMonth ?? availableMonths[0] ?? getCurrentMonth()
+  const effectiveMonth = mounted
+    ? (selectedMonth ?? availableMonths[0] ?? getCurrentMonth())
+    : ""
 
   const value = React.useMemo<GlobalMonthContextValue>(
     () => ({

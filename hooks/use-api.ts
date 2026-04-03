@@ -1,6 +1,8 @@
 "use client"
 
+import { useEffect } from "react"
 import useSWR, { type SWRConfiguration } from "swr"
+import { usePageLoading } from "@/hooks/use-page-loading"
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -18,10 +20,24 @@ export function useApi<T = unknown>(
   path: string | null,
   options?: SWRConfiguration<T>,
 ) {
-  return useSWR<T>(path, () => fetcher(path!) as Promise<T>, {
+  const { register, markComplete } = usePageLoading()
+
+  const result = useSWR<T>(path, () => fetcher(path!) as Promise<T>, {
     revalidateOnFocus: false,
     dedupingInterval: 30_000,
     keepPreviousData: true,
     ...options,
   })
+
+  useEffect(() => {
+    if (path) register(path)
+  }, [path, register])
+
+  useEffect(() => {
+    if (path && !result.isValidating) {
+      markComplete(path)
+    }
+  }, [path, result.isValidating, markComplete])
+
+  return result
 }
