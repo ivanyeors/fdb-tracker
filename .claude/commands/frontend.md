@@ -79,6 +79,7 @@ Add Info icon next to metrics and config fields. Tooltip content lives in `lib/t
 - Validation: Zod schemas (in `lib/validations/` or inline).
 - Modals: Sheet or Dialog components.
 - Feedback: `toast.success()` / `toast.error()` after API calls.
+- **Dropdowns/selects:** use shadcn `Select` (`@/components/ui/select`) — never use native `<select>` elements. Radix Select does not support empty string values; use a sentinel like `"all"` or `"any"` for "no selection" options.
 
 ## Card & Mobile Responsiveness
 

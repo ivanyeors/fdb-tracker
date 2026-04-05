@@ -73,6 +73,7 @@ supabase/migrations/  # PostgreSQL migration SQL files (28 migrations)
 - **Dollar amounts:** use `CurrencyInput` from `@/components/ui/currency-input` — never `<Input type="number">` for money.
 - **Date pickers:** use project primitives (`DatePicker`, `MonthYearPicker`, `BirthDatePicker`, `DateRangePicker`, `ScheduleDatePicker`) from `components/ui/`. Never use `<input type="date">`.
 - **Tooltips:** use `InfoTooltip` from `@/components/ui/info-tooltip`. Content registry in `lib/tooltips.ts`.
+- **Dropdowns/selects:** shadcn `Select` from `@/components/ui/select` — never use native `<select>`. Use a sentinel value (e.g. `"all"`, `"any"`) instead of empty string for the default option.
 - **Toasts:** Sonner — `toast.success()` / `toast.error()` from `sonner`.
 - **Charts:** visx only (`@visx/*`). No Recharts or other chart libraries. See `/chart-tooltips` skill for tooltip pattern.
 - **Icons:** lucide-react.

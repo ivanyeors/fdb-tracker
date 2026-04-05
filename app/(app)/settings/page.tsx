@@ -4,7 +4,7 @@ import { TelegramApiKeysSection } from "./telegram-api-keys-section"
 
 export default function GeneralSettingsPage() {
   return (
-    <div className="p-2 sm:p-4 max-w-4xl mx-auto space-y-6">
+    <div className="mx-auto max-w-[1600px] space-y-8 p-2 sm:p-4">
       <div>
         <h1 className="text-2xl font-semibold">General Settings</h1>
         <p className="text-muted-foreground mt-1">

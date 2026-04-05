@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Dices } from "lucide-react"
+import { Check, Dices } from "lucide-react"
 
 import {
   Card,
@@ -18,38 +18,71 @@ import {
 import { useChartPalette } from "@/hooks/use-chart-palette"
 import { cn } from "@/lib/utils"
 
-function SwatchRow({ palette }: { palette: ChartPalette }) {
+function ColorBar({ palette }: { palette: ChartPalette }) {
   return (
-    <div className="flex flex-col gap-1">
-      {/* Category colors */}
-      <div className="flex gap-1.5">
-        {palette.colors.map((c, i) => (
-          <span
-            key={i}
-            className="size-4 rounded-full border border-border/50"
-            style={{ backgroundColor: c }}
-          />
-        ))}
-      </div>
-      {/* Semantic colors: positive / negative / neutral */}
-      <div className="flex gap-1.5">
-        <span
-          className="size-3 rounded-full border border-border/50"
-          style={{ backgroundColor: palette.positive }}
-          title="Positive"
-        />
-        <span
-          className="size-3 rounded-full border border-border/50"
-          style={{ backgroundColor: palette.negative }}
-          title="Negative"
-        />
-        <span
-          className="size-3 rounded-full border border-border/50"
-          style={{ backgroundColor: palette.neutral }}
-          title="Neutral"
-        />
-      </div>
+    <div className="flex h-8 w-full overflow-hidden rounded-md">
+      {palette.colors.map((c, i) => (
+        <div key={i} className="flex-1" style={{ backgroundColor: c }} />
+      ))}
     </div>
+  )
+}
+
+function SemanticDots({ palette }: { palette: ChartPalette }) {
+  return (
+    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+      <span className="flex items-center gap-1.5">
+        <span
+          className="size-2.5 rounded-full"
+          style={{ backgroundColor: palette.positive }}
+        />
+        Positive
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span
+          className="size-2.5 rounded-full"
+          style={{ backgroundColor: palette.negative }}
+        />
+        Negative
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span
+          className="size-2.5 rounded-full"
+          style={{ backgroundColor: palette.neutral }}
+        />
+        Neutral
+      </span>
+    </div>
+  )
+}
+
+function PaletteCard({
+  palette,
+  selected,
+  onClick,
+  children,
+}: {
+  palette: ChartPalette | null
+  selected: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "relative flex flex-col gap-3 rounded-lg border-2 p-4 text-left transition-colors hover:bg-accent/50",
+        selected ? "border-primary bg-accent/30" : "border-muted"
+      )}
+    >
+      {selected && (
+        <div className="absolute top-2 right-2 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+          <Check className="size-3" />
+        </div>
+      )}
+      {children}
+    </button>
   )
 }
 
@@ -106,43 +139,51 @@ export function ChartPaletteSelector() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {PRESET_PALETTES.map((p) => (
-            <button
+            <PaletteCard
               key={p.id}
-              type="button"
+              palette={p}
+              selected={paletteId === p.id}
               onClick={() => setPalette(p)}
-              className={cn(
-                "flex flex-col items-start gap-2 rounded-md border-2 p-3 text-left text-sm transition-colors hover:bg-accent",
-                paletteId === p.id ? "border-primary" : "border-muted"
-              )}
             >
-              <SwatchRow palette={p} />
-              <span className="font-medium">{p.name}</span>
-            </button>
+              <ColorBar palette={p} />
+              <div className="flex flex-col gap-1.5">
+                <span className="text-sm font-medium">{p.name}</span>
+                <SemanticDots palette={p} />
+              </div>
+            </PaletteCard>
           ))}
 
           {/* Random palette generator */}
-          <button
-            type="button"
+          <PaletteCard
+            palette={lastRandom}
+            selected={paletteId === "random"}
             onClick={handleRandom}
-            className={cn(
-              "flex flex-col items-start gap-2 rounded-md border-2 p-3 text-left text-sm transition-colors hover:bg-accent",
-              paletteId === "random" ? "border-primary" : "border-muted"
-            )}
           >
-            <div className="flex items-center gap-1.5">
-              <Dices className="size-4 text-muted-foreground" />
+            {lastRandom ? (
+              <ColorBar palette={lastRandom} />
+            ) : (
+              <div className="flex h-8 w-full items-center justify-center rounded-md border border-dashed border-muted-foreground/30 bg-muted/50">
+                <span className="text-xs text-muted-foreground">
+                  Click to generate
+                </span>
+              </div>
+            )}
+            <div className="flex flex-col gap-1.5">
+              <span className="flex items-center gap-1.5 text-sm font-medium">
+                <Dices className="size-4 text-muted-foreground" />
+                Random
+              </span>
               {lastRandom ? (
-                <SwatchRow palette={lastRandom} />
+                <SemanticDots palette={lastRandom} />
               ) : (
                 <span className="text-xs text-muted-foreground">
-                  click to generate
+                  Generates a unique palette each time
                 </span>
               )}
             </div>
-            <span className="font-medium">Random</span>
-          </button>
+          </PaletteCard>
         </div>
       </CardContent>
     </Card>

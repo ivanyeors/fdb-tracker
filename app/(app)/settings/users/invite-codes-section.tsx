@@ -32,6 +32,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 type InviteCode = {
   id: string
@@ -55,7 +62,7 @@ export function InviteCodesSection({
   const [codes, setCodes] = useState<InviteCode[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
-  const [selectedProfileId, setSelectedProfileId] = useState<string>("")
+  const [selectedProfileId, setSelectedProfileId] = useState<string>("any")
   const [deleteCodeId, setDeleteCodeId] = useState<string | null>(null)
 
   async function fetchCodes() {
@@ -79,7 +86,7 @@ export function InviteCodesSection({
     setCreating(true)
     try {
       const body: Record<string, string> = {}
-      if (selectedProfileId) {
+      if (selectedProfileId && selectedProfileId !== "any") {
         body.targetProfileId = selectedProfileId
       }
       const res = await fetch("/api/invite-codes", {
@@ -89,7 +96,7 @@ export function InviteCodesSection({
       })
       if (!res.ok) throw new Error("Failed to create")
       toast.success("Invite code created")
-      setSelectedProfileId("")
+      setSelectedProfileId("any")
       fetchCodes()
     } catch {
       toast.error("Failed to create invite code")
@@ -136,22 +143,25 @@ export function InviteCodesSection({
           <div className="flex flex-wrap items-end gap-4 rounded-lg border bg-muted/50 p-4">
             {unlinkedProfiles.length > 0 && (
               <div className="min-w-[180px] space-y-2">
-                <label htmlFor="invite-profile" className="text-sm font-medium">
+                <label className="text-sm font-medium">
                   Target profile (optional)
                 </label>
-                <select
-                  id="invite-profile"
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                <Select
                   value={selectedProfileId}
-                  onChange={(e) => setSelectedProfileId(e.target.value)}
+                  onValueChange={setSelectedProfileId}
                 >
-                  <option value="">Any unlinked profile</option>
-                  {unlinkedProfiles.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Any unlinked profile" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">Any unlinked profile</SelectItem>
+                    {unlinkedProfiles.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             <Button onClick={handleCreate} disabled={creating}>
