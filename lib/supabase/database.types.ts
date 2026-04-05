@@ -2099,6 +2099,10 @@ export type Database = {
           profile_id: string
           notification_type: string
           enabled: boolean
+          day_of_month: number | null
+          month_of_year: number | null
+          time: string | null
+          timezone: string | null
           created_at: string
           updated_at: string
         }
@@ -2107,6 +2111,10 @@ export type Database = {
           profile_id: string
           notification_type: string
           enabled?: boolean
+          day_of_month?: number | null
+          month_of_year?: number | null
+          time?: string | null
+          timezone?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -2115,6 +2123,10 @@ export type Database = {
           profile_id?: string
           notification_type?: string
           enabled?: boolean
+          day_of_month?: number | null
+          month_of_year?: number | null
+          time?: string | null
+          timezone?: string | null
           created_at?: string
           updated_at?: string
         }

@@ -768,12 +768,33 @@ const updateNotificationPreferenceSchema = z.object({
   profileId: z.string().uuid(),
   notificationType: z.enum(NOTIFICATION_TYPES),
   enabled: z.boolean(),
+  dayOfMonth: z.coerce.number().int().min(1).max(31).nullable().optional(),
+  monthOfYear: z.coerce.number().int().min(1).max(12).nullable().optional(),
+  time: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .nullable()
+    .optional(),
+  timezone: z.string().nullable().optional(),
 })
+
+export type NotificationScheduleOverride = {
+  day_of_month: number | null
+  month_of_year: number | null
+  time: string | null
+  timezone: string | null
+}
 
 export async function updateNotificationPreference(
   profileId: string,
   notificationType: string,
-  enabled: boolean
+  enabled: boolean,
+  schedule?: {
+    dayOfMonth?: number | null
+    monthOfYear?: number | null
+    time?: string | null
+    timezone?: string | null
+  }
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     const cookieStore = await cookies()
@@ -786,6 +807,7 @@ export async function updateNotificationPreference(
       profileId,
       notificationType,
       enabled,
+      ...schedule,
     })
     if (!parsed.success) {
       return { error: "Invalid data." }
@@ -815,6 +837,10 @@ export async function updateNotificationPreference(
           profile_id: parsed.data.profileId,
           notification_type: parsed.data.notificationType,
           enabled: parsed.data.enabled,
+          day_of_month: parsed.data.dayOfMonth ?? null,
+          month_of_year: parsed.data.monthOfYear ?? null,
+          time: parsed.data.time ?? null,
+          timezone: parsed.data.timezone ?? null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "profile_id,notification_type" }
