@@ -245,6 +245,31 @@ export default async function UserSettingsPage() {
     )
   }
 
+  // Fetch notification preferences for all profiles
+  const allProfileIds = (allProfiles ?? []).map((p) => p.id as string)
+  const { data: allNotifPrefs } =
+    allProfileIds.length > 0
+      ? await supabase
+          .from("notification_preferences")
+          .select("profile_id, notification_type, enabled")
+          .in("profile_id", allProfileIds)
+      : { data: [] }
+
+  const notificationPrefsByProfile: Record<
+    string,
+    Array<{ notification_type: string; enabled: boolean }>
+  > = {}
+  for (const pref of allNotifPrefs ?? []) {
+    const pid = pref.profile_id
+    if (!notificationPrefsByProfile[pid]) {
+      notificationPrefsByProfile[pid] = []
+    }
+    notificationPrefsByProfile[pid].push({
+      notification_type: pref.notification_type,
+      enabled: pref.enabled,
+    })
+  }
+
   return (
     <div className="mx-auto max-w-[1600px] space-y-8 p-2 sm:p-4">
       <div>
@@ -315,6 +340,7 @@ export default async function UserSettingsPage() {
                 profiles={profiles}
                 financialData={financialData}
                 familyCount={(families ?? []).length}
+                notificationPreferencesByProfile={notificationPrefsByProfile}
               />
             )
           })}

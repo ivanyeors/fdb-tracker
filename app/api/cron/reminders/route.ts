@@ -282,8 +282,33 @@ export async function GET(request: NextRequest) {
         continue
       }
 
+      // Check per-profile notification preferences (no row = enabled)
+      const profileIds = (profiles ?? []).map((p) => p.id)
+      const { data: disabledPrefs } =
+        profileIds.length > 0
+          ? await supabase
+              .from("notification_preferences")
+              .select("profile_id")
+              .in("profile_id", profileIds)
+              .eq("notification_type", effectivePromptType)
+              .eq("enabled", false)
+          : { data: [] }
+
+      const disabledProfileIds = new Set(
+        (disabledPrefs ?? []).map((p) => p.profile_id),
+      )
+
       // Send to profile-level chats if any profiles are linked, otherwise household chat
-      const profileChats = (profiles ?? [])
+      const enabledProfiles = (profiles ?? []).filter(
+        (p) => !disabledProfileIds.has(p.id),
+      )
+
+      // If all profiles opted out, skip entirely
+      if (enabledProfiles.length === 0) {
+        continue
+      }
+
+      const profileChats = enabledProfiles
         .filter((p) => p.telegram_chat_id)
         .map((p) => p.telegram_chat_id as string)
 
@@ -335,11 +360,34 @@ export async function GET(request: NextRequest) {
           const { data: hhProfiles } = familyIds.length > 0
             ? await supabase
                 .from("profiles")
-                .select("telegram_chat_id")
+                .select("id, telegram_chat_id")
                 .in("family_id", familyIds)
-            : { data: [] as { telegram_chat_id: string | null }[] }
+            : { data: [] as { id: string; telegram_chat_id: string | null }[] }
 
-          const profileChats = (hhProfiles ?? [])
+          // Check per-profile opt-outs for seasonality
+          const hhProfileIds = (hhProfiles ?? []).map((p) => p.id)
+          const { data: seasonDisabled } =
+            hhProfileIds.length > 0
+              ? await supabase
+                  .from("notification_preferences")
+                  .select("profile_id")
+                  .in("profile_id", hhProfileIds)
+                  .eq("notification_type", "seasonality_weekly")
+                  .eq("enabled", false)
+              : { data: [] }
+
+          const disabledSeasonIds = new Set(
+            (seasonDisabled ?? []).map((p) => p.profile_id),
+          )
+
+          const enabledHhProfiles = (hhProfiles ?? []).filter(
+            (p) => !disabledSeasonIds.has(p.id),
+          )
+
+          // If all profiles opted out, skip this household
+          if (enabledHhProfiles.length === 0) continue
+
+          const profileChats = enabledHhProfiles
             .filter((p) => p.telegram_chat_id)
             .map((p) => p.telegram_chat_id as string)
 

@@ -88,6 +88,7 @@ import { useImpactConfirmation } from "@/hooks/use-impact-confirmation"
 import { toast } from "sonner"
 import { Loader2, Trash2, UserPlus, ExternalLink, Plus, X, Pencil, ChevronRight } from "lucide-react"
 import type { ProfileWithIncome } from "./types"
+import { NotificationPreferencesSection } from "./notification-preferences-section"
 
 const ACCOUNT_TYPES = [
   { value: "ocbc_360", label: "OCBC 360" },
@@ -4942,12 +4943,14 @@ function FamilyMemberSettingsPanels({
   financialData,
   profiles,
   handleMutate,
+  notificationPreferences,
 }: {
   p: ProfileWithIncome
   family: { id: string; name: string }
   financialData: FinancialDataByFamily
   profiles: ProfileWithIncome[]
   handleMutate: () => void
+  notificationPreferences: Array<{ notification_type: string; enabled: boolean }>
 }) {
   const profileBanks = useMemo(() => filterByProfile(financialData.bankAccounts, p.id), [financialData.bankAccounts, p.id])
   const profileGoals = useMemo(() => filterByProfile(financialData.savingsGoals, p.id), [financialData.savingsGoals, p.id])
@@ -4967,6 +4970,12 @@ function FamilyMemberSettingsPanels({
       </CollapsibleSection>
       <CollapsibleSection title="Telegram" badge={telegramBadge} defaultOpen>
         <TelegramSection profile={p} />
+      </CollapsibleSection>
+      <CollapsibleSection title="Notifications" badge="Reminders">
+        <NotificationPreferencesSection
+          profileId={p.id}
+          preferences={notificationPreferences}
+        />
       </CollapsibleSection>
       <CollapsibleSection title="Dependents" badge="Tax Relief">
         <DependentsSectionWrapper familyId={family.id} profiles={profiles} />
@@ -5059,11 +5068,13 @@ export function FamilyMembersTable({
   profiles,
   financialData,
   familyCount,
+  notificationPreferencesByProfile,
 }: {
   family: { id: string; name: string }
   profiles: ProfileWithIncome[]
   financialData: FinancialDataByFamily
   familyCount: number
+  notificationPreferencesByProfile: Record<string, Array<{ notification_type: string; enabled: boolean }>>
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -5350,6 +5361,7 @@ export function FamilyMembersTable({
                     financialData={financialData}
                     profiles={profiles}
                     handleMutate={handleMutate}
+                    notificationPreferences={notificationPreferencesByProfile[activeProfile.id] ?? []}
                   />
                 </>
               )}

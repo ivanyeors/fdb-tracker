@@ -401,7 +401,6 @@ export async function updateHouseholdNotifications(
     }
 
     revalidatePath("/settings")
-    revalidatePath("/settings/notifications")
 
     return { success: true }
   } catch (err) {
@@ -749,6 +748,87 @@ export async function deleteFamily(
     return { success: true }
   } catch (err) {
     console.error("Error in deleteFamily:", err)
+    return { error: "An unexpected error occurred." }
+  }
+}
+
+const NOTIFICATION_TYPES = [
+  "end_of_month",
+  "income_monthly",
+  "income_yearly",
+  "insurance_monthly",
+  "insurance_yearly",
+  "tax_yearly",
+  "seasonality_weekly",
+] as const
+
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
+
+const updateNotificationPreferenceSchema = z.object({
+  profileId: z.string().uuid(),
+  notificationType: z.enum(NOTIFICATION_TYPES),
+  enabled: z.boolean(),
+})
+
+export async function updateNotificationPreference(
+  profileId: string,
+  notificationType: string,
+  enabled: boolean
+): Promise<{ success?: boolean; error?: string }> {
+  try {
+    const cookieStore = await cookies()
+    const householdId = await getSessionFromCookies(cookieStore)
+    if (!householdId) {
+      return { error: "Unauthorized" }
+    }
+
+    const parsed = updateNotificationPreferenceSchema.safeParse({
+      profileId,
+      notificationType,
+      enabled,
+    })
+    if (!parsed.success) {
+      return { error: "Invalid data." }
+    }
+
+    const supabase = createSupabaseAdmin()
+
+    // Verify profile belongs to this household
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, family_id, families!inner(household_id)")
+      .eq("id", parsed.data.profileId)
+      .single()
+
+    if (
+      !profile ||
+      (profile.families as unknown as { household_id: string }).household_id !==
+        householdId
+    ) {
+      return { error: "Unauthorized" }
+    }
+
+    const { error } = await supabase
+      .from("notification_preferences")
+      .upsert(
+        {
+          profile_id: parsed.data.profileId,
+          notification_type: parsed.data.notificationType,
+          enabled: parsed.data.enabled,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "profile_id,notification_type" }
+      )
+
+    if (error) {
+      console.error("Error updating notification preference:", error)
+      return { error: "Failed to update preference." }
+    }
+
+    revalidatePath("/settings/users")
+    return { success: true }
+  } catch (err) {
+    console.error("Error in updateNotificationPreference:", err)
     return { error: "An unexpected error occurred." }
   }
 }
