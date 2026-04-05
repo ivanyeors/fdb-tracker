@@ -260,6 +260,70 @@ export type Database = {
           },
         ]
       }
+      signup_codes: {
+        Row: {
+          id: string
+          type: string
+          code: string
+          household_id: string | null
+          telegram_username: string | null
+          target_profile_id: string | null
+          created_by_household_id: string | null
+          used: boolean
+          used_by_telegram_user_id: string | null
+          expires_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          type: string
+          code: string
+          household_id?: string | null
+          telegram_username?: string | null
+          target_profile_id?: string | null
+          created_by_household_id?: string | null
+          used?: boolean
+          used_by_telegram_user_id?: string | null
+          expires_at: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          type?: string
+          code?: string
+          household_id?: string | null
+          telegram_username?: string | null
+          target_profile_id?: string | null
+          created_by_household_id?: string | null
+          used?: boolean
+          used_by_telegram_user_id?: string | null
+          expires_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signup_codes_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signup_codes_target_profile_id_fkey"
+            columns: ["target_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signup_codes_created_by_household_id_fkey"
+            columns: ["created_by_household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_accounts: {
         Row: {
           id: string

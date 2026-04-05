@@ -344,7 +344,7 @@ export async function deleteUserProfile(
 
     revalidatePath("/settings")
     revalidatePath("/settings/users")
-    revalidatePath("/settings/setup")
+
     revalidatePath("/dashboard")
 
     return { success: true }
@@ -425,7 +425,7 @@ export async function resetOnboardingAction(): Promise<void> {
 
   if (error) {
     console.error("Error resetting onboarding:", error)
-    redirect("/settings/setup?error=reset-failed")
+    redirect("/settings/users?error=reset-failed")
   }
 
   revalidatePath("/settings/setup")
@@ -500,7 +500,7 @@ export async function updateFamilyName(
 
     revalidatePath("/settings")
     revalidatePath("/settings/users")
-    revalidatePath("/settings/setup")
+
     revalidatePath("/dashboard")
 
     return { success: true }
@@ -743,7 +743,7 @@ export async function deleteFamily(
 
     revalidatePath("/settings")
     revalidatePath("/settings/users")
-    revalidatePath("/settings/setup")
+
     revalidatePath("/dashboard")
 
     return { success: true }

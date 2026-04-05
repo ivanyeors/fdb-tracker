@@ -4,16 +4,23 @@
  */
 
 export const BOT_COMMANDS = [
+  { command: "signup", description: "Sign up with a code from the website" },
+  { command: "join", description: "Join a household with an invite code" },
   { command: "otp", description: "Get OTP for login" },
-  { command: "link", description: "Link profile or account with token/API key" },
+  {
+    command: "link",
+    description: "Link profile or account with token/API key",
+  },
   { command: "auth", description: "Link account with API key from platform" },
   {
     command: "in",
-    description: "Monthly inflow; optional note (/in 5000 or /in Name 5000 memo)",
+    description:
+      "Monthly inflow; optional note (/in 5000 or /in Name 5000 memo)",
   },
   {
     command: "out",
-    description: "Monthly outflow; optional note (/out 3200 or /out Name 3200 memo)",
+    description:
+      "Monthly outflow; optional note (/out 3200 or /out Name 3200 memo)",
   },
   { command: "buy", description: "Record stock buy" },
   { command: "sell", description: "Record stock sell" },
@@ -36,7 +43,9 @@ const SCOPES = [
  * Sets commands for both default (private chats) and all_group_chats.
  * Call after deploy or when updating commands.
  */
-export async function setBotCommands(token: string): Promise<{ ok: boolean; error?: string }> {
+export async function setBotCommands(
+  token: string
+): Promise<{ ok: boolean; error?: string }> {
   const apiUrl = `https://api.telegram.org/bot${token}/setMyCommands`
 
   for (const scope of SCOPES) {

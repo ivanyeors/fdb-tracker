@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { z } from "zod"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
 const transactionSchema = z.object({
   date: z.string(),
@@ -46,6 +47,20 @@ export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await request.json())
     const supabase = createSupabaseAdmin()
+
+    // Verify profileId/familyId belong to the authenticated user's household
+    const resolved = await resolveFamilyAndProfiles(
+      supabase,
+      session.accountId,
+      body.profileId,
+      body.familyId
+    )
+    if (!resolved || !resolved.profileIds.includes(body.profileId)) {
+      return NextResponse.json(
+        { error: "Profile not found or unauthorized" },
+        { status: 403 }
+      )
+    }
 
     // Save balance snapshot for bank statements
     if (

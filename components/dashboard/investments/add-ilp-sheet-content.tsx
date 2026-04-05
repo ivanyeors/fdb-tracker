@@ -2,10 +2,10 @@
 
 import dynamic from "next/dynamic"
 import {
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet"
+  ResponsiveSheetHeader,
+  ResponsiveSheetTitle,
+  ResponsiveSheetDescription,
+} from "@/components/ui/responsive-sheet"
 import {
   Tabs,
   TabsContent,
@@ -36,12 +36,12 @@ interface AddIlpSheetContentProps {
 export function AddIlpSheetContent({ onSuccess }: AddIlpSheetContentProps) {
   return (
     <>
-      <SheetHeader className="border-b p-4 text-left">
-        <SheetTitle>Add ILP Product</SheetTitle>
-        <SheetDescription>
+      <ResponsiveSheetHeader className="border-b p-4 text-left">
+        <ResponsiveSheetTitle>Add ILP Product</ResponsiveSheetTitle>
+        <ResponsiveSheetDescription>
           Create a new ILP product manually or import from a fund report.
-        </SheetDescription>
-      </SheetHeader>
+        </ResponsiveSheetDescription>
+      </ResponsiveSheetHeader>
       <Tabs defaultValue="manual" className="flex flex-1 flex-col">
         <TabsList className="mx-4 mt-4 w-fit">
           <TabsTrigger value="manual">Manual</TabsTrigger>

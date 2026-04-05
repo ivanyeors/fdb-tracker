@@ -16,12 +16,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+  ResponsiveSheet,
+  ResponsiveSheetContent,
+  ResponsiveSheetDescription,
+  ResponsiveSheetHeader,
+  ResponsiveSheetTitle,
+} from "@/components/ui/responsive-sheet"
 import {
   Tabs,
   TabsList,
@@ -1008,18 +1008,18 @@ export function InvestmentsClient({
               </Button>
             </div>
             {activeProfileId || activeFamilyId ? (
-              <Sheet open={cashBalanceOpen} onOpenChange={setCashBalanceOpen}>
-                <SheetContent
+              <ResponsiveSheet open={cashBalanceOpen} onOpenChange={setCashBalanceOpen}>
+                <ResponsiveSheetContent
                   side="right"
                   className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-lg"
                 >
-                  <SheetHeader className="border-b p-4 text-left">
-                    <SheetTitle>Cash balance</SheetTitle>
-                    <SheetDescription>
+                  <ResponsiveSheetHeader className="border-b p-4 text-left">
+                    <ResponsiveSheetTitle>Cash balance</ResponsiveSheetTitle>
+                    <ResponsiveSheetDescription>
                       USD entry; we store the SGD equivalent for portfolio
                       totals.
-                    </SheetDescription>
-                  </SheetHeader>
+                    </ResponsiveSheetDescription>
+                  </ResponsiveSheetHeader>
                   <div className="p-4">
                     <InvestmentAccountBalance
                       embedded
@@ -1033,20 +1033,20 @@ export function InvestmentsClient({
                       parentFx={{ sgdPerUsd, fxLoading }}
                     />
                   </div>
-                </SheetContent>
-              </Sheet>
+                </ResponsiveSheetContent>
+              </ResponsiveSheet>
             ) : null}
-            <Sheet open={addHoldingOpen} onOpenChange={setAddHoldingOpen}>
-              <SheetContent
+            <ResponsiveSheet open={addHoldingOpen} onOpenChange={setAddHoldingOpen}>
+              <ResponsiveSheetContent
                 side="right"
                 className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-lg"
               >
-                <SheetHeader className="border-b p-4 text-left">
-                  <SheetTitle>Add holding</SheetTitle>
-                  <SheetDescription>
+                <ResponsiveSheetHeader className="border-b p-4 text-left">
+                  <ResponsiveSheetTitle>Add holding</ResponsiveSheetTitle>
+                  <ResponsiveSheetDescription>
                     Symbol, units, cost basis, and optional note.
-                  </SheetDescription>
-                </SheetHeader>
+                  </ResponsiveSheetDescription>
+                </ResponsiveSheetHeader>
                 <div className="p-4">
                   <AddHoldingForm
                     onSuccess={() => {
@@ -1055,8 +1055,8 @@ export function InvestmentsClient({
                     }}
                   />
                 </div>
-              </SheetContent>
-            </Sheet>
+              </ResponsiveSheetContent>
+            </ResponsiveSheet>
             {isLoading ? (
               <ChartSkeleton height={256} className="rounded-xl" />
             ) : holdingGroups.length === 0 ? (
@@ -1218,8 +1218,8 @@ export function InvestmentsClient({
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-            <Sheet open={addIlpOpen} onOpenChange={setAddIlpOpen}>
-              <SheetContent
+            <ResponsiveSheet open={addIlpOpen} onOpenChange={setAddIlpOpen}>
+              <ResponsiveSheetContent
                 side="right"
                 className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-2xl"
               >
@@ -1229,8 +1229,8 @@ export function InvestmentsClient({
                     setAddIlpOpen(false)
                   }}
                 />
-              </SheetContent>
-            </Sheet>
+              </ResponsiveSheetContent>
+            </ResponsiveSheet>
             {isLoading ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <ChartSkeleton height={200} className="rounded-xl" />

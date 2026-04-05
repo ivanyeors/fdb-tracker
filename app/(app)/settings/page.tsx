@@ -1,5 +1,6 @@
 import { ChartPaletteSelector } from "./chart-palette-selector"
 import { ThemeSelector } from "./theme-selector"
+import { TelegramApiKeysSection } from "./telegram-api-keys-section"
 
 export default function GeneralSettingsPage() {
   return (
@@ -7,12 +8,17 @@ export default function GeneralSettingsPage() {
       <div>
         <h1 className="text-2xl font-semibold">General Settings</h1>
         <p className="text-muted-foreground mt-1">
-          Theme, chart colors, and data export.
+          Theme, chart colors, and integrations.
         </p>
       </div>
 
       <ThemeSelector />
       <ChartPaletteSelector />
+
+      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        Integrations
+      </h3>
+      <TelegramApiKeysSection />
     </div>
   )
 }

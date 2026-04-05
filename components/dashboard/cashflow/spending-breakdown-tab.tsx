@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { MonthYearPicker } from "@/components/ui/month-year-picker"
@@ -97,7 +97,7 @@ export function SpendingBreakdownTab({
   parsedResults: ParsedResult[]
   onImportComplete: () => void
 }) {
-  const { activeProfileId, activeFamilyId } = useActiveProfile()
+  const { activeProfileId, activeFamilyId, profiles } = useActiveProfile()
   const { triggerRefresh } = useDataRefresh()
   const [month, setMonth] = useState(getCurrentMonth)
   const [statementType, setStatementType] = useState("all")
@@ -105,6 +105,11 @@ export function SpendingBreakdownTab({
   // Import preview state
   const [showPreview, setShowPreview] = useState(false)
   const [parsedFiles, setParsedFiles] = useState<ParsedFile[]>([])
+
+  // Lock profile at parse time so switching profiles mid-import doesn't mix data
+  const [importProfileId, setImportProfileId] = useState<string | null>(null)
+  const [importFamilyId, setImportFamilyId] = useState<string | null>(null)
+  const importProfileName = profiles.find((p) => p.id === importProfileId)?.name ?? null
 
   const transactionsUrl = buildTransactionsUrl(
     activeProfileId,
@@ -138,9 +143,10 @@ export function SpendingBreakdownTab({
   >(categorySummaryUrl, { fallbackData: [] })
 
   // When parent provides new parsed results, open the preview dialog
-  const lastResultCount = useMemo(() => parsedResults.length, [parsedResults])
-  useMemo(() => {
-    if (parsedResults.length > 0) {
+  // and lock the active profile so switching mid-import doesn't mix data
+  const lastResultCount = useRef(0)
+  useEffect(() => {
+    if (parsedResults.length > 0 && parsedResults.length !== lastResultCount.current) {
       setParsedFiles(
         parsedResults.map((r, i) => ({
           fileName: r._fileName ?? `File ${i + 1}`,
@@ -148,10 +154,12 @@ export function SpendingBreakdownTab({
           categoryOverrides: new Map(),
         }))
       )
+      setImportProfileId(activeProfileId)
+      setImportFamilyId(activeFamilyId)
       setShowPreview(true)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastResultCount])
+    lastResultCount.current = parsedResults.length
+  }, [parsedResults, activeProfileId, activeFamilyId])
 
   function handleCategoryOverride(
     fileIndex: number,
@@ -177,7 +185,10 @@ export function SpendingBreakdownTab({
   }
 
   async function handleConfirmImport() {
-    if (!activeProfileId || !activeFamilyId) return
+    if (!importProfileId || !importFamilyId) {
+      toast.error("Select a profile before importing statements.")
+      return
+    }
 
     let totalSaved = 0
     let totalSkipped = 0
@@ -191,8 +202,8 @@ export function SpendingBreakdownTab({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            profileId: activeProfileId,
-            familyId: activeFamilyId,
+            profileId: importProfileId,
+            familyId: importFamilyId,
             accountId: null,
             month: extracted.month ?? month,
             statementType: extracted.docType === "cc_statement" ? "cc" : "bank",
@@ -296,6 +307,7 @@ export function SpendingBreakdownTab({
         onCategoryOverride={handleCategoryOverride}
         onConfirm={handleConfirmImport}
         onRemoveFile={handleRemoveFile}
+        targetProfileName={importProfileName}
       />
     </div>
   )

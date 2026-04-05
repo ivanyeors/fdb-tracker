@@ -43,6 +43,7 @@ interface ImportPreviewDialogProps {
   ) => void
   onConfirm: () => void
   onRemoveFile: (fileIndex: number) => void
+  targetProfileName?: string | null
 }
 
 function FilePreview({
@@ -194,6 +195,7 @@ export function ImportPreviewDialog({
   onCategoryOverride,
   onConfirm,
   onRemoveFile,
+  targetProfileName,
 }: ImportPreviewDialogProps) {
   const totalTxnCount = parsedFiles.reduce(
     (sum, f) => sum + (f.result?.extracted?.transactions?.length ?? 0),
@@ -216,6 +218,15 @@ export function ImportPreviewDialog({
               ? `Import ${singleBank} ${singleType} Statement`
               : `Import ${parsedFiles.length} Statements`}
           </DialogTitle>
+          {targetProfileName ? (
+            <p className="text-sm text-muted-foreground">
+              Importing for <strong>{targetProfileName}</strong>
+            </p>
+          ) : (
+            <p className="text-sm text-destructive">
+              No profile selected — please select a profile first.
+            </p>
+          )}
         </DialogHeader>
         <div className="max-h-[60vh] space-y-4 overflow-y-auto">
           {parsedFiles.map((file, i) => (
@@ -234,7 +245,10 @@ export function ImportPreviewDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={onConfirm} disabled={parsedFiles.length === 0}>
+          <Button
+            onClick={onConfirm}
+            disabled={parsedFiles.length === 0 || !targetProfileName}
+          >
             Import {totalTxnCount} Transactions
           </Button>
         </DialogFooter>

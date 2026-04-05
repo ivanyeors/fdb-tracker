@@ -25,6 +25,8 @@ import { linkApiScene } from "@/lib/telegram/scenes/link-api-scene"
 import { otpScene } from "@/lib/telegram/scenes/otp-scene"
 import { pdfScene } from "@/lib/telegram/scenes/pdf-scene"
 import { taxScene } from "@/lib/telegram/scenes/tax-scene"
+import { signupScene } from "@/lib/telegram/scenes/signup-scene"
+import { joinScene } from "@/lib/telegram/scenes/join-scene"
 
 type CommandHandler = (accountId: string, text: string) => Promise<string>
 
@@ -167,6 +169,8 @@ function ensureHandlers() {
     otpScene,
     pdfScene,
     taxScene,
+    signupScene,
+    joinScene,
   ])
 
   bot.use(session({ store: supabaseSessionStore }))
@@ -191,12 +195,17 @@ function ensureHandlers() {
     ctx.scene.session.profileName = profileName
     ctx.scene.session.month = month
     const d = new Date(month)
-    ctx.scene.session.monthLabel = d.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    ctx.scene.session.monthLabel = d.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    })
     ctx.wizard.selectStep(3) // STEP_AMOUNT
     const { progressHeader } = await import("@/lib/telegram/scene-helpers")
     const label = direction === "in" ? "inflow" : "outflow"
     const header = progressHeader(3, 4, `Recording ${label} for ${profileName}`)
-    await ctx.reply(`${header}\n\nMonth: ${ctx.scene.session.monthLabel}\n\nEnter the ${label} amount:`)
+    await ctx.reply(
+      `${header}\n\nMonth: ${ctx.scene.session.monthLabel}\n\nEnter the ${label} amount:`
+    )
   })
 
   bot.action("cross_skip", async (ctx) => {
@@ -219,15 +228,19 @@ function ensureHandlers() {
 
     // Handle PDF document uploads
     if ("document" in msg && msg.document?.mime_type === "application/pdf") {
-      console.log("[telegram/webhook] PDF document received, entering pdf scene")
+      console.log(
+        "[telegram/webhook] PDF document received, entering pdf scene"
+      )
       const userContext = await resolveOrProvisionPublicUser(
         String(msg.chat.id),
         msg.from?.id != null ? String(msg.from.id) : null,
         msg.from?.username ?? null,
-        msg.from?.first_name ?? null,
+        msg.from?.first_name ?? null
       )
       if (!userContext) {
-        await ctx.reply("❌ Could not resolve your account. Please try /start first.")
+        await ctx.reply(
+          "❌ Could not resolve your account. Please try /start first."
+        )
         return
       }
       const st = botState(ctx)
@@ -255,6 +268,29 @@ function ensureHandlers() {
     const chatId = msg.chat.id
 
     if (parsed.command === "start") {
+      const payload = parsed.rest.trim()
+
+      // Deep link: /start signup_CODE
+      if (payload.startsWith("signup_")) {
+        const code = payload.slice(7)
+        botState(ctx).signupCode = code
+        ctx.wizard?.selectStep?.(1) // skip code prompt
+        await ctx.scene.enter("signup_wizard")
+        // Jump to step 2 (validation) directly
+        ctx.wizard?.selectStep?.(1)
+        return
+      }
+
+      // Deep link: /start join_CODE
+      if (payload.startsWith("join_")) {
+        const code = payload.slice(5)
+        botState(ctx).joinCode = code
+        await ctx.scene.enter("join_wizard")
+        // Jump to step 2 (validation) directly
+        ctx.wizard?.selectStep?.(1)
+        return
+      }
+
       await handleStartCommand(
         String(chatId),
         msg.from?.id != null ? String(msg.from.id) : null,
@@ -272,6 +308,17 @@ function ensureHandlers() {
       msg.from?.username ?? null,
       msg.from?.first_name ?? null
     )
+
+    // /signup and /join are always available (not gated by account type)
+    if (parsed.command === "signup") {
+      await ctx.scene.enter("signup_wizard")
+      return
+    }
+
+    if (parsed.command === "join") {
+      await ctx.scene.enter("join_wizard")
+      return
+    }
 
     // Gate owner-only commands
     if (parsed.command === "auth") {
@@ -300,8 +347,11 @@ function ensureHandlers() {
 
     if (parsed.command === "otp") {
       if (userContext?.accountType === "public") {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ""
         await ctx.reply(
-          "This command is not available. Use /in, /out, /buy, /sell, /goaladd, or /repay to track your finances."
+          "You have a Telegram-only account. To get web access:\n\n" +
+            `• Sign up at ${appUrl}/login\n` +
+            "• Or ask your household admin for an invite code and use /join"
         )
         return
       }

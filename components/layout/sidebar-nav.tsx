@@ -17,7 +17,6 @@ import {
   Sliders,
   Users,
   Bell,
-  Wrench,
   LogOut,
   Repeat,
 } from "lucide-react"
@@ -59,7 +58,6 @@ const settingsItems = [
   { title: "User Settings", href: "/settings/users", icon: Users },
   { title: "GIRO Rules", href: "/settings/giro", icon: Repeat },
   { title: "Notifications", href: "/settings/notifications", icon: Bell },
-  { title: "Setup", href: "/settings/setup", icon: Wrench },
 ]
 
 export function SidebarNav() {

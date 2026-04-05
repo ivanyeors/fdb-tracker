@@ -67,6 +67,10 @@ export interface BotWebhookState {
   cashflowCommandRest?: string
   /** Trailing text after a command (e.g. "/tax 1694.50" → "1694.50"). */
   rest?: string
+  /** Signup code from deep link (/start signup_CODE). */
+  signupCode?: string
+  /** Join/invite code from deep link (/start join_CODE). */
+  joinCode?: string
 }
 
 export function botState(ctx: MyContext): BotWebhookState {

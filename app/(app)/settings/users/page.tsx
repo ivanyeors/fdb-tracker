@@ -4,7 +4,12 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { getSessionFromCookies } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-import { FamilyMembersTable, UserSettingsActiveContext } from "./user-settings-form"
+import {
+  FamilyMembersTable,
+  UserSettingsActiveContext,
+} from "./user-settings-form"
+import { InviteCodesSection } from "./invite-codes-section"
+import { AccountOverview } from "./profile-switcher"
 import { Button } from "@/components/ui/button"
 import type { ProfileWithIncome } from "./types"
 import type { FinancialDataByFamily } from "./user-settings-form"
@@ -49,7 +54,9 @@ async function fetchFinancialDataForFamily(
     profileIds.length > 0
       ? supabase
           .from("insurance_policies")
-          .select("*, insurance_policy_coverages(id, coverage_type, coverage_amount, benefit_name, benefit_premium, renewal_bonus, benefit_expiry_date, benefit_unit, sort_order)")
+          .select(
+            "*, insurance_policy_coverages(id, coverage_type, coverage_amount, benefit_name, benefit_premium, renewal_bonus, benefit_expiry_date, benefit_unit, sort_order)"
+          )
           .in("profile_id", profileIds)
           .order("created_at", { ascending: true })
       : Promise.resolve({ data: [] }),
@@ -82,7 +89,10 @@ async function fetchFinancialDataForFamily(
       type: r.type,
       units: r.units,
       cost_basis: r.cost_basis,
-      target_allocation_pct: (r as Record<string, unknown>).target_allocation_pct as number | null ?? null,
+      target_allocation_pct:
+        ((r as Record<string, unknown>).target_allocation_pct as
+          | number
+          | null) ?? null,
       profile_id: r.profile_id,
       current_price: r.currentPrice,
       market_value: r.marketValue,
@@ -97,7 +107,17 @@ async function fetchFinancialDataForFamily(
     loans: loansRes.data ?? [],
     insurancePolicies: (insuranceRes.data ?? []).map((p) => {
       const { insurance_policy_coverages, ...rest } = p as typeof p & {
-        insurance_policy_coverages?: Array<{ id: string; coverage_type: string | null; coverage_amount: number; benefit_name: string | null; benefit_premium: number | null; renewal_bonus: number | null; benefit_expiry_date: string | null; benefit_unit: string | null; sort_order: number }>
+        insurance_policy_coverages?: Array<{
+          id: string
+          coverage_type: string | null
+          coverage_amount: number
+          benefit_name: string | null
+          benefit_premium: number | null
+          renewal_bonus: number | null
+          benefit_expiry_date: string | null
+          benefit_unit: string | null
+          sort_order: number
+        }>
       }
       return {
         ...rest,
@@ -126,7 +146,8 @@ function normalizeProfile(profile: Record<string, unknown>): ProfileWithIncome {
     num_dependents: (profile.num_dependents as number | undefined) ?? 0,
     gender: (profile.gender as string | null) ?? null,
     spouse_profile_id: (profile.spouse_profile_id as string | null) ?? null,
-    primary_bank_account_id: (profile.primary_bank_account_id as string | null) ?? null,
+    primary_bank_account_id:
+      (profile.primary_bank_account_id as string | null) ?? null,
     income_config: (income as ProfileWithIncome["income_config"]) ?? null,
   }
 }
@@ -143,7 +164,7 @@ export default async function UserSettingsPage() {
 
   const { data: household } = await supabase
     .from("households")
-    .select("onboarding_completed_at")
+    .select("onboarding_completed_at, user_count")
     .eq("id", householdId)
     .single()
 
@@ -151,7 +172,7 @@ export default async function UserSettingsPage() {
 
   const { data: families } = await supabase
     .from("families")
-    .select("id, name, created_at")
+    .select("id, name, user_count, created_at")
     .eq("household_id", householdId)
     .order("created_at", { ascending: true })
 
@@ -161,10 +182,12 @@ export default async function UserSettingsPage() {
     familyIds.length > 0
       ? await supabase
           .from("profiles")
-          .select(`
+          .select(
+            `
             id,
             name,
             birth_year,
+            created_at,
             marital_status,
             num_dependents,
             gender,
@@ -182,7 +205,8 @@ export default async function UserSettingsPage() {
               pay_frequency,
               employee_cpf_rate
             )
-          `)
+          `
+          )
           .in("family_id", familyIds)
           .order("created_at", { ascending: true })
       : { data: [], error: null }
@@ -190,8 +214,10 @@ export default async function UserSettingsPage() {
   if (error) {
     return (
       <div className="p-2 sm:p-4">
-        <h1 className="text-2xl font-semibold text-destructive">Error Loading Profiles</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-2xl font-semibold text-destructive">
+          Error Loading Profiles
+        </h1>
+        <p className="mt-1 text-muted-foreground">
           {error.message || "Could not retrieve user profiles."}
         </p>
       </div>
@@ -200,11 +226,16 @@ export default async function UserSettingsPage() {
 
   const profilesByFamily = new Map<string, typeof allProfiles>()
   for (const fam of families ?? []) {
-    const famProfiles = (allProfiles ?? []).filter((p) => p.family_id === fam.id)
+    const famProfiles = (allProfiles ?? []).filter(
+      (p) => p.family_id === fam.id
+    )
     profilesByFamily.set(fam.id, famProfiles)
   }
 
-  const financialDataByFamily = new Map<string, Awaited<ReturnType<typeof fetchFinancialDataForFamily>>>()
+  const financialDataByFamily = new Map<
+    string,
+    Awaited<ReturnType<typeof fetchFinancialDataForFamily>>
+  >()
   for (const fam of families ?? []) {
     const famProfiles = profilesByFamily.get(fam.id) ?? []
     const profileIds = famProfiles.map((p) => p.id as string)
@@ -215,14 +246,31 @@ export default async function UserSettingsPage() {
   }
 
   return (
-    <div className="p-2 sm:p-4 max-w-[1600px] mx-auto space-y-8">
+    <div className="mx-auto max-w-[1600px] space-y-8 p-2 sm:p-4">
       <div>
         <h1 className="text-2xl font-semibold">User Settings</h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="mt-1 text-muted-foreground">
           Manage family members and their financial data.
         </p>
         <UserSettingsActiveContext />
       </div>
+
+      <AccountOverview
+        profiles={(allProfiles ?? []).map((p) => ({
+          id: p.id as string,
+          name: p.name as string,
+          birth_year: p.birth_year as number,
+          created_at: p.created_at as string,
+          family_id: (p as Record<string, unknown>).family_id as string,
+        }))}
+        families={(families ?? []).map((f) => ({
+          id: f.id,
+          name: f.name,
+          user_count: f.user_count,
+          created_at: f.created_at,
+        }))}
+        household={household!}
+      />
 
       {!onboardingComplete && (
         <div className="flex items-center gap-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
@@ -240,7 +288,9 @@ export default async function UserSettingsPage() {
 
       <Suspense
         fallback={
-          <div className="text-sm text-muted-foreground">Loading user settings…</div>
+          <div className="text-sm text-muted-foreground">
+            Loading user settings…
+          </div>
         }
       >
         <div className="space-y-8">
@@ -273,9 +323,16 @@ export default async function UserSettingsPage() {
 
       {familyIds.length === 0 && (
         <p className="text-muted-foreground">
-          No families yet. Complete onboarding to create your first family and profiles.
+          No families yet. Complete onboarding to create your first family and
+          profiles.
         </p>
       )}
+
+      <InviteCodesSection
+        unlinkedProfiles={(allProfiles ?? [])
+          .filter((p) => !p.telegram_user_id)
+          .map((p) => ({ id: p.id as string, name: p.name as string }))}
+      />
     </div>
   )
 }

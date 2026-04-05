@@ -24,7 +24,6 @@ const settingsPages = [
   { title: "General", href: "/settings" },
   { title: "User Settings", href: "/settings/users" },
   { title: "Notifications", href: "/settings/notifications" },
-  { title: "Setup", href: "/settings/setup" },
 ]
 
 export default function Page() {
