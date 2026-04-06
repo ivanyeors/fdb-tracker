@@ -224,6 +224,8 @@ export async function GET(request: NextRequest) {
 
     let sent = 0
     const errors: string[] = []
+    // Track profiles already notified (profile_id:notification_type) to avoid duplicates
+    const alreadySent = new Set<string>()
 
     for (const schedule of schedules) {
       const { fire, now } = shouldFire(schedule)
@@ -282,45 +284,63 @@ export async function GET(request: NextRequest) {
         continue
       }
 
-      // Check per-profile notification preferences (no row = enabled)
+      // Check per-profile notification preferences (no row = enabled, no schedule = use family default)
       const profileIds = (profiles ?? []).map((p) => p.id)
-      const { data: disabledPrefs } =
+      const { data: prefRows } =
         profileIds.length > 0
           ? await supabase
               .from("notification_preferences")
-              .select("profile_id")
+              .select("profile_id, enabled, day_of_month, month_of_year, time, timezone")
               .in("profile_id", profileIds)
               .eq("notification_type", effectivePromptType)
-              .eq("enabled", false)
           : { data: [] }
 
-      const disabledProfileIds = new Set(
-        (disabledPrefs ?? []).map((p) => p.profile_id),
+      const prefByProfile = new Map(
+        (prefRows ?? []).map((p) => [p.profile_id, p]),
       )
 
-      // Send to profile-level chats if any profiles are linked, otherwise household chat
-      const enabledProfiles = (profiles ?? []).filter(
-        (p) => !disabledProfileIds.has(p.id),
-      )
+      // Filter profiles: check enabled flag + per-profile schedule override
+      const enabledProfiles = (profiles ?? []).filter((p) => {
+        const pref = prefByProfile.get(p.id)
+        // No row = enabled, use family schedule (already passed shouldFire)
+        if (!pref) return true
+        // Explicitly disabled
+        if (!pref.enabled) return false
+        // Has custom schedule? Check if it fires now instead of family schedule
+        if (pref.day_of_month !== null || pref.time !== null || pref.month_of_year !== null) {
+          const tz = pref.timezone ?? schedule.timezone
+          const profileNow = nowInTimezone(tz)
+          if (pref.day_of_month !== null && profileNow.day !== pref.day_of_month) return false
+          if (pref.month_of_year !== null && profileNow.month !== pref.month_of_year) return false
+          // time check: only compare hour (cron runs once per hour window)
+          if (pref.time !== null) {
+            const prefHour = Number(pref.time.split(":")[0])
+            if (profileNow.hour !== prefHour) return false
+          }
+        }
+        return true
+      })
 
-      // If all profiles opted out, skip entirely
+      // If all profiles opted out or not scheduled now, skip entirely
       if (enabledProfiles.length === 0) {
         continue
       }
 
       const profileChats = enabledProfiles
         .filter((p) => p.telegram_chat_id)
-        .map((p) => p.telegram_chat_id as string)
+        .map((p) => ({ id: p.id, chatId: p.telegram_chat_id as string }))
 
       const chatTargets =
         profileChats.length > 0
-          ? [...new Set(profileChats)]
-          : [account.telegram_chat_id]
+          ? profileChats
+          : enabledProfiles.map((p) => ({ id: p.id, chatId: account.telegram_chat_id! }))
 
-      for (const chatTarget of chatTargets) {
+      const uniqueChats = [...new Map(chatTargets.map((t) => [t.chatId, t])).values()]
+
+      for (const target of uniqueChats) {
         const result = await sendTelegramMessage(
           account.telegram_bot_token,
-          chatTarget,
+          target.chatId,
           message,
         )
 
@@ -330,6 +350,84 @@ export async function GET(request: NextRequest) {
           errors.push(`${schedule.id}: ${result.error}`)
         }
       }
+
+      // Mark these profiles as sent for this notification type
+      for (const p of enabledProfiles) {
+        alreadySent.add(`${p.id}:${effectivePromptType}`)
+      }
+    }
+
+    // --- Second pass: profiles with custom schedules that fire NOW ---
+    // These are profiles whose family schedule did NOT fire today, but their
+    // custom day/time/month matches today.
+    const { data: customPrefs } = await supabase
+      .from("notification_preferences")
+      .select("profile_id, notification_type, day_of_month, month_of_year, time, timezone")
+      .eq("enabled", true)
+      .not("day_of_month", "is", null)
+
+    for (const cp of customPrefs ?? []) {
+      const key = `${cp.profile_id}:${cp.notification_type}`
+      if (alreadySent.has(key)) continue
+
+      const tz = cp.timezone ?? "Asia/Singapore"
+      const now = nowInTimezone(tz)
+      if (cp.day_of_month !== null && now.day !== cp.day_of_month) continue
+      if (cp.month_of_year !== null && now.month !== cp.month_of_year) continue
+      if (cp.time !== null) {
+        const h = Number(cp.time.split(":")[0])
+        if (now.hour !== h) continue
+      }
+
+      // Fetch profile + household info
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("id, name, telegram_chat_id, family_id")
+        .eq("id", cp.profile_id)
+        .single()
+      if (!prof) continue
+
+      const { data: fam } = await supabase
+        .from("families")
+        .select("household_id")
+        .eq("id", prof.family_id)
+        .single()
+      if (!fam) continue
+
+      const { data: hh } = await supabase
+        .from("households")
+        .select("telegram_chat_id, telegram_bot_token")
+        .eq("id", fam.household_id)
+        .single()
+      if (!hh?.telegram_bot_token || !hh.telegram_chat_id) continue
+
+      const ctx: ReminderContext = {
+        profiles: [{ id: prof.id, name: prof.name }],
+        dashboardUrl,
+      }
+
+      const message = await generateMessage(
+        cp.notification_type,
+        fam.household_id,
+        now,
+        ctx,
+      )
+      if (!message) continue
+
+      const chatTarget = prof.telegram_chat_id ?? hh.telegram_chat_id
+      const result = await sendTelegramMessage(
+        hh.telegram_bot_token,
+        chatTarget,
+        message,
+      )
+
+      if (result.ok) {
+        sent++
+      } else {
+        errors.push(`custom:${cp.profile_id}:${cp.notification_type}: ${result.error}`)
+      }
+
+      alreadySent.add(key)
     }
 
     // --- Weekly Monday seasonality digest ---

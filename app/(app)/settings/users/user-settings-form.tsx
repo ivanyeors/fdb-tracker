@@ -4944,13 +4944,15 @@ function FamilyMemberSettingsPanels({
   profiles,
   handleMutate,
   notificationPreferences,
+  defaultSchedules,
 }: {
   p: ProfileWithIncome
   family: { id: string; name: string }
   financialData: FinancialDataByFamily
   profiles: ProfileWithIncome[]
   handleMutate: () => void
-  notificationPreferences: Array<{ notification_type: string; enabled: boolean }>
+  notificationPreferences: NotificationPref[]
+  defaultSchedules: DefaultSchedule[]
 }) {
   const profileBanks = useMemo(() => filterByProfile(financialData.bankAccounts, p.id), [financialData.bankAccounts, p.id])
   const profileGoals = useMemo(() => filterByProfile(financialData.savingsGoals, p.id), [financialData.savingsGoals, p.id])
@@ -4975,6 +4977,7 @@ function FamilyMemberSettingsPanels({
         <NotificationPreferencesSection
           profileId={p.id}
           preferences={notificationPreferences}
+          defaultSchedules={defaultSchedules}
         />
       </CollapsibleSection>
       <CollapsibleSection title="Dependents" badge="Tax Relief">
@@ -5063,18 +5066,38 @@ function FamilyMemberSettingsPanels({
   )
 }
 
+export type NotificationPref = {
+  notification_type: string
+  enabled: boolean
+  day_of_month: number | null
+  month_of_year: number | null
+  time: string | null
+  timezone: string | null
+}
+
+export type DefaultSchedule = {
+  prompt_type: string
+  frequency: string
+  day_of_month: number
+  month_of_year: number | null
+  time: string
+  timezone: string
+}
+
 export function FamilyMembersTable({
   family,
   profiles,
   financialData,
   familyCount,
   notificationPreferencesByProfile,
+  defaultSchedules,
 }: {
   family: { id: string; name: string }
   profiles: ProfileWithIncome[]
   financialData: FinancialDataByFamily
   familyCount: number
-  notificationPreferencesByProfile: Record<string, Array<{ notification_type: string; enabled: boolean }>>
+  notificationPreferencesByProfile: Record<string, NotificationPref[]>
+  defaultSchedules: DefaultSchedule[]
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -5362,6 +5385,7 @@ export function FamilyMembersTable({
                     profiles={profiles}
                     handleMutate={handleMutate}
                     notificationPreferences={notificationPreferencesByProfile[activeProfile.id] ?? []}
+                    defaultSchedules={defaultSchedules}
                   />
                 </>
               )}

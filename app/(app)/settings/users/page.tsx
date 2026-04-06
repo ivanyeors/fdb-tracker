@@ -251,13 +251,22 @@ export default async function UserSettingsPage() {
     allProfileIds.length > 0
       ? await supabase
           .from("notification_preferences")
-          .select("profile_id, notification_type, enabled")
+          .select(
+            "profile_id, notification_type, enabled, day_of_month, month_of_year, time, timezone"
+          )
           .in("profile_id", allProfileIds)
       : { data: [] }
 
   const notificationPrefsByProfile: Record<
     string,
-    Array<{ notification_type: string; enabled: boolean }>
+    Array<{
+      notification_type: string
+      enabled: boolean
+      day_of_month: number | null
+      month_of_year: number | null
+      time: string | null
+      timezone: string | null
+    }>
   > = {}
   for (const pref of allNotifPrefs ?? []) {
     const pid = pref.profile_id
@@ -267,6 +276,46 @@ export default async function UserSettingsPage() {
     notificationPrefsByProfile[pid].push({
       notification_type: pref.notification_type,
       enabled: pref.enabled,
+      day_of_month: pref.day_of_month,
+      month_of_year: pref.month_of_year,
+      time: pref.time,
+      timezone: pref.timezone,
+    })
+  }
+
+  // Fetch family-level default schedules (from prompt_schedule)
+  const { data: allSchedules } =
+    familyIds.length > 0
+      ? await supabase
+          .from("prompt_schedule")
+          .select(
+            "family_id, prompt_type, frequency, day_of_month, month_of_year, time, timezone"
+          )
+          .in("family_id", familyIds)
+      : { data: [] }
+
+  const defaultSchedulesByFamily: Record<
+    string,
+    Array<{
+      prompt_type: string
+      frequency: string
+      day_of_month: number
+      month_of_year: number | null
+      time: string
+      timezone: string
+    }>
+  > = {}
+  for (const sched of allSchedules ?? []) {
+    if (!defaultSchedulesByFamily[sched.family_id]) {
+      defaultSchedulesByFamily[sched.family_id] = []
+    }
+    defaultSchedulesByFamily[sched.family_id].push({
+      prompt_type: sched.prompt_type,
+      frequency: sched.frequency,
+      day_of_month: sched.day_of_month,
+      month_of_year: sched.month_of_year,
+      time: sched.time,
+      timezone: sched.timezone,
     })
   }
 
@@ -341,6 +390,7 @@ export default async function UserSettingsPage() {
                 financialData={financialData}
                 familyCount={(families ?? []).length}
                 notificationPreferencesByProfile={notificationPrefsByProfile}
+                defaultSchedules={defaultSchedulesByFamily[family.id] ?? []}
               />
             )
           })}
