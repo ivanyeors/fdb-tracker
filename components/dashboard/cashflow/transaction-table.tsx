@@ -19,7 +19,16 @@ import {
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { Save, Sparkles } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Plus, Save, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/utils"
@@ -86,6 +95,132 @@ function suggestCategory(
     }
   }
   return null
+}
+
+function QuickCategorizePopover({
+  transaction,
+  categories,
+  onSaved,
+}: {
+  transaction: Transaction
+  categories: Category[]
+  onSaved?: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    null
+  )
+  const [rulePattern, setRulePattern] = useState(
+    () => extractMerchantKeyword(transaction.description) ?? ""
+  )
+  const [isSaving, setIsSaving] = useState(false)
+
+  function handleOpenChange(newOpen: boolean) {
+    setOpen(newOpen)
+    if (!newOpen) {
+      setSelectedCategoryId(null)
+      setRulePattern(extractMerchantKeyword(transaction.description) ?? "")
+    }
+  }
+
+  async function handleQuickSave() {
+    if (!selectedCategoryId) return
+    setIsSaving(true)
+    try {
+      const res = await fetch("/api/transactions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          updates: [{ id: transaction.id, categoryId: selectedCategoryId }],
+          categoryRules: rulePattern.trim()
+            ? [{ pattern: rulePattern.trim(), categoryId: selectedCategoryId }]
+            : [],
+        }),
+      })
+      if (!res.ok) {
+        const json = await res.json()
+        toast.error(json.error || "Failed to save")
+        return
+      }
+      const catName =
+        categories.find((c) => c.id === selectedCategoryId)?.name ?? "?"
+      if (rulePattern.trim()) {
+        toast.success(
+          `Categorized as ${catName}. Rule learned: "${rulePattern.trim().toUpperCase()}"`
+        )
+      } else {
+        toast.success(`Categorized as ${catName}`)
+      }
+      setOpen(false)
+      onSaved?.()
+    } catch {
+      toast.error("Failed to save")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72">
+        <PopoverHeader>
+          <PopoverTitle>Quick Categorize</PopoverTitle>
+        </PopoverHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Category</Label>
+            <Select
+              value={selectedCategoryId ?? ""}
+              onValueChange={setSelectedCategoryId}
+            >
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Choose category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Auto-categorize rule</Label>
+            <Input
+              value={rulePattern}
+              onChange={(e) => setRulePattern(e.target.value)}
+              placeholder="e.g. GRABFOOD"
+              className="h-9 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleQuickSave()
+              }}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Future matching transactions auto-categorized
+            </p>
+          </div>
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={handleQuickSave}
+            disabled={!selectedCategoryId || isSaving}
+          >
+            {isSaving ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 export function TransactionTable({

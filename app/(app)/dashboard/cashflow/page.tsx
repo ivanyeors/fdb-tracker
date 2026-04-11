@@ -3,6 +3,7 @@ import { getSessionFromCookies } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { fetchCashflowRangeSeries } from "@/lib/api/cashflow-range"
+import { fetchSingleMonthCashflow } from "@/lib/api/cashflow-single-month"
 import { getCalendarYearRange } from "@/lib/date-range"
 import { CashflowClient } from "./cashflow-client"
 import type { SpendingBreakdownInitialData } from "@/components/dashboard/cashflow/spending-breakdown-tab"
@@ -24,6 +25,7 @@ export default async function CashflowPage() {
     return (
       <CashflowClient
         initialData={[]}
+        initialWaterfallData={null}
         initialTransactionsData={EMPTY_TRANSACTIONS}
       />
     )
@@ -43,6 +45,7 @@ export default async function CashflowPage() {
     return (
       <CashflowClient
         initialData={[]}
+        initialWaterfallData={null}
         initialTransactionsData={EMPTY_TRANSACTIONS}
       />
     )
@@ -64,14 +67,19 @@ export default async function CashflowPage() {
     txnQuery = txnQuery.eq("family_id", resolved.familyId)
   }
 
-  const [cashflowResult, txnResult, catResult, rulesResult] = await Promise.all(
-    [
+  const [cashflowResult, waterfallResult, txnResult, catResult, rulesResult] =
+    await Promise.all([
       fetchCashflowRangeSeries(supabase, {
         profileIds: resolved.profileIds,
         familyId: resolved.familyId,
         startMonth,
         endMonth,
       }).catch(() => []),
+      fetchSingleMonthCashflow(supabase, {
+        profileIds: resolved.profileIds,
+        familyId: resolved.familyId,
+        month,
+      }).catch(() => null),
       txnQuery,
       supabase
         .from("outflow_categories")
@@ -84,12 +92,12 @@ export default async function CashflowPage() {
         .select("match_pattern, category_id, source, priority")
         .eq("household_id", accountId)
         .order("priority", { ascending: false }),
-    ]
-  )
+    ])
 
   return (
     <CashflowClient
       initialData={cashflowResult}
+      initialWaterfallData={waterfallResult}
       initialTransactionsData={{
         transactions: txnResult.data ?? [],
         categories: catResult.data ?? [],

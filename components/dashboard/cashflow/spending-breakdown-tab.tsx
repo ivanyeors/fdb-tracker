@@ -9,7 +9,6 @@ import { TransactionTable } from "@/components/dashboard/cashflow/transaction-ta
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { useApi } from "@/hooks/use-api"
-import { getCalendarYearRange } from "@/lib/date-range"
 import { useDataRefresh } from "@/hooks/use-data-refresh"
 import {
   ImportPreviewDialog,
@@ -17,7 +16,6 @@ import {
   type ParsedResult,
 } from "@/components/dashboard/cashflow/import-preview-dialog"
 import { CategoryManagerButton } from "@/components/dashboard/cashflow/category-manager"
-import { MonthlySpendingGrid } from "@/components/dashboard/cashflow/monthly-spending-grid"
 
 const STATEMENT_TYPE_OPTIONS = [
   { value: "all", label: "All" },
@@ -50,20 +48,6 @@ export interface SpendingBreakdownInitialData {
 function getCurrentMonth() {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-}
-
-function buildCategorySummaryUrl(
-  profileId: string | null,
-  familyId: string | null
-): string | null {
-  if (!profileId && !familyId) return null
-  const { startMonth, endMonth } = getCalendarYearRange()
-  const params = new URLSearchParams()
-  if (profileId) params.set("profileId", profileId)
-  else if (familyId) params.set("familyId", familyId)
-  params.set("startMonth", startMonth)
-  params.set("endMonth", endMonth)
-  return `/api/transactions/category-summary?${params.toString()}`
 }
 
 function buildTransactionsUrl(
@@ -122,18 +106,6 @@ export function SpendingBreakdownTab({
   )
 
   const txnList = useMemo(() => transactions ?? [], [transactions])
-
-  // 12-month category summary for donut grid
-  const categorySummaryUrl = buildCategorySummaryUrl(
-    activeProfileId,
-    activeFamilyId
-  )
-  const { data: categorySummary } = useApi<
-    Array<{
-      month: string
-      categories: Array<{ name: string; total: number; count: number }>
-    }>
-  >(categorySummaryUrl, { fallbackData: [] })
 
   // When parent provides new parsed results, open the preview dialog
   // and lock the active profile so switching mid-import doesn't mix data
@@ -265,15 +237,6 @@ export function SpendingBreakdownTab({
         />
         <CategoryManagerButton />
       </div>
-
-      {/* 12-month spending donut grid */}
-      {(categorySummary ?? []).length > 0 && (
-        <Card>
-          <CardContent className="p-0">
-            <MonthlySpendingGrid data={categorySummary ?? []} />
-          </CardContent>
-        </Card>
-      )}
 
       {/* Main Content */}
       {isLoading && !txnList.length ? (
