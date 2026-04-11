@@ -3,16 +3,9 @@ import { getSessionFromCookies } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { fetchCashflowRangeSeries } from "@/lib/api/cashflow-range"
+import { getCalendarYearRange } from "@/lib/date-range"
 import { CashflowClient } from "./cashflow-client"
 import type { SpendingBreakdownInitialData } from "@/components/dashboard/cashflow/spending-breakdown-tab"
-
-function getDateRange() {
-  const now = new Date()
-  const endMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-  now.setMonth(now.getMonth() - 11)
-  const startMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-  return { startMonth, endMonth }
-}
 
 function getCurrentMonth() {
   const now = new Date()
@@ -54,7 +47,7 @@ export default async function CashflowPage() {
       />
     )
 
-  const { startMonth, endMonth } = getDateRange()
+  const { startMonth, endMonth } = getCalendarYearRange()
   const month = getCurrentMonth()
 
   // Fetch cashflow series AND transactions + categories in parallel

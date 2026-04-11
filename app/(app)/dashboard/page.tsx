@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { fetchOverviewData } from "@/lib/api/overview-data"
 import { fetchCashflowRangeSeries } from "@/lib/api/cashflow-range"
+import { getCalendarYearRange } from "@/lib/date-range"
 import { fetchSingleMonthCashflow } from "@/lib/api/cashflow-single-month"
 import { fetchIlpProducts } from "@/lib/api/ilp-data"
 import { fetchGoals } from "@/lib/api/goals-data"
@@ -31,13 +32,6 @@ function getCurrentMonth(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
 }
 
-function getDateRange() {
-  const now = new Date()
-  const endMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-  now.setMonth(now.getMonth() - 11)
-  const startMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-  return { startMonth, endMonth }
-}
 
 export default async function OverviewPage() {
   const cookieStore = await cookies()
@@ -60,7 +54,7 @@ export default async function OverviewPage() {
   if (!resolved) return <OverviewClient initialData={EMPTY} />
 
   const currentMonth = getCurrentMonth()
-  const { startMonth, endMonth } = getDateRange()
+  const { startMonth, endMonth } = getCalendarYearRange()
 
   let data: OverviewInitialData = EMPTY
   try {

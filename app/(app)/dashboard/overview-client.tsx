@@ -28,6 +28,7 @@ import { useActiveProfile } from "@/hooks/use-active-profile"
 import { useGlobalMonth } from "@/hooks/use-global-month"
 import { useApi } from "@/hooks/use-api"
 import { currentMonthYm, ilpEntryMonthKey } from "@/lib/investments/ilp-chart"
+import { getCalendarYearRange } from "@/lib/date-range"
 import { cn, formatCurrency } from "@/lib/utils"
 import { Progress } from "@/components/ui/progress"
 import { ChartSkeleton } from "@/components/loading"
@@ -183,36 +184,12 @@ export type OverviewInitialData = {
   investmentHistory: { data: { date: string; value: number }[] } | null
 }
 
-function getDateRange(
-  activeFamilyId: string | null,
-  families: Array<{ id: string; created_at?: string }> | null
-) {
-  const now = new Date()
-  const end = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-  const twelveMonthsAgo = new Date(now)
-  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11)
-  const twelveStr = `${twelveMonthsAgo.getFullYear()}-${String(twelveMonthsAgo.getMonth() + 1).padStart(2, "0")}-01`
-  const familyStart =
-    activeFamilyId && families?.length
-      ? (() => {
-          const family = families.find((f) => f.id === activeFamilyId)
-          if (!family?.created_at) return twelveStr
-          const d = new Date(family.created_at)
-          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`
-        })()
-      : twelveStr
-  return {
-    startMonth: familyStart > twelveStr ? familyStart : twelveStr,
-    endMonth: end,
-  }
-}
-
 export function OverviewClient({
   initialData,
 }: {
   initialData: OverviewInitialData
 }) {
-  const { activeProfileId, activeFamilyId, families } = useActiveProfile()
+  const { activeProfileId, activeFamilyId } = useActiveProfile()
   const { effectiveMonth, setAvailableMonths } = useGlobalMonth()
 
   const qs = useMemo(() => {
@@ -222,10 +199,7 @@ export function OverviewClient({
     return p.toString()
   }, [activeProfileId, activeFamilyId])
 
-  const { startMonth, endMonth } = useMemo(
-    () => getDateRange(activeFamilyId, families),
-    [activeFamilyId, families]
-  )
+  const { startMonth, endMonth } = getCalendarYearRange()
 
   // Cashflow range (12 months)
   const cashflowRangeUrl = `/api/cashflow?startMonth=${startMonth}&endMonth=${endMonth}${qs ? `&${qs}` : ""}`

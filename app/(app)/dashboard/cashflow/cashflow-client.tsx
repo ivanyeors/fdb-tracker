@@ -10,6 +10,7 @@ import { SectionHeader } from "@/components/dashboard/section-header"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { ChartSkeleton } from "@/components/loading"
 import { useApi } from "@/hooks/use-api"
+import { getCalendarYearRange } from "@/lib/date-range"
 import { StatementUploadZone } from "@/components/dashboard/cashflow/statement-upload-zone"
 import {
   SpendingBreakdownTab,
@@ -43,20 +44,12 @@ type CashflowEntry = {
   outflowMemo?: string
 }
 
-function getDateRange() {
-  const now = new Date()
-  const endMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-  now.setMonth(now.getMonth() - 11)
-  const startMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-  return { startMonth, endMonth }
-}
-
 function buildCashflowUrl(
   profileId: string | null,
   familyId: string | null
 ): string | null {
   if (!profileId && !familyId) return null
-  const { startMonth, endMonth } = getDateRange()
+  const { startMonth, endMonth } = getCalendarYearRange()
   const url = new URL("/api/cashflow", "http://localhost")
   if (profileId) url.searchParams.set("profileId", profileId)
   else if (familyId) url.searchParams.set("familyId", familyId)
@@ -186,7 +179,7 @@ export function CashflowClient({
               <>
                 <Card>
                   <CardHeader>
-                    <CardTitle>12-Month Cashflow</CardTitle>
+                    <CardTitle>{new Date().getFullYear()} Cashflow</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <ChartSkeleton height={300} />
@@ -206,7 +199,7 @@ export function CashflowClient({
               <>
                 <Card>
                   <CardHeader>
-                    <CardTitle>12-Month Cashflow</CardTitle>
+                    <CardTitle>{new Date().getFullYear()} Cashflow</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <CashflowChart data={chartData} />

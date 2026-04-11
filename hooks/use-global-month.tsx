@@ -63,7 +63,7 @@ export function GlobalMonthProvider({ children }: { children: React.ReactNode })
   }, [activeFamilyId, setSelectedMonth])
 
   const effectiveMonth = mounted
-    ? (selectedMonth ?? availableMonths[0] ?? getCurrentMonth())
+    ? (selectedMonth ?? getCurrentMonth())
     : ""
 
   const value = React.useMemo<GlobalMonthContextValue>(

@@ -9,6 +9,7 @@ import { TransactionTable } from "@/components/dashboard/cashflow/transaction-ta
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { useApi } from "@/hooks/use-api"
+import { getCalendarYearRange } from "@/lib/date-range"
 import { useDataRefresh } from "@/hooks/use-data-refresh"
 import {
   ImportPreviewDialog,
@@ -51,20 +52,12 @@ function getCurrentMonth() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
 }
 
-function getDateRange() {
-  const now = new Date()
-  const endMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
-  const start = new Date(now.getFullYear(), now.getMonth() - 11, 1)
-  const startMonth = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-01`
-  return { startMonth, endMonth }
-}
-
 function buildCategorySummaryUrl(
   profileId: string | null,
   familyId: string | null
 ): string | null {
   if (!profileId && !familyId) return null
-  const { startMonth, endMonth } = getDateRange()
+  const { startMonth, endMonth } = getCalendarYearRange()
   const params = new URLSearchParams()
   if (profileId) params.set("profileId", profileId)
   else if (familyId) params.set("familyId", familyId)

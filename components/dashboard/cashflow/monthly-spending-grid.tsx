@@ -38,15 +38,11 @@ function formatMonth(month: string): string {
 }
 
 function generateMonthRange(): string[] {
-  const months: string[] = []
-  const now = new Date()
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    months.push(
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`
-    )
-  }
-  return months
+  const year = new Date().getFullYear()
+  return Array.from({ length: 12 }, (_, i) => {
+    const m = String(i + 1).padStart(2, "0")
+    return `${year}-${m}-01`
+  })
 }
 
 export function MonthlySpendingGrid({ data }: MonthlySpendingGridProps) {
