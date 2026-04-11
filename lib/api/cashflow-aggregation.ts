@@ -396,6 +396,7 @@ export type InvestmentTxnRow = {
   type: string
   quantity: number
   price: number
+  commission?: number
   created_at: string
 }
 
@@ -415,11 +416,36 @@ export function sumNetInvestmentPurchasesForMonth(
   for (const t of rows) {
     const td = new Date(t.created_at)
     if (td.getFullYear() === y && td.getMonth() === m) {
-      if (t.type === "buy") net += t.quantity * t.price
-      else if (t.type === "sell") net -= t.quantity * t.price
+      const fee = t.commission ?? 0
+      if (t.type === "buy") net += t.quantity * t.price + fee
+      else if (t.type === "sell") net -= t.quantity * t.price - fee
     }
   }
   return Math.max(0, net)
+}
+
+/**
+ * Raw net deployment (buys - sells) for a given month, NOT floored at 0.
+ * Used for isolating market gain in the waterfall.
+ */
+export function rawNetDeploymentForMonth(
+  rows: Array<InvestmentTxnRow> | null,
+  monthStr: string,
+): number {
+  if (!rows?.length) return 0
+  const d = new Date(monthStr)
+  const y = d.getFullYear()
+  const m = d.getMonth()
+  let net = 0
+  for (const t of rows) {
+    const td = new Date(t.created_at)
+    if (td.getFullYear() === y && td.getMonth() === m) {
+      const fee = t.commission ?? 0
+      if (t.type === "buy") net += t.quantity * t.price + fee
+      else if (t.type === "sell") net -= t.quantity * t.price - fee
+    }
+  }
+  return net
 }
 
 /* ------------------------------------------------------------------ */

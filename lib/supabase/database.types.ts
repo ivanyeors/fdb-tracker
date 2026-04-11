@@ -1003,6 +1003,7 @@ export type Database = {
           symbol: string
           quantity: number
           price: number
+          commission: number
           journal_text: string | null
           screenshot_url: string | null
           created_at: string
@@ -1016,6 +1017,7 @@ export type Database = {
           symbol: string
           quantity: number
           price: number
+          commission?: number
           journal_text?: string | null
           screenshot_url?: string | null
           created_at?: string
@@ -1029,6 +1031,7 @@ export type Database = {
           symbol?: string
           quantity?: number
           price?: number
+          commission?: number
           journal_text?: string | null
           screenshot_url?: string | null
           created_at?: string

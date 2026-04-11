@@ -18,9 +18,10 @@ import {
 const STEP_SYMBOL = 2
 const STEP_QUANTITY = 3
 const STEP_PRICE = 4
-const STEP_NOTE = 5
-const STEP_CONFIRM = 6
-const TOTAL_STEPS = 6 // profile, symbol, qty, price, note, confirm
+const STEP_COMMISSION = 5
+const STEP_NOTE = 6
+const STEP_CONFIRM = 7
+const TOTAL_STEPS = 7 // profile, symbol, qty, price, commission, note, confirm
 
 function typeLabel(type: "buy" | "sell") {
   return type === "buy" ? "buy" : "sell"
@@ -146,7 +147,9 @@ async function proceedFromSymbol(ctx: MyContext): Promise<boolean> {
 
 async function sendConfirmation(ctx: MyContext) {
   const s = ctx.scene.session
-  const total = (s.quantity ?? 0) * (s.price ?? 0)
+  const fee = s.commission ?? 0
+  const gross = (s.quantity ?? 0) * (s.price ?? 0)
+  const total = s.type === "buy" ? gross + fee : gross - fee
   const symbolDisplay = s.symbolName
     ? `${s.symbol} (${s.symbolName})`
     : (s.symbol ?? "—")
@@ -159,20 +162,24 @@ async function sendConfirmation(ctx: MyContext) {
       value: s.quantity != null ? `${s.quantity} shares` : "—",
     },
     { label: "Price", value: s.price != null ? fmtAmt(s.price) : "—" },
-    { label: "Total", value: fmtAmt(total) },
   ]
+  if (fee > 0) {
+    fields.push({ label: "Commission", value: fmtAmt(fee) })
+  }
+  fields.push({ label: "Total", value: fmtAmt(total) })
   if (s.journalNote) {
     fields.push({ label: "Note", value: s.journalNote })
   }
 
   const msg = buildConfirmationMessage(
     `Confirm ${s.type === "buy" ? "Buy" : "Sell"}`,
-    fields
+    fields,
   )
   const editFields = [
     { label: "Symbol", callbackData: "ed_sym" },
     { label: "Quantity", callbackData: "ed_qty" },
     { label: "Price", callbackData: "ed_prc" },
+    { label: "Commission", callbackData: "ed_comm" },
     { label: "Note", callbackData: "ed_note" },
   ]
   const keyboard = buildConfirmationKeyboard(editFields)
@@ -412,7 +419,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     const price = parseFloat(ctx.message.text)
     if (isNaN(price) || price <= 0) {
       await ctx.reply(
-        errorMsg("Invalid price. Enter a positive number.", "150.50")
+        errorMsg("Invalid price. Enter a positive number.", "150.50"),
       )
       return undefined
     }
@@ -425,15 +432,48 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     const header = progressHeader(
       5,
       TOTAL_STEPS,
-      `${typeLabel(ctx.scene.session.type!)} ${ctx.scene.session.quantity} ${ctx.scene.session.symbol} @ ${fmtAmt(price)}`
+      `${typeLabel(ctx.scene.session.type!)} ${ctx.scene.session.quantity} ${ctx.scene.session.symbol} @ ${fmtAmt(price)}`,
     )
     await ctx.reply(
-      `${header}\n\n💭 Want to add a short note? (Optional)\nReply with text, or send /skip.`
+      `${header}\n\n💰 Enter broker commission (or /skip for $0):`,
     )
     return ctx.wizard.next()
   },
 
-  // STEP 5: Optional note
+  // STEP 5: Commission input
+  async (ctx) => {
+    if (!ctx.message || !("text" in ctx.message)) return undefined
+    const t = ctx.message.text.trim()
+
+    if (t === "/skip" || t.toLowerCase() === "skip" || t === "0") {
+      ctx.scene.session.commission = 0
+    } else {
+      const fee = parseFloat(t)
+      if (isNaN(fee) || fee < 0) {
+        await ctx.reply(
+          errorMsg("Invalid commission. Enter a number ≥ 0.", "1.50"),
+        )
+        return undefined
+      }
+      ctx.scene.session.commission = fee
+    }
+
+    const returned = await advanceOrReturn(ctx, STEP_CONFIRM, sendConfirmation)
+    if (returned) return
+
+    const s = ctx.scene.session
+    const header = progressHeader(
+      6,
+      TOTAL_STEPS,
+      `${typeLabel(s.type!)} ${s.quantity} ${s.symbol} @ ${fmtAmt(s.price!)}`,
+    )
+    await ctx.reply(
+      `${header}\n\n💭 Want to add a short note? (Optional)\nReply with text, or send /skip.`,
+    )
+    return ctx.wizard.next()
+  },
+
+  // STEP 6: Optional note
   async (ctx) => {
     if (!ctx.message || !("text" in ctx.message)) return undefined
     const t = ctx.message.text.trim()
@@ -488,6 +528,13 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
         return
       }
 
+      if (data === "ed_comm") {
+        ctx.scene.session.editingField = "commission"
+        ctx.wizard.selectStep(STEP_COMMISSION)
+        await ctx.reply("Enter the new commission (or /skip for $0):")
+        return
+      }
+
       if (data === "ed_note") {
         ctx.scene.session.editingField = "note"
         ctx.wizard.selectStep(STEP_NOTE)
@@ -507,8 +554,11 @@ async function finishBuySell(ctx: MyContext) {
   const quantity = session.quantity!
   const price = session.price!
   const type = session.type!
+  const commission = session.commission ?? 0
 
-  const totalCost = quantity * price
+  const gross = quantity * price
+  const buyCashOutlay = gross + commission
+  const sellCashProceeds = gross - commission
   const journalText = session.journalNote?.trim() || null
   const supabase = createSupabaseAdmin()
 
@@ -541,7 +591,8 @@ async function finishBuySell(ctx: MyContext) {
         existing.units,
         existing.cost_basis,
         quantity,
-        price
+        price,
+        commission,
       )
       const newUnits = existing.units + quantity
 
@@ -556,6 +607,8 @@ async function finishBuySell(ctx: MyContext) {
       }
       investmentId = existing.id
     } else {
+      const effectiveCostBasis =
+        commission > 0 ? (gross + commission) / quantity : price
       const { data: newHolding, error: insertError } = await supabase
         .from("investments")
         .insert({
@@ -564,7 +617,7 @@ async function finishBuySell(ctx: MyContext) {
           type: "stock",
           symbol,
           units: quantity,
-          cost_basis: price,
+          cost_basis: effectiveCostBasis,
         })
         .select("id")
         .single()
@@ -583,7 +636,7 @@ async function finishBuySell(ctx: MyContext) {
 
     if (existing.units < quantity) {
       await ctx.reply(
-        `❌ Insufficient units. You only have ${existing.units} shares of ${symbol}.`
+        `❌ Insufficient units. You only have ${existing.units} shares of ${symbol}.`,
       )
       return ctx.scene.leave()
     }
@@ -607,6 +660,7 @@ async function finishBuySell(ctx: MyContext) {
       symbol,
       quantity,
       price,
+      commission,
       ...(journalText ? { journal_text: journalText } : {}),
     })
 
@@ -622,7 +676,7 @@ async function finishBuySell(ctx: MyContext) {
     .match(accountFilter)
     .maybeSingle()
 
-  const cashDelta = type === "buy" ? -totalCost : totalCost
+  const cashDelta = type === "buy" ? -buyCashOutlay : sellCashProceeds
 
   if (accountRow) {
     await supabase
@@ -641,8 +695,10 @@ async function finishBuySell(ctx: MyContext) {
     })
   }
 
+  const totalDisplay = type === "buy" ? buyCashOutlay : sellCashProceeds
+  const feeNote = commission > 0 ? ` (incl. ${fmtAmt(commission)} fee)` : ""
   await ctx.reply(
-    `✅ ${session.profileName} ${type === "buy" ? "bought" : "sold"} ${quantity} ${symbol} @ ${fmtAmt(price)}. Total: ${fmtAmt(totalCost)}.`
+    `✅ ${session.profileName} ${type === "buy" ? "bought" : "sold"} ${quantity} ${symbol} @ ${fmtAmt(price)}. Total: ${fmtAmt(totalDisplay)}${feeNote}.`,
   )
   return ctx.scene.leave()
 }

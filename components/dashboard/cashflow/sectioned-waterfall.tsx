@@ -21,6 +21,7 @@ import type {
   InvestmentWaterfallSection,
   CpfWaterfallSection,
   WaterfallData,
+  SubBreakdownItem,
 } from "./waterfall-chart"
 
 /* ------------------------------------------------------------------ */
@@ -60,20 +61,35 @@ function buildBankBars(data: WaterfallData): WaterfallBarItem[] {
   }
 
   const ob = data.outflowBreakdown
-  const outflowItems = [
+  const sb = data.subBreakdowns ?? {}
+
+  // Merge sub-items for combined bars (ILP + ILP One-Time, Loans + Early Repayments)
+  const mergeSub = (...keys: string[]): SubBreakdownItem[] | undefined => {
+    const merged = keys.flatMap((k) => sb[k] ?? [])
+    return merged.length > 0 ? merged : undefined
+  }
+
+  // Handle negative net deployment (selling > buying) as inflow
+  if (ob.investments < 0) {
+    const retVal = Math.abs(ob.investments)
+    bars.push({ name: "Investment Returns", start: cumulative, end: cumulative + retVal, value: retVal, type: "inflow", subItems: sb["Investments"] })
+    cumulative += retVal
+  }
+
+  const outflowItems: { name: string; value: number; subItems?: SubBreakdownItem[] }[] = [
     { name: "Spending", value: ob.discretionary },
-    { name: "Insurance", value: ob.insurance },
-    { name: "ILP", value: ob.ilp + ob.ilpOneTime },
-    { name: "Loans", value: ob.loans + ob.earlyRepayments },
+    { name: "Insurance", value: ob.insurance, subItems: sb["Insurance"] },
+    { name: "ILP", value: ob.ilp + ob.ilpOneTime, subItems: mergeSub("ILP", "ILP (One-Time)") },
+    { name: "Loans", value: ob.loans + ob.earlyRepayments, subItems: mergeSub("Loans", "Early Repayments") },
     { name: "Tax", value: ob.tax },
-    { name: "SRS/CPF Top-ups", value: ob.taxReliefCash },
-    { name: "Savings Goals", value: ob.savingsGoals },
-    { name: "Investments", value: ob.investments },
+    { name: "SRS/CPF Top-ups", value: ob.taxReliefCash, subItems: sb["SRS/CPF Top-ups"] },
+    { name: "Savings Goals", value: ob.savingsGoals, subItems: sb["Savings Goals"] },
+    ...(ob.investments > 0 ? [{ name: "Investments", value: ob.investments, subItems: sb["Investments"] }] : []),
     { name: "GIRO Transfers", value: ob.giroTransfers ?? 0 },
   ]
   for (const item of outflowItems) {
     if (item.value > 0) {
-      bars.push({ name: item.name, start: cumulative, end: cumulative - item.value, value: -item.value, type: "outflow" })
+      bars.push({ name: item.name, start: cumulative, end: cumulative - item.value, value: -item.value, type: "outflow", subItems: item.subItems })
       cumulative -= item.value
     }
   }
@@ -89,20 +105,49 @@ function buildInvestmentBars(data: InvestmentWaterfallSection): WaterfallBarItem
   const bars: WaterfallBarItem[] = []
   let cumulative = data.startingValue
 
+  // ── Solid bars (real cash flows) ──
   bars.push({ name: "Starting Value", start: 0, end: data.startingValue, value: data.startingValue, type: "anchor" })
 
+  // Cash Deployed / Withdrawn (securities buys - sells)
+  if (data.netDeployment && data.netDeployment !== 0) {
+    const label = data.netDeployment > 0 ? "Cash Deployed" : "Cash Withdrawn"
+    const type = data.netDeployment > 0 ? "inflow" : "outflow"
+    bars.push({ name: label, start: cumulative, end: cumulative + data.netDeployment, value: data.netDeployment, type, subItems: data.deploymentSubItems })
+    cumulative += data.netDeployment
+  }
+
+  // ILP Premiums (direct bank deduction into ILP)
+  if (data.ilpPremiums && data.ilpPremiums > 0) {
+    bars.push({ name: "ILP Premiums", start: cumulative, end: cumulative + data.ilpPremiums, value: data.ilpPremiums, type: "inflow", subItems: data.ilpSubItems })
+    cumulative += data.ilpPremiums
+  }
+
+  // Dividends
   if (data.dividends > 0) {
     bars.push({ name: "Dividends", start: cumulative, end: cumulative + data.dividends, value: data.dividends, type: "inflow" })
     cumulative += data.dividends
   }
-  if (data.marketGain !== 0) {
-    const label = data.marketGain >= 0 ? "Market Gain" : "Market Loss"
-    const type = data.marketGain >= 0 ? "inflow" : "outflow"
-    bars.push({ name: label, start: cumulative, end: cumulative + data.marketGain, value: data.marketGain, type })
-    cumulative += data.marketGain
+
+  // Capital Base anchor (solid) — what value should be without market movement
+  bars.push({ name: "Capital Base", start: 0, end: cumulative, value: cumulative, type: "anchor" })
+
+  // ── Dashed/perceived bars (unrealized gains/losses) ──
+  const secGL = data.securitiesGainLoss ?? 0
+  if (secGL !== 0) {
+    const label = secGL >= 0 ? "Securities Gain" : "Securities Loss"
+    bars.push({ name: label, start: cumulative, end: cumulative + secGL, value: secGL, type: "perceived" })
+    cumulative += secGL
   }
 
-  bars.push({ name: "Ending Value", start: 0, end: data.endingValue, value: data.endingValue, type: "anchor" })
+  const ilpPerf = data.ilpPerformance ?? 0
+  if (ilpPerf !== 0) {
+    const label = ilpPerf >= 0 ? "ILP Gain" : "ILP Loss"
+    bars.push({ name: label, start: cumulative, end: cumulative + ilpPerf, value: ilpPerf, type: "perceived" })
+    cumulative += ilpPerf
+  }
+
+  // Market Value anchor (perceived) — actual snapshot value
+  bars.push({ name: "Market Value", start: 0, end: data.endingValue, value: data.endingValue, type: "perceived" })
 
   return bars
 }
@@ -176,13 +221,16 @@ function WaterfallMiniChart({ bars, width }: { bars: WaterfallBarItem[]; width: 
     for (let i = 0; i < bars.length - 1; i++) {
       const curr = bars[i]!
       const next = bars[i + 1]!
+      // Skip connectors to anchor/net bars (they start from 0)
       if (next.type === "anchor" || next.type === "net") continue
+      // Skip connector from solid anchor to first perceived bar (visual separator)
+      if (curr.type === "anchor" && next.type === "perceived") continue
       const xVal = curr.end
       // Bottom edge of current bar
       const yTop = (yScale(curr.name) ?? 0) + barOffset + barH
       // Top edge of next bar
       const yBottom = (yScale(next.name) ?? 0) + barOffset
-      result.push({ x: xScale(xVal) ?? 0, yTop, yBottom, dashed: curr.type === "anchor" })
+      result.push({ x: xScale(xVal) ?? 0, yTop, yBottom, dashed: curr.type === "anchor" || curr.type === "perceived" })
     }
     return result
   }, [bars, yScale, xScale])
@@ -211,7 +259,11 @@ function WaterfallMiniChart({ bars, width }: { bars: WaterfallBarItem[]; width: 
             const barX = xScale(xStart) ?? 0
             const barWidth = Math.max((xScale(xEnd) ?? 0) - barX, 2)
             const isAnchor = bar.type === "anchor"
-            const fill = isAnchor ? NEUTRAL_FILL : bar.value >= 0 ? POSITIVE_FILL : NEGATIVE_FILL
+            const isPerceived = bar.type === "perceived"
+            const isAnchorOrPerceived = isAnchor || isPerceived
+            const fill = isAnchorOrPerceived
+              ? NEUTRAL_FILL
+              : bar.value >= 0 ? POSITIVE_FILL : NEGATIVE_FILL
 
             return (
               <g key={bar.name}>
@@ -220,8 +272,11 @@ function WaterfallMiniChart({ bars, width }: { bars: WaterfallBarItem[]; width: 
                   y={barY}
                   width={barWidth}
                   height={barHeight}
-                  fill={fill}
-                  fillOpacity={isAnchor ? 0.5 : 1}
+                  fill={isPerceived ? (bar.value >= 0 ? POSITIVE_FILL : NEGATIVE_FILL) : fill}
+                  fillOpacity={isPerceived ? 0.2 : isAnchor ? 0.5 : 1}
+                  strokeDasharray={isPerceived ? "4 2" : undefined}
+                  stroke={isPerceived ? (bar.value >= 0 ? POSITIVE_FILL : NEGATIVE_FILL) : undefined}
+                  strokeWidth={isPerceived ? 1.5 : 0}
                   rx={2}
                   ry={2}
                   onMouseMove={(e) =>
@@ -230,14 +285,16 @@ function WaterfallMiniChart({ bars, width }: { bars: WaterfallBarItem[]; width: 
                   onMouseLeave={hideTooltip}
                 />
                 <text
-                  x={bar.value >= 0 || isAnchor ? barX + barWidth + 6 : barX - 6}
+                  x={bar.value >= 0 || isAnchorOrPerceived ? barX + barWidth + 6 : barX - 6}
                   y={barY + barHeight / 2}
-                  textAnchor={bar.value >= 0 || isAnchor ? "start" : "end"}
+                  textAnchor={bar.value >= 0 || isAnchorOrPerceived ? "start" : "end"}
                   dominantBaseline="middle"
                   fill="var(--color-foreground)"
+                  fillOpacity={isPerceived ? 0.5 : 1}
                   fontSize={11}
                 >
-                  {fmtValue(bar.value, isAnchor)}
+                  {isPerceived && bar.name === "Market Value" ? "≈ " : ""}
+                  {fmtValue(bar.value, isAnchorOrPerceived)}
                 </text>
               </g>
             )
@@ -268,6 +325,37 @@ function WaterfallMiniChart({ bars, width }: { bars: WaterfallBarItem[]; width: 
           >
             <div className="font-medium">{tooltipData.name}</div>
             <div>{fmtValue(tooltipData.value, tooltipData.type === "anchor")}</div>
+            {tooltipData.subItems && tooltipData.subItems.length > 0 && (
+              <div className="mt-1.5 space-y-0.5 border-t border-border pt-1.5">
+                {tooltipData.subItems.slice(0, 6).map((item, i) => (
+                  <div
+                    key={i}
+                    className="flex justify-between gap-3 text-muted-foreground"
+                  >
+                    <span className="truncate">{item.label}</span>
+                    <span className="shrink-0 tabular-nums">
+                      $
+                      {Math.abs(item.amount).toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      })}
+                    </span>
+                  </div>
+                ))}
+                {tooltipData.subItems.length > 6 && (
+                  <div className="flex justify-between gap-3 text-muted-foreground">
+                    <span>+{tooltipData.subItems.length - 6} more</span>
+                    <span className="shrink-0 tabular-nums">
+                      $
+                      {Math.abs(
+                        tooltipData.subItems
+                          .slice(6)
+                          .reduce((s, i) => s + i.amount, 0),
+                      ).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>,
           document.body,
         )}

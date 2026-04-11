@@ -9,6 +9,8 @@ import { AxisBottom, AxisLeft } from "@visx/axis"
 import { useTooltip } from "@visx/tooltip"
 import { ParentSize } from "@visx/responsive"
 
+export type SubBreakdownItem = { label: string; amount: number }
+
 export type WaterfallData = {
   month: string
   startingBankBalance?: number
@@ -36,6 +38,7 @@ export type WaterfallData = {
     giroTransfers?: number
   }
   netSavings: number
+  subBreakdowns?: Record<string, SubBreakdownItem[]>
 }
 
 export type WaterfallBarItem = {
@@ -43,7 +46,8 @@ export type WaterfallBarItem = {
   start: number
   end: number
   value: number
-  type: "anchor" | "inflow" | "outflow" | "net"
+  type: "anchor" | "inflow" | "outflow" | "net" | "perceived"
+  subItems?: SubBreakdownItem[]
 }
 
 export type InvestmentWaterfallSection = {
@@ -51,6 +55,18 @@ export type InvestmentWaterfallSection = {
   endingValue: number
   dividends: number
   marketGain: number
+  /** Net cash deployed from bank this month (buys - sells). */
+  netDeployment?: number
+  /** Total ILP premiums paid from bank this month (ilp + ilpOneTime). */
+  ilpPremiums?: number
+  /** Market movement on stocks/ETF/gold only. */
+  securitiesGainLoss?: number
+  /** ILP fund growth beyond premiums paid (perceived). */
+  ilpPerformance?: number
+  /** Per-symbol breakdown for Cash Deployed tooltip. */
+  deploymentSubItems?: SubBreakdownItem[]
+  /** Per-product breakdown for ILP Premiums tooltip. */
+  ilpSubItems?: SubBreakdownItem[]
 }
 
 export type CpfWaterfallSection = {
@@ -113,8 +129,21 @@ export function buildWaterfallBars(data: WaterfallData): WaterfallBarItem[] {
     cumulative += item.value
   }
 
-  // Outflow items
+  // Outflow items (investments may be negative when selling > buying)
   const ob = data.outflowBreakdown
+  if (ob.investments < 0) {
+    // Net selling: money returning from investments to bank — show as inflow
+    bars.push({
+      name: "Investment Returns",
+      start: cumulative,
+      end: cumulative + Math.abs(ob.investments),
+      value: Math.abs(ob.investments),
+      type: "inflow",
+      subItems: data.subBreakdowns?.["Investments"],
+    })
+    cumulative += Math.abs(ob.investments)
+  }
+
   const outflowItems: { name: string; value: number }[] = [
     { name: "Spending", value: ob.discretionary },
     { name: "Insurance", value: ob.insurance },
@@ -125,7 +154,9 @@ export function buildWaterfallBars(data: WaterfallData): WaterfallBarItem[] {
     { name: "Tax", value: ob.tax },
     { name: "SRS/CPF Top-ups", value: ob.taxReliefCash },
     { name: "Savings Goals", value: ob.savingsGoals },
-    { name: "Investments", value: ob.investments },
+    ...(ob.investments > 0
+      ? [{ name: "Investments", value: ob.investments }]
+      : []),
     { name: "GIRO Transfers", value: ob.giroTransfers ?? 0 },
   ]
 
@@ -137,6 +168,7 @@ export function buildWaterfallBars(data: WaterfallData): WaterfallBarItem[] {
         end: cumulative - item.value,
         value: -item.value,
         type: "outflow",
+        subItems: data.subBreakdowns?.[item.name],
       })
       cumulative -= item.value
     }
@@ -174,6 +206,44 @@ function formatValue(value: number, isAnchor = false): string {
   if (isAnchor)
     return `$${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
   return `${value >= 0 ? "+" : ""}$${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+}
+
+const MAX_SUB_ITEMS = 6
+
+function SubBreakdownList({ subItems }: { subItems?: SubBreakdownItem[] }) {
+  if (!subItems || subItems.length === 0) return null
+  const display = subItems.slice(0, MAX_SUB_ITEMS)
+  const rest = subItems.slice(MAX_SUB_ITEMS)
+  const restTotal = rest.reduce((s, i) => s + i.amount, 0)
+  return (
+    <div className="mt-1.5 space-y-0.5 border-t border-border pt-1.5">
+      {display.map((item, i) => (
+        <div
+          key={i}
+          className="flex justify-between gap-3 text-muted-foreground"
+        >
+          <span className="truncate">{item.label}</span>
+          <span className="shrink-0 tabular-nums">
+            $
+            {Math.abs(item.amount).toLocaleString(undefined, {
+              maximumFractionDigits: 0,
+            })}
+          </span>
+        </div>
+      ))}
+      {rest.length > 0 && (
+        <div className="flex justify-between gap-3 text-muted-foreground">
+          <span>+{rest.length} more</span>
+          <span className="shrink-0 tabular-nums">
+            $
+            {Math.abs(restTotal).toLocaleString(undefined, {
+              maximumFractionDigits: 0,
+            })}
+          </span>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function WaterfallTooltipContent({
@@ -222,6 +292,7 @@ function WaterfallTooltipContent({
           {pctOfInflow.toFixed(1)}% of inflow
         </div>
       )}
+      <SubBreakdownList subItems={bar.subItems} />
     </>
   )
 }

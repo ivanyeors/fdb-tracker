@@ -79,6 +79,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Plus, CreditCard, Package } from "lucide-react"
+import { PortfolioSummary } from "@/components/dashboard/investments/portfolio-summary"
 
 const AllocationChart = dynamic(
   () =>
@@ -159,6 +160,7 @@ type TransactionRow = {
   type: string
   quantity: number
   price: number
+  commission?: number
   journal_text?: string | null
   screenshot_url?: string | null
   created_at: string
@@ -320,6 +322,7 @@ function processTransactionsPayload(
     type: r.type as "buy" | "sell",
     quantity: r.quantity,
     price: r.price,
+    commission: r.commission ?? 0,
     journalText: r.journal_text ?? undefined,
     screenshotUrl: r.screenshot_url ?? undefined,
     date: r.created_at,
@@ -495,7 +498,12 @@ export function InvestmentsClient({
   /** Live market values are USD; convert to SGD for totals with cash / ILP. */
   const totalValue = useMemo(
     () => holdings.reduce((sum, h) => sum + (h.currentValue ?? 0), 0),
-    [holdings]
+    [holdings],
+  )
+
+  const totalInvested = useMemo(
+    () => holdings.reduce((sum, h) => sum + h.costBasis, 0),
+    [holdings],
   )
 
   const ilpTotalSum = useMemo(
@@ -813,6 +821,14 @@ export function InvestmentsClient({
           <InvestmentsCurrencyToggle />
         </SectionHeader>
 
+        {!isLoading && (
+          <PortfolioSummary
+            totalInvested={totalInvested}
+            currentValue={totalValue}
+            cashBalance={cashBalance}
+          />
+        )}
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <InvestmentValueChart
             profileId={activeProfileId}
@@ -994,18 +1010,29 @@ export function InvestmentsClient({
           </div>
 
           <TabsContent value="holdings" className="mt-4 space-y-4">
-            <div className="flex flex-wrap justify-end gap-2">
-              {activeProfileId || activeFamilyId ? (
-                <Button
-                  type="button"
-                  onClick={() => setCashBalanceOpen(true)}
-                >
-                  Cash balance
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {(activeProfileId || activeFamilyId) && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Brokerage Cash: </span>
+                  <span className="font-semibold tabular-nums">
+                    {formatCurrency(cashBalance)}
+                  </span>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {activeProfileId || activeFamilyId ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCashBalanceOpen(true)}
+                  >
+                    Edit cash
+                  </Button>
+                ) : null}
+                <Button type="button" onClick={() => setAddHoldingOpen(true)}>
+                  Add holding
                 </Button>
-              ) : null}
-              <Button type="button" onClick={() => setAddHoldingOpen(true)}>
-                Add holding
-              </Button>
+              </div>
             </div>
             {activeProfileId || activeFamilyId ? (
               <ResponsiveSheet open={cashBalanceOpen} onOpenChange={setCashBalanceOpen}>

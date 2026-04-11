@@ -20,6 +20,7 @@ const createTransactionSchema = z.object({
   type: z.enum(["buy", "sell", "dividend"]),
   quantity: z.number().positive(),
   price: z.number().min(0),
+  commission: z.number().min(0).optional().default(0),
   journalText: z.string().optional(),
   screenshotUrl: z.string().url().optional(),
   profileId: z.string().uuid().optional(),
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { symbol, type, quantity, price, journalText, screenshotUrl, profileId, familyId } =
+    const { symbol, type, quantity, price, commission, journalText, screenshotUrl, profileId, familyId } =
       parsed.data
     const supabase = createSupabaseAdmin()
     const resolved = await resolveFamilyAndProfiles(
@@ -114,6 +115,9 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     const amount = quantity * price
+    // Cash actually spent (buy) or received (sell) after commission
+    const buyCashOutlay = amount + commission
+    const sellCashProceeds = amount - commission
     const accountFilter = {
       family_id: resolved.familyId,
       profile_id: profileId ?? null,
@@ -150,7 +154,7 @@ export async function POST(request: NextRequest) {
         const { error: cashError } = await supabase
           .from("investment_accounts")
           .update({
-            cash_balance: accountRow.cash_balance + amount,
+            cash_balance: accountRow.cash_balance + sellCashProceeds,
             updated_at: new Date().toISOString(),
           })
           .eq("id", accountRow.id)
@@ -169,7 +173,7 @@ export async function POST(request: NextRequest) {
           .insert({
             family_id: resolved.familyId,
             profile_id: profileId ?? null,
-            cash_balance: amount,
+            cash_balance: sellCashProceeds,
             updated_at: new Date().toISOString(),
           })
 
@@ -192,6 +196,7 @@ export async function POST(request: NextRequest) {
           type,
           quantity,
           price,
+          commission,
           ...(journalText && { journal_text: journalText }),
           ...(screenshotUrl && { screenshot_url: screenshotUrl }),
           ...(profileId && { profile_id: profileId }),
@@ -214,7 +219,7 @@ export async function POST(request: NextRequest) {
           await supabase
             .from("investment_accounts")
             .update({
-              cash_balance: acctRollback.cash_balance - amount,
+              cash_balance: acctRollback.cash_balance - sellCashProceeds,
               updated_at: new Date().toISOString(),
             })
             .eq("id", acctRollback.id)
@@ -294,6 +299,7 @@ export async function POST(request: NextRequest) {
         existingHolding.cost_basis,
         quantity,
         price,
+        commission,
       )
       const newUnits = existingHolding.units + quantity
 
@@ -308,6 +314,9 @@ export async function POST(request: NextRequest) {
 
       investmentId = existingHolding.id
     } else {
+      // For new holdings, bake commission into cost basis
+      const effectiveCostBasis =
+        commission > 0 ? (amount + commission) / quantity : price
       const { data: newHolding, error: insertError } = await supabase
         .from("investments")
         .insert({
@@ -315,7 +324,7 @@ export async function POST(request: NextRequest) {
           symbol,
           type: "stock",
           units: quantity,
-          cost_basis: price,
+          cost_basis: effectiveCostBasis,
           ...(profileId && { profile_id: profileId }),
         })
         .select()
@@ -329,7 +338,7 @@ export async function POST(request: NextRequest) {
       wasNewHolding = true
     }
 
-    // Step 2: Update cash balance
+    // Step 2: Update cash balance (includes commission)
     const { data: accountRow } = await supabase
       .from("investment_accounts")
       .select("id, cash_balance")
@@ -340,7 +349,7 @@ export async function POST(request: NextRequest) {
       const { error: cashError } = await supabase
         .from("investment_accounts")
         .update({
-          cash_balance: accountRow.cash_balance - amount,
+          cash_balance: accountRow.cash_balance - buyCashOutlay,
           updated_at: new Date().toISOString(),
         })
         .eq("id", accountRow.id)
@@ -363,7 +372,7 @@ export async function POST(request: NextRequest) {
         .insert({
           family_id: resolved.familyId,
           profile_id: profileId ?? null,
-          cash_balance: -amount,
+          cash_balance: -buyCashOutlay,
           updated_at: new Date().toISOString(),
         })
 
@@ -390,6 +399,7 @@ export async function POST(request: NextRequest) {
         type,
         quantity,
         price,
+        commission,
         ...(journalText && { journal_text: journalText }),
         ...(screenshotUrl && { screenshot_url: screenshotUrl }),
         ...(profileId && { profile_id: profileId }),
@@ -416,7 +426,7 @@ export async function POST(request: NextRequest) {
         await supabase
           .from("investment_accounts")
           .update({
-            cash_balance: acctRollback.cash_balance + amount,
+            cash_balance: acctRollback.cash_balance + buyCashOutlay,
             updated_at: new Date().toISOString(),
           })
           .eq("id", acctRollback.id)

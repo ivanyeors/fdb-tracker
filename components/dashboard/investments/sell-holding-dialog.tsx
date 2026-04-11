@@ -32,6 +32,7 @@ interface StockNote {
 export interface SellHoldingInitial {
   symbol: string
   maxUnits: number
+  holdingType?: string
 }
 
 interface SellHoldingDialogProps {
@@ -45,7 +46,9 @@ export function SellHoldingDialog({ initial, defaultPrice, onSuccess }: SellHold
   const [open, setOpen] = useState(false)
   const [quantity, setQuantity] = useState("")
   const [price, setPrice] = useState<number | null>(null)
+  const [commission, setCommission] = useState<number | null>(null)
   const [journalText, setJournalText] = useState("")
+  const showCommission = !initial.holdingType || !["gold", "silver"].includes(initial.holdingType)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [notes, setNotes] = useState<StockNote[]>([])
 
@@ -53,6 +56,7 @@ export function SellHoldingDialog({ initial, defaultPrice, onSuccess }: SellHold
     if (!open) return
     setQuantity("")
     setPrice(defaultPrice ?? null)
+    setCommission(null)
     setJournalText("")
   }, [open, initial.symbol, initial.maxUnits, defaultPrice])
 
@@ -103,6 +107,7 @@ export function SellHoldingDialog({ initial, defaultPrice, onSuccess }: SellHold
           type: "sell",
           quantity: qty,
           price: p,
+          ...((commission ?? 0) > 0 && { commission }),
           ...(journalText.trim() && { journalText: journalText.trim() }),
           ...(activeProfileId && { profileId: activeProfileId }),
           ...(activeFamilyId && !activeProfileId && { familyId: activeFamilyId }),
@@ -196,6 +201,26 @@ export function SellHoldingDialog({ initial, defaultPrice, onSuccess }: SellHold
               required
             />
           </div>
+          {showCommission && (
+            <div className="space-y-1.5">
+              <Label htmlFor="sell-commission">Commission (optional)</Label>
+              <CurrencyInput
+                id="sell-commission"
+                placeholder="0.00"
+                value={commission}
+                onChange={(v) => setCommission(v)}
+              />
+              {(commission ?? 0) > 0 && price != null && quantity && (
+                <p className="text-muted-foreground text-xs">
+                  Net proceeds: $
+                  {(parseFloat(quantity) * price - (commission ?? 0)).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+              )}
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="sell-note">Note (optional)</Label>
             <Textarea

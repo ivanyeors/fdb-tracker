@@ -194,6 +194,7 @@ export function HoldingDetailSheet({
                                 initial={{
                                   symbol: lot.symbol,
                                   maxUnits: lot.units,
+                                  holdingType: lot.type,
                                 }}
                                 onSuccess={handleSuccess}
                               />

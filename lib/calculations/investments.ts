@@ -46,8 +46,10 @@ export function calculateWeightedAverageCost(
   existingCostBasis: number,
   newUnits: number,
   newPrice: number,
+  commission?: number,
 ): number {
-  const totalCost = existingUnits * existingCostBasis + newUnits * newPrice
+  const totalCost =
+    existingUnits * existingCostBasis + newUnits * newPrice + (commission ?? 0)
   const totalUnits = existingUnits + newUnits
   return totalUnits !== 0 ? totalCost / totalUnits : 0
 }

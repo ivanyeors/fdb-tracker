@@ -23,6 +23,7 @@ import {
   sumOneTimeIlpForMonth,
   sumTaxReliefCashForMonth,
   sumNetInvestmentPurchasesForMonth,
+  rawNetDeploymentForMonth,
   GIRO_OUTFLOW_DESTINATIONS,
   type CashflowRow,
   type IncomeData,
@@ -54,6 +55,7 @@ type SingleMonthResult = {
   netSavings: number
   investments?: InvestmentWaterfallSection
   cpf?: CpfWaterfallSection
+  subBreakdowns?: Record<string, Array<{ label: string; amount: number }>>
 }
 
 export async function fetchSingleMonthCashflow(
@@ -102,16 +104,16 @@ export async function fetchSingleMonthCashflow(
     supabase
       .from("insurance_policies")
       .select(
-        "profile_id, premium_amount, frequency, is_active, deduct_from_outflow, type, coverage_amount, end_date"
+        "profile_id, name, premium_amount, frequency, is_active, deduct_from_outflow, type, coverage_amount, end_date"
       )
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("ilp_products")
-      .select("profile_id, monthly_premium, premium_payment_mode")
+      .select("id, profile_id, name, monthly_premium, premium_payment_mode")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("loans")
-      .select("id, profile_id, principal, rate_pct, tenure_months, start_date, use_cpf_oa")
+      .select("id, profile_id, name, principal, rate_pct, tenure_months, start_date, use_cpf_oa")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("tax_relief_inputs")
@@ -120,18 +122,22 @@ export async function fetchSingleMonthCashflow(
       .eq("year", year),
     supabase
       .from("ilp_products")
-      .select("monthly_premium, premium_payment_mode")
+      .select("id, name, monthly_premium, premium_payment_mode")
       .eq("family_id", familyId)
       .is("profile_id", null),
     supabase
       .from("savings_goals")
-      .select("id, profile_id, monthly_auto_amount")
+      .select("id, profile_id, name, monthly_auto_amount")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
   ])
 
   // Additional fetches that depend on first batch results
   const allLoanIds = (loansRes.data ?? []).map((l) => (l as { id: string }).id)
   const allGoalIds = (savingsGoalsRes.data ?? []).map((g) => (g as { id: string }).id)
+  const allIlpProductIds = [
+    ...(ilpRes.data ?? []).map((p) => (p as { id?: string }).id).filter(Boolean),
+    ...(sharedIlpRes.data ?? []).map((p) => (p as { id?: string }).id).filter(Boolean),
+  ] as string[]
   const monthDate = new Date(monthStr)
   const nextMonthDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1)
   const nextMonthStr = nextMonthDate.toISOString().slice(0, 10)
@@ -139,7 +145,7 @@ export async function fetchSingleMonthCashflow(
   const prevMonthDate = new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1)
   const prevMonthStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}-01`
 
-  const [earlyRepaymentsRes, goalContributionsRes, oneTimeIlpRes, investmentTxnsRes, bankAccountsForInterestRes, dividendTxnsRes, invSnapshotStartRes, invSnapshotEndRes, cpfBalancesRes] =
+  const [earlyRepaymentsRes, goalContributionsRes, oneTimeIlpRes, investmentTxnsRes, bankAccountsForInterestRes, dividendTxnsRes, invSnapshotStartRes, invSnapshotEndRes, cpfBalancesRes, ilpEntriesStartRes, ilpEntriesEndRes] =
     await Promise.all([
       allLoanIds.length > 0
         ? supabase
@@ -159,13 +165,13 @@ export async function fetchSingleMonthCashflow(
         : Promise.resolve({ data: [] as Array<{ goal_id: string; amount: number; created_at: string }>, error: null }),
       supabase
         .from("ilp_products")
-        .select("profile_id, monthly_premium, created_at")
+        .select("profile_id, name, monthly_premium, created_at")
         .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
         .eq("premium_payment_mode", "one_time"),
       (() => {
         let q = supabase
           .from("investment_transactions")
-          .select("profile_id, type, quantity, price, created_at")
+          .select("profile_id, symbol, type, quantity, price, commission, created_at")
           .eq("family_id", familyId)
           .in("type", ["buy", "sell"])
           .gte("created_at", monthStr)
@@ -222,6 +228,24 @@ export async function fetchSingleMonthCashflow(
         .select("profile_id, month, oa, sa, ma")
         .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
         .in("month", [prevMonthStr, monthStr]),
+      // ILP fund values at start of month (latest per product before monthStr)
+      allIlpProductIds.length > 0
+        ? supabase
+            .from("ilp_entries")
+            .select("product_id, fund_value, month")
+            .in("product_id", allIlpProductIds)
+            .lt("month", monthStr)
+            .order("month", { ascending: false })
+        : Promise.resolve({ data: [] as Array<{ product_id: string; fund_value: number; month: string }>, error: null }),
+      // ILP fund values at end of month (latest per product before nextMonthStr)
+      allIlpProductIds.length > 0
+        ? supabase
+            .from("ilp_entries")
+            .select("product_id, fund_value, month")
+            .in("product_id", allIlpProductIds)
+            .lt("month", nextMonthStr)
+            .order("month", { ascending: false })
+        : Promise.resolve({ data: [] as Array<{ product_id: string; fund_value: number; month: string }>, error: null }),
     ])
 
   // Fetch tax entries (actual_amount)
@@ -277,12 +301,16 @@ export async function fetchSingleMonthCashflow(
   )
 
   const nowDate = new Date().toISOString().slice(0, 10)
-  const insuranceByProfile = new Map<string, InsurancePolicy[]>()
+  const insuranceByProfile = new Map<
+    string,
+    Array<InsurancePolicy & { name: string }>
+  >()
   for (const pol of insuranceRes.data ?? []) {
     const pid = pol.profile_id as string
     if (pol.end_date && pol.end_date < nowDate) continue
     const list = insuranceByProfile.get(pid) ?? []
     list.push({
+      name: (pol.name as string) ?? "Policy",
       premium_amount: pol.premium_amount,
       frequency: pol.frequency,
       is_active: pol.is_active,
@@ -295,12 +323,13 @@ export async function fetchSingleMonthCashflow(
 
   const ilpByProfile = new Map<
     string,
-    Array<{ monthly_premium: number; premium_payment_mode?: string | null }>
+    Array<{ name: string; monthly_premium: number; premium_payment_mode?: string | null }>
   >()
   for (const row of ilpRes.data ?? []) {
     const pid = row.profile_id as string
     const list = ilpByProfile.get(pid) ?? []
     list.push({
+      name: (row.name as string) ?? "ILP Product",
       monthly_premium: row.monthly_premium,
       premium_payment_mode: row.premium_payment_mode,
     })
@@ -309,12 +338,13 @@ export async function fetchSingleMonthCashflow(
 
   const loansByProfile = new Map<
     string,
-    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean; start_date?: string | null }>
+    Array<{ name: string; principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean; start_date?: string | null }>
   >()
   for (const row of loansRes.data ?? []) {
     const pid = row.profile_id as string
     const list = loansByProfile.get(pid) ?? []
     list.push({
+      name: (row.name as string) ?? "Loan",
       principal: row.principal,
       rate_pct: row.rate_pct,
       tenure_months: row.tenure_months,
@@ -344,8 +374,11 @@ export async function fetchSingleMonthCashflow(
 
   // Build lookup maps for new data
   const loanProfileMap = new Map<string, string>()
+  const loanNameMap = new Map<string, string>()
   for (const loan of loansRes.data ?? []) {
-    loanProfileMap.set((loan as { id: string }).id, loan.profile_id as string)
+    const lid = (loan as { id: string }).id
+    loanProfileMap.set(lid, loan.profile_id as string)
+    loanNameMap.set(lid, (loan.name as string) ?? "Loan")
   }
 
   const earlyRepaymentsByProfile = new Map<
@@ -361,8 +394,11 @@ export async function fetchSingleMonthCashflow(
   }
 
   const goalProfileMap = new Map<string, string>()
+  const goalNameMap = new Map<string, string>()
   for (const g of savingsGoalsRes.data ?? []) {
-    goalProfileMap.set((g as { id: string }).id, g.profile_id as string)
+    const gid = (g as { id: string }).id
+    goalProfileMap.set(gid, g.profile_id as string)
+    goalNameMap.set(gid, (g.name as string) ?? "Goal")
   }
 
   const goalContribsByProfile = new Map<
@@ -379,27 +415,29 @@ export async function fetchSingleMonthCashflow(
 
   const oneTimeIlpByProfile = new Map<
     string,
-    Array<{ monthly_premium: number; created_at: string }>
+    Array<{ name: string; monthly_premium: number; created_at: string }>
   >()
   for (const ilpRow of oneTimeIlpRes.data ?? []) {
     const pid = ilpRow.profile_id as string
     const list = oneTimeIlpByProfile.get(pid) ?? []
-    list.push({ monthly_premium: ilpRow.monthly_premium, created_at: ilpRow.created_at })
+    list.push({ name: (ilpRow.name as string) ?? "ILP Product", monthly_premium: ilpRow.monthly_premium, created_at: ilpRow.created_at })
     oneTimeIlpByProfile.set(pid, list)
   }
 
   const investmentTxnsByProfile = new Map<
     string,
-    Array<{ type: string; quantity: number; price: number; created_at: string }>
+    Array<{ symbol: string; type: string; quantity: number; price: number; commission?: number; created_at: string }>
   >()
   for (const txn of investmentTxnsRes.data ?? []) {
     const pid = txn.profile_id as string
     if (!pid) continue
     const list = investmentTxnsByProfile.get(pid) ?? []
     list.push({
+      symbol: (txn.symbol as string) ?? "Unknown",
       type: txn.type,
       quantity: txn.quantity,
       price: txn.price,
+      commission: txn.commission ?? 0,
       created_at: txn.created_at,
     })
     investmentTxnsByProfile.set(pid, list)
@@ -419,6 +457,17 @@ export async function fetchSingleMonthCashflow(
   let taxReliefCash = 0
   let savingsGoals = 0
   let investments = 0
+
+  // Sub-breakdown collectors
+  type SubItem = { label: string; amount: number }
+  const insuranceSub: SubItem[] = []
+  const ilpSub: SubItem[] = []
+  const ilpOneTimeSub: SubItem[] = []
+  const loansSub: SubItem[] = []
+  const earlyRepaymentsSub: SubItem[] = []
+  const savingsGoalsSub: SubItem[] = []
+  const investmentsBySymbol = new Map<string, number>()
+  const taxReliefCashSub: SubItem[] = []
 
   // Compute bank interest (batched in-memory)
   let bankInterest = 0
@@ -490,40 +539,136 @@ export async function fetchSingleMonthCashflow(
     discretionary += userOutflow
     giroTransfers += giroByProfile.get(pid) ?? 0
 
+    // Insurance + legacy ILP (with sub-breakdown)
     const pols = insuranceByProfile.get(pid) ?? []
     const insSplit = sumInsuranceOutflowPremiumsSplit(pols)
     insurance += insSplit.insurance
     ilp += insSplit.ilpFromLegacyPolicies
+    for (const p of pols) {
+      if (!p.is_active || !p.deduct_from_outflow) continue
+      const monthlyEq =
+        p.frequency === "monthly" ? p.premium_amount : p.premium_amount / 12
+      if (monthlyEq > 0) {
+        if (p.type === "ilp") {
+          ilpSub.push({ label: p.name, amount: monthlyEq })
+        } else {
+          insuranceSub.push({ label: p.name, amount: monthlyEq })
+        }
+      }
+    }
 
-    ilp += sumIlpPremiums(ilpByProfile.get(pid) ?? [])
-    loans += sumLoanMonthlyPayments(loansByProfile.get(pid) ?? [], monthStr)
+    // ILP products (with sub-breakdown)
+    const profileIlps = ilpByProfile.get(pid) ?? []
+    ilp += sumIlpPremiums(profileIlps)
+    for (const p of profileIlps) {
+      if (p.premium_payment_mode === "one_time") continue
+      if (p.monthly_premium > 0) {
+        ilpSub.push({ label: p.name, amount: p.monthly_premium })
+      }
+    }
+
+    // Loans (with sub-breakdown)
+    const profileLoansData = loansByProfile.get(pid) ?? []
+    loans += sumLoanMonthlyPayments(profileLoansData, monthStr)
+    for (const loan of profileLoansData) {
+      if (loan.use_cpf_oa) continue
+      if (loan.start_date && loan.start_date > monthStr) continue
+      const monthlyRate = loan.rate_pct / 100 / 12
+      let payment = 0
+      if (monthlyRate > 0 && loan.tenure_months > 0) {
+        payment = (loan.principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -loan.tenure_months))
+      } else if (loan.tenure_months > 0) {
+        payment = loan.principal / loan.tenure_months
+      }
+      if (payment > 0) loansSub.push({ label: loan.name, amount: payment })
+    }
+
+    // Savings goals (with sub-breakdown)
     savingsGoals += savingsGoalsByProfile.get(pid) ?? 0
+    for (const g of savingsGoalsRes.data ?? []) {
+      if ((g.profile_id as string) !== pid) continue
+      const amt = (g.monthly_auto_amount as number) ?? 0
+      if (amt > 0) {
+        savingsGoalsSub.push({ label: (g.name as string) ?? "Goal", amount: amt })
+      }
+    }
     savingsGoals += sumGoalContributionsForMonth(
       goalContribsByProfile.get(pid) ?? [],
       monthStr,
     )
+    for (const gc of goalContribsByProfile.get(pid) ?? []) {
+      const gcMonth = gc.created_at.slice(0, 7)
+      if (gcMonth === monthStr.slice(0, 7) && gc.amount > 0) {
+        const gid = [...goalProfileMap.entries()].find(([, v]) => v === pid)?.[0]
+        const gName = gid ? (goalNameMap.get(gid) ?? "Goal") : "Goal"
+        savingsGoalsSub.push({ label: `${gName} (extra)`, amount: gc.amount })
+      }
+    }
 
+    // Early repayments (with sub-breakdown)
     earlyRepayments += sumEarlyRepaymentsForMonth(
       earlyRepaymentsByProfile.get(pid) ?? [],
       monthStr,
     )
+    for (const er of earlyRepaymentsRes.data ?? []) {
+      const erPid = loanProfileMap.get(er.loan_id)
+      if (erPid !== pid) continue
+      const erMonth = er.date.slice(0, 7)
+      if (erMonth !== monthStr.slice(0, 7)) continue
+      const total = er.amount + (er.penalty_amount ?? 0)
+      if (total > 0) {
+        earlyRepaymentsSub.push({ label: loanNameMap.get(er.loan_id) ?? "Loan", amount: total })
+      }
+    }
 
+    // ILP one-time (with sub-breakdown)
     ilpOneTime += sumOneTimeIlpForMonth(
       oneTimeIlpByProfile.get(pid) ?? [],
       monthStr,
     )
+    for (const p of oneTimeIlpByProfile.get(pid) ?? []) {
+      const pMonth = p.created_at.slice(0, 7)
+      if (pMonth === monthStr.slice(0, 7) && p.monthly_premium > 0) {
+        ilpOneTimeSub.push({ label: p.name, amount: p.monthly_premium })
+      }
+    }
 
+    // Tax relief cash (with sub-breakdown)
     taxReliefCash += sumTaxReliefCashForMonth(
       (taxReliefRes.data ?? [])
         .filter((tr) => tr.profile_id === pid)
         .map((tr) => ({ relief_type: tr.relief_type, amount: tr.amount, year: tr.year as number })),
       year,
     )
+    const CASH_RELIEF_LABELS: Record<string, string> = {
+      srs: "SRS",
+      cpf_topup_self: "CPF Top-up (Self)",
+      cpf_topup_family: "CPF Top-up (Family)",
+    }
+    for (const tr of (taxReliefRes.data ?? []).filter((r) => r.profile_id === pid)) {
+      if (tr.year !== year) continue
+      const label = CASH_RELIEF_LABELS[tr.relief_type]
+      if (label && tr.amount > 0) {
+        taxReliefCashSub.push({ label, amount: tr.amount / 12 })
+      }
+    }
 
-    investments += sumNetInvestmentPurchasesForMonth(
+    // Investments — raw net deployment (can be negative when selling > buying)
+    investments += rawNetDeploymentForMonth(
       investmentTxnsByProfile.get(pid) ?? [],
       monthStr,
     )
+    for (const txn of investmentTxnsByProfile.get(pid) ?? []) {
+      const txnMonth = txn.created_at.slice(0, 7)
+      if (txnMonth !== monthStr.slice(0, 7)) continue
+      const fee = txn.commission ?? 0
+      const current = investmentsBySymbol.get(txn.symbol) ?? 0
+      if (txn.type === "buy") {
+        investmentsBySymbol.set(txn.symbol, current + txn.quantity * txn.price + fee)
+      } else if (txn.type === "sell") {
+        investmentsBySymbol.set(txn.symbol, current - (txn.quantity * txn.price - fee))
+      }
+    }
 
     tax += monthlyTaxForProfile(
       pid,
@@ -536,8 +681,14 @@ export async function fetchSingleMonthCashflow(
     )
   }
 
-  // Shared ILP
+  // Shared ILP (with sub-breakdown)
   ilp += sumIlpPremiums(sharedIlpRes.data)
+  for (const p of sharedIlpRes.data ?? []) {
+    if (p.premium_payment_mode === "one_time") continue
+    if (p.monthly_premium > 0) {
+      ilpSub.push({ label: (p.name as string) ?? "Shared ILP", amount: p.monthly_premium })
+    }
+  }
 
   const outflowTotal =
     discretionary +
@@ -573,13 +724,56 @@ export async function fetchSingleMonthCashflow(
     const invStartVal = invStartSnapshot?.total_value ?? 0
     const invEndVal = invEndSnapshot?.total_value ?? 0
 
-    const invMarketGain = invEndVal - invStartVal - dividends
+    // Raw net deployment (buys - sells, not floored) to isolate actual market movement
+    let netDeployment = 0
+    for (const pid of profileIds) {
+      netDeployment += rawNetDeploymentForMonth(
+        investmentTxnsByProfile.get(pid) ?? [],
+        monthStr,
+      )
+    }
+
+    // ILP premiums paid from bank this month
+    const totalIlpPremiums = ilp + ilpOneTime
+
+    // ILP fund totals at start and end of month (latest per product)
+    const sumLatestPerProduct = (rows: Array<{ product_id: string; fund_value: number }> | null): number => {
+      if (!rows?.length) return 0
+      const latest = new Map<string, number>()
+      for (const r of rows) {
+        if (!latest.has(r.product_id)) latest.set(r.product_id, r.fund_value)
+      }
+      return Array.from(latest.values()).reduce((s, v) => s + v, 0)
+    }
+    const ilpStartTotal = sumLatestPerProduct(ilpEntriesStartRes.data)
+    const ilpEndTotal = sumLatestPerProduct(ilpEntriesEndRes.data)
+
+    // Total market gain (including ILP)
+    const invMarketGain = invEndVal - invStartVal - dividends - netDeployment - totalIlpPremiums
+
+    // Split: ILP performance vs securities gain/loss
+    const ilpPerformance = ilpEndTotal - ilpStartTotal - totalIlpPremiums
+    const securitiesGainLoss = invMarketGain - ilpPerformance
+
+    // Per-symbol investment sub-breakdown (for Cash Deployed tooltip)
+    const investmentSub = [...investmentsBySymbol.entries()]
+      .filter(([, net]) => net !== 0)
+      .map(([symbol, net]) => ({ label: symbol, amount: round(Math.abs(net)) }))
+      .sort((a, b) => b.amount - a.amount)
 
     investmentSection = {
       startingValue: round(invStartVal),
       endingValue: round(invEndVal),
       dividends: round(dividends),
       marketGain: round(invMarketGain),
+      netDeployment: round(netDeployment),
+      ilpPremiums: round(totalIlpPremiums),
+      securitiesGainLoss: round(securitiesGainLoss),
+      ilpPerformance: round(ilpPerformance),
+      deploymentSubItems: investmentSub.length > 0 ? investmentSub : undefined,
+      ilpSubItems: [...ilpSub, ...ilpOneTimeSub].length > 0
+        ? [...ilpSub, ...ilpOneTimeSub]
+        : undefined,
     }
   }
 
@@ -657,6 +851,26 @@ export async function fetchSingleMonthCashflow(
         )
       : undefined
 
+  // Build sub-breakdowns (only include categories with 2+ items)
+  const subBreakdowns: Record<string, Array<{ label: string; amount: number }>> = {}
+  const roundSub = (items: SubItem[]) =>
+    items.filter((i) => i.amount > 0).map((i) => ({ label: i.label, amount: round(i.amount) }))
+
+  if (insuranceSub.length >= 2) subBreakdowns["Insurance"] = roundSub(insuranceSub)
+  if (ilpSub.length >= 2) subBreakdowns["ILP"] = roundSub(ilpSub)
+  if (ilpOneTimeSub.length >= 2) subBreakdowns["ILP (One-Time)"] = roundSub(ilpOneTimeSub)
+  if (loansSub.length >= 2) subBreakdowns["Loans"] = roundSub(loansSub)
+  if (earlyRepaymentsSub.length >= 2) subBreakdowns["Early Repayments"] = roundSub(earlyRepaymentsSub)
+  if (savingsGoalsSub.length >= 2) subBreakdowns["Savings Goals"] = roundSub(savingsGoalsSub)
+  if (taxReliefCashSub.length >= 2) subBreakdowns["SRS/CPF Top-ups"] = roundSub(taxReliefCashSub)
+
+  // Investment sub-breakdown by symbol (filter out net-zero or negative symbols)
+  const investmentSub = [...investmentsBySymbol.entries()]
+    .filter(([, net]) => net > 0)
+    .map(([symbol, net]) => ({ label: symbol, amount: round(net) }))
+    .sort((a, b) => b.amount - a.amount)
+  if (investmentSub.length >= 2) subBreakdowns["Investments"] = investmentSub
+
   return {
     month,
     startingBankBalance: round(startingBankBalance),
@@ -680,5 +894,6 @@ export async function fetchSingleMonthCashflow(
     netSavings: round(netSavings),
     investments: investmentSection,
     cpf: cpfSection,
+    ...(Object.keys(subBreakdowns).length > 0 ? { subBreakdowns } : {}),
   }
 }

@@ -17,6 +17,7 @@ export interface JournalEntry {
   type: "buy" | "sell"
   quantity: number
   price: number
+  commission?: number
   journalText?: string
   screenshotUrl?: string
   date: string
@@ -97,7 +98,11 @@ export function JournalList({ entries }: JournalListProps) {
       <div className="space-y-2">
         {filtered.map((entry) => {
           const expanded = expandedId === entry.id
-          const total = entry.quantity * entry.price
+          const fee = entry.commission ?? 0
+          const total =
+            entry.type === "buy"
+              ? entry.quantity * entry.price + fee
+              : entry.quantity * entry.price - fee
           return (
             <div
               key={entry.id}
@@ -124,6 +129,11 @@ export function JournalList({ entries }: JournalListProps) {
                   </Badge>
                   <span>
                     {fmt(entry.quantity)} @ {formatMoney(entry.price)}
+                    {fee > 0 && (
+                      <span className="text-muted-foreground">
+                        {" "}+ {formatMoney(fee)} fee
+                      </span>
+                    )}
                   </span>
                   <span className="text-muted-foreground">
                     Total: {formatMoney(total)}
