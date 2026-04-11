@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { format } from "date-fns"
-import { Copy, Loader2, Trash2, ExternalLink } from "lucide-react"
+import { Copy, Loader2, Trash2, Link } from "lucide-react"
 import { toast } from "sonner"
 import {
   Card,
@@ -221,15 +221,17 @@ export function InviteCodesSection({
                       </TableCell>
                       <TableCell>
                         {c.botUrl ? (
-                          <a
-                            href={c.botUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => {
+                              navigator.clipboard.writeText(c.botUrl!)
+                              toast.success("Bot link copied")
+                            }}
                           >
-                            Open
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
+                            <Link className="h-3 w-3" />
+                          </Button>
                         ) : (
                           "—"
                         )}

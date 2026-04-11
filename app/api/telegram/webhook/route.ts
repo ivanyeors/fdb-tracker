@@ -272,22 +272,15 @@ function ensureHandlers() {
 
       // Deep link: /start signup_CODE
       if (payload.startsWith("signup_")) {
-        const code = payload.slice(7)
-        botState(ctx).signupCode = code
-        ctx.wizard?.selectStep?.(1) // skip code prompt
-        await ctx.scene.enter("signup_wizard")
-        // Jump to step 2 (validation) directly
-        ctx.wizard?.selectStep?.(1)
+        botState(ctx).signupCode = payload.slice(7)
+        await ctx.scene.enter("signup_wizard") // step 0 detects code and auto-processes
         return
       }
 
       // Deep link: /start join_CODE
       if (payload.startsWith("join_")) {
-        const code = payload.slice(5)
-        botState(ctx).joinCode = code
-        await ctx.scene.enter("join_wizard")
-        // Jump to step 2 (validation) directly
-        ctx.wizard?.selectStep?.(1)
+        botState(ctx).joinCode = payload.slice(5)
+        await ctx.scene.enter("join_wizard") // step 0 detects code and auto-processes
         return
       }
 

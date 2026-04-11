@@ -10,78 +10,40 @@ const TOTAL_STEPS = 3
 
 export const joinScene = new Scenes.WizardScene<MyContext>(
   "join_wizard",
-  // Step 1: Ask for invite code (skipped if from deep link)
+  // Step 0: Ask for invite code — or auto-process if from deep link
   async (ctx) => {
+    const deepLinkCode = botState(ctx).joinCode
+    if (deepLinkCode) {
+      // Deep link: validate immediately, skip the prompt
+      const handled = await validateAndShowProfiles(ctx, deepLinkCode)
+      if (handled === "error") return ctx.scene.leave()
+      // Jump to step 2 (profile selection/callback handler)
+      return ctx.wizard.selectStep(2)
+    }
+
     const header = progressHeader(1, TOTAL_STEPS, "Join household")
     await ctx.reply(`${header}\n\nPaste your invite code:`)
     return ctx.wizard.next()
   },
-  // Step 2: Validate code and show profile options
+  // Step 1: Receive typed code, validate
   async (ctx) => {
-    // Handle callback from profile selection (forwarded from step 3)
     if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
       return handleProfileCallback(ctx)
     }
 
-    let code = botState(ctx).joinCode
-
-    if (!code) {
-      if (!ctx.message || !("text" in ctx.message)) return undefined
-      code = ctx.message.text.trim()
-    }
+    if (!ctx.message || !("text" in ctx.message)) return undefined
+    const code = ctx.message.text.trim()
 
     if (!code) {
       await ctx.reply(errorMsg("Please enter a valid code."))
       return undefined
     }
 
-    const result = await validateCode(code)
-
-    if (!result.ok) {
-      const hint =
-        result.error === "This code has expired."
-          ? `This code has expired. Ask your household admin for a new invite code.`
-          : result.error
-      await ctx.reply(errorMsg(hint))
-      return ctx.scene.leave()
-    }
-
-    if (result.type !== "invite") {
-      await ctx.reply(
-        "This looks like a signup code. Use /signup to create a new account."
-      )
-      return ctx.scene.leave()
-    }
-
-    if (!result.householdId) {
-      await ctx.reply(errorMsg("Invalid invite code."))
-      return ctx.scene.leave()
-    }
-
-    // Store code data in session
-    ctx.scene.session.householdId = result.householdId
-    ctx.scene.session.expecting = result.id // store code ID
-
-    // If target profile is pre-selected, auto-link
-    if (result.targetProfileId) {
-      const supabase = createSupabaseAdmin()
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id, name, telegram_user_id")
-        .eq("id", result.targetProfileId)
-        .single()
-
-      if (profile && !profile.telegram_user_id) {
-        await showConfirmation(ctx, profile.id, profile.name)
-        return ctx.wizard.next()
-      }
-      // If pre-selected profile is already linked, fall through to picker
-    }
-
-    await showProfilePicker(ctx, result.householdId)
+    const handled = await validateAndShowProfiles(ctx, code)
+    if (handled === "error") return ctx.scene.leave()
     return ctx.wizard.next()
   },
-  // Step 3: Handle profile selection and link
+  // Step 2: Handle profile selection and link
   async (ctx) => {
     if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
       return handleProfileCallback(ctx)
@@ -105,6 +67,61 @@ export const joinScene = new Scenes.WizardScene<MyContext>(
     return undefined
   }
 )
+
+/**
+ * Shared validation logic: validate code, store session data, show profile picker.
+ * Returns "ok" if profiles are shown, "error" if scene should leave.
+ */
+async function validateAndShowProfiles(
+  ctx: MyContext,
+  code: string
+): Promise<"ok" | "error"> {
+  const result = await validateCode(code)
+
+  if (!result.ok) {
+    const hint =
+      result.error === "This code has expired."
+        ? `This code has expired. Ask your household admin for a new invite code.`
+        : result.error
+    await ctx.reply(errorMsg(hint))
+    return "error"
+  }
+
+  if (result.type !== "invite") {
+    await ctx.reply(
+      "This looks like a signup code. Use /signup to create a new account."
+    )
+    return "error"
+  }
+
+  if (!result.householdId) {
+    await ctx.reply(errorMsg("Invalid invite code."))
+    return "error"
+  }
+
+  // Store code data in session (persists across requests)
+  ctx.scene.session.householdId = result.householdId
+  ctx.scene.session.joinCode = result.id // store code ID for markCodeUsed
+
+  // If target profile is pre-selected, auto-link
+  if (result.targetProfileId) {
+    const supabase = createSupabaseAdmin()
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, name, telegram_user_id")
+      .eq("id", result.targetProfileId)
+      .single()
+
+    if (profile && !profile.telegram_user_id) {
+      await showConfirmation(ctx, profile.id, profile.name)
+      return "ok"
+    }
+    // If pre-selected profile is already linked, fall through to picker
+  }
+
+  await showProfilePicker(ctx, result.householdId)
+  return "ok"
+}
 
 async function showProfilePicker(ctx: MyContext, householdId: string) {
   const supabase = createSupabaseAdmin()
@@ -237,7 +254,7 @@ async function linkProfileAndFinish(ctx: MyContext, profileId: string) {
   const chatId = ctx.chat?.id
   const from = ctx.from
   const householdId = ctx.scene.session.householdId as string
-  const codeId = ctx.scene.session.expecting as string
+  const codeId = ctx.scene.session.joinCode as string
 
   if (!chatId || !from) {
     await ctx.reply(errorMsg("Could not resolve your Telegram account."))
@@ -287,7 +304,7 @@ async function createProfileAndLink(ctx: MyContext, name: string) {
   const chatId = ctx.chat?.id
   const from = ctx.from
   const householdId = ctx.scene.session.householdId as string
-  const codeId = ctx.scene.session.expecting as string
+  const codeId = ctx.scene.session.joinCode as string
 
   if (!chatId || !from) {
     await ctx.reply(errorMsg("Could not resolve your Telegram account."))

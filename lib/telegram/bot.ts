@@ -46,6 +46,10 @@ export interface MySessionData extends Scenes.WizardSessionData {
   pdfRawTextPreview?: string
   /** Tax scene: year of assessment. */
   year?: number
+  /** Signup code from deep link (persisted across requests). */
+  signupCode?: string
+  /** Join/invite code from deep link (persisted across requests). */
+  joinCode?: string
 }
 
 /** Ephemeral keys on ctx.state (set before entering a scene). Telegraf types state as Record<string | symbol, any>. */
