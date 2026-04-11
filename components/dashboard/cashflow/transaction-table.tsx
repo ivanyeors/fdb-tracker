@@ -481,44 +481,53 @@ export function TransactionTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Select
-                      value={cat?.id ?? "uncategorized"}
-                      onValueChange={(v) =>
-                        handleCategoryChange(
-                          txn.id,
-                          v === "uncategorized" ? null : v
-                        )
-                      }
-                    >
-                      <SelectTrigger
-                        className={cn(
-                          "h-8 text-xs",
-                          isChanged && "border-blue-500",
-                          !cat &&
-                            suggestedCat &&
-                            !isChanged &&
-                            "border-dashed border-amber-400"
-                        )}
+                    <div className="flex items-center gap-1">
+                      <Select
+                        value={cat?.id ?? "uncategorized"}
+                        onValueChange={(v) =>
+                          handleCategoryChange(
+                            txn.id,
+                            v === "uncategorized" ? null : v
+                          )
+                        }
                       >
-                        <SelectValue
-                          placeholder={
-                            suggestedCat
-                              ? `${suggestedCat.name} (suggested)`
-                              : undefined
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="uncategorized">
-                          Uncategorized
-                        </SelectItem>
-                        {categories.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
+                        <SelectTrigger
+                          className={cn(
+                            "h-8 text-xs",
+                            isChanged && "border-blue-500",
+                            !cat &&
+                              suggestedCat &&
+                              !isChanged &&
+                              "border-dashed border-amber-400"
+                          )}
+                        >
+                          <SelectValue
+                            placeholder={
+                              suggestedCat
+                                ? `${suggestedCat.name} (suggested)`
+                                : undefined
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="uncategorized">
+                            Uncategorized
                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                          {categories.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {!cat && !isChanged && (
+                        <QuickCategorizePopover
+                          transaction={txn}
+                          categories={categories}
+                          onSaved={onSaved}
+                        />
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell
                     className={cn(
