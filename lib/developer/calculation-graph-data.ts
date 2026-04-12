@@ -170,6 +170,12 @@ export const GRAPH_NODES: CalcGraphNode[] = [
     filePath: "lib/calculations/take-home.ts",
   },
   {
+    id: "shg_deduction",
+    label: "Self-Help Group",
+    type: "cpf",
+    filePath: "lib/calculations/self-help-group.ts",
+  },
+  {
     id: "ilp_one_time",
     label: "ILP One-Time",
     type: "investment",
@@ -454,17 +460,19 @@ chargeableIncome = employmentIncome - cappedReliefs
     target: "take_home",
     calculationName: "Net Pay",
     description:
-      "Gross salary minus CPF employee contribution and estimated tax gives take-home pay.",
+      "Gross salary minus CPF employee contribution and self-help group deduction gives take-home pay.",
     filePath: "lib/calculations/take-home.ts",
     calculationLogic: `**Monthly Formula:**
 monthlyGross = annualSalary / 12
 monthlyEmployeeCpf = calculateCpfContribution(monthlyGross, age).employee
-monthlyTakeHome = monthlyGross - monthlyEmployeeCpf
+monthlySelfHelp = calculateSelfHelpContribution(monthlyGross, group).monthlyAmount
+monthlyTakeHome = monthlyGross - monthlyEmployeeCpf - monthlySelfHelp
 
 **Annual Formula:**
 annualGross = annualSalary + bonus
 annualEmployeeCpf = calculateAnnualCpf(salary, bonus, age).totalEmployee
-annualTakeHome = annualGross - annualEmployeeCpf
+annualSelfHelp = monthlySelfHelp × 12
+annualTakeHome = annualGross - annualEmployeeCpf - annualSelfHelp
 
 Tax is estimated separately and not deducted from monthly take-home.`,
   },
@@ -1011,6 +1019,44 @@ else:
   spouseRelief = $0
 
 Auto-derived from linked spouse profile's income_config. Skipped if manual 'spouse' relief override exists.`,
+  },
+  {
+    source: "income",
+    target: "shg_deduction",
+    calculationName: "SHG Contribution",
+    description:
+      "Gross monthly salary determines CDAC/SINDA/MBMF/ECF deduction via tiered rate lookup.",
+    filePath: "lib/calculations/self-help-group.ts",
+    calculationLogic: `**Formula:**
+monthlySelfHelp = lookupRate(group, monthlyGross)
+annualSelfHelp = monthlySelfHelp × 12
+
+**CDAC Rates (eff. 1 Jan 2015):**
+≤$2,000: $0.50 | ≤$3,500: $1.00 | ≤$5,000: $1.50 | ≤$7,500: $2.00 | >$7,500: $3.00
+
+**SINDA Rates (eff. 1 Jan 2015):**
+≤$2,000: $1.00 | ≤$3,000: $3.00 | ≤$5,000: $5.00 | ≤$7,500: $7.00 | >$7,500: $9.00
+
+**MBMF Rates (eff. 1 Jan 2016):**
+≤$2,000: $1.50 | ≤$3,000: $2.50 | ≤$4,000: $3.50 | ≤$6,000: $5.00 | >$6,000: $6.50
+
+**ECF Rates (eff. 1 Feb 2016):**
+≤$2,000: $0.50 | ≤$4,000: $1.00 | >$4,000: $2.00
+
+Returns $0 if group is "none" or gross ≤ 0.`,
+  },
+  {
+    source: "shg_deduction",
+    target: "take_home",
+    calculationName: "SHG Payroll Deduction",
+    description:
+      "Monthly self-help group contribution is deducted from gross salary alongside CPF to derive take-home pay.",
+    filePath: "lib/calculations/take-home.ts",
+    calculationLogic: `**Formula:**
+monthlyTakeHome = monthlyGross - monthlyEmployeeCpf - monthlySelfHelp
+annualTakeHome = annualGross - annualEmployeeCpf - annualSelfHelp
+
+The SHG deduction is a small statutory amount ($0.50–$9.00/mth) but is now tracked explicitly in the take-home calculation.`,
   },
 ]
 

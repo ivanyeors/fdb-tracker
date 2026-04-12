@@ -35,6 +35,10 @@ import {
 } from "@/lib/api/cashflow-aggregation"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
 import {
+  calculateSelfHelpContribution,
+  type SelfHelpGroup,
+} from "@/lib/calculations/self-help-group"
+import {
   estimateOutstandingPrincipal,
   loanMonthlyPayment,
 } from "@/lib/calculations/loans"
@@ -340,6 +344,7 @@ export async function fetchMoneyFlowData(
   let totalCpfOa = 0
   let totalCpfSa = 0
   let totalCpfMa = 0
+  let totalSelfHelp = 0
   let totalTakeHome = 0
   let totalInsurancePremium = 0
   let totalIlpPremium = 0
@@ -374,12 +379,18 @@ export async function fetchMoneyFlowData(
     totalGrossMonthly += monthlyGross
     totalBonus += income.bonus_estimate ?? 0
     totalAnnualSalary += income.annual_salary
+    const shg = calculateSelfHelpContribution(
+      monthlyGross,
+      (profile.self_help_group as SelfHelpGroup) ?? "none",
+    )
+
     totalEmployeeCpf += cpf.employee
     totalEmployerCpf += cpf.employer
     totalCpfOa += cpf.oa
     totalCpfSa += cpf.sa
     totalCpfMa += cpf.ma
-    totalTakeHome += monthlyGross - cpf.employee
+    totalSelfHelp += shg.monthlyAmount
+    totalTakeHome += monthlyGross - cpf.employee - shg.monthlyAmount
 
     // Insurance premiums
     const pols = insuranceByProfile.get(pid) ?? []
@@ -939,8 +950,17 @@ export async function fetchMoneyFlowData(
 
   nodes["take_home"] = {
     amount: `${fmt(totalTakeHome)}/mth`,
-    breakdown: `Gross ${fmt(totalGrossMonthly)} - CPF ${fmt(totalEmployeeCpf)}`,
+    breakdown: totalSelfHelp > 0
+      ? `Gross ${fmt(totalGrossMonthly)} - CPF ${fmt(totalEmployeeCpf)} - SHG ${fmt(totalSelfHelp)}`
+      : `Gross ${fmt(totalGrossMonthly)} - CPF ${fmt(totalEmployeeCpf)}`,
     rawAmount: totalTakeHome,
+    period: "monthly",
+  }
+
+  nodes["shg_deduction"] = {
+    amount: totalSelfHelp > 0 ? `${fmt(totalSelfHelp)}/mth` : "$0",
+    breakdown: totalSelfHelp > 0 ? "CDAC/SINDA/MBMF/ECF deduction" : "No SHG fund selected",
+    rawAmount: totalSelfHelp,
     period: "monthly",
   }
 
@@ -1026,6 +1046,7 @@ export async function fetchMoneyFlowData(
         employeeCpf: totalEmployeeCpf,
         employerCpf: totalEmployerCpf,
         cpfTotal: totalCpfMonthly,
+        selfHelp: totalSelfHelp,
         takeHome: totalTakeHome,
         taxPayable: totalTaxPayable,
         taxReliefs: totalTaxReliefs,
@@ -1072,6 +1093,7 @@ function generateEdgeFormula(
     employeeCpf: number
     employerCpf: number
     cpfTotal: number
+    selfHelp: number
     takeHome: number
     taxPayable: number
     taxReliefs: number
@@ -1102,8 +1124,24 @@ function generateEdgeFormula(
       }
     case "income->take_home":
       return {
-        flowFormula: `${fmt(ctx.grossMonthly)} - ${fmt(ctx.employeeCpf)} CPF = ${fmt(ctx.takeHome)}`,
+        flowFormula: ctx.selfHelp > 0
+          ? `${fmt(ctx.grossMonthly)} - ${fmt(ctx.employeeCpf)} CPF - ${fmt(ctx.selfHelp)} SHG = ${fmt(ctx.takeHome)}`
+          : `${fmt(ctx.grossMonthly)} - ${fmt(ctx.employeeCpf)} CPF = ${fmt(ctx.takeHome)}`,
         rawAmount: ctx.takeHome,
+      }
+    case "income->shg_deduction":
+      return {
+        flowFormula: ctx.selfHelp > 0
+          ? `${fmt(ctx.grossMonthly)} → ${fmt(ctx.selfHelp)}/mth SHG`
+          : "No SHG fund",
+        rawAmount: ctx.selfHelp,
+      }
+    case "shg_deduction->take_home":
+      return {
+        flowFormula: ctx.selfHelp > 0
+          ? `-${fmt(ctx.selfHelp)}/mth deducted`
+          : "$0 SHG deduction",
+        rawAmount: ctx.selfHelp,
       }
     case "income->insurance_coverage":
       return {
