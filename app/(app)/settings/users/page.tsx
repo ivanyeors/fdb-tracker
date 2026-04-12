@@ -138,6 +138,7 @@ function normalizeProfile(profile: Record<string, unknown>): ProfileWithIncome {
     birth_year: profile.birth_year as number,
     dps_include_in_projection:
       (profile.dps_include_in_projection as boolean | undefined) !== false,
+    self_help_group: (profile.self_help_group as string | undefined) ?? "none",
     telegram_user_id: (profile.telegram_user_id as string | null) ?? null,
     telegram_chat_id: (profile.telegram_chat_id as string | null) ?? null,
     telegram_link_token: (profile.telegram_link_token as string | null) ?? null,
@@ -193,6 +194,7 @@ export default async function UserSettingsPage() {
             gender,
             spouse_profile_id,
             dps_include_in_projection,
+            self_help_group,
             family_id,
             telegram_user_id,
             telegram_chat_id,

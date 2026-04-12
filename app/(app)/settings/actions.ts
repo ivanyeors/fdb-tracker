@@ -34,6 +34,11 @@ export async function updateUserProfile(
     }
 
     const dpsIncludeInProjection = formData.get("dpsIncludeInProjection") !== "false"
+    const rawSelfHelpGroup = formData.get("selfHelpGroup") as string | null
+    const selfHelpGroup =
+      rawSelfHelpGroup && ["cdac", "sinda", "mbmf", "ecf", "none"].includes(rawSelfHelpGroup)
+        ? rawSelfHelpGroup
+        : "none"
     const rawMaritalStatus = formData.get("maritalStatus") as string | null
     const maritalStatus = rawMaritalStatus && rawMaritalStatus !== "" ? rawMaritalStatus : null
     const numDependents = Math.max(0, Math.min(20, Number(formData.get("numDependents")) || 0))
@@ -103,6 +108,7 @@ export async function updateUserProfile(
         name,
         birth_year: birthYear,
         dps_include_in_projection: dpsIncludeInProjection,
+        self_help_group: selfHelpGroup,
         marital_status: maritalStatus,
         num_dependents: numDependents,
         gender,

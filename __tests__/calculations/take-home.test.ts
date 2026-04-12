@@ -59,4 +59,36 @@ describe("calculateTakeHome", () => {
     expect(result.monthlyEmployeeCpf).toBe(200);
     expect(result.monthlyTakeHome).toBe(800);
   });
+
+  it("defaults to no self-help deduction when group omitted", () => {
+    const result = calculateTakeHome(84000, 0, 1996, 2026);
+    expect(result.monthlySelfHelp).toBe(0);
+    expect(result.annualSelfHelp).toBe(0);
+    expect(result.selfHelpContribution.group).toBe("none");
+  });
+
+  it("deducts CDAC $2/month for $7,000 gross monthly", () => {
+    const result = calculateTakeHome(84000, 0, 1996, 2026, "cdac");
+    expect(result.monthlyGross).toBe(7000);
+    expect(result.monthlySelfHelp).toBe(2);
+    expect(result.annualSelfHelp).toBe(24);
+    expect(result.monthlyTakeHome).toBe(7000 - 1400 - 2);
+    expect(result.annualTakeHome).toBe(84000 - 1400 * 12 - 24);
+  });
+
+  it("deducts CDAC $0.50/month for low salary ($2,000 gross)", () => {
+    const result = calculateTakeHome(24000, 0, 1996, 2026, "cdac");
+    expect(result.monthlySelfHelp).toBe(0.5);
+  });
+
+  it("deducts CDAC $3/month for high salary (>$7,500 gross)", () => {
+    const result = calculateTakeHome(120000, 0, 1996, 2026, "cdac");
+    expect(result.monthlySelfHelp).toBe(3);
+  });
+
+  it("no self-help deduction when group is none", () => {
+    const result = calculateTakeHome(84000, 0, 1996, 2026, "none");
+    expect(result.monthlySelfHelp).toBe(0);
+    expect(result.monthlyTakeHome).toBe(5600);
+  });
 });

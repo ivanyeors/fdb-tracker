@@ -6,6 +6,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { calculateTakeHome } from "@/lib/calculations/take-home"
+import type { SelfHelpGroup } from "@/lib/calculations/self-help-group"
 
 export async function getEffectiveInflowForProfile(
   supabase: SupabaseClient,
@@ -33,7 +34,7 @@ export async function getEffectiveInflowForProfile(
     // Derive from income_config: income + bonus - CPF
     const { data: profile } = await supabase
       .from("profiles")
-      .select("birth_year")
+      .select("birth_year, self_help_group")
       .eq("id", profileId)
       .single()
 
@@ -55,6 +56,7 @@ export async function getEffectiveInflowForProfile(
         incomeConfig.bonus_estimate ?? 0,
         profile.birth_year,
         year,
+        (profile.self_help_group as SelfHelpGroup) ?? "none",
       )
       baseInflow = result.annualTakeHome / 12
     }
@@ -166,7 +168,7 @@ export async function getEffectiveInflowWithBreakdown(
   // Derive from income_config
   const { data: profile } = await supabase
     .from("profiles")
-    .select("birth_year")
+    .select("birth_year, self_help_group")
     .eq("id", profileId)
     .single()
 
@@ -190,6 +192,7 @@ export async function getEffectiveInflowWithBreakdown(
     incomeConfig.bonus_estimate ?? 0,
     profile.birth_year,
     year,
+    (profile.self_help_group as SelfHelpGroup) ?? "none",
   )
 
   const annualSalary = incomeConfig.annual_salary

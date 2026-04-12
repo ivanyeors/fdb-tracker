@@ -467,6 +467,7 @@ function ProfileSection({
       : ""
   )
   const [dpsInclude, setDpsInclude] = useState(profile.dps_include_in_projection !== false)
+  const [selfHelpGroup, setSelfHelpGroup] = useState(profile.self_help_group ?? "none")
   const [maritalStatus, setMaritalStatus] = useState(profile.marital_status ?? "")
   const [numDependents, setNumDependents] = useState(profile.num_dependents ?? 0)
   const [gender, setGender] = useState(profile.gender ?? "")
@@ -483,6 +484,7 @@ function ProfileSection({
       payFrequency !== (profile.income_config?.pay_frequency ?? "monthly") ||
       employeeCpfRate !== baselineCpf ||
       dpsInclude !== dpsBaseline ||
+      selfHelpGroup !== (profile.self_help_group ?? "none") ||
       maritalStatus !== (profile.marital_status ?? "") ||
       numDependents !== (profile.num_dependents ?? 0) ||
       gender !== (profile.gender ?? "") ||
@@ -496,6 +498,7 @@ function ProfileSection({
     payFrequency,
     employeeCpfRate,
     dpsInclude,
+    selfHelpGroup,
     maritalStatus,
     numDependents,
     gender,
@@ -513,6 +516,7 @@ function ProfileSection({
     fd.set("payFrequency", payFrequency)
     fd.set("employeeCpfRate", employeeCpfRate || "")
     fd.set("dpsIncludeInProjection", dpsInclude ? "true" : "false")
+    fd.set("selfHelpGroup", selfHelpGroup)
     fd.set("maritalStatus", maritalStatus)
     fd.set("numDependents", String(numDependents))
     fd.set("gender", gender)
@@ -528,6 +532,7 @@ function ProfileSection({
     payFrequency,
     employeeCpfRate,
     dpsInclude,
+    selfHelpGroup,
     maritalStatus,
     numDependents,
     gender,
@@ -574,11 +579,12 @@ function ProfileSection({
         : ""
     )
     setDpsInclude(profile.dps_include_in_projection !== false)
+    setSelfHelpGroup(profile.self_help_group ?? "none")
     setMaritalStatus(profile.marital_status ?? "")
     setNumDependents(profile.num_dependents ?? 0)
     setGender(profile.gender ?? "")
     setSpouseProfileId(profile.spouse_profile_id ?? "")
-  }, [profile.id, profile.name, profile.birth_year, profile.income_config, profile.dps_include_in_projection, profile.marital_status, profile.num_dependents, profile.gender, profile.spouse_profile_id])
+  }, [profile.id, profile.name, profile.birth_year, profile.income_config, profile.dps_include_in_projection, profile.self_help_group, profile.marital_status, profile.num_dependents, profile.gender, profile.spouse_profile_id])
 
   const canDelete = profileCount > 1
 
@@ -777,6 +783,24 @@ function ProfileSection({
             Include DPS in CPF projection
           </Label>
           <InfoTooltip id="CPF_DPS" />
+        </div>
+        <div className="mt-4 space-y-1.5">
+          <Label htmlFor={`shg-${profile.id}`}>Self-Help Group Fund</Label>
+          <Select value={selfHelpGroup} onValueChange={setSelfHelpGroup}>
+            <SelectTrigger id={`shg-${profile.id}`} className="h-8 w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cdac">CDAC (Chinese)</SelectItem>
+              <SelectItem value="sinda">SINDA (Indian)</SelectItem>
+              <SelectItem value="mbmf">MBMF (Malay)</SelectItem>
+              <SelectItem value="ecf">ECF (Eurasian)</SelectItem>
+              <SelectItem value="none">None (opted out)</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Payroll deduction for self-help group. Select &quot;None&quot; if you have opted out.
+          </p>
         </div>
       </div>
     </>

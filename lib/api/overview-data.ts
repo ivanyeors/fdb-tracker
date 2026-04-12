@@ -389,7 +389,7 @@ export async function fetchOverviewData(
     // 2. Profiles
     supabase
       .from("profiles")
-      .select("id, birth_year, name, primary_bank_account_id")
+      .select("id, birth_year, name, primary_bank_account_id, self_help_group")
       .in("id", profileIds.length > 0 ? profileIds : ["__none__"]),
     // 3. Income config
     supabase
@@ -495,7 +495,7 @@ export async function fetchOverviewData(
   const profileById = new Map<string, ProfileData & { name: string }>()
   const primaryAccountByProfile = new Map<string, string>()
   for (const p of profilesRes.data ?? []) {
-    profileById.set(p.id, { birth_year: p.birth_year, name: p.name })
+    profileById.set(p.id, { birth_year: p.birth_year, name: p.name, self_help_group: p.self_help_group })
     if (p.primary_bank_account_id) {
       primaryAccountByProfile.set(p.id, p.primary_bank_account_id)
     }

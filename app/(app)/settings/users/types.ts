@@ -7,6 +7,7 @@ export type ProfileWithIncome = {
   gender: string | null
   spouse_profile_id: string | null
   dps_include_in_projection?: boolean
+  self_help_group?: string
   family_id?: string
   primary_bank_account_id?: string | null
   telegram_user_id?: string | null

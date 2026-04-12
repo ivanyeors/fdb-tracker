@@ -5,6 +5,7 @@
  */
 
 import { calculateTakeHome } from "@/lib/calculations/take-home"
+import type { SelfHelpGroup } from "@/lib/calculations/self-help-group"
 import { calculateTax } from "@/lib/calculations/tax"
 import { GIRO_OUTFLOW_DESTINATIONS } from "@/lib/api/giro-amounts"
 
@@ -12,7 +13,7 @@ import { GIRO_OUTFLOW_DESTINATIONS } from "@/lib/api/giro-amounts"
 /*  Types for pre-fetched data maps                                    */
 /* ------------------------------------------------------------------ */
 
-export type ProfileData = { birth_year: number; name?: string }
+export type ProfileData = { birth_year: number; name?: string; self_help_group?: string }
 export type IncomeData = {
   annual_salary: number
   bonus_estimate: number | null
@@ -175,7 +176,8 @@ export function effectiveInflowFromContext(
     incomeConfig.annual_salary,
     incomeConfig.bonus_estimate ?? 0,
     profile.birth_year,
-    year
+    year,
+    (profile.self_help_group as SelfHelpGroup) ?? "none",
   )
   return result.annualTakeHome / 12
 }

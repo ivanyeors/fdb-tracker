@@ -84,6 +84,7 @@ export type Database = {
           birth_year: number
           optional_onboarding_completed_at: string | null
           dps_include_in_projection: boolean
+          self_help_group: string
           marital_status: string | null
           num_dependents: number
           primary_bank_account_id: string | null
@@ -103,6 +104,7 @@ export type Database = {
           birth_year: number
           optional_onboarding_completed_at?: string | null
           dps_include_in_projection?: boolean
+          self_help_group?: string
           marital_status?: string | null
           num_dependents?: number
           primary_bank_account_id?: string | null
@@ -122,6 +124,7 @@ export type Database = {
           birth_year?: number
           optional_onboarding_completed_at?: string | null
           dps_include_in_projection?: boolean
+          self_help_group?: string
           marital_status?: string | null
           num_dependents?: number
           primary_bank_account_id?: string | null

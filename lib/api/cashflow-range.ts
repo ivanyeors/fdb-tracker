@@ -130,7 +130,7 @@ export async function fetchCashflowRangeSeries(
       .lte("month", endMonth),
     supabase
       .from("profiles")
-      .select("id, birth_year, name")
+      .select("id, birth_year, name, self_help_group")
       .in("id", profileIds),
     supabase
       .from("income_config")
@@ -354,9 +354,9 @@ export async function fetchCashflowRangeSeries(
     }
   }
 
-  const profileById = new Map<string, { birth_year: number; name: string }>()
+  const profileById = new Map<string, { birth_year: number; name: string; self_help_group?: string }>()
   for (const p of profilesRes.data ?? []) {
-    profileById.set(p.id, { birth_year: p.birth_year, name: p.name })
+    profileById.set(p.id, { birth_year: p.birth_year, name: p.name, self_help_group: p.self_help_group })
   }
 
   const incomeByProfileId = new Map<

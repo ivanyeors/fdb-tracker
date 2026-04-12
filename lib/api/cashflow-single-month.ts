@@ -5,6 +5,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { calculateTakeHome } from "@/lib/calculations/take-home"
+import type { SelfHelpGroup } from "@/lib/calculations/self-help-group"
 import { computeBankTotal } from "@/lib/calculations/computed-bank-balance"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
 import type {
@@ -90,7 +91,7 @@ export async function fetchSingleMonthCashflow(
       .eq("month", monthStr),
     supabase
       .from("profiles")
-      .select("id, birth_year, name")
+      .select("id, birth_year, name, self_help_group")
       .in("id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("income_config")
@@ -271,7 +272,7 @@ export async function fetchSingleMonthCashflow(
 
   const profileById = new Map<string, ProfileData>()
   for (const p of profilesRes.data ?? []) {
-    profileById.set(p.id, { birth_year: p.birth_year, name: p.name })
+    profileById.set(p.id, { birth_year: p.birth_year, name: p.name, self_help_group: p.self_help_group })
   }
 
   const incomeByProfileId = new Map<string, IncomeData>()
@@ -510,7 +511,8 @@ export async function fetchSingleMonthCashflow(
           incomeConfig.annual_salary,
           incomeConfig.bonus_estimate ?? 0,
           profile.birth_year,
-          year
+          year,
+          (profile.self_help_group as SelfHelpGroup) ?? "none",
         )
         const monthlyTotal = result.annualTakeHome / 12
         inflowTotal += monthlyTotal

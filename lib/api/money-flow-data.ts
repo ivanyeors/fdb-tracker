@@ -113,7 +113,7 @@ export async function fetchMoneyFlowData(
       .order("month", { ascending: false }),
     supabase
       .from("profiles")
-      .select("id, birth_year, name, primary_bank_account_id, gender, spouse_profile_id, marital_status")
+      .select("id, birth_year, name, primary_bank_account_id, gender, spouse_profile_id, marital_status, self_help_group")
       .in("id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("income_config")
@@ -195,6 +195,7 @@ export async function fetchMoneyFlowData(
       gender: p.gender,
       spouse_profile_id: p.spouse_profile_id,
       marital_status: p.marital_status,
+      self_help_group: p.self_help_group,
     })
   }
 
