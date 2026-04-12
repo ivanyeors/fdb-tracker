@@ -121,8 +121,31 @@ describe("getAutoReliefs", () => {
     expect(breakdown.some((r) => r.type === "cpf")).toBe(true);
   });
 
-  it("adds life insurance relief from qualifying policies", () => {
+  it("adds life insurance relief when CPF contributions below $5,000", () => {
+    // Salary $3,000 → CPF employee ~$600 (below $5k threshold)
     const { total, breakdown } = getAutoReliefs(
+      { birth_year: 1990 },
+      { annual_salary: 3000, bonus_estimate: 0 },
+      [
+        {
+          type: "term_life",
+          premium_amount: 500,
+          frequency: "yearly",
+          coverage_amount: 500000,
+          is_active: true,
+        },
+      ],
+      2026
+    );
+    const lifeRelief = breakdown.find((r) => r.type === "life_insurance");
+    expect(lifeRelief).toBeDefined();
+    expect(lifeRelief!.amount).toBeGreaterThan(0);
+    expect(total).toBeGreaterThan(1000);
+  });
+
+  it("hides life insurance relief when CPF contributions >= $5,000", () => {
+    // Salary $60,000 → CPF employee ~$12,000 (above $5k threshold)
+    const { breakdown } = getAutoReliefs(
       { birth_year: 1990 },
       { annual_salary: 60000, bonus_estimate: 0 },
       [
@@ -136,8 +159,33 @@ describe("getAutoReliefs", () => {
       ],
       2026
     );
-    expect(breakdown.some((r) => r.type === "life_insurance")).toBe(true);
-    expect(total).toBeGreaterThan(1000);
+    expect(breakdown.some((r) => r.type === "life_insurance")).toBe(false);
+  });
+
+  it("uses manual CPF amount for life insurance cap calculation", () => {
+    // No income config auto-CPF; manual CPF of $3,000 → cap = $5,000 - $3,000 = $2,000
+    const { breakdown } = getAutoReliefs(
+      { birth_year: 1990 },
+      { annual_salary: 0, bonus_estimate: 0 },
+      [
+        {
+          type: "whole_life",
+          premium_amount: 5000,
+          frequency: "yearly",
+          coverage_amount: 500000,
+          is_active: true,
+        },
+      ],
+      2026,
+      {
+        manualReliefs: new Map([["cpf", 3000]]),
+      }
+    );
+    const lifeRelief = breakdown.find((r) => r.type === "life_insurance");
+    expect(lifeRelief).toBeDefined();
+    // Cap after CPF = $5,000 - $3,000 = $2,000; 7% of $500k = $35,000; premium = $5,000
+    // Relief = min($5,000, min($2,000, $35,000)) = $2,000
+    expect(lifeRelief!.amount).toBe(2000);
   });
 });
 

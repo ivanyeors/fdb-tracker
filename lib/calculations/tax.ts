@@ -375,12 +375,12 @@ export function getAutoReliefs(
     profileId?: string;
     spouse?: SpouseForTax | null;
     dependents?: DependentForTax[];
-    manualReliefTypes?: Set<string>;
+    manualReliefs?: Map<string, number>;
   }
 ): { total: number; breakdown: ReliefBreakdownItem[] } {
   const breakdown: ReliefBreakdownItem[] = [];
   let total = 0;
-  const manualTypes = options?.manualReliefTypes ?? new Set();
+  const manualReliefs = options?.manualReliefs ?? new Map<string, number>();
 
   const age = getAge(profile.birth_year, year);
   const earnedIncome = earnedIncomeRelief(age);
@@ -389,7 +389,7 @@ export function getAutoReliefs(
 
   // CPF relief — skip auto-calc when user has manual override (e.g. from NOA import)
   let autoCpfAmount = 0;
-  if (!manualTypes.has("cpf") && incomeConfig) {
+  if (!manualReliefs.has("cpf") && incomeConfig) {
     const { totalEmployee } = calculateAnnualCpf(
       incomeConfig.annual_salary,
       incomeConfig.bonus_estimate,
@@ -401,8 +401,8 @@ export function getAutoReliefs(
     breakdown.push({ type: "cpf", amount: autoCpfAmount, source: "auto" });
   }
 
-  // Life insurance relief — skip when manual override exists
-  if (!manualTypes.has("life_insurance") && incomeConfig) {
+  // Life insurance relief — only eligible when employee CPF contributions < $5,000
+  if (!manualReliefs.has("life_insurance") && incomeConfig) {
     const lifePolicies = insurancePolicies.filter(
       (p) =>
         p.is_active &&
@@ -418,16 +418,20 @@ export function getAutoReliefs(
         0
       );
       // Use manual CPF amount if overridden, otherwise auto-calculated
-      const cpfForLifeCap = manualTypes.has("cpf") ? 0 : autoCpfAmount;
+      const cpfForLifeCap = manualReliefs.has("cpf")
+        ? (manualReliefs.get("cpf") ?? 0)
+        : autoCpfAmount;
       const life = lifeInsuranceRelief(totalPremium, cpfForLifeCap, totalInsured);
-      total += life;
-      breakdown.push({ type: "life_insurance", amount: life, source: "auto" });
+      if (life > 0) {
+        total += life;
+        breakdown.push({ type: "life_insurance", amount: life, source: "auto" });
+      }
     }
   }
 
   // Spouse relief — auto-derive if married + spouse data + no manual override
   if (
-    !manualTypes.has("spouse") &&
+    !manualReliefs.has("spouse") &&
     profile.marital_status === "married" &&
     options?.spouse
   ) {
@@ -455,7 +459,7 @@ export function getAutoReliefs(
     }));
 
     // QCR
-    if (!manualTypes.has("qcr")) {
+    if (!manualReliefs.has("qcr")) {
       const qcr = qualifyingChildRelief(childrenForRelief, year);
       if (qcr.total > 0) {
         total += qcr.total;
@@ -464,7 +468,7 @@ export function getAutoReliefs(
 
       // WMCR — only for working mothers
       if (
-        !manualTypes.has("wmcr") &&
+        !manualReliefs.has("wmcr") &&
         profile.gender === "female" &&
         incomeConfig
       ) {
@@ -479,7 +483,7 @@ export function getAutoReliefs(
   }
 
   // Parent relief — from parent/grandparent dependents claimed by this profile
-  if (!manualTypes.has("parent") && profileId) {
+  if (!manualReliefs.has("parent") && profileId) {
     const parents: ParentForRelief[] = dependents
       .filter(
         (d) =>
@@ -522,7 +526,9 @@ export function calculateTax(params: {
     (params.incomeConfig?.annual_salary ?? 0) +
     (params.incomeConfig?.bonus_estimate ?? 0);
 
-  const manualReliefTypes = new Set(params.manualReliefs.map((r) => r.relief_type));
+  const manualReliefMap = new Map(
+    params.manualReliefs.map((r) => [r.relief_type, r.amount])
+  );
 
   const { total: autoTotal, breakdown: autoBreakdown } = getAutoReliefs(
     params.profile,
@@ -533,7 +539,7 @@ export function calculateTax(params: {
       profileId: params.profileId,
       spouse: params.spouse,
       dependents: params.dependents,
-      manualReliefTypes,
+      manualReliefs: manualReliefMap,
     }
   );
 

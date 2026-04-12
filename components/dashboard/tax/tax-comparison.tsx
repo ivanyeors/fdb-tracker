@@ -32,27 +32,35 @@ import {
   type ReliefPreviewModel,
 } from "@/components/dashboard/tax/tax-bracket-ladder"
 import { Calculator, CircleHelp, Pencil } from "lucide-react"
-import { Switch } from "@/components/ui/switch"
+import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { CurrencyInput } from "@/components/ui/currency-input"
 
-const RELIEF_PREVIEW_TYPES: ReadonlyArray<{ id: string; label: string }> = [
-  { id: "srs", label: "SRS contribution" },
-  { id: "donations", label: "Donations (IPC)" },
-  { id: "course_fees", label: "Course fees" },
-  { id: "cpf_topup_self", label: "CPF top-up (self)" },
-  { id: "cpf_topup_family", label: "CPF top-up (family)" },
-  { id: "parent", label: "Parent relief" },
-  { id: "spouse", label: "Spouse relief" },
-  { id: "wmcr", label: "WMCR" },
-  { id: "other", label: "Other" },
+type ReliefPreviewType = {
+  id: string
+  label: string
+  max: number
+  step: number
+  note?: string
+}
+
+const RELIEF_PREVIEW_TYPES: ReadonlyArray<ReliefPreviewType> = [
+  { id: "srs", label: "SRS contribution", max: 15_300, step: 100 },
+  { id: "donations", label: "Donations (IPC)", max: 50_000, step: 500, note: "250% deduction applied" },
+  { id: "course_fees", label: "Course fees", max: 5_500, step: 100 },
+  { id: "cpf_topup_self", label: "CPF top-up (self)", max: 8_000, step: 100 },
+  { id: "cpf_topup_family", label: "CPF top-up (family)", max: 8_000, step: 100 },
+  { id: "parent", label: "Parent relief", max: 18_000, step: 500 },
+  { id: "spouse", label: "Spouse relief", max: 2_000, step: 100 },
+  { id: "wmcr", label: "WMCR", max: 50_000, step: 500 },
+  { id: "other", label: "Other", max: 20_000, step: 500 },
 ]
 
-type ReliefRow = { on: boolean; amount: number }
+type ReliefRow = { amount: number }
 
 function emptyReliefPreviewRows(): Record<string, ReliefRow> {
   return Object.fromEntries(
-    RELIEF_PREVIEW_TYPES.map((t) => [t.id, { on: false, amount: 0 }])
+    RELIEF_PREVIEW_TYPES.map((t) => [t.id, { amount: 0 }])
   )
 }
 
@@ -137,7 +145,7 @@ export function TaxComparison({
     let s = 0
     for (const t of RELIEF_PREVIEW_TYPES) {
       const row = reliefPreviewRows[t.id]
-      if (!row?.on || row.amount <= 0) continue
+      if (!row || row.amount <= 0) continue
       s += countedManualReliefForType(t.id, row.amount)
     }
     return Math.round(s * 100) / 100
@@ -189,11 +197,11 @@ export function TaxComparison({
       ? Math.max(0, snapshot.chargeableIncome - previewChargeable)
       : 0
 
-  function setReliefRow(id: string, patch: Partial<ReliefRow>) {
-    setReliefPreviewRows((prev) => {
-      const cur = prev[id] ?? { on: false, amount: 0 }
-      return { ...prev, [id]: { ...cur, ...patch } }
-    })
+  function setReliefRow(id: string, amount: number) {
+    setReliefPreviewRows((prev) => ({
+      ...prev,
+      [id]: { amount: Math.max(0, amount) },
+    }))
   }
 
   return (
@@ -349,36 +357,45 @@ export function TaxComparison({
 
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {RELIEF_PREVIEW_TYPES.map((t) => {
-                  const row = reliefPreviewRows[t.id] ?? { on: false, amount: 0 }
+                  const row = reliefPreviewRows[t.id] ?? { amount: 0 }
                   return (
                     <div
                       key={t.id}
                       className="flex flex-col gap-1.5 rounded-lg border border-border/70 bg-card px-2.5 py-2 shadow-sm ring-1 ring-foreground/[0.06]"
                     >
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-baseline justify-between gap-2">
                         <Label
-                          htmlFor={`relief-preview-${t.id}`}
-                          className="cursor-pointer text-xs font-medium leading-tight text-foreground sm:text-[13px]"
+                          htmlFor={`relief-input-${t.id}`}
+                          className="text-xs font-medium leading-tight text-foreground sm:text-[13px]"
                         >
                           {t.label}
                         </Label>
-                        <Switch
-                          id={`relief-preview-${t.id}`}
-                          checked={row.on}
-                          onCheckedChange={(c) =>
-                            setReliefRow(t.id, { on: Boolean(c) })
-                          }
-                          className="shrink-0 scale-90"
-                        />
+                        <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                          max ${formatCurrency(t.max)}
+                        </span>
                       </div>
+                      <Slider
+                        value={[row.amount]}
+                        onValueChange={([v]) => setReliefRow(t.id, v)}
+                        min={0}
+                        max={t.max}
+                        step={t.step}
+                        className="w-full"
+                        aria-label={`${t.label} amount`}
+                      />
                       <CurrencyInput
-                        className="h-8"
+                        id={`relief-input-${t.id}`}
+                        className="h-7 text-xs"
                         value={row.amount}
                         onChange={(v) =>
-                          setReliefRow(t.id, { amount: v ?? 0 })
+                          setReliefRow(t.id, Math.min(v ?? 0, t.max))
                         }
-                        disabled={!row.on}
                       />
+                      {t.note && row.amount > 0 && (
+                        <p className="text-[10px] leading-tight text-muted-foreground">
+                          {t.note} = ${formatCurrency(row.amount * 2.5)} relief
+                        </p>
+                      )}
                     </div>
                   )
                 })}

@@ -3,7 +3,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Pie } from "@visx/shape"
-import { useChartHeight } from "@/hooks/use-chart-height"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { Group } from "@visx/group"
 import { useTooltip } from "@visx/tooltip"
 import { ParentSize } from "@visx/responsive"
@@ -43,7 +43,8 @@ function AllocationChartInner({
   legendBesideMinWidth = 320,
   width,
   height,
-}: AllocationChartProps & { width: number; height: number }) {
+  mobileStacked,
+}: AllocationChartProps & { width: number; height: number; mobileStacked?: boolean }) {
   const { formatMoney } = useInvestmentsDisplayCurrency()
   const total = data.reduce((sum, d) => sum + d.value, 0)
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
@@ -58,19 +59,27 @@ function AllocationChartInner({
   )
 
   const titleBudget = title ? 28 : 0
+  const effectiveLegendMax = mobileStacked
+    ? Math.min(5, legendMaxItems ?? data.length)
+    : legendMaxItems
   const legendRowCount =
-    legendMaxItems != null
-      ? Math.min(legendMaxItems, data.length)
+    effectiveLegendMax != null
+      ? Math.min(effectiveLegendMax, data.length)
       : data.length
   const legendBudget = Math.min(100, 8 + legendRowCount * 28)
   const innerWidth = width
   const rowHeight = height - titleBudget - 4
 
   const besideActive =
-    legendLayout === "beside" && width >= legendBesideMinWidth
+    legendLayout === "beside" && width >= legendBesideMinWidth && !mobileStacked
   let chartVertical: number
   let chartSize: number
-  if (besideActive) {
+  if (mobileStacked) {
+    // Mobile stacked: donut above, legend below — use generous sizing
+    chartSize = Math.min(Math.round(innerWidth * 0.55), 200)
+    chartSize = Math.max(120, chartSize)
+    chartVertical = chartSize
+  } else if (besideActive) {
     // Reserve horizontal space for the legend column; cap donut diameter so the
     // donut+legend pair stays balanced and can be centered (tall containers
     // must not inflate the donut to ~full width).
@@ -103,8 +112,8 @@ function AllocationChartInner({
   if (width < 10 || data.length === 0) return null
 
   const legendData =
-    legendMaxItems != null
-      ? data.slice(0, Math.min(legendMaxItems, data.length))
+    effectiveLegendMax != null
+      ? data.slice(0, Math.min(effectiveLegendMax, data.length))
       : data
 
   const donutBlock = (
@@ -215,7 +224,10 @@ function AllocationChartInner({
 
   const legendBlock =
     legendLayout === "beside" ? (
-      <ul className="mx-auto w-full max-w-[11rem] shrink-0 space-y-0.5 pt-0.5 sm:mx-0 sm:w-auto sm:min-w-[6.5rem]">
+      <ul className={mobileStacked
+        ? "mx-auto w-full max-w-xs shrink-0 space-y-0.5 pt-0.5"
+        : "mx-auto w-full max-w-[11rem] shrink-0 space-y-0.5 pt-0.5 sm:mx-0 sm:w-auto sm:min-w-[6.5rem]"
+      }>
         {legendData.map((d, i) => (
           <li key={`${i}-${d.name}`}>
             <div className="flex items-center gap-1 text-[11px] leading-tight sm:text-xs">
@@ -297,8 +309,10 @@ function BesideAllocationChart({
   centerLabel,
   centerSubtitle,
   legendBesideMinWidth,
+  mobileStacked,
 }: Omit<AllocationChartProps, "legendLayout" | "height"> & {
   containerHeight: number
+  mobileStacked?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
@@ -322,6 +336,7 @@ function BesideAllocationChart({
           centerSubtitle={centerSubtitle}
           legendLayout="beside"
           legendBesideMinWidth={legendBesideMinWidth}
+          mobileStacked={mobileStacked}
           width={width}
           height={containerHeight}
         />
@@ -340,8 +355,11 @@ export function AllocationChart({
   legendLayout,
   legendBesideMinWidth,
 }: AllocationChartProps) {
-  const mobileHeight = useChartHeight(containerHeightProp, Math.round(containerHeightProp * 0.78))
-  const containerHeight = mobileHeight
+  const isMobile = useIsMobile()
+  const containerHeight = isMobile
+    ? Math.round(containerHeightProp * 0.78)
+    : containerHeightProp
+
   if (legendLayout === "beside") {
     return (
       <BesideAllocationChart
@@ -352,6 +370,7 @@ export function AllocationChart({
         centerLabel={centerLabel}
         centerSubtitle={centerSubtitle}
         legendBesideMinWidth={legendBesideMinWidth}
+        mobileStacked={isMobile}
       />
     )
   }
