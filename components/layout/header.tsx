@@ -23,7 +23,7 @@ const segmentLabels: Record<string, string> = {
   group: "Group",
   loans: "Loans",
   insurance: "Insurance",
-  tax: "Tax Planner",
+  tax: "Tax",
   developer: "Developer",
   goals: "Goals",
   settings: "Settings",

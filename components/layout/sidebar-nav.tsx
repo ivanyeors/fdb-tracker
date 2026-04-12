@@ -46,9 +46,9 @@ const dashboardItems = [
   { title: "CPF", href: "/dashboard/cpf", icon: Landmark },
   { title: "Cashflow", href: "/dashboard/cashflow", icon: ArrowLeftRight },
   { title: "Investments", href: "/dashboard/investments", icon: TrendingUp, badge: "BETA" },
-  { title: "Loans", href: "/dashboard/loans", icon: CreditCard },
+  { title: "Loans", href: "/dashboard/loans", icon: CreditCard, badge: "BETA" },
   { title: "Insurance", href: "/dashboard/insurance", icon: Shield, badge: "BETA" },
-  { title: "Tax Planner", href: "/dashboard/tax", icon: Receipt },
+  { title: "Tax", href: "/dashboard/tax", icon: Receipt, badge: "BETA" },
   { title: "Developer", href: "/dashboard/developer", icon: Code },
 ]
 
