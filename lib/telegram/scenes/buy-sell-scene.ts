@@ -15,16 +15,68 @@ import {
 } from "@/lib/telegram/scene-helpers"
 
 // Step indices (STEP_PROFILE=0, STEP_PROFILE_CB=1 are implicit first steps)
-const STEP_SYMBOL = 2
-const STEP_QUANTITY = 3
-const STEP_PRICE = 4
-const STEP_COMMISSION = 5
-const STEP_NOTE = 6
-const STEP_CONFIRM = 7
-const TOTAL_STEPS = 7 // profile, symbol, qty, price, commission, note, confirm
+const STEP_ACCOUNT = 2
+const STEP_ACCOUNT_CB = 3
+const STEP_SYMBOL = 4
+const STEP_QUANTITY = 5
+const STEP_PRICE = 6
+const STEP_COMMISSION = 7
+const STEP_NOTE = 8
+const STEP_CONFIRM = 9
+const TOTAL_STEPS = 8 // profile, account, symbol, qty, price, commission, note, confirm
 
 function typeLabel(type: "buy" | "sell") {
   return type === "buy" ? "buy" : "sell"
+}
+
+/**
+ * Prompt the account selection step. If only one account, auto-select.
+ * Returns true if auto-selected (caller should advance to symbol).
+ */
+async function promptAccountStep(ctx: MyContext): Promise<boolean> {
+  const s = ctx.scene.session
+  const supabase = createSupabaseAdmin()
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("family_id")
+    .eq("id", s.profileId!)
+    .single()
+
+  if (!profile) return true
+
+  const { data: accounts } = await supabase
+    .from("investment_accounts")
+    .select("id, account_name, cash_balance")
+    .eq("family_id", profile.family_id)
+    .eq("profile_id", s.profileId!)
+    .order("created_at", { ascending: true })
+
+  if (!accounts || accounts.length <= 1) {
+    // Auto-select single/default account
+    if (accounts && accounts.length === 1) {
+      s.accountId = accounts[0].id
+      s.accountName = accounts[0].account_name
+    }
+    return true
+  }
+
+  const buttons = accounts.map((a) => [
+    {
+      text: `${a.account_name} ($${Number(a.cash_balance).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`,
+      callback_data: `acct_${a.id}_${a.account_name.slice(0, 30)}`,
+    },
+  ])
+
+  const header = progressHeader(
+    2,
+    TOTAL_STEPS,
+    `Recording ${typeLabel(s.type!)} for ${s.profileName}`,
+  )
+  await ctx.reply(`${header}\n\nSelect an investment account:`, {
+    reply_markup: { inline_keyboard: buttons },
+  })
+  return false
 }
 
 /**
@@ -34,9 +86,9 @@ function typeLabel(type: "buy" | "sell") {
 async function promptSymbolStep(ctx: MyContext) {
   const s = ctx.scene.session
   const header = progressHeader(
-    2,
+    3,
     TOTAL_STEPS,
-    `Recording ${typeLabel(s.type!)} for ${s.profileName}`
+    `Recording ${typeLabel(s.type!)} for ${s.profileName}`,
   )
 
   if (s.type === "sell") {
@@ -136,9 +188,9 @@ async function proceedFromSymbol(ctx: MyContext): Promise<boolean> {
 
   const s = ctx.scene.session
   const header = progressHeader(
-    3,
+    4,
     TOTAL_STEPS,
-    `${typeLabel(s.type!)} ${s.symbol} for ${s.profileName}`
+    `${typeLabel(s.type!)} ${s.symbol} for ${s.profileName}`,
   )
   await ctx.reply(`${header}\n\nEnter the quantity of shares:`)
   ctx.wizard.next()
@@ -155,6 +207,7 @@ async function sendConfirmation(ctx: MyContext) {
     : (s.symbol ?? "—")
   const fields = [
     { label: "Profile", value: s.profileName ?? "—" },
+    ...(s.accountName ? [{ label: "Account", value: s.accountName }] : []),
     { label: "Type", value: s.type === "buy" ? "Buy" : "Sell" },
     { label: "Symbol", value: symbolDisplay },
     {
@@ -243,8 +296,14 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     if (profiles.length === 1) {
       ctx.scene.session.profileId = profiles[0].id
       ctx.scene.session.profileName = profiles[0].name
-      ctx.wizard.selectStep(STEP_SYMBOL)
-      await promptSymbolStep(ctx)
+      // Try account selection
+      const autoSelected = await promptAccountStep(ctx)
+      if (autoSelected) {
+        ctx.wizard.selectStep(STEP_SYMBOL)
+        await promptSymbolStep(ctx)
+      } else {
+        ctx.wizard.selectStep(STEP_ACCOUNT_CB)
+      }
       return
     }
 
@@ -273,7 +332,38 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
         ctx.scene.session.profileName = parts.slice(1).join("_")
         await ctx.answerCbQuery()
 
-        ctx.wizard.next()
+        // Try account selection
+        const autoSelected = await promptAccountStep(ctx)
+        if (autoSelected) {
+          ctx.wizard.selectStep(STEP_SYMBOL)
+          await promptSymbolStep(ctx)
+        } else {
+          ctx.wizard.selectStep(STEP_ACCOUNT_CB)
+        }
+        return
+      }
+    }
+    return undefined
+  },
+
+  // STEP 2: Account selection prompt (rendered by promptAccountStep)
+  async (_ctx) => {
+    // This step is a placeholder — account prompt was sent by the previous step.
+    // The actual callback is handled in STEP 3 (STEP_ACCOUNT_CB).
+    return undefined
+  },
+
+  // STEP 3: Account callback
+  async (ctx) => {
+    if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
+      const data = ctx.callbackQuery.data
+      if (data.startsWith("acct_")) {
+        const parts = data.replace("acct_", "").split("_")
+        ctx.scene.session.accountId = parts[0]
+        ctx.scene.session.accountName = parts.slice(1).join("_")
+        await ctx.answerCbQuery()
+
+        ctx.wizard.selectStep(STEP_SYMBOL)
         await promptSymbolStep(ctx)
         return
       }
@@ -404,9 +494,9 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     if (returned) return
 
     const header = progressHeader(
-      4,
+      5,
       TOTAL_STEPS,
-      `${typeLabel(ctx.scene.session.type!)} ${ctx.scene.session.quantity} ${ctx.scene.session.symbol} for ${ctx.scene.session.profileName}`
+      `${typeLabel(ctx.scene.session.type!)} ${ctx.scene.session.quantity} ${ctx.scene.session.symbol} for ${ctx.scene.session.profileName}`,
     )
     await ctx.reply(`${header}\n\nEnter the price per share:`)
     return ctx.wizard.next()
@@ -430,7 +520,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     if (returned) return
 
     const header = progressHeader(
-      5,
+      6,
       TOTAL_STEPS,
       `${typeLabel(ctx.scene.session.type!)} ${ctx.scene.session.quantity} ${ctx.scene.session.symbol} @ ${fmtAmt(price)}`,
     )
@@ -463,7 +553,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
 
     const s = ctx.scene.session
     const header = progressHeader(
-      6,
+      7,
       TOTAL_STEPS,
       `${typeLabel(s.type!)} ${s.quantity} ${s.symbol} @ ${fmtAmt(s.price!)}`,
     )
@@ -618,6 +708,7 @@ async function finishBuySell(ctx: MyContext) {
           symbol,
           units: quantity,
           cost_basis: effectiveCostBasis,
+          account_id: session.accountId ?? null,
         })
         .select("id")
         .single()
@@ -650,12 +741,15 @@ async function finishBuySell(ctx: MyContext) {
     investmentId = existing.id
   }
 
+  const selectedAccountId = session.accountId ?? null
+
   const { error: txError } = await supabase
     .from("investment_transactions")
     .insert({
       family_id: familyId,
       investment_id: investmentId,
       profile_id: profileId,
+      account_id: selectedAccountId,
       type,
       symbol,
       quantity,
@@ -669,30 +763,49 @@ async function finishBuySell(ctx: MyContext) {
     return ctx.scene.leave()
   }
 
-  const accountFilter = { family_id: familyId, profile_id: profileId }
-  const { data: accountRow } = await supabase
-    .from("investment_accounts")
-    .select("id, cash_balance")
-    .match(accountFilter)
-    .maybeSingle()
-
+  // Update cash balance on the selected account (or find/create default)
   const cashDelta = type === "buy" ? -buyCashOutlay : sellCashProceeds
 
-  if (accountRow) {
-    await supabase
+  if (selectedAccountId) {
+    const { data: accountRow } = await supabase
       .from("investment_accounts")
-      .update({
-        cash_balance: accountRow.cash_balance + cashDelta,
+      .select("id, cash_balance")
+      .eq("id", selectedAccountId)
+      .single()
+
+    if (accountRow) {
+      await supabase
+        .from("investment_accounts")
+        .update({
+          cash_balance: accountRow.cash_balance + cashDelta,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", accountRow.id)
+    }
+  } else {
+    const { data: accountRow } = await supabase
+      .from("investment_accounts")
+      .select("id, cash_balance")
+      .eq("family_id", familyId)
+      .eq("profile_id", profileId)
+      .maybeSingle()
+
+    if (accountRow) {
+      await supabase
+        .from("investment_accounts")
+        .update({
+          cash_balance: accountRow.cash_balance + cashDelta,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", accountRow.id)
+    } else {
+      await supabase.from("investment_accounts").insert({
+        family_id: familyId,
+        profile_id: profileId,
+        cash_balance: cashDelta,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", accountRow.id)
-  } else {
-    await supabase.from("investment_accounts").insert({
-      family_id: familyId,
-      profile_id: profileId,
-      cash_balance: cashDelta,
-      updated_at: new Date().toISOString(),
-    })
+    }
   }
 
   const totalDisplay = type === "buy" ? buyCashOutlay : sellCashProceeds

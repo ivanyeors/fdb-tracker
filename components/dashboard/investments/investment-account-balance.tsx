@@ -10,12 +10,20 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { formatCurrency } from "@/lib/utils"
 
+interface AccountInfo {
+  id: string
+  accountName: string
+  cashBalance: number
+}
+
 interface InvestmentAccountBalanceProps {
   onSuccess?: () => void
   /** Loaded with the rest of the investments page (SGD in DB). */
   cashBalance: number
   accountId: string | null
   isLoading: boolean
+  /** List of named investment accounts (multi-account support). */
+  accounts?: AccountInfo[]
   /** When set, uses this FX state instead of fetching `/api/fx/usd-sgd` (investments page dedupe). */
   parentFx?: { sgdPerUsd: number | null; fxLoading: boolean }
   /** When true, omit bordered card and section heading (e.g. inside Sheet with SheetHeader). */
@@ -27,6 +35,7 @@ export function InvestmentAccountBalance({
   cashBalance,
   accountId,
   isLoading,
+  accounts,
   parentFx,
   embedded = false,
 }: InvestmentAccountBalanceProps) {
@@ -119,10 +128,27 @@ export function InvestmentAccountBalance({
 
   const showSkeleton = isLoading || fxLoading
 
+  const hasMultipleAccounts = accounts && accounts.length > 1
+
   const body = (
     <>
       {!embedded ? (
         <h3 className="mb-4 text-sm font-medium">Cash balance</h3>
+      ) : null}
+      {hasMultipleAccounts && !showSkeleton ? (
+        <div className="mb-3 space-y-1.5">
+          {accounts.map((a) => (
+            <div
+              key={a.id}
+              className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-1.5 text-xs"
+            >
+              <span className="font-medium">{a.accountName}</span>
+              <span className="tabular-nums text-muted-foreground">
+                ${formatCurrency(a.cashBalance)} SGD
+              </span>
+            </div>
+          ))}
+        </div>
       ) : null}
       <p className="mb-3 text-xs text-muted-foreground">
         Enter uninvested brokerage cash in USD; we store the SGD equivalent for

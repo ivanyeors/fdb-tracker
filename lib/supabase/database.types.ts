@@ -639,6 +639,7 @@ export type Database = {
           units: number
           cost_basis: number
           target_allocation_pct: number | null
+          account_id: string | null
           created_at: string
           date_added: string | null
         }
@@ -651,6 +652,7 @@ export type Database = {
           units?: number
           cost_basis?: number
           target_allocation_pct?: number | null
+          account_id?: string | null
           created_at?: string
           date_added?: string | null
         }
@@ -663,10 +665,18 @@ export type Database = {
           units?: number
           cost_basis?: number
           target_allocation_pct?: number | null
+          account_id?: string | null
           created_at?: string
           date_added?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "investments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "investment_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "investments_family_id_fkey"
             columns: ["family_id"]
@@ -689,6 +699,7 @@ export type Database = {
           family_id: string
           profile_id: string | null
           cash_balance: number
+          account_name: string
           created_at: string
           updated_at: string
         }
@@ -697,6 +708,7 @@ export type Database = {
           family_id: string
           profile_id?: string | null
           cash_balance?: number
+          account_name?: string
           created_at?: string
           updated_at?: string
         }
@@ -705,6 +717,7 @@ export type Database = {
           family_id?: string
           profile_id?: string | null
           cash_balance?: number
+          account_name?: string
           created_at?: string
           updated_at?: string
         }
@@ -1002,6 +1015,7 @@ export type Database = {
           investment_id: string | null
           family_id: string
           profile_id: string | null
+          account_id: string | null
           type: string
           symbol: string
           quantity: number
@@ -1016,6 +1030,7 @@ export type Database = {
           investment_id?: string | null
           family_id: string
           profile_id?: string | null
+          account_id?: string | null
           type: string
           symbol: string
           quantity: number
@@ -1030,6 +1045,7 @@ export type Database = {
           investment_id?: string | null
           family_id?: string
           profile_id?: string | null
+          account_id?: string | null
           type?: string
           symbol?: string
           quantity?: number
@@ -1040,6 +1056,13 @@ export type Database = {
           created_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "investment_transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "investment_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "investment_transactions_family_id_fkey"
             columns: ["family_id"]

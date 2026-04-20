@@ -12,7 +12,7 @@ export async function computeIlpFundTotal(
   familyId: string,
   profileId: string | null,
   ilpMonthFilter: string | null = null,
-): Promise<number> {
+): Promise<{ fundTotal: number; premiumsPaidTotal: number }> {
   let ilpQuery = supabase
     .from("ilp_products")
     .select("id")
@@ -21,12 +21,13 @@ export async function computeIlpFundTotal(
     ilpQuery = ilpQuery.or(`profile_id.eq.${profileId},profile_id.is.null`)
   }
   const { data: ilpProducts } = await ilpQuery
-  if (!ilpProducts || ilpProducts.length === 0) return 0
+  if (!ilpProducts || ilpProducts.length === 0)
+    return { fundTotal: 0, premiumsPaidTotal: 0 }
 
   const productIds = ilpProducts.map((p) => p.id)
   let ilpEntriesQuery = supabase
     .from("ilp_entries")
-    .select("product_id, month, fund_value")
+    .select("product_id, month, fund_value, premiums_paid")
     .in("product_id", productIds)
     .order("month", { ascending: false })
 
@@ -35,15 +36,25 @@ export async function computeIlpFundTotal(
   }
 
   const { data: ilpEntries } = await ilpEntriesQuery
-  const latestByProduct = new Map<string, number>()
+  const latestFundByProduct = new Map<string, number>()
+  const latestPremiumsByProduct = new Map<string, number>()
   if (ilpEntries) {
     for (const e of ilpEntries) {
-      if (!latestByProduct.has(e.product_id)) {
-        latestByProduct.set(e.product_id, e.fund_value)
+      if (!latestFundByProduct.has(e.product_id)) {
+        latestFundByProduct.set(e.product_id, e.fund_value)
+        latestPremiumsByProduct.set(e.product_id, e.premiums_paid ?? 0)
       }
     }
   }
-  return Array.from(latestByProduct.values()).reduce((s, v) => s + v, 0)
+  const fundTotal = Array.from(latestFundByProduct.values()).reduce(
+    (s, v) => s + v,
+    0,
+  )
+  const premiumsPaidTotal = Array.from(latestPremiumsByProduct.values()).reduce(
+    (s, v) => s + v,
+    0,
+  )
+  return { fundTotal, premiumsPaidTotal }
 }
 
 export type NetLiquidOptions = {
@@ -54,13 +65,14 @@ export type NetLiquidOptions = {
 /**
  * Brokerage SGD cash + holdings that have a **live** quote (after FX to SGD).
  * Excludes ILP, bonds, book-only rows, and rows with no price.
+ * Also returns total cost basis (SGD) for the same live-priced holdings.
  */
 export async function computeNetLiquidValue(
   supabase: SupabaseClient,
   familyId: string,
   profileId: string | null,
   options?: NetLiquidOptions,
-): Promise<number> {
+): Promise<{ netLiquidValue: number; costBasisSgd: number }> {
   let investmentQuery = supabase
     .from("investments")
     .select("symbol, type, units, cost_basis, created_at")
@@ -74,6 +86,7 @@ export async function computeNetLiquidValue(
 
   const { data: investments } = await investmentQuery
   let holdingsLiveSgd = 0
+  let costBasisSgd = 0
 
   if (investments && investments.length > 0) {
     let stockPrices = options?.stockPrices
@@ -115,6 +128,8 @@ export async function computeNetLiquidValue(
       ) {
         holdingsLiveSgd += mv * sgdPerUsd
       }
+      // cost_basis is stored in SGD — include for all live-priced holdings
+      costBasisSgd += row.units * row.cost_basis
     }
   }
 
@@ -135,7 +150,10 @@ export async function computeNetLiquidValue(
     cashSgd = accounts?.reduce((s, a) => s + (a.cash_balance ?? 0), 0) ?? 0
   }
 
-  return holdingsLiveSgd + cashSgd
+  return {
+    netLiquidValue: holdingsLiveSgd + cashSgd,
+    costBasisSgd: costBasisSgd + cashSgd,
+  }
 }
 
 /** Overview / snapshots: NLV + ILP fund values (reporting currency SGD for cash + live; ILP as stored). */
@@ -145,11 +163,22 @@ export async function computeTotalInvestmentsValue(
   profileId: string | null,
   ilpMonthFilter: string | null,
   options?: NetLiquidOptions,
-): Promise<{ netLiquidValue: number; ilpFundTotal: number; investmentTotal: number }> {
-  const [netLiquidValue, ilpFundTotal] = await Promise.all([
+): Promise<{
+  netLiquidValue: number
+  ilpFundTotal: number
+  investmentTotal: number
+  totalCostBasis: number
+}> {
+  const [nlvResult, ilpResult] = await Promise.all([
     computeNetLiquidValue(supabase, familyId, profileId, options),
     computeIlpFundTotal(supabase, familyId, profileId, ilpMonthFilter),
   ])
-  const investmentTotal = netLiquidValue + ilpFundTotal
-  return { netLiquidValue, ilpFundTotal, investmentTotal }
+  const investmentTotal = nlvResult.netLiquidValue + ilpResult.fundTotal
+  const totalCostBasis = nlvResult.costBasisSgd + ilpResult.premiumsPaidTotal
+  return {
+    netLiquidValue: nlvResult.netLiquidValue,
+    ilpFundTotal: ilpResult.fundTotal,
+    investmentTotal,
+    totalCostBasis,
+  }
 }

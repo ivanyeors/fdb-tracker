@@ -52,6 +52,7 @@ export type OverviewResult = {
   netLiquidValue: number
   ilpFundTotal: number
   investmentTotal: number
+  investmentCostBasis: number
   loanTotal: number
   loanMonthlyTotal: number
   loanRemainingMonths: number
@@ -750,7 +751,8 @@ export async function fetchOverviewData(
   }
 
   // ── Investments ──
-  const { netLiquidValue, ilpFundTotal, investmentTotal } = investmentsResult
+  const { netLiquidValue, ilpFundTotal, investmentTotal, totalCostBasis } =
+    investmentsResult
 
   // ── Loans ──
   let loanTotal = 0
@@ -912,6 +914,7 @@ export async function fetchOverviewData(
     netLiquidValue: round(netLiquidValue),
     ilpFundTotal: round(ilpFundTotal),
     investmentTotal: round(investmentTotal),
+    investmentCostBasis: round(totalCostBasis),
     loanTotal: round(loanTotal),
     loanMonthlyTotal: round(loanMonthlyTotal),
     loanRemainingMonths,

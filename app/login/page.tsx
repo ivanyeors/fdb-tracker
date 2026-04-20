@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
   Card,
@@ -10,6 +10,12 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+  InputOTPSeparator,
+} from "@/components/ui/input-otp"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
@@ -26,31 +32,42 @@ export default function LoginPage() {
   const [signupCode, setSignupCode] = useState("")
   const [botUrl, setBotUrl] = useState("")
 
-  async function handleVerifyOtp() {
-    setLoading(true)
+  const loadingRef = useRef(false)
 
-    try {
-      const res = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ otp }),
-      })
+  const handleVerifyOtp = useCallback(
+    async (code?: string) => {
+      const value = code ?? otp
+      if (value.length !== 6 || loadingRef.current) return
+      loadingRef.current = true
+      setLoading(true)
 
-      const data = await res.json()
+      try {
+        const res = await fetch("/api/auth/verify-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ otp: value }),
+        })
 
-      if (!res.ok) {
-        toast.error(data.error ?? "Invalid OTP")
-        return
+        const data = await res.json()
+
+        if (!res.ok) {
+          toast.error(data.error ?? "Invalid OTP")
+          setOtp("")
+          return
+        }
+
+        toast.success("Signed in")
+        router.push("/dashboard")
+      } catch {
+        toast.error("Network error. Please try again.")
+        setOtp("")
+      } finally {
+        setLoading(false)
+        loadingRef.current = false
       }
-
-      toast.success("Signed in")
-      router.push("/dashboard")
-    } catch {
-      toast.error("Network error. Please try again.")
-    } finally {
-      setLoading(false)
-    }
-  }
+    },
+    [otp, router],
+  )
 
   async function handleGenerateCode() {
     setLoading(true)
@@ -105,7 +122,7 @@ export default function LoginPage() {
                 </span>
                 <Input
                   id="telegram-username"
-                  className="pl-7"
+                  className="h-11 pl-7 text-base md:h-8 md:text-sm"
                   placeholder="johndoe"
                   maxLength={32}
                   value={telegramUsername}
@@ -120,7 +137,7 @@ export default function LoginPage() {
             </div>
             <div className="grid gap-2">
               <Button
-                className="w-full"
+                className="h-11 w-full md:h-8"
                 onClick={handleGenerateCode}
                 disabled={loading || telegramUsername.length < 3}
               >
@@ -208,25 +225,34 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="otp">One-Time Password</Label>
-            <Input
-              id="otp"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              autoComplete="one-time-code"
-              placeholder="000000"
-              maxLength={6}
-              value={otp}
-              onChange={(e) =>
-                setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-              }
-              disabled={loading}
-            />
+            <Label>One-Time Password</Label>
+            <div className="flex justify-center">
+              <InputOTP
+                maxLength={6}
+                value={otp}
+                onChange={setOtp}
+                onComplete={handleVerifyOtp}
+                disabled={loading}
+                autoFocus
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                </InputOTPGroup>
+                <InputOTPSeparator />
+                <InputOTPGroup>
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
           </div>
           <div className="grid gap-2">
             <Button
-              className="w-full"
-              onClick={handleVerifyOtp}
+              className="h-11 w-full md:h-8"
+              onClick={() => handleVerifyOtp()}
               disabled={loading || otp.length !== 6}
             >
               {loading ? "Verifying..." : "Verify"}

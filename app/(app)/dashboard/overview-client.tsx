@@ -144,6 +144,7 @@ type OverviewData = {
   cpfBreakdown?: { oa: number; sa: number; ma: number }
   cpfDelta?: number
   investmentTotal?: number
+  investmentCostBasis?: number
   netLiquidValue?: number
   ilpFundTotal?: number
   loanTotal?: number
@@ -660,6 +661,7 @@ export function OverviewClient({
         />
         <InvestmentCard
           totalValue={data?.investmentTotal ?? 0}
+          totalInvested={data?.investmentCostBasis}
           trend={investmentTrend}
           monthlyData={investmentMonthlyData}
           dailyData={investmentHistory}

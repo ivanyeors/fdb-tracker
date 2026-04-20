@@ -35,6 +35,7 @@ const updateAccountSchema = z.object({
   cashBalance: z.number(),
   profileId: z.string().uuid().optional(),
   familyId: z.string().uuid().optional(),
+  accountId: z.string().uuid().optional(),
 })
 
 /** Resolved profile id for the row, or null for family-level (shared) account. */
@@ -85,30 +86,39 @@ export async function GET(request: NextRequest) {
     const eff = effectiveAccountProfileId(profileId, profileIds)
 
     if (eff) {
-      const { data: account, error } = await supabase
+      const { data: accountRows, error } = await supabase
         .from("investment_accounts")
-        .select("id, cash_balance, created_at, updated_at")
+        .select("id, cash_balance, account_name, created_at, updated_at")
         .eq("family_id", familyId)
         .eq("profile_id", eff)
-        .maybeSingle()
+        .order("created_at", { ascending: true })
 
       if (error) {
         console.error("[api/investments/account] Supabase error:", error.message, error.code)
         return NextResponse.json({ error: "Failed to fetch account" }, { status: 500 })
       }
 
+      const totalCash =
+        accountRows?.reduce((s, a) => s + (a.cash_balance ?? 0), 0) ?? 0
+
       return NextResponse.json({
-        cashBalance: (account?.cash_balance ?? 0),
+        cashBalance: totalCash,
         giroMonthlyCredit: giroCredit,
-        id: account?.id ?? null,
+        id: accountRows?.[0]?.id ?? null,
+        accounts: (accountRows ?? []).map((a) => ({
+          id: a.id,
+          accountName: a.account_name,
+          cashBalance: a.cash_balance,
+        })),
       })
     }
 
     // Family-wide (no profile): sum all brokerage cash — matches computeNetLiquidValue.
     const { data: accounts, error } = await supabase
       .from("investment_accounts")
-      .select("id, cash_balance, profile_id")
+      .select("id, cash_balance, account_name, profile_id")
       .eq("family_id", familyId)
+      .order("created_at", { ascending: true })
 
     if (error) {
       console.error("[api/investments/account] Supabase error:", error.message, error.code)
@@ -123,6 +133,12 @@ export async function GET(request: NextRequest) {
       cashBalance: totalCash,
       giroMonthlyCredit: giroCredit,
       id: sharedRow?.id ?? null,
+      accounts: (accounts ?? []).map((a) => ({
+        id: a.id,
+        accountName: a.account_name,
+        cashBalance: a.cash_balance,
+        profileId: a.profile_id,
+      })),
     })
   } catch (err) {
     console.error("[api/investments/account] GET Error:", err)
@@ -145,7 +161,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { cashBalance, profileId, familyId } = parsed.data
+    const { cashBalance, profileId, familyId, accountId: targetAccountId } =
+      parsed.data
     const supabase = createSupabaseAdmin()
     const resolved = await resolveFamilyAndProfiles(
       supabase,
@@ -162,9 +179,28 @@ export async function PATCH(request: NextRequest) {
 
     const { familyId: resolvedFamilyId, profileIds } = resolved
     const singleProfileId = profileId ?? null
+    const now = new Date().toISOString()
+
+    // Direct account update by id
+    if (targetAccountId) {
+      const { data: updated, error } = await supabase
+        .from("investment_accounts")
+        .update({ cash_balance: cashBalance, updated_at: now })
+        .eq("id", targetAccountId)
+        .eq("family_id", resolvedFamilyId)
+        .select()
+        .single()
+
+      if (error) {
+        return NextResponse.json(
+          { error: "Failed to update account" },
+          { status: 500 },
+        )
+      }
+      return NextResponse.json(updated)
+    }
 
     const effPatch = effectiveAccountProfileId(singleProfileId, profileIds)
-    const now = new Date().toISOString()
 
     // Family-wide (no profile): GET sums all rows — PATCH must replace that total exactly.
     if (!effPatch) {

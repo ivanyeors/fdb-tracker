@@ -23,6 +23,8 @@ interface DailyData {
 
 interface InvestmentCardProps {
   totalValue: number
+  /** Total cost basis (SGD) — cash + holdings cost + ILP premiums paid. */
+  totalInvested?: number
   trend: number
   monthlyData: MonthlyData[]
   dailyData?: DailyData[]
@@ -95,6 +97,7 @@ function InvestmentLineChart({
 
 export function InvestmentCard({
   totalValue,
+  totalInvested,
   trend,
   monthlyData,
   dailyData,
@@ -141,6 +144,31 @@ export function InvestmentCard({
               ILP ${formatCurrency(ilpFundTotal)}
             </p>
           )}
+          {totalInvested != null && totalInvested > 0 && (() => {
+            const pnl = totalValue - totalInvested
+            const pnlPct = (pnl / totalInvested) * 100
+            const positive = pnl >= 0
+            return (
+              <p className="mt-1 truncate text-xs">
+                <span className="text-muted-foreground">
+                  Invested ${formatCurrency(totalInvested)}
+                </span>
+                <span className="mx-1">·</span>
+                <span
+                  className={cn(
+                    "font-medium",
+                    positive
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-red-600 dark:text-red-400",
+                  )}
+                >
+                  {positive ? "+" : "-"}${formatCurrency(Math.abs(pnl))} (
+                  {positive ? "+" : "-"}
+                  {Math.abs(pnlPct).toFixed(1)}%)
+                </span>
+              </p>
+            )
+          })()}
           {trend !== 0 && (
             <div className="mt-1 flex items-center gap-1 text-sm">
               {trend >= 0 ? (

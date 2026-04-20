@@ -19,6 +19,10 @@ export interface MySessionData extends Scenes.WizardSessionData {
   expecting?: string
   /** Broker commission/fee for the trade. */
   commission?: number
+  /** Selected investment account id for buy/sell. */
+  accountId?: string
+  /** Selected investment account name for display. */
+  accountName?: string
   /** Optional note after /buy or /sell (Telegraf wizard). */
   journalNote?: string
   /** Selected month (yyyy-MM-dd) for cashflow, ILP, etc. */

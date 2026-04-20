@@ -152,6 +152,7 @@ type InvestmentsPayload =
 type AccountPayload = {
   id: string | null
   cashBalance: number
+  accounts?: { id: string; accountName: string; cashBalance: number }[]
 }
 
 type TransactionRow = {
@@ -1056,6 +1057,7 @@ export function InvestmentsClient({
                       }}
                       cashBalance={cashBalance}
                       accountId={accountRowId}
+                      accounts={accountRaw?.accounts}
                       isLoading={isLoading}
                       parentFx={{ sgdPerUsd, fxLoading }}
                     />

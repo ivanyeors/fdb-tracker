@@ -172,7 +172,7 @@ export async function fetchSingleMonthCashflow(
       (() => {
         let q = supabase
           .from("investment_transactions")
-          .select("profile_id, symbol, type, quantity, price, commission, created_at")
+          .select("profile_id, symbol, type, quantity, price, commission, account_id, created_at")
           .eq("family_id", familyId)
           .in("type", ["buy", "sell"])
           .gte("created_at", monthStr)
@@ -427,7 +427,7 @@ export async function fetchSingleMonthCashflow(
 
   const investmentTxnsByProfile = new Map<
     string,
-    Array<{ symbol: string; type: string; quantity: number; price: number; commission?: number; created_at: string }>
+    Array<{ symbol: string; type: string; quantity: number; price: number; commission?: number; account_id?: string | null; created_at: string }>
   >()
   for (const txn of investmentTxnsRes.data ?? []) {
     const pid = txn.profile_id as string
@@ -439,9 +439,22 @@ export async function fetchSingleMonthCashflow(
       quantity: txn.quantity,
       price: txn.price,
       commission: txn.commission ?? 0,
+      account_id: txn.account_id ?? null,
       created_at: txn.created_at,
     })
     investmentTxnsByProfile.set(pid, list)
+  }
+
+  // Build account name map for waterfall sub-item labels
+  const accountNameMap = new Map<string, string>()
+  {
+    const { data: accRows } = await supabase
+      .from("investment_accounts")
+      .select("id, account_name")
+      .eq("family_id", familyId)
+    if (accRows) {
+      for (const a of accRows) accountNameMap.set(a.id, a.account_name)
+    }
   }
 
   // Aggregate per profile
@@ -467,7 +480,7 @@ export async function fetchSingleMonthCashflow(
   const loansSub: SubItem[] = []
   const earlyRepaymentsSub: SubItem[] = []
   const savingsGoalsSub: SubItem[] = []
-  const investmentsBySymbol = new Map<string, number>()
+  const investmentsByAccountAndSymbol = new Map<string, Map<string, number>>()
   const taxReliefCashSub: SubItem[] = []
 
   // Compute bank interest (batched in-memory)
@@ -664,11 +677,16 @@ export async function fetchSingleMonthCashflow(
       const txnMonth = txn.created_at.slice(0, 7)
       if (txnMonth !== monthStr.slice(0, 7)) continue
       const fee = txn.commission ?? 0
-      const current = investmentsBySymbol.get(txn.symbol) ?? 0
+      const accKey = txn.account_id ?? "unknown"
+      if (!investmentsByAccountAndSymbol.has(accKey)) {
+        investmentsByAccountAndSymbol.set(accKey, new Map())
+      }
+      const symbolMap = investmentsByAccountAndSymbol.get(accKey)!
+      const current = symbolMap.get(txn.symbol) ?? 0
       if (txn.type === "buy") {
-        investmentsBySymbol.set(txn.symbol, current + txn.quantity * txn.price + fee)
+        symbolMap.set(txn.symbol, current + txn.quantity * txn.price + fee)
       } else if (txn.type === "sell") {
-        investmentsBySymbol.set(txn.symbol, current - (txn.quantity * txn.price - fee))
+        symbolMap.set(txn.symbol, current - (txn.quantity * txn.price - fee))
       }
     }
 
@@ -757,11 +775,18 @@ export async function fetchSingleMonthCashflow(
     const ilpPerformance = ilpEndTotal - ilpStartTotal - totalIlpPremiums
     const securitiesGainLoss = invMarketGain - ilpPerformance
 
-    // Per-symbol investment sub-breakdown (for Cash Deployed tooltip)
-    const investmentSub = [...investmentsBySymbol.entries()]
-      .filter(([, net]) => net !== 0)
-      .map(([symbol, net]) => ({ label: symbol, amount: round(Math.abs(net)) }))
-      .sort((a, b) => b.amount - a.amount)
+    // Per-account+symbol investment sub-breakdown (for Cash Deployed tooltip)
+    const investmentSub: SubItem[] = []
+    const hasMultipleAccounts = investmentsByAccountAndSymbol.size > 1
+    for (const [accId, symbolMap] of investmentsByAccountAndSymbol) {
+      const accName = accountNameMap.get(accId) ?? (accId === "unknown" ? "" : "")
+      for (const [symbol, net] of symbolMap) {
+        if (net === 0) continue
+        const label = hasMultipleAccounts && accName ? `${accName}: ${symbol}` : symbol
+        investmentSub.push({ label, amount: round(Math.abs(net)) })
+      }
+    }
+    investmentSub.sort((a, b) => b.amount - a.amount)
 
     investmentSection = {
       startingValue: round(invStartVal),
@@ -866,12 +891,19 @@ export async function fetchSingleMonthCashflow(
   if (savingsGoalsSub.length >= 2) subBreakdowns["Savings Goals"] = roundSub(savingsGoalsSub)
   if (taxReliefCashSub.length >= 2) subBreakdowns["SRS/CPF Top-ups"] = roundSub(taxReliefCashSub)
 
-  // Investment sub-breakdown by symbol (filter out net-zero or negative symbols)
-  const investmentSub = [...investmentsBySymbol.entries()]
-    .filter(([, net]) => net > 0)
-    .map(([symbol, net]) => ({ label: symbol, amount: round(net) }))
-    .sort((a, b) => b.amount - a.amount)
-  if (investmentSub.length >= 2) subBreakdowns["Investments"] = investmentSub
+  // Investment sub-breakdown by account+symbol (for bank section "Investments" bar)
+  const bankInvestmentSub: SubItem[] = []
+  const bankHasMultipleAccounts = investmentsByAccountAndSymbol.size > 1
+  for (const [accId, symbolMap] of investmentsByAccountAndSymbol) {
+    const accName = accountNameMap.get(accId) ?? ""
+    for (const [symbol, net] of symbolMap) {
+      if (net <= 0) continue
+      const label = bankHasMultipleAccounts && accName ? `${accName}: ${symbol}` : symbol
+      bankInvestmentSub.push({ label, amount: round(net) })
+    }
+  }
+  bankInvestmentSub.sort((a, b) => b.amount - a.amount)
+  if (bankInvestmentSub.length >= 2) subBreakdowns["Investments"] = bankInvestmentSub
 
   return {
     month,
