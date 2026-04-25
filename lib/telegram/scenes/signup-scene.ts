@@ -10,7 +10,11 @@ import {
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { validateCode, markCodeUsed } from "@/lib/auth/signup-codes"
 import { generateAndStoreOtp } from "@/lib/auth/otp"
-import { progressHeader, errorMsg } from "@/lib/telegram/scene-helpers"
+import {
+  progressHeader,
+  errorMsg,
+  handleStrayCallback,
+} from "@/lib/telegram/scene-helpers"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? ""
 const TOTAL_STEPS = 2
@@ -35,6 +39,7 @@ export const signupScene = new Scenes.WizardScene<MyContext>(
   },
   // Step 1: Receive typed code, validate and create account
   async (ctx) => {
+    if (await handleStrayCallback(ctx, "your 8-character signup code")) return
     if (!ctx.message || !("text" in ctx.message)) return undefined
     const code = ctx.message.text.trim()
 

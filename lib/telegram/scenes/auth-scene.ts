@@ -3,7 +3,11 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { MyContext } from "@/lib/telegram/bot"
 import { validateApiKey, countLinkedMembers } from "@/lib/auth/api-keys"
 import { encodeLinkedTelegramAccountPiiPatch } from "@/lib/repos/linked-telegram-accounts"
-import { progressHeader, errorMsg } from "@/lib/telegram/scene-helpers"
+import {
+  progressHeader,
+  errorMsg,
+  handleStrayCallback,
+} from "@/lib/telegram/scene-helpers"
 
 const TOTAL_STEPS = 2 // key, confirm
 
@@ -20,6 +24,7 @@ export const authScene = new Scenes.WizardScene<MyContext>(
     return ctx.wizard.next()
   },
   async (ctx) => {
+    if (await handleStrayCallback(ctx, "your API key")) return
     if (!ctx.message || !("text" in ctx.message)) return undefined
 
     const rawKey = ctx.message.text.trim()

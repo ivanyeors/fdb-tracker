@@ -17,6 +17,7 @@ import {
   errorMsg,
   fmtAmt,
   advanceOrReturn,
+  handleStrayCallback,
 } from "@/lib/telegram/scene-helpers"
 
 // Step indices (STEP_PROFILE=0, STEP_PROFILE_CB=1 are implicit first steps)
@@ -231,6 +232,7 @@ export function createCashflowScene(type: CashflowType) {
 
     // STEP 3: Amount input
     async (ctx) => {
+      if (await handleStrayCallback(ctx, "the amount")) return
       if (!ctx.message || !("text" in ctx.message)) return undefined
 
       const text = ctx.message.text.trim()
@@ -273,6 +275,7 @@ export function createCashflowScene(type: CashflowType) {
 
     // STEP 4: Optional memo
     async (ctx) => {
+      if (await handleStrayCallback(ctx, "a memo (or /skip)")) return
       if (!ctx.message || !("text" in ctx.message)) return undefined
       const t = ctx.message.text.trim()
 

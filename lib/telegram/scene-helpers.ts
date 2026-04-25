@@ -153,6 +153,30 @@ export async function advanceOrReturn(
 }
 
 /**
+ * Guard for text-only wizard steps. If the update is a callback query (i.e. the
+ * user clicked an inline button on a stale message), answers the callback so
+ * Telegram clears its loading spinner and replies with a short nudge. Returns
+ * `true` when it handled a stray callback (caller should `return` early).
+ */
+export async function handleStrayCallback(
+  ctx: MyContext,
+  hint?: string,
+): Promise<boolean> {
+  if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
+    try {
+      await ctx.answerCbQuery()
+    } catch {
+      // Callback may already be expired; safe to ignore.
+    }
+    await ctx.reply(
+      `Still waiting on ${hint ?? "your reply"}. Type the value or /cancel.`,
+    )
+    return true
+  }
+  return false
+}
+
+/**
  * Build quick-amount buttons for common values.
  */
 export function buildQuickAmountKeyboard(

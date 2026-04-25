@@ -12,6 +12,7 @@ import {
   errorMsg,
   fmtAmt,
   advanceOrReturn,
+  handleStrayCallback,
 } from "@/lib/telegram/scene-helpers"
 
 // Step indices (STEP_PRODUCT=0, STEP_PRODUCT_CB=1 are implicit first steps)
@@ -171,6 +172,7 @@ export const ilpScene = new Scenes.WizardScene<MyContext>(
 
   // STEP 3: Fund value input
   async (ctx) => {
+    if (await handleStrayCallback(ctx, "the new fund value")) return
     if (!ctx.message || !("text" in ctx.message)) return undefined
 
     const value = parseFloat(ctx.message.text)

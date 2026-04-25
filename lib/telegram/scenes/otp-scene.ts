@@ -5,6 +5,7 @@ import {
   getHouseholdFromTelegramUsername,
   getOrCreateAccount,
 } from "@/lib/telegram/resolve-household"
+import { handleStrayCallback } from "@/lib/telegram/scene-helpers"
 
 export const otpScene = new Scenes.WizardScene<MyContext>(
   "otp_wizard",
@@ -15,6 +16,7 @@ export const otpScene = new Scenes.WizardScene<MyContext>(
     return ctx.wizard.next()
   },
   async (ctx) => {
+    if (await handleStrayCallback(ctx, "your Telegram username")) return
     if (!ctx.message || !("text" in ctx.message)) return undefined
 
     const username = ctx.message.text.trim()

@@ -12,6 +12,7 @@ import {
   errorMsg,
   fmtAmt,
   advanceOrReturn,
+  handleStrayCallback,
 } from "@/lib/telegram/scene-helpers"
 
 // Step indices (STEP_PROFILE=0, STEP_PROFILE_CB=1 are implicit first steps)
@@ -478,6 +479,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
 
   // STEP 3: Quantity input
   async (ctx) => {
+    if (await handleStrayCallback(ctx, "the new quantity")) return
     if (!ctx.message || !("text" in ctx.message)) return undefined
 
     const quantity = parseFloat(ctx.message.text)
@@ -504,6 +506,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
 
   // STEP 4: Price input
   async (ctx) => {
+    if (await handleStrayCallback(ctx, "the new price per share")) return
     if (!ctx.message || !("text" in ctx.message)) return undefined
 
     const price = parseFloat(ctx.message.text)
@@ -532,6 +535,8 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
 
   // STEP 5: Commission input
   async (ctx) => {
+    if (await handleStrayCallback(ctx, "the new commission (or /skip for $0)"))
+      return
     if (!ctx.message || !("text" in ctx.message)) return undefined
     const t = ctx.message.text.trim()
 
@@ -565,6 +570,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
 
   // STEP 6: Optional note
   async (ctx) => {
+    if (await handleStrayCallback(ctx, "a note (or /skip)")) return
     if (!ctx.message || !("text" in ctx.message)) return undefined
     const t = ctx.message.text.trim()
 

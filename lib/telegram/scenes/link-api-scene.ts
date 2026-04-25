@@ -8,7 +8,11 @@ import {
   decodeProfilePii,
   encodeProfilePiiPatch,
 } from "@/lib/repos/profiles"
-import { progressHeader, errorMsg } from "@/lib/telegram/scene-helpers"
+import {
+  progressHeader,
+  errorMsg,
+  handleStrayCallback,
+} from "@/lib/telegram/scene-helpers"
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -38,6 +42,13 @@ export const linkApiScene = new Scenes.WizardScene<MyContext>(
     return ctx.wizard.next()
   },
   async (ctx) => {
+    // Step 2 (the next handler) handles the post-key callbacks; here we only
+    // expect text (token or API key). Bounce stray callbacks pre-key.
+    if (
+      !ctx.scene.session.apiKeyId &&
+      (await handleStrayCallback(ctx, "your profile token or API key"))
+    )
+      return
     if (!ctx.message || !("text" in ctx.message)) return undefined
 
     const text = ctx.message.text.trim()
