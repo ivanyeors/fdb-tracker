@@ -53,9 +53,13 @@ export const taxScene = new Scenes.WizardScene<MyContext>(
       return ctx.scene.leave()
     }
 
+    const minYear = 2020
+    const maxYear = new Date().getUTCFullYear() + 1
     const year = parseInt(text, 10)
-    if (isNaN(year) || year < 2020 || year > 2040) {
-      await ctx.reply("Please enter a valid year between 2020 and 2040.")
+    if (isNaN(year) || year < minYear || year > maxYear) {
+      await ctx.reply(
+        `Please enter a valid year between ${minYear} and ${maxYear}.`,
+      )
       return
     }
 

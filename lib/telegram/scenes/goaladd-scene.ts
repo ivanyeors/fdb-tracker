@@ -17,6 +17,8 @@ const STEP_AMOUNT = 2
 const STEP_CONFIRM = 3
 const TOTAL_STEPS = 2 // goal, amount
 
+const QUICK_AMOUNTS = [100, 500, 1000] as const
+
 async function sendConfirmation(ctx: MyContext) {
   const s = ctx.scene.session
   const goalName = s.goalName ?? "—"
@@ -85,7 +87,7 @@ export const goalAddScene = new Scenes.WizardScene<MyContext>(
 
 
       const header = progressHeader(2, TOTAL_STEPS, `Adding to ${g.name}`)
-      const quickAmounts = buildQuickAmountKeyboard([100, 500, 1000])
+      const quickAmounts = buildQuickAmountKeyboard([...QUICK_AMOUNTS])
       await ctx.reply(
         `${header}\n\n${g.name} (${fmtAmt(g.current_amount)} / ${fmtAmt(g.target_amount)})\n\nEnter the amount to add, or pick a quick amount:`,
         { reply_markup: quickAmounts },
@@ -134,7 +136,7 @@ export const goalAddScene = new Scenes.WizardScene<MyContext>(
           TOTAL_STEPS,
           `Adding to ${ctx.scene.session.goalName ?? "goal"}`,
         )
-        const quickAmounts = buildQuickAmountKeyboard([100, 500, 1000])
+        const quickAmounts = buildQuickAmountKeyboard([...QUICK_AMOUNTS])
         await ctx.reply(
           `${header}\n\nEnter the amount to add, or pick a quick amount:`,
           { reply_markup: quickAmounts },
@@ -252,7 +254,7 @@ export const goalAddScene = new Scenes.WizardScene<MyContext>(
       if (data === "ed_amt") {
         ctx.scene.session.editingField = "amount"
         ctx.wizard.selectStep(STEP_AMOUNT)
-        const quickAmounts = buildQuickAmountKeyboard([100, 500, 1000])
+        const quickAmounts = buildQuickAmountKeyboard([...QUICK_AMOUNTS])
         await ctx.reply("Enter the new amount, or pick a quick amount:", {
           reply_markup: quickAmounts,
         })

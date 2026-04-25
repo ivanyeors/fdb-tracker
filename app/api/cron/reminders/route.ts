@@ -375,6 +375,11 @@ export async function GET(request: NextRequest) {
 
         if (result.ok) {
           sent++
+          console.log("[reminders] sent", {
+            schedule_id: schedule.id,
+            profile_id: target.id,
+            prompt_type: effectivePromptType,
+          })
         } else {
           errors.push(`${schedule.id}: ${result.error}`)
         }
@@ -462,6 +467,11 @@ export async function GET(request: NextRequest) {
 
       if (result.ok) {
         sent++
+        console.log("[reminders] sent", {
+          schedule_id: `custom:${cp.profile_id}`,
+          profile_id: cp.profile_id,
+          prompt_type: cp.notification_type,
+        })
       } else {
         errors.push(`custom:${cp.profile_id}:${cp.notification_type}: ${result.error}`)
       }
@@ -552,6 +562,11 @@ export async function GET(request: NextRequest) {
             )
             if (result.ok) {
               sent++
+              console.log("[reminders] sent", {
+                schedule_id: `seasonality:${hh.id}`,
+                profile_id: null,
+                prompt_type: "seasonality_weekly",
+              })
             } else {
               errors.push(`seasonality:${hh.id}: ${result.error}`)
             }
