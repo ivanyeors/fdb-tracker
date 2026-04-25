@@ -184,7 +184,7 @@ async function handleImageUpload(ctx: MyContext, fileId: string) {
     .eq("symbol", symbol)
     .order("created_at", { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
   if (fetchError || !tx) {
     await ctx.reply(`❌ No recent transactions found for ${symbol}.`)

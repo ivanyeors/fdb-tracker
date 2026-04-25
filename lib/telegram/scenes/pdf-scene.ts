@@ -1,5 +1,6 @@
 import { Scenes } from "telegraf"
 
+import { encodeLoanPiiPatch } from "@/lib/repos/loans"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { calculateWeightedAverageCost } from "@/lib/calculations/investments"
 import { botState, MyContext } from "@/lib/telegram/bot"
@@ -181,14 +182,14 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
       const selectedType = data.slice(4) as DocumentType
       if (!DOCUMENT_TYPES.includes(selectedType)) return
 
-      // If type changed, re-extract
+      // We don't keep the full PDF text in session (size + PII). Field
+      // extraction is bound to the type that ran at upload time, so a type
+      // switch here would map to the wrong fields. Ask for re-upload instead.
       if (selectedType !== ctx.scene.session.pdfDocType) {
-        ctx.scene.session.pdfDocType = selectedType
-        // We don't have the raw text anymore, but we stored it
-        // For re-extraction we'd need the full text.
-        // Since we can't store full text in session (too large),
-        // just update the docType and keep existing extraction.
-        // The user can edit individual fields in the confirmation step.
+        await ctx.reply(
+          `🔁 Re-upload the PDF to reclassify it as ${selectedType.replace(/_/g, " ")}.`,
+        )
+        return ctx.scene.leave()
       }
 
       // Move to profile selection
@@ -599,6 +600,10 @@ async function saveExtractedData(
         tenure_months: extracted.tenureMonths ?? 0,
         start_date: extracted.startDate ?? new Date().toISOString().split("T")[0],
         lender: extracted.lender,
+        ...encodeLoanPiiPatch({
+          lender: extracted.lender ?? null,
+          principal: extracted.principal,
+        }),
         property_type: extracted.propertyType,
       })
       if (error) throw new Error(error.message)
