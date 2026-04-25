@@ -2,6 +2,7 @@ import { Scenes } from "telegraf"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { MyContext } from "@/lib/telegram/bot"
 import { validateApiKey, countLinkedMembers } from "@/lib/auth/api-keys"
+import { deterministicHash } from "@/lib/crypto/hash"
 import { progressHeader, errorMsg } from "@/lib/telegram/scene-helpers"
 
 const UUID_REGEX =
@@ -187,10 +188,15 @@ async function handleProfileTokenLink(
   const chatId = ctx.chat?.id
   const fromUserId = ctx.from?.id
 
+  const tokenHash = deterministicHash(token, {
+    table: "profiles",
+    column: "telegram_link_token_hash",
+  })
+
   const { data: profile, error: lookupError } = await supabase
     .from("profiles")
     .select("id, name, family_id")
-    .eq("telegram_link_token", token)
+    .eq("telegram_link_token_hash", tokenHash)
     .maybeSingle()
 
   if (lookupError || !profile) {

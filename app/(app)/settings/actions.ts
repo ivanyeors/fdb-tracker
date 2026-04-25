@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { z } from "zod"
 import { getSessionFromCookies } from "@/lib/auth/session"
+import { encryptStringNullable } from "@/lib/crypto/cipher"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const updateUserSchema = z.object({
@@ -392,11 +393,17 @@ export async function updateHouseholdNotifications(
     }
 
     const supabase = createSupabaseAdmin()
-    
+
+    const botTokenEnc = encryptStringNullable(parsed.data.telegramBotToken, {
+      table: "households",
+      column: "telegram_bot_token_enc",
+    })
+
     const { error } = await supabase
       .from("households")
       .update({
         telegram_bot_token: parsed.data.telegramBotToken,
+        telegram_bot_token_enc: botTokenEnc,
         telegram_chat_id: parsed.data.telegramChatId,
       })
       .eq("id", householdId)

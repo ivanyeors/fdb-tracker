@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { getSessionFromCookies } from "@/lib/auth/session"
+import { decryptString } from "@/lib/crypto/cipher"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import {
   FamilyMembersTable,
@@ -129,6 +130,24 @@ async function fetchFinancialDataForFamily(
   } satisfies FinancialDataByFamily
 }
 
+function decryptLinkToken(profile: Record<string, unknown>): string | null {
+  const enc = profile.telegram_link_token_enc as string | null | undefined
+  if (enc) {
+    try {
+      return decryptString(enc, {
+        table: "profiles",
+        column: "telegram_link_token_enc",
+      })
+    } catch (err) {
+      console.error(
+        "[settings/users] link_token decrypt failed, falling back to plaintext:",
+        err,
+      )
+    }
+  }
+  return (profile.telegram_link_token as string | null | undefined) ?? null
+}
+
 function normalizeProfile(profile: Record<string, unknown>): ProfileWithIncome {
   const incomeConfig = profile.income_config
   const income = Array.isArray(incomeConfig) ? incomeConfig[0] : incomeConfig
@@ -141,7 +160,7 @@ function normalizeProfile(profile: Record<string, unknown>): ProfileWithIncome {
     self_help_group: (profile.self_help_group as string | undefined) ?? "none",
     telegram_user_id: (profile.telegram_user_id as string | null) ?? null,
     telegram_chat_id: (profile.telegram_chat_id as string | null) ?? null,
-    telegram_link_token: (profile.telegram_link_token as string | null) ?? null,
+    telegram_link_token: decryptLinkToken(profile),
     telegram_last_used: (profile.telegram_last_used as string | null) ?? null,
     marital_status: (profile.marital_status as string | null) ?? null,
     num_dependents: (profile.num_dependents as number | undefined) ?? 0,
@@ -199,6 +218,7 @@ export default async function UserSettingsPage() {
             telegram_user_id,
             telegram_chat_id,
             telegram_link_token,
+            telegram_link_token_enc,
             telegram_last_used,
             primary_bank_account_id,
             income_config (

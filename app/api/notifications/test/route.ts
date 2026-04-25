@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { getSessionFromCookies } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { decryptBotToken } from "@/lib/telegram/credentials"
 
 export async function POST(request: Request) {
   try {
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
       const supabase = createSupabaseAdmin()
       const { data: household, error } = await supabase
         .from("households")
-        .select("telegram_bot_token, telegram_chat_id")
+        .select("telegram_bot_token, telegram_bot_token_enc, telegram_chat_id")
         .eq("id", householdId)
         .single()
 
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
         )
       }
 
-      botToken = household.telegram_bot_token?.trim()
+      botToken = decryptBotToken(household)?.trim()
       chatId = household.telegram_chat_id?.trim()
     }
 

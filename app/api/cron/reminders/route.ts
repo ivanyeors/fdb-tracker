@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { decryptBotToken } from "@/lib/telegram/credentials"
 import {
   endOfMonthReminder,
   incomeYearlyReminder,
@@ -244,11 +245,12 @@ export async function GET(request: NextRequest) {
 
       const { data: account } = await supabase
         .from("households")
-        .select("telegram_chat_id, telegram_bot_token")
+        .select("telegram_chat_id, telegram_bot_token, telegram_bot_token_enc")
         .eq("id", family.household_id)
         .single()
 
-      if (!account?.telegram_chat_id || !account.telegram_bot_token) {
+      const accountBotToken = account ? decryptBotToken(account) : null
+      if (!account?.telegram_chat_id || !accountBotToken) {
         errors.push(`${schedule.id}: account missing telegram config`)
         continue
       }
@@ -339,7 +341,7 @@ export async function GET(request: NextRequest) {
 
       for (const target of uniqueChats) {
         const result = await sendTelegramMessage(
-          account.telegram_bot_token,
+          accountBotToken,
           target.chatId,
           message,
         )
@@ -396,10 +398,11 @@ export async function GET(request: NextRequest) {
 
       const { data: hh } = await supabase
         .from("households")
-        .select("telegram_chat_id, telegram_bot_token")
+        .select("telegram_chat_id, telegram_bot_token, telegram_bot_token_enc")
         .eq("id", fam.household_id)
         .single()
-      if (!hh?.telegram_bot_token || !hh.telegram_chat_id) continue
+      const hhBotToken = hh ? decryptBotToken(hh) : null
+      if (!hhBotToken || !hh?.telegram_chat_id) continue
 
       const ctx: ReminderContext = {
         profiles: [{ id: prof.id, name: prof.name }],
@@ -416,7 +419,7 @@ export async function GET(request: NextRequest) {
 
       const chatTarget = prof.telegram_chat_id ?? hh.telegram_chat_id
       const result = await sendTelegramMessage(
-        hh.telegram_bot_token,
+        hhBotToken,
         chatTarget,
         message,
       )
@@ -442,13 +445,19 @@ export async function GET(request: NextRequest) {
       )
 
       if (seasonalityMsg) {
+        // Read both plaintext and encrypted columns; decrypt at use site.
+        // Filter by either being non-null so newly-encrypted-only rows still match.
         const { data: households } = await supabase
           .from("households")
-          .select("id, telegram_chat_id, telegram_bot_token")
+          .select(
+            "id, telegram_chat_id, telegram_bot_token, telegram_bot_token_enc",
+          )
           .not("telegram_chat_id", "is", null)
-          .not("telegram_bot_token", "is", null)
+          .or("telegram_bot_token.not.is.null,telegram_bot_token_enc.not.is.null")
 
         for (const hh of households ?? []) {
+          const hhBotToken = decryptBotToken(hh)
+          if (!hhBotToken) continue
           const { data: families } = await supabase
             .from("families")
             .select("id")
@@ -496,7 +505,7 @@ export async function GET(request: NextRequest) {
 
           for (const chatTarget of targets) {
             const result = await sendTelegramMessage(
-              hh.telegram_bot_token!,
+              hhBotToken,
               chatTarget,
               seasonalityMsg,
             )

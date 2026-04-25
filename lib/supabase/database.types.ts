@@ -15,6 +15,7 @@ export type Database = {
           user_count: number
           telegram_chat_id: string | null
           telegram_bot_token: string | null
+          telegram_bot_token_enc: string | null
           onboarding_completed_at: string | null
           account_type: string
           created_at: string
@@ -24,6 +25,7 @@ export type Database = {
           user_count?: number
           telegram_chat_id?: string | null
           telegram_bot_token?: string | null
+          telegram_bot_token_enc?: string | null
           onboarding_completed_at?: string | null
           account_type?: string
           created_at?: string
@@ -33,6 +35,7 @@ export type Database = {
           user_count?: number
           telegram_chat_id?: string | null
           telegram_bot_token?: string | null
+          telegram_bot_token_enc?: string | null
           onboarding_completed_at?: string | null
           account_type?: string
           created_at?: string
@@ -80,6 +83,8 @@ export type Database = {
           telegram_username: string | null
           telegram_chat_id: string | null
           telegram_link_token: string | null
+          telegram_link_token_enc: string | null
+          telegram_link_token_hash: string | null
           telegram_last_used: string | null
           birth_year: number
           optional_onboarding_completed_at: string | null
@@ -100,6 +105,8 @@ export type Database = {
           telegram_username?: string | null
           telegram_chat_id?: string | null
           telegram_link_token?: string | null
+          telegram_link_token_enc?: string | null
+          telegram_link_token_hash?: string | null
           telegram_last_used?: string | null
           birth_year: number
           optional_onboarding_completed_at?: string | null
@@ -120,6 +127,8 @@ export type Database = {
           telegram_username?: string | null
           telegram_chat_id?: string | null
           telegram_link_token?: string | null
+          telegram_link_token_enc?: string | null
+          telegram_link_token_hash?: string | null
           telegram_last_used?: string | null
           birth_year?: number
           optional_onboarding_completed_at?: string | null
@@ -2371,18 +2380,21 @@ export type Database = {
         Row: {
           id: string
           session_data: Json
+          session_data_enc: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id: string
           session_data?: Json
+          session_data_enc?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           session_data?: Json
+          session_data_enc?: string | null
           created_at?: string
           updated_at?: string
         }
