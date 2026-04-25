@@ -2323,7 +2323,9 @@ export type Database = {
           profile_id: string | null
           command: string
           args: string | null
+          args_enc: string | null
           raw_message: string
+          raw_message_enc: string | null
           success: boolean
           error_message: string | null
           created_at: string
@@ -2335,7 +2337,9 @@ export type Database = {
           profile_id?: string | null
           command: string
           args?: string | null
+          args_enc?: string | null
           raw_message: string
+          raw_message_enc?: string | null
           success?: boolean
           error_message?: string | null
           created_at?: string
@@ -2347,7 +2351,9 @@ export type Database = {
           profile_id?: string | null
           command?: string
           args?: string | null
+          args_enc?: string | null
           raw_message?: string
+          raw_message_enc?: string | null
           success?: boolean
           error_message?: string | null
           created_at?: string

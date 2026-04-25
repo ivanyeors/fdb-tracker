@@ -43,12 +43,7 @@ export async function GET(request: NextRequest) {
     .lt("created_at", cutoff)
   results.bank_balance_snapshots = bankSnaps ?? 0
 
-  // Clean up old telegram command logs
-  const { count: telegramCmds } = await supabase
-    .from("telegram_commands")
-    .delete({ count: "exact" })
-    .lt("created_at", cutoff)
-  results.telegram_commands = telegramCmds ?? 0
+  // telegram_commands is purged on a tighter 30-day window by /api/cron/purge.
 
   console.log("[cron/cleanup] Pruned old records:", results)
 
