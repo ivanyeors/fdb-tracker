@@ -64,18 +64,30 @@ async function sendTelegramMessage(
   text: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
-  })
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    })
 
-  if (!res.ok) {
-    const data = (await res.json().catch(() => ({}))) as { description?: string }
+    if (res.ok) return { ok: true }
+
+    const data = (await res.json().catch(() => ({}))) as {
+      description?: string
+      parameters?: { retry_after?: number }
+    }
+
+    if (res.status === 429 && attempt === 0) {
+      const retryAfter = Math.min(data.parameters?.retry_after ?? 1, 30)
+      await new Promise((r) => setTimeout(r, retryAfter * 1000))
+      continue
+    }
+
     return { ok: false, error: data.description ?? `HTTP ${res.status}` }
   }
 
-  return { ok: true }
+  return { ok: false, error: "rate-limited" }
 }
 
 type ReminderContext = {

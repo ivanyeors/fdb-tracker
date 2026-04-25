@@ -4,7 +4,7 @@ import { getSessionFromCookies } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { decryptBotToken } from "@/lib/telegram/credentials"
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     const cookieStore = await cookies()
     const householdId = await getSessionFromCookies(cookieStore)
@@ -13,43 +13,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
 
-    let botToken: string | undefined
-    let chatId: string | undefined
+    const supabase = createSupabaseAdmin()
+    const { data: household, error } = await supabase
+      .from("households")
+      .select("telegram_bot_token, telegram_bot_token_enc, telegram_chat_id")
+      .eq("id", householdId)
+      .single()
 
-    try {
-      const body = await request.json().catch(() => ({}))
-      if (body.telegramBotToken?.trim() && body.telegramChatId?.trim()) {
-        botToken = body.telegramBotToken.trim()
-        chatId = body.telegramChatId.trim()
-      }
-    } catch {
-      /* use saved values */
+    if (error || !household) {
+      return NextResponse.json(
+        { success: false, error: "Could not load household settings" },
+        { status: 500 },
+      )
     }
 
-    if (!botToken || !chatId) {
-      const supabase = createSupabaseAdmin()
-      const { data: household, error } = await supabase
-        .from("households")
-        .select("telegram_bot_token, telegram_bot_token_enc, telegram_chat_id")
-        .eq("id", householdId)
-        .single()
-
-      if (error || !household) {
-        return NextResponse.json(
-          { success: false, error: "Could not load household settings" },
-          { status: 500 },
-        )
-      }
-
-      botToken = decryptBotToken(household)?.trim()
-      chatId = household.telegram_chat_id?.trim()
-    }
+    const botToken = decryptBotToken(household)?.trim()
+    const chatId = household.telegram_chat_id?.trim()
 
     if (!botToken || !chatId) {
       return NextResponse.json(
         {
           success: false,
-          error: "Bot token and Chat ID are required. Enter them above and save, or test with saved values.",
+          error: "Save your bot token and chat ID first, then test.",
         },
         { status: 400 },
       )

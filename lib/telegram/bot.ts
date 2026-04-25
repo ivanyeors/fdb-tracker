@@ -115,5 +115,14 @@ export const bot = new Proxy({} as Telegraf<MyContext>, {
 })
 
 export async function sendMessage(chatId: string, text: string) {
-  await getBot().telegram.sendMessage(chatId, text, { parse_mode: "HTML" })
+  try {
+    await getBot().telegram.sendMessage(chatId, text, { parse_mode: "HTML" })
+  } catch (err) {
+    const e = err as { message?: string; response?: { error_code?: number } }
+    console.error("[telegram] sendMessage failed", {
+      chatId,
+      message: e?.message,
+      errorCode: e?.response?.error_code,
+    })
+  }
 }

@@ -289,7 +289,16 @@ function ensureHandlers() {
         msg.from?.id != null ? String(msg.from.id) : null,
         msg.from?.username ?? null,
         msg.from?.first_name ?? null,
-        (text) => bot.telegram.sendMessage(chatId, text)
+        async (text) => {
+          try {
+            await bot.telegram.sendMessage(chatId, text)
+          } catch (err) {
+            console.error("[telegram/webhook] sendMessage failed", {
+              chatId,
+              err,
+            })
+          }
+        }
       )
       return
     }
@@ -313,9 +322,9 @@ function ensureHandlers() {
       return
     }
 
-    // Gate owner-only commands
+    // Gate super-admin-only commands
     if (parsed.command === "auth") {
-      if (userContext?.accountType === "public") {
+      if (!userContext?.isSuperAdmin) {
         await ctx.reply(
           "This command is not available. Use /in, /out, /buy, /sell, /goaladd, or /repay to track your finances."
         )
@@ -327,7 +336,7 @@ function ensureHandlers() {
     }
 
     if (parsed.command === "link") {
-      if (userContext?.accountType === "public") {
+      if (!userContext?.isSuperAdmin) {
         await ctx.reply(
           "This command is not available. Use /in, /out, /buy, /sell, /goaladd, or /repay to track your finances."
         )
@@ -492,8 +501,21 @@ function ensureHandlers() {
     console.log("[telegram/webhook] Channel post command:", parsed.command)
 
     if (parsed.command === "start") {
-      await handleStartCommand(String(ctx.chat.id), null, null, null, (text) =>
-        bot.telegram.sendMessage(ctx.chat.id, text)
+      await handleStartCommand(
+        String(ctx.chat.id),
+        null,
+        null,
+        null,
+        async (text) => {
+          try {
+            await bot.telegram.sendMessage(ctx.chat.id, text)
+          } catch (err) {
+            console.error("[telegram/webhook] sendMessage failed", {
+              chatId: ctx.chat.id,
+              err,
+            })
+          }
+        }
       )
       return
     }
