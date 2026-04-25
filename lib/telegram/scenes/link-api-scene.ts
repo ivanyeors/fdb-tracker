@@ -3,7 +3,10 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { MyContext } from "@/lib/telegram/bot"
 import { validateApiKey, countLinkedMembers } from "@/lib/auth/api-keys"
 import { deterministicHash } from "@/lib/crypto/hash"
-import { encodeLinkedTelegramAccountPiiPatch } from "@/lib/repos/linked-telegram-accounts"
+import {
+  LINKED_TELEGRAM_ACCOUNTS_USER_HASH_CONFLICT,
+  encodeLinkedTelegramAccountPiiPatch,
+} from "@/lib/repos/linked-telegram-accounts"
 import {
   decodeProfilePii,
   encodeProfilePiiPatch,
@@ -477,6 +480,6 @@ async function addToLinkedAccountsIfNeeded(
       telegram_chat_id: String(chatId),
       ...encodeLinkedTelegramAccountPiiPatch(linkedPiiInput),
     },
-    { onConflict: "link_api_key_id,telegram_user_id" },
+    { onConflict: LINKED_TELEGRAM_ACCOUNTS_USER_HASH_CONFLICT },
   )
 }
