@@ -8,6 +8,7 @@ import { getSessionFromCookies } from "@/lib/auth/session"
 import { encryptStringNullable } from "@/lib/crypto/cipher"
 import { encodeDependentPiiPatch } from "@/lib/repos/dependents"
 import { encodeFamilyPiiPatch } from "@/lib/repos/families"
+import { encodeIncomeConfigPiiPatch } from "@/lib/repos/income-config"
 import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
@@ -161,12 +162,17 @@ export async function updateUserProfile(
       .eq("profile_id", profileId)
       .single()
 
+    const incomePii = encodeIncomeConfigPiiPatch({
+      annual_salary: annualSalary,
+      bonus_estimate: bonusEstimate,
+    })
     if (existingIncomeConfig) {
       const { error: incomeError } = await supabase
         .from("income_config")
         .update({
           annual_salary: annualSalary,
           bonus_estimate: bonusEstimate,
+          ...incomePii,
           pay_frequency: payFrequency,
           employee_cpf_rate: employeeCpfRate,
         })
@@ -183,10 +189,11 @@ export async function updateUserProfile(
           profile_id: profileId,
           annual_salary: annualSalary,
           bonus_estimate: bonusEstimate,
+          ...incomePii,
           pay_frequency: payFrequency,
           employee_cpf_rate: employeeCpfRate,
         })
-        
+
       if (incomeInsertError) {
         console.error("Error inserting income config:", incomeInsertError)
         return { error: "Failed to update income configuration." }

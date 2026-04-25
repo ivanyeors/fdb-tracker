@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { z } from "zod"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { refreshTransactionSummary } from "@/lib/repos/monthly-transaction-summary"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const querySchema = z.object({
@@ -71,6 +72,15 @@ export async function PATCH(request: Request) {
     const body = patchSchema.parse(await request.json())
     const supabase = createSupabaseAdmin()
 
+    // Capture the (profile, month, statement_type) of every affected txn so
+    // we can refresh summary rows after the category swaps land.
+    const ids = body.updates.map((u) => u.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: affected } = await (supabase as any)
+      .from("bank_transactions")
+      .select("profile_id, family_id, month, statement_type")
+      .in("id", ids)
+
     // Batch update category_id
     for (const update of body.updates) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,6 +95,18 @@ export async function PATCH(request: Request) {
           { status: 500 },
         )
       }
+    }
+
+    if (affected && affected.length > 0) {
+      await refreshTransactionSummary(
+        supabase,
+        affected as Array<{
+          profile_id: string
+          family_id: string
+          month: string
+          statement_type: "bank" | "cc"
+        }>,
+      )
     }
 
     // Save category rules

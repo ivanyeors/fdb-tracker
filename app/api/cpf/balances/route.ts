@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import {
+  decodeCpfBalancesPii,
+  encodeCpfBalancesPiiPatch,
+} from "@/lib/repos/cpf-balances"
 import { decodeLoanPii } from "@/lib/repos/loans"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
@@ -86,9 +90,10 @@ export async function GET(request: NextRequest) {
           typeof row.month === "string"
             ? row.month.slice(0, 10)
             : new Date(row.month).toISOString().slice(0, 10)
-        const oa = Number(row.oa) || 0
-        const sa = Number(row.sa) || 0
-        const ma = Number(row.ma) || 0
+        const decoded = decodeCpfBalancesPii(row)
+        const oa = Number(decoded.oa) || 0
+        const sa = Number(decoded.sa) || 0
+        const ma = Number(decoded.ma) || 0
         const existing = byMonth.get(month)
         if (existing) {
           existing.oa += oa
@@ -359,6 +364,7 @@ export async function POST(request: NextRequest) {
           oa,
           sa,
           ma,
+          ...encodeCpfBalancesPiiPatch({ oa, sa, ma }),
           is_manual_override: true,
         },
         { onConflict: "profile_id,month" },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeIncomeHistoryPiiPatch } from "@/lib/repos/income-history"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
@@ -117,6 +118,7 @@ export async function POST(request: NextRequest) {
         profile_id: profileId,
         employer_name: employerName,
         monthly_salary: monthlySalary,
+        ...encodeIncomeHistoryPiiPatch({ monthly_salary: monthlySalary }),
         start_date: startDate,
         end_date: endDate ?? null,
         is_primary: isPrimary ?? true,
@@ -177,8 +179,13 @@ export async function PUT(request: NextRequest) {
     }
     if (updates.employerName !== undefined)
       updatePayload.employer_name = updates.employerName
-    if (updates.monthlySalary !== undefined)
+    if (updates.monthlySalary !== undefined) {
       updatePayload.monthly_salary = updates.monthlySalary
+      Object.assign(
+        updatePayload,
+        encodeIncomeHistoryPiiPatch({ monthly_salary: updates.monthlySalary }),
+      )
+    }
     if (updates.startDate !== undefined)
       updatePayload.start_date = updates.startDate
     if (updates.endDate !== undefined)

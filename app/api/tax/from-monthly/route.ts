@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeIncomeConfigPiiPatch } from "@/lib/repos/income-config"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { calculateTax, solveBonusForTargetTaxPayable } from "@/lib/calculations/tax"
@@ -121,7 +122,10 @@ export async function POST(request: NextRequest) {
 
       const { error: updateIncomeError } = await supabase
         .from("income_config")
-        .update({ bonus_estimate: bonusEstimate })
+        .update({
+          bonus_estimate: bonusEstimate,
+          ...encodeIncomeConfigPiiPatch({ bonus_estimate: bonusEstimate }),
+        })
         .eq("profile_id", parsed.data.profile_id)
 
       if (updateIncomeError) {

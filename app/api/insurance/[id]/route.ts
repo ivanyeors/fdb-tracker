@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeInsurancePoliciesPiiPatch } from "@/lib/repos/insurance-policies"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { getCoverageType, COVERAGE_TYPES } from "@/lib/insurance/coverage-config"
 
@@ -159,6 +160,13 @@ export async function PATCH(
 
     if (Object.keys(updates).length === 0 && coverages === undefined) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })
+    }
+
+    const piiInput: { premium_amount?: number | null; coverage_amount?: number | null } = {}
+    if ("premium_amount" in updates) piiInput.premium_amount = updates.premium_amount as number | null
+    if ("coverage_amount" in updates) piiInput.coverage_amount = updates.coverage_amount as number | null
+    if (Object.keys(piiInput).length > 0) {
+      Object.assign(updates, encodeInsurancePoliciesPiiPatch(piiInput))
     }
 
     if (Object.keys(updates).length > 0) {

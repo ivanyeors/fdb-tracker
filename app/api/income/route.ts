@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeIncomeConfigPiiPatch } from "@/lib/repos/income-config"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
@@ -119,6 +120,10 @@ export async function PUT(request: NextRequest) {
     const age = getAge(profile.birth_year, currentYear)
     const cpfRates = getCpfRates(age, currentYear)
 
+    const piiInput: { annual_salary?: number; bonus_estimate?: number } = {
+      annual_salary: annualSalary,
+    }
+    if (bonusEstimate !== undefined) piiInput.bonus_estimate = bonusEstimate
     const { data, error } = await supabase
       .from("income_config")
       .upsert(
@@ -126,6 +131,7 @@ export async function PUT(request: NextRequest) {
           profile_id: profileId,
           annual_salary: annualSalary,
           ...(bonusEstimate !== undefined && { bonus_estimate: bonusEstimate }),
+          ...encodeIncomeConfigPiiPatch(piiInput),
           ...(payFrequency !== undefined && { pay_frequency: payFrequency }),
           employee_cpf_rate: cpfRates.employeeRate,
           updated_at: new Date().toISOString(),

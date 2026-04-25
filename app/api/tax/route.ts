@@ -4,6 +4,7 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { decodeDependentPii } from "@/lib/repos/dependents"
 import { decodeProfilePii } from "@/lib/repos/profiles"
+import { encodeTaxReliefAutoPiiPatch } from "@/lib/repos/tax-relief-auto"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { calculateTax, type TaxResult } from "@/lib/calculations/tax"
@@ -240,6 +241,7 @@ export async function GET(request: NextRequest) {
             year: currentYear,
             relief_type: item.type,
             amount: item.amount,
+            ...encodeTaxReliefAutoPiiPatch({ amount: item.amount }),
             source: "calculated",
           },
           { onConflict: "profile_id,year,relief_type" }

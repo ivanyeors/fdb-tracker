@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { z } from "zod"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { refreshTransactionSummary } from "@/lib/repos/monthly-transaction-summary"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 export async function GET(request: NextRequest) {
@@ -239,12 +240,31 @@ export async function DELETE(request: Request) {
       )
     }
 
+    // Capture scopes before the bulk reassign so summary rows can refresh.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: affectedTxns } = await (supabase as any)
+      .from("bank_transactions")
+      .select("profile_id, family_id, month, statement_type")
+      .eq("category_id", body.id)
+
     // Reassign transactions to another category or null
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase as any)
       .from("bank_transactions")
       .update({ category_id: body.reassignTo ?? null })
       .eq("category_id", body.id)
+
+    if (affectedTxns && affectedTxns.length > 0) {
+      await refreshTransactionSummary(
+        supabase,
+        affectedTxns as Array<{
+          profile_id: string
+          family_id: string
+          month: string
+          statement_type: "bank" | "cc"
+        }>,
+      )
+    }
 
     // Also reassign outflow_entries
     if (body.reassignTo) {

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeTaxGiroSchedulePiiPatch } from "@/lib/repos/tax-giro-schedule"
+import { encodeTaxNoaDataPiiPatch } from "@/lib/repos/tax-noa-data"
+import { encodeTaxReliefInputsPiiPatch } from "@/lib/repos/tax-relief-inputs"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { calculateGiroSchedule } from "@/lib/calculations/tax-giro"
 
@@ -101,19 +104,23 @@ export async function POST(request: NextRequest) {
       )
 
     // 2. Store structured NOA data
+    const noaPii = {
+      employment_income: d.employment_income ?? null,
+      chargeable_income: d.chargeable_income ?? null,
+      total_deductions: d.total_deductions ?? null,
+      donations_deduction: d.donations_deduction ?? null,
+      reliefs_total: d.reliefs_total ?? null,
+      tax_payable: d.tax_payable,
+      reliefs_json: d.reliefs,
+      bracket_summary_json: d.bracket_summary,
+    }
     await supabase.from("tax_noa_data").upsert(
       {
         profile_id: d.profile_id,
         year: d.year,
-        employment_income: d.employment_income ?? null,
-        chargeable_income: d.chargeable_income ?? null,
-        total_deductions: d.total_deductions ?? null,
-        donations_deduction: d.donations_deduction ?? null,
-        reliefs_total: d.reliefs_total ?? null,
-        tax_payable: d.tax_payable,
+        ...noaPii,
+        ...encodeTaxNoaDataPiiPatch(noaPii),
         payment_due_date: d.payment_due_date ?? null,
-        reliefs_json: d.reliefs,
-        bracket_summary_json: d.bracket_summary,
         is_on_giro: d.is_on_giro,
       },
       { onConflict: "profile_id,year" }
@@ -134,6 +141,7 @@ export async function POST(request: NextRequest) {
             year: d.year,
             relief_type: reliefType,
             amount: relief.amount,
+            ...encodeTaxReliefInputsPiiPatch({ amount: relief.amount }),
           },
           { onConflict: "profile_id,year,relief_type" }
         )
@@ -147,13 +155,17 @@ export async function POST(request: NextRequest) {
         year: d.year,
       })
 
+      const giroPii = {
+        schedule: giro.schedule,
+        total_payable: giro.total,
+        outstanding_balance: 0,
+      }
       await supabase.from("tax_giro_schedule").upsert(
         {
           profile_id: d.profile_id,
           year: d.year,
-          schedule: giro.schedule,
-          total_payable: giro.total,
-          outstanding_balance: 0,
+          ...giroPii,
+          ...encodeTaxGiroSchedulePiiPatch(giroPii),
           source: "calculated",
         },
         { onConflict: "profile_id,year" }

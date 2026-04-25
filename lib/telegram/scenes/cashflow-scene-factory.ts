@@ -1,6 +1,7 @@
 import { Scenes } from "telegraf"
 import { format, startOfMonth } from "date-fns"
 
+import { encodeMonthlyCashflowPiiPatch } from "@/lib/repos/monthly-cashflow"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { botState, MyContext } from "@/lib/telegram/bot"
 import { sanitizeText } from "@/lib/telegram/sanitize"
@@ -318,11 +319,13 @@ export function createCashflowScene(type: CashflowType) {
               ? {
                   ...base,
                   inflow: s.amount!,
+                  ...encodeMonthlyCashflowPiiPatch({ inflow: s.amount! }),
                   ...(s.memo ? { inflow_memo: s.memo } : {}),
                 }
               : {
                   ...base,
                   outflow: s.amount!,
+                  ...encodeMonthlyCashflowPiiPatch({ outflow: s.amount! }),
                   ...(s.memo ? { outflow_memo: s.memo } : {}),
                 }
 

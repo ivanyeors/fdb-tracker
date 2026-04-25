@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeMonthlyCashflowPiiPatch } from "@/lib/repos/monthly-cashflow"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { fetchCashflowRangeSeries } from "@/lib/api/cashflow-range"
@@ -185,6 +186,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 
+    const piiInput: { inflow?: number; outflow?: number } = {}
+    if (inflow !== undefined) piiInput.inflow = inflow
+    if (outflow !== undefined) piiInput.outflow = outflow
     const { data, error } = await supabase
       .from("monthly_cashflow")
       .upsert(
@@ -193,6 +197,7 @@ export async function POST(request: NextRequest) {
           month,
           ...(inflow !== undefined && { inflow }),
           ...(outflow !== undefined && { outflow }),
+          ...encodeMonthlyCashflowPiiPatch(piiInput),
           ...(source !== undefined && { source }),
           ...(inflowMemo !== undefined && { inflow_memo: inflowMemo || null }),
           ...(outflowMemo !== undefined && {

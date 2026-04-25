@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeInsurancePoliciesPiiPatch } from "@/lib/repos/insurance-policies"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { getCoverageType, COVERAGE_TYPES } from "@/lib/insurance/coverage-config"
@@ -156,6 +157,10 @@ export async function POST(request: NextRequest) {
         frequency: parsed.data.frequency ?? "yearly",
         coverage_amount: legacyCoverageAmount,
         coverage_type: legacyCoverageType,
+        ...encodeInsurancePoliciesPiiPatch({
+          premium_amount: parsed.data.premiumAmount,
+          coverage_amount: legacyCoverageAmount,
+        }),
         yearly_outflow_date: parsed.data.yearlyOutflowDate ?? null,
         current_amount: parsed.data.currentAmount ?? null,
         end_date: parsed.data.endDate ?? null,

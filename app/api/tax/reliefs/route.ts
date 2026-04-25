@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeTaxReliefInputsPiiPatch } from "@/lib/repos/tax-relief-inputs"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
@@ -127,6 +128,7 @@ export async function PUT(request: NextRequest) {
             year: rel.year,
             relief_type: rel.relief_type,
             amount: rel.amount,
+            ...encodeTaxReliefInputsPiiPatch({ amount: rel.amount }),
           },
           { onConflict: "profile_id,year,relief_type" }
         )

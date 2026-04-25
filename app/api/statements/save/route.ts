@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { z } from "zod"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeBankTransactionPiiPatch } from "@/lib/repos/bank-transactions"
+import { refreshTransactionSummary } from "@/lib/repos/monthly-transaction-summary"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
@@ -114,6 +116,10 @@ export async function POST(request: Request) {
         description: txn.description,
         amount: txn.amount,
         balance: txn.balance,
+        ...encodeBankTransactionPiiPatch({
+          amount: txn.amount,
+          balance: txn.balance,
+        }),
         txn_type: txn.txnType,
         statement_type: body.statementType,
         category_id: txn.categoryId,
@@ -137,6 +143,15 @@ export async function POST(request: Request) {
           { status: 500 },
         )
       }
+
+      await refreshTransactionSummary(supabase, [
+        {
+          profile_id: body.profileId,
+          family_id: body.familyId,
+          month: body.month,
+          statement_type: body.statementType,
+        },
+      ])
     }
 
     // Save category rule changes (user-learned mappings)

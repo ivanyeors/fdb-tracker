@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeIncomeConfigPiiPatch } from "@/lib/repos/income-config"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { z } from "zod"
 
@@ -74,12 +75,20 @@ export async function POST(request: Request) {
 
     const inserts = incomeConfigs
       .slice(0, profiles.length)
-      .map((ic, idx) => ({
-        profile_id: profiles[idx].id,
-        annual_salary: ic.annual_salary ?? 0,
-        bonus_estimate: ic.bonus_estimate ?? 0,
-        pay_frequency: ic.pay_frequency,
-      }))
+      .map((ic, idx) => {
+        const annualSalary = ic.annual_salary ?? 0
+        const bonusEstimate = ic.bonus_estimate ?? 0
+        return {
+          profile_id: profiles[idx].id,
+          annual_salary: annualSalary,
+          bonus_estimate: bonusEstimate,
+          ...encodeIncomeConfigPiiPatch({
+            annual_salary: annualSalary,
+            bonus_estimate: bonusEstimate,
+          }),
+          pay_frequency: ic.pay_frequency,
+        }
+      })
 
     const { error } = await supabase
       .from("income_config")

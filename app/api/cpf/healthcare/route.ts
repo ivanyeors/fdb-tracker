@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import {
+  decodeCpfHealthcareConfigPii,
+  encodeCpfHealthcareConfigPiiPatch,
+} from "@/lib/repos/cpf-healthcare-config"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
@@ -86,19 +90,18 @@ export async function GET(request: NextRequest) {
       const config = configs?.find((c) => c.profile_id === profile.id)
       const age = getAge(profile.birth_year, currentYear)
 
-      const mapped: CpfHealthcareConfig | null = config
-        ? {
-            id: config.id,
-            profileId: config.profile_id,
-            mslAnnualOverride:
-              config.msl_annual_override != null
-                ? Number(config.msl_annual_override)
-                : null,
-            cslAnnual: Number(config.csl_annual),
-            cslSupplementAnnual: Number(config.csl_supplement_annual),
-            ispAnnual: Number(config.isp_annual),
-          }
-        : null
+      const decodedConfig = config ? decodeCpfHealthcareConfigPii(config) : null
+      const mapped: CpfHealthcareConfig | null =
+        config && decodedConfig
+          ? {
+              id: config.id,
+              profileId: config.profile_id,
+              mslAnnualOverride: decodedConfig.msl_annual_override,
+              cslAnnual: decodedConfig.csl_annual ?? 0,
+              cslSupplementAnnual: decodedConfig.csl_supplement_annual ?? 0,
+              ispAnnual: decodedConfig.isp_annual ?? 0,
+            }
+          : null
 
       const breakdown = getAnnualHealthcareMaDeduction(age, mapped)
 
@@ -158,15 +161,25 @@ export async function POST(request: NextRequest) {
         { status: 404 },
       )
 
+    const mslOverride = mslAnnualOverride ?? null
+    const csl = cslAnnual ?? 0
+    const cslSupp = cslSupplementAnnual ?? 0
+    const isp = ispAnnual ?? 0
     const { data, error } = await supabase
       .from("cpf_healthcare_config")
       .upsert(
         {
           profile_id: profileId,
-          msl_annual_override: mslAnnualOverride ?? null,
-          csl_annual: cslAnnual ?? 0,
-          csl_supplement_annual: cslSupplementAnnual ?? 0,
-          isp_annual: ispAnnual ?? 0,
+          msl_annual_override: mslOverride,
+          csl_annual: csl,
+          csl_supplement_annual: cslSupp,
+          isp_annual: isp,
+          ...encodeCpfHealthcareConfigPiiPatch({
+            msl_annual_override: mslOverride,
+            csl_annual: csl,
+            csl_supplement_annual: cslSupp,
+            isp_annual: isp,
+          }),
           updated_at: new Date().toISOString(),
         },
         { onConflict: "profile_id" },

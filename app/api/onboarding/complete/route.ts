@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, createSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeCpfBalancesPiiPatch } from "@/lib/repos/cpf-balances"
 import { encodeFamilyPiiPatch } from "@/lib/repos/families"
 import { encodeHouseholdPiiPatch } from "@/lib/repos/households"
+import { encodeIncomeConfigPiiPatch } from "@/lib/repos/income-config"
 import { encodeLoanPiiPatch } from "@/lib/repos/loans"
 import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
@@ -334,12 +336,20 @@ export async function POST(request: Request) {
     // Insert or upsert Income Configs (upsert when reusing profiles)
     const incomeInserts = data.incomeConfigs
       .slice(0, insertedProfiles.length)
-      .map((ic, idx) => ({
-        profile_id: insertedProfiles[idx].id,
-        annual_salary: ic.annual_salary ?? 0,
-        bonus_estimate: ic.bonus_estimate ?? 0,
-        pay_frequency: ic.pay_frequency,
-      }))
+      .map((ic, idx) => {
+        const annualSalary = ic.annual_salary ?? 0
+        const bonusEstimate = ic.bonus_estimate ?? 0
+        return {
+          profile_id: insertedProfiles[idx].id,
+          annual_salary: annualSalary,
+          bonus_estimate: bonusEstimate,
+          ...encodeIncomeConfigPiiPatch({
+            annual_salary: annualSalary,
+            bonus_estimate: bonusEstimate,
+          }),
+          pay_frequency: ic.pay_frequency,
+        }
+      })
     await supabase
       .from("income_config")
       .upsert(incomeInserts, { onConflict: "profile_id" })
@@ -357,6 +367,7 @@ export async function POST(request: Request) {
             oa: cb.oa,
             sa: cb.sa,
             ma: cb.ma,
+            ...encodeCpfBalancesPiiPatch({ oa: cb.oa, sa: cb.sa, ma: cb.ma }),
             is_manual_override: true,
           },
           { onConflict: "profile_id,month" }

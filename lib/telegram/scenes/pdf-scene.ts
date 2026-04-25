@@ -1,6 +1,9 @@
 import { Scenes } from "telegraf"
 
+import { encodeBankTransactionPiiPatch } from "@/lib/repos/bank-transactions"
+import { encodeInsurancePoliciesPiiPatch } from "@/lib/repos/insurance-policies"
 import { encodeLoanPiiPatch } from "@/lib/repos/loans"
+import { refreshTransactionSummary } from "@/lib/repos/monthly-transaction-summary"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { calculateWeightedAverageCost } from "@/lib/calculations/investments"
 import { botState, MyContext } from "@/lib/telegram/bot"
@@ -374,18 +377,24 @@ async function saveExtractedData(
         }
       }
 
+      const insurancePremium = extracted.premiumAmount ?? 0
+      const insuranceCoverage = extracted.coverageAmount ?? null
       const { data: policy, error } = await supabase
         .from("insurance_policies")
         .insert({
           profile_id: profileId,
           name: extracted.name ?? `${extracted.insurer ?? "Unknown"} Policy`,
           type: extracted.type ?? "term_life",
-          premium_amount: extracted.premiumAmount ?? 0,
+          premium_amount: insurancePremium,
           frequency: extracted.frequency ?? "yearly",
           insurer: extracted.insurer,
           policy_number: extracted.policyNumber,
-          coverage_amount: extracted.coverageAmount,
+          coverage_amount: insuranceCoverage,
           coverage_type: extracted.coverageType,
+          ...encodeInsurancePoliciesPiiPatch({
+            premium_amount: insurancePremium,
+            coverage_amount: insuranceCoverage,
+          }),
           inception_date: extracted.inceptionDate,
           end_date: extracted.endDate,
           rider_name: extracted.riderName,
@@ -493,6 +502,10 @@ async function saveExtractedData(
           description: txn.description,
           amount: txn.amount,
           balance: txn.balance,
+          ...encodeBankTransactionPiiPatch({
+            amount: txn.amount,
+            balance: txn.balance,
+          }),
           txn_type: txn.txnType,
           statement_type: "bank" as const,
           foreign_currency: txn.foreignCurrency ?? null,
@@ -509,6 +522,15 @@ async function saveExtractedData(
           })
         if (txnError) {
           console.error("[pdf-scene] Failed to save transactions:", txnError.message)
+        } else {
+          await refreshTransactionSummary(supabase, [
+            {
+              profile_id: profileId,
+              family_id: familyId,
+              month: extracted.month!,
+              statement_type: "bank",
+            },
+          ])
         }
       }
       break
@@ -555,6 +577,10 @@ async function saveExtractedData(
           description: txn.description,
           amount: txn.amount,
           balance: txn.balance,
+          ...encodeBankTransactionPiiPatch({
+            amount: txn.amount,
+            balance: txn.balance,
+          }),
           txn_type: txn.txnType,
           statement_type: "cc" as const,
           foreign_currency: txn.foreignCurrency ?? null,
@@ -570,6 +596,14 @@ async function saveExtractedData(
             onConflict: "profile_id,month,txn_date,description,amount,statement_type",
           })
         if (ccTxnError) throw new Error(ccTxnError.message)
+        await refreshTransactionSummary(supabase, [
+          {
+            profile_id: profileId,
+            family_id: familyId,
+            month: extracted.month!,
+            statement_type: "cc",
+          },
+        ])
       }
       break
     }
