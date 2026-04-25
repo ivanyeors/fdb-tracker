@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { calculateWeightedAverageCost } from "@/lib/calculations/investments"
 import { z } from "zod"
 
 const investmentSchema = z.object({
@@ -73,12 +74,40 @@ export async function POST(request: Request) {
 
     for (const inv of investments) {
       const profileId = profiles[inv.profileIndex]?.id
-      if (profileId && inv.symbol.trim() && inv.units > 0) {
+      const symbol = inv.symbol.trim()
+      if (!profileId || !symbol || inv.units <= 0) continue
+
+      const { data: existingRows } = await supabase
+        .from("investments")
+        .select("id, units, cost_basis")
+        .eq("family_id", familyId)
+        .eq("profile_id", profileId)
+        .eq("symbol", symbol)
+        .eq("type", inv.type)
+        .order("created_at", { ascending: true })
+        .limit(1)
+      const existing = existingRows?.[0] ?? null
+
+      if (existing) {
+        const mergedCost = calculateWeightedAverageCost(
+          existing.units,
+          existing.cost_basis,
+          inv.units,
+          inv.cost_basis,
+        )
+        await supabase
+          .from("investments")
+          .update({
+            units: existing.units + inv.units,
+            cost_basis: mergedCost,
+          })
+          .eq("id", existing.id)
+      } else {
         await supabase.from("investments").insert({
           family_id: familyId,
           profile_id: profileId,
           type: inv.type,
-          symbol: inv.symbol.trim(),
+          symbol,
           units: inv.units,
           cost_basis: inv.cost_basis,
         })

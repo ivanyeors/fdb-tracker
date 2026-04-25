@@ -1,6 +1,7 @@
 import { Scenes } from "telegraf"
 
 import { createSupabaseAdmin } from "@/lib/supabase/server"
+import { calculateWeightedAverageCost } from "@/lib/calculations/investments"
 import { botState, MyContext } from "@/lib/telegram/bot"
 import {
   progressHeader,
@@ -652,19 +653,47 @@ async function saveExtractedData(
       if (!familyId) throw new Error("Family ID is required")
 
       for (const holding of extracted.holdings) {
-        const { error } = await supabase.from("investments").upsert(
-          {
+        const { data: existingRows } = await supabase
+          .from("investments")
+          .select("id, units, cost_basis")
+          .eq("family_id", familyId)
+          .eq("profile_id", profileId)
+          .eq("symbol", holding.symbol)
+          .eq("type", "stock")
+          .order("created_at", { ascending: true })
+          .limit(1)
+        const existing = existingRows?.[0] ?? null
+
+        const newCost = holding.costBasis ?? 0
+        if (existing) {
+          const mergedCost = calculateWeightedAverageCost(
+            existing.units,
+            existing.cost_basis,
+            holding.units,
+            newCost,
+          )
+          const { error } = await supabase
+            .from("investments")
+            .update({
+              units: existing.units + holding.units,
+              cost_basis: mergedCost,
+            })
+            .eq("id", existing.id)
+          if (error) {
+            console.error(`[pdf-scene] Failed to update holding ${holding.symbol}:`, error.message)
+          }
+        } else {
+          const { error } = await supabase.from("investments").insert({
             family_id: familyId,
             profile_id: profileId,
             symbol: holding.symbol,
             type: "stock",
             units: holding.units,
-            cost_basis: holding.costBasis ?? 0,
-          },
-          { onConflict: "family_id,symbol" },
-        )
-        if (error) {
-          console.error(`[pdf-scene] Failed to upsert holding ${holding.symbol}:`, error.message)
+            cost_basis: newCost,
+          })
+          if (error) {
+            console.error(`[pdf-scene] Failed to insert holding ${holding.symbol}:`, error.message)
+          }
         }
       }
       break

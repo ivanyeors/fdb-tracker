@@ -6,6 +6,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { enrichInvestmentsWithLivePrices } from "@/lib/investments/enrich-with-live-prices"
 import { getSgdPerUsd } from "@/lib/external/usd-sgd"
+import { calculateWeightedAverageCost } from "@/lib/calculations/investments"
 
 const investmentsQuerySchema = z.object({
   profileId: z.string().uuid().optional(),
@@ -120,28 +121,89 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 
-    const { data: inv, error: insertErr } = await supabase
+    let existingQuery = supabase
       .from("investments")
-      .insert({
-        family_id: resolved.familyId,
-        symbol,
-        type,
-        units,
-        cost_basis: costBasis,
-        ...(profileId && { profile_id: profileId }),
-        ...(dateAdded && { date_added: dateAdded }),
-      })
-      .select()
-      .single()
+      .select("*")
+      .eq("family_id", resolved.familyId)
+      .eq("symbol", symbol)
+      .eq("type", type)
+      .order("created_at", { ascending: true })
+      .limit(1)
+    existingQuery = profileId
+      ? existingQuery.eq("profile_id", profileId)
+      : existingQuery.is("profile_id", null)
+    const { data: existingRows } = await existingQuery
+    const existingInv = existingRows?.[0] ?? null
 
-    if (insertErr || !inv) {
-      return NextResponse.json({ error: "Failed to create investment" }, { status: 500 })
+    let inv: NonNullable<typeof existingInv>
+    let holdingSnapshot: { id: string; units: number; cost_basis: number } | null = null
+    let insertedHoldingId: string | null = null
+
+    if (existingInv) {
+      holdingSnapshot = {
+        id: existingInv.id,
+        units: existingInv.units,
+        cost_basis: existingInv.cost_basis,
+      }
+      const mergedCost = calculateWeightedAverageCost(
+        existingInv.units,
+        existingInv.cost_basis,
+        units,
+        costBasis,
+      )
+      const { data: updated, error: updateErr } = await supabase
+        .from("investments")
+        .update({
+          units: existingInv.units + units,
+          cost_basis: mergedCost,
+          ...(dateAdded && { date_added: dateAdded }),
+        })
+        .eq("id", existingInv.id)
+        .select()
+        .single()
+      if (updateErr || !updated) {
+        return NextResponse.json({ error: "Failed to update investment" }, { status: 500 })
+      }
+      inv = updated
+    } else {
+      const { data: inserted, error: insertErr } = await supabase
+        .from("investments")
+        .insert({
+          family_id: resolved.familyId,
+          symbol,
+          type,
+          units,
+          cost_basis: costBasis,
+          ...(profileId && { profile_id: profileId }),
+          ...(dateAdded && { date_added: dateAdded }),
+        })
+        .select()
+        .single()
+      if (insertErr || !inserted) {
+        return NextResponse.json({ error: "Failed to create investment" }, { status: 500 })
+      }
+      inv = inserted
+      insertedHoldingId = inserted.id
     }
 
     const tradeAmount = units * costBasis
     const accountFilter = {
       family_id: resolved.familyId,
       profile_id: profileId ?? null,
+    }
+
+    const rollbackHolding = async () => {
+      if (holdingSnapshot) {
+        await supabase
+          .from("investments")
+          .update({
+            units: holdingSnapshot.units,
+            cost_basis: holdingSnapshot.cost_basis,
+          })
+          .eq("id", holdingSnapshot.id)
+      } else if (insertedHoldingId) {
+        await supabase.from("investments").delete().eq("id", insertedHoldingId)
+      }
     }
 
     let restoredCash: { id: string; balance: number } | null = null
@@ -167,7 +229,7 @@ export async function POST(request: NextRequest) {
         .eq("id", accountRow.id)
 
       if (cashErr) {
-        await supabase.from("investments").delete().eq("id", inv.id)
+        await rollbackHolding()
         return NextResponse.json(
           { error: "Failed to update investment cash" },
           { status: 500 },
@@ -186,7 +248,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (accInsErr || !newAcc) {
-        await supabase.from("investments").delete().eq("id", inv.id)
+        await rollbackHolding()
         return NextResponse.json(
           { error: "Failed to create investment account" },
           { status: 500 },
@@ -219,7 +281,7 @@ export async function POST(request: NextRequest) {
       } else if (newAccountId) {
         await supabase.from("investment_accounts").delete().eq("id", newAccountId)
       }
-      await supabase.from("investments").delete().eq("id", inv.id)
+      await rollbackHolding()
       return NextResponse.json(
         { error: "Failed to record buy transaction" },
         { status: 500 },

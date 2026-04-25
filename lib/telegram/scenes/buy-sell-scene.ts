@@ -665,13 +665,15 @@ async function finishBuySell(ctx: MyContext) {
 
   const familyId = profile.family_id
 
-  const { data: existing } = await supabase
+  const { data: existingRows } = await supabase
     .from("investments")
     .select("id, units, cost_basis")
     .eq("family_id", familyId)
     .eq("profile_id", profileId)
     .eq("symbol", symbol)
-    .maybeSingle()
+    .order("created_at", { ascending: true })
+    .limit(1)
+  const existing = existingRows?.[0] ?? null
 
   let investmentId: string
 

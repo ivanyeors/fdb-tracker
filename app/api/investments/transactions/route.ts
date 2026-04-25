@@ -107,12 +107,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 
-    const { data: existingHolding } = await supabase
+    let holdingQuery = supabase
       .from("investments")
       .select("*")
       .eq("family_id", resolved.familyId)
       .eq("symbol", symbol)
-      .maybeSingle()
+      .order("created_at", { ascending: true })
+      .limit(1)
+
+    if (profileId) {
+      holdingQuery = holdingQuery.or(
+        `profile_id.eq.${profileId},profile_id.is.null`,
+      )
+    }
+
+    const { data: holdingRows } = await holdingQuery
+    const existingHolding = holdingRows?.[0] ?? null
 
     const amount = quantity * price
     // Cash actually spent (buy) or received (sell) after commission
