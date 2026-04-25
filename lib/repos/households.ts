@@ -1,4 +1,7 @@
-import { encryptStringNullable } from "@/lib/crypto/cipher"
+import {
+  encryptStringNullable,
+  type EncryptedString,
+} from "@/lib/crypto/cipher"
 import {
   deterministicHash,
   deterministicHashNullable,
@@ -10,10 +13,13 @@ export interface HouseholdPiiInput {
 }
 
 export function encodeHouseholdPiiPatch(input: HouseholdPiiInput): {
-  telegram_chat_id_enc?: string | null
+  telegram_chat_id_enc?: EncryptedString | null
   telegram_chat_id_hash?: string | null
 } {
-  const out: Record<string, string | null> = {}
+  const out: {
+    telegram_chat_id_enc?: EncryptedString | null
+    telegram_chat_id_hash?: string | null
+  } = {}
 
   if ("telegram_chat_id" in input) {
     const normalized =

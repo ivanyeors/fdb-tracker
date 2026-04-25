@@ -1,13 +1,17 @@
-import { decryptString, encryptStringNullable } from "@/lib/crypto/cipher"
+import {
+  decryptString,
+  encryptStringNullable,
+  type EncryptedString,
+} from "@/lib/crypto/cipher"
 
 export interface FamilyPiiInput {
   name?: string | null
 }
 
 export function encodeFamilyPiiPatch(input: FamilyPiiInput): {
-  name_enc?: string | null
+  name_enc?: EncryptedString | null
 } {
-  const out: Record<string, string | null> = {}
+  const out: { name_enc?: EncryptedString | null } = {}
 
   if ("name" in input) {
     out.name_enc = encryptStringNullable(input.name ?? null, {

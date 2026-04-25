@@ -3,6 +3,7 @@ import {
   decryptString,
   encryptNumberNullable,
   encryptStringNullable,
+  type EncryptedString,
 } from "@/lib/crypto/cipher"
 
 export interface LoanPiiInput {
@@ -11,10 +12,13 @@ export interface LoanPiiInput {
 }
 
 export function encodeLoanPiiPatch(input: LoanPiiInput): {
-  lender_enc?: string | null
-  principal_enc?: string | null
+  lender_enc?: EncryptedString | null
+  principal_enc?: EncryptedString | null
 } {
-  const out: Record<string, string | null> = {}
+  const out: {
+    lender_enc?: EncryptedString | null
+    principal_enc?: EncryptedString | null
+  } = {}
 
   if ("lender" in input) {
     out.lender_enc = encryptStringNullable(input.lender ?? null, {

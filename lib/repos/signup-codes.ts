@@ -1,4 +1,7 @@
-import { encryptStringNullable } from "@/lib/crypto/cipher"
+import {
+  encryptStringNullable,
+  type EncryptedString,
+} from "@/lib/crypto/cipher"
 import {
   deterministicHash,
   deterministicHashNullable,
@@ -11,13 +14,17 @@ export interface SignupCodePiiInput {
   used_by_telegram_user_id?: string | null
 }
 
-export function encodeSignupCodePiiPatch(input: SignupCodePiiInput): {
-  telegram_username_enc?: string | null
+type SignupCodePiiPatch = {
+  telegram_username_enc?: EncryptedString | null
   telegram_username_hash?: string | null
-  used_by_telegram_user_id_enc?: string | null
+  used_by_telegram_user_id_enc?: EncryptedString | null
   used_by_telegram_user_id_hash?: string | null
-} {
-  const out: Record<string, string | null> = {}
+}
+
+export function encodeSignupCodePiiPatch(
+  input: SignupCodePiiInput,
+): SignupCodePiiPatch {
+  const out: SignupCodePiiPatch = {}
 
   if ("telegram_username" in input) {
     const normalized =

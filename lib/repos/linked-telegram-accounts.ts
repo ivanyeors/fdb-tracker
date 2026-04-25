@@ -1,4 +1,7 @@
-import { encryptStringNullable } from "@/lib/crypto/cipher"
+import {
+  encryptStringNullable,
+  type EncryptedString,
+} from "@/lib/crypto/cipher"
 import {
   deterministicHash,
   deterministicHashNullable,
@@ -12,17 +15,19 @@ export interface LinkedTelegramAccountPiiInput {
   telegram_chat_id?: string | null
 }
 
+type LinkedTelegramAccountPiiPatch = {
+  telegram_user_id_enc?: EncryptedString | null
+  telegram_user_id_hash?: string | null
+  telegram_username_enc?: EncryptedString | null
+  telegram_username_hash?: string | null
+  telegram_chat_id_enc?: EncryptedString | null
+  telegram_chat_id_hash?: string | null
+}
+
 export function encodeLinkedTelegramAccountPiiPatch(
   input: LinkedTelegramAccountPiiInput,
-): {
-  telegram_user_id_enc?: string | null
-  telegram_user_id_hash?: string | null
-  telegram_username_enc?: string | null
-  telegram_username_hash?: string | null
-  telegram_chat_id_enc?: string | null
-  telegram_chat_id_hash?: string | null
-} {
-  const out: Record<string, string | null> = {}
+): LinkedTelegramAccountPiiPatch {
+  const out: LinkedTelegramAccountPiiPatch = {}
 
   if ("telegram_user_id" in input) {
     const normalized =

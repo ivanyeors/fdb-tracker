@@ -3,6 +3,7 @@ import {
   decryptString,
   encryptNumberNullable,
   encryptStringNullable,
+  type EncryptedString,
 } from "@/lib/crypto/cipher"
 import {
   deterministicHash,
@@ -28,18 +29,20 @@ export interface ProfilePiiInput {
  * Username/IDs are normalized (lowercase + @-strip / toString-trim) before
  * both encryption AND hashing so lookups remain case-insensitive.
  */
-export function encodeProfilePiiPatch(input: ProfilePiiInput): {
-  name_enc?: string | null
+type ProfilePiiPatch = {
+  name_enc?: EncryptedString | null
   name_hash?: string | null
-  birth_year_enc?: string | null
-  telegram_user_id_enc?: string | null
+  birth_year_enc?: EncryptedString | null
+  telegram_user_id_enc?: EncryptedString | null
   telegram_user_id_hash?: string | null
-  telegram_username_enc?: string | null
+  telegram_username_enc?: EncryptedString | null
   telegram_username_hash?: string | null
-  telegram_chat_id_enc?: string | null
+  telegram_chat_id_enc?: EncryptedString | null
   telegram_chat_id_hash?: string | null
-} {
-  const out: Record<string, string | null> = {}
+}
+
+export function encodeProfilePiiPatch(input: ProfilePiiInput): ProfilePiiPatch {
+  const out: ProfilePiiPatch = {}
 
   if ("name" in input) {
     out.name_enc = encryptStringNullable(input.name ?? null, {

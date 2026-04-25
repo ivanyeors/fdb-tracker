@@ -3,6 +3,7 @@ import {
   decryptString,
   encryptNumberNullable,
   encryptStringNullable,
+  type EncryptedString,
 } from "@/lib/crypto/cipher"
 
 export interface DependentPiiInput {
@@ -11,12 +12,16 @@ export interface DependentPiiInput {
   annual_income?: number | null
 }
 
-export function encodeDependentPiiPatch(input: DependentPiiInput): {
-  name_enc?: string | null
-  birth_year_enc?: string | null
-  annual_income_enc?: string | null
-} {
-  const out: Record<string, string | null> = {}
+type DependentPiiPatch = {
+  name_enc?: EncryptedString | null
+  birth_year_enc?: EncryptedString | null
+  annual_income_enc?: EncryptedString | null
+}
+
+export function encodeDependentPiiPatch(
+  input: DependentPiiInput,
+): DependentPiiPatch {
+  const out: DependentPiiPatch = {}
 
   if ("name" in input) {
     out.name_enc = encryptStringNullable(input.name ?? null, {

@@ -1,6 +1,7 @@
 import {
   decryptString,
   encryptStringNullable,
+  type EncryptedString,
 } from "@/lib/crypto/cipher"
 import {
   deterministicHash,
@@ -34,11 +35,15 @@ export function lastFourOfAccountNumber(
  *   display and for the existing PDF-import last-4 matching path
  */
 export function encodeBankAccountPiiPatch(input: BankAccountPiiInput): {
-  account_number_enc?: string | null
+  account_number_enc?: EncryptedString | null
   account_number_hash?: string | null
   account_number_last4?: string | null
 } {
-  const out: Record<string, string | null> = {}
+  const out: {
+    account_number_enc?: EncryptedString | null
+    account_number_hash?: string | null
+    account_number_last4?: string | null
+  } = {}
 
   if ("account_number" in input) {
     const raw = input.account_number ?? null
