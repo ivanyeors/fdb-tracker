@@ -25,6 +25,7 @@ import {
   type ProfileData,
   type TaxEntryData,
 } from "@/lib/api/cashflow-aggregation"
+import { fetchCashflowRangeSeries } from "@/lib/api/cashflow-range"
 import { calculateSavingsRate } from "@/lib/calculations/bank-balance"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
 import {
@@ -92,99 +93,6 @@ function getRemainingMonths(startDate: string, tenureMonths: number): number {
     (end.getFullYear() - now.getFullYear()) * 12 +
     (end.getMonth() - now.getMonth())
   return Math.max(0, diff)
-}
-
-/* ------------------------------------------------------------------ */
-/*  Cashflow aggregation from pre-fetched data                         */
-/* ------------------------------------------------------------------ */
-
-function computeCashflowForMonth(
-  month: string,
-  profileIds: string[],
-  cashflowByKey: Map<string, CashflowRow>,
-  profileById: Map<string, ProfileData>,
-  incomeByProfileId: Map<string, IncomeData>,
-  giroByProfile: Map<string, number>,
-  insuranceByProfile: Map<string, InsurancePolicy[]>,
-  ilpByProfile: Map<
-    string,
-    Array<{ monthly_premium: number; premium_payment_mode?: string | null }>
-  >,
-  loansByProfile: Map<
-    string,
-    Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean; start_date?: string | null }>
-  >,
-  savingsGoalsByProfile: Map<string, number>,
-  taxReliefByProfileYear: Map<
-    string,
-    Array<{ relief_type: string; amount: number }>
-  >,
-  sharedIlp: number,
-  taxEntryByProfileYear?: Map<string, TaxEntryData>
-): { inflow: number; outflow: number } {
-  const monthStr = normalizeMonthKey(month)
-  const year = parseInt(monthStr.slice(0, 4), 10) || new Date().getFullYear()
-
-  let totalInflow = 0
-  let totalOutflow = 0
-
-  for (const pid of profileIds) {
-    // Only include profiles that have a cashflow row for this month
-    const key = `${pid}:${monthStr}`
-    const hasCashflow = cashflowByKey.has(key)
-
-    // Inflow
-    totalInflow += effectiveInflowFromContext(
-      pid,
-      monthStr,
-      year,
-      cashflowByKey,
-      profileById,
-      incomeByProfileId
-    )
-
-    // Only compute outflow for profiles that have a cashflow entry for this month
-    // (matches the original behavior where we iterated over rows returned from DB)
-    if (!hasCashflow) continue
-
-    // Discretionary
-    totalOutflow += discretionaryForProfileMonth(
-      pid,
-      monthStr,
-      cashflowByKey,
-      giroByProfile
-    )
-
-    // Insurance + legacy ILP
-    const pols = insuranceByProfile.get(pid) ?? []
-    const insSplit = sumInsuranceOutflowPremiumsSplit(pols)
-    totalOutflow += insSplit.insurance + insSplit.ilpFromLegacyPolicies
-
-    // ILP products
-    totalOutflow += sumIlpPremiums(ilpByProfile.get(pid) ?? [])
-
-    // Loans
-    totalOutflow += sumLoanMonthlyPayments(loansByProfile.get(pid) ?? [], monthStr)
-
-    // Savings goals
-    totalOutflow += savingsGoalsByProfile.get(pid) ?? 0
-
-    // Tax
-    totalOutflow += monthlyTaxForProfile(
-      pid,
-      year,
-      profileById,
-      incomeByProfileId,
-      pols,
-      taxReliefByProfileYear.get(`${pid}:${year}`) ?? [],
-      taxEntryByProfileYear,
-    )
-  }
-
-  // Shared ILP (family-level, profile_id is null)
-  totalOutflow += sharedIlp
-
-  return { inflow: totalInflow, outflow: totalOutflow }
 }
 
 /* ------------------------------------------------------------------ */
@@ -373,7 +281,6 @@ export async function fetchOverviewData(
     ilpRes,
     loansRes,
     taxReliefRes,
-    sharedIlpRes,
     savingsGoalsRes,
     cpfRes,
     bankAccountsRes,
@@ -427,13 +334,7 @@ export async function fetchOverviewData(
       .select("profile_id, year, relief_type, amount")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
       .in("year", [currentYear, currentYear - 1]),
-    // 9. Shared ILP products (family-level)
-    supabase
-      .from("ilp_products")
-      .select("monthly_premium, premium_payment_mode")
-      .eq("family_id", familyId)
-      .is("profile_id", null),
-    // 10. Savings goals
+    // 9. Savings goals
     supabase
       .from("savings_goals")
       .select("profile_id, monthly_auto_amount")
@@ -618,8 +519,6 @@ export async function fetchOverviewData(
     const amt = (g.monthly_auto_amount as number) ?? 0
     savingsGoalsByProfile.set(pid, (savingsGoalsByProfile.get(pid) ?? 0) + amt)
   }
-
-  const sharedIlp = sumIlpPremiums(sharedIlpRes.data)
 
   // ── Bank Total ──
   const filteredBankAccounts = profileId
@@ -819,6 +718,9 @@ export async function fetchOverviewData(
   }
 
   // ── Savings Rate ──
+  // Reuse fetchCashflowRangeSeries so the overview card stays in lock-step with
+  // the dedicated cashflow page (same set of outflow components: ilpOneTime,
+  // earlyRepayments, goalContributions, investments, taxReliefCash, etc.).
   let savingsRate = 0
   let latestInflow = 0
   let latestOutflow = 0
@@ -827,74 +729,81 @@ export async function fetchOverviewData(
   let previousMonthOutflow: number | undefined
   let previousMonthSavings: number | undefined
 
+  let computeMonth: string | null = null
+  let computePrev = false
   if (monthFilter) {
-    latestMonth = normalizeMonthKey(monthFilter)
-    const cf = computeCashflowForMonth(
-      latestMonth,
-      profileIds,
-      cashflowByKey,
-      profileById,
-      incomeByProfileId,
-      giroByProfile,
-      insuranceByProfile,
-      ilpByProfile,
-      loansForCashflow,
-      savingsGoalsByProfile,
-      taxReliefByProfileYear,
-      sharedIlp,
-      taxEntryByProfileYear,
-    )
-    latestInflow = cf.inflow
-    latestOutflow = cf.outflow
-    savingsRate = calculateSavingsRate(cf.inflow, cf.outflow)
-
-    const prevMonth = getPreviousMonth(latestMonth)
-    const prevCf = computeCashflowForMonth(
-      prevMonth,
-      profileIds,
-      cashflowByKey,
-      profileById,
-      incomeByProfileId,
-      giroByProfile,
-      insuranceByProfile,
-      ilpByProfile,
-      loansForCashflow,
-      savingsGoalsByProfile,
-      taxReliefByProfileYear,
-      sharedIlp,
-      taxEntryByProfileYear,
-    )
-    previousMonthInflow = prevCf.inflow
-    previousMonthOutflow = prevCf.outflow
-    previousMonthSavings = prevCf.inflow - prevCf.outflow
+    computeMonth = normalizeMonthKey(monthFilter)
+    computePrev = true
   } else {
-    // Find the latest month with cashflow data
     const cashflowRows = cashflowRes.data ?? []
     const relevantRows = profileId
       ? cashflowRows.filter((r) => r.profile_id === profileId)
       : cashflowRows.filter((r) => profileIds.includes(r.profile_id))
-
     if (relevantRows.length > 0) {
-      // Already sorted desc
-      latestMonth = normalizeMonthKey(relevantRows[0]!.month as string)
+      computeMonth = normalizeMonthKey(relevantRows[0]!.month as string)
+    }
+  }
 
-      const cf = computeCashflowForMonth(
-        latestMonth,
-        profileIds,
-        cashflowByKey,
-        profileById,
-        incomeByProfileId,
-        giroByProfile,
-        insuranceByProfile,
-        ilpByProfile,
-        loansForCashflow,
-        savingsGoalsByProfile,
-        taxReliefByProfileYear,
-        sharedIlp
-      )
-      latestInflow = cf.inflow
-      latestOutflow = cf.outflow
-      savingsRate = calculateSavingsRate(cf.inflow, cf.outflow)
+  if (computeMonth) {
+    latestMonth = computeMonth
+    const prevMonth = getPreviousMonth(latestMonth)
+    const rangeStart = computePrev ? prevMonth : latestMonth
+
+    const [cashflowSeries, bankTxnsRes] = await Promise.all([
+      fetchCashflowRangeSeries(supabase, {
+        profileIds: targetProfileIds,
+        familyId,
+        startMonth: rangeStart,
+        endMonth: latestMonth,
+      }),
+      // Bank-statement totals override the manual `discretionary` figure when
+      // the user has imported statements — mirrors cashflow-client.tsx behavior.
+      (() => {
+        const months = computePrev ? [prevMonth, latestMonth] : [latestMonth]
+        let qb = supabase
+          .from("bank_transactions")
+          .select("month, amount")
+          .in("month", months)
+          .eq("txn_type", "debit")
+          .eq("exclude_from_spending", false)
+        qb = profileId
+          ? qb.eq("profile_id", profileId)
+          : qb.eq("family_id", familyId)
+        return qb
+      })(),
+    ])
+
+    const bankTotalByMonth = new Map<string, number>()
+    for (const t of bankTxnsRes.data ?? []) {
+      const m = normalizeMonthKey(t.month as string)
+      const amt = Math.abs((t.amount as number) ?? 0)
+      bankTotalByMonth.set(m, (bankTotalByMonth.get(m) ?? 0) + amt)
+    }
+
+    const applyBankOverride = (
+      row: { discretionary: number; totalOutflow: number } | undefined,
+      month: string,
+    ): number => {
+      if (!row) return 0
+      const bankTotal = bankTotalByMonth.get(month) ?? 0
+      const effectiveDiscretionary = bankTotal > 0 ? bankTotal : row.discretionary
+      return row.totalOutflow - row.discretionary + effectiveDiscretionary
+    }
+
+    const latestRow = cashflowSeries.find((r) => r.month === latestMonth)
+    if (latestRow) {
+      latestInflow = latestRow.inflow
+      latestOutflow = applyBankOverride(latestRow, latestMonth)
+      savingsRate = calculateSavingsRate(latestInflow, latestOutflow)
+    }
+
+    if (computePrev) {
+      const prevRow = cashflowSeries.find((r) => r.month === prevMonth)
+      if (prevRow) {
+        previousMonthInflow = prevRow.inflow
+        previousMonthOutflow = applyBankOverride(prevRow, prevMonth)
+        previousMonthSavings = previousMonthInflow - previousMonthOutflow
+      }
     }
   }
 
