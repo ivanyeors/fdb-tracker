@@ -16,6 +16,7 @@ import { AddIlpEntryDialog } from "@/components/dashboard/investments/add-ilp-en
 import { DeleteIlpDialog } from "@/components/dashboard/investments/delete-ilp-dialog"
 import { EditIlpDialog } from "@/components/dashboard/investments/edit-ilp-dialog"
 import { IlpFundReportPanel } from "@/components/dashboard/investments/ilp-fund-report-panel"
+import { UpdateFundValueDialog } from "@/components/dashboard/investments/update-fund-value-dialog"
 import { formatIlpChartMonthLabel } from "@/lib/investments/ilp-chart"
 import { useInvestmentsDisplayCurrency } from "@/components/dashboard/investments/investments-display-currency"
 import { sgdToDisplayAmount } from "@/lib/investments/display-currency"
@@ -488,6 +489,17 @@ export function IlpCard({
 }: IlpCardProps) {
   const { formatMoney } = useInvestmentsDisplayCurrency()
   const [editOpen, setEditOpen] = useState(false)
+  const [updateFvOpen, setUpdateFvOpen] = useState(false)
+
+  const variance = useMemo(() => {
+    if (monthlyData.length < 2) return null
+    const curr = monthlyData[monthlyData.length - 1]
+    const prev = monthlyData[monthlyData.length - 2]
+    if (prev.value <= 0) return null
+    const delta = curr.value - prev.value
+    const pct = (delta / prev.value) * 100
+    return { delta, pct, priorMonth: prev.month }
+  }, [monthlyData])
 
   const premiumLineLabel =
     premiumPaymentMode === "one_time" ? "One-time premium" : "Monthly premium"
@@ -644,15 +656,42 @@ export function IlpCard({
             <span className="text-muted-foreground">Fund Value</span>
             <div className="flex flex-col items-end gap-1">
               <span className="font-medium">{formatMoney(fundValue)}</span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => setEditOpen(true)}
-              >
-                Update fund value
-              </Button>
+              {variance ? (
+                <div
+                  className={cn(
+                    "flex items-center gap-1 text-xs font-medium",
+                    variance.delta >= 0 ? "text-emerald-500" : "text-red-500",
+                  )}
+                >
+                  {variance.delta >= 0 ? (
+                    <ArrowUp className="size-3" />
+                  ) : (
+                    <ArrowDown className="size-3" />
+                  )}
+                  <span className="tabular-nums">
+                    {variance.delta >= 0 ? "+" : ""}
+                    {formatMoney(variance.delta)}
+                  </span>
+                  <span className="tabular-nums opacity-90">
+                    ({variance.delta >= 0 ? "+" : ""}
+                    {fmt(variance.pct)}%)
+                  </span>
+                  <span className="text-muted-foreground font-normal">
+                    vs {formatIlpChartMonthLabel(variance.priorMonth)}
+                  </span>
+                </div>
+              ) : null}
+              {productId ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setUpdateFvOpen(true)}
+                >
+                  Update fund value
+                </Button>
+              ) : null}
             </div>
           </div>
           <div className="flex justify-between gap-2">
@@ -708,6 +747,17 @@ export function IlpCard({
             </ParentSize>
           </div>
         </CardContent>
+      ) : null}
+      {productId ? (
+        <UpdateFundValueDialog
+          productId={productId}
+          productName={name}
+          latestEntryMonth={latestEntryMonth}
+          latestEntryFundValue={latestEntryFundValue}
+          open={updateFvOpen}
+          onOpenChange={setUpdateFvOpen}
+          onSuccess={onEditSuccess ?? onAddEntry}
+        />
       ) : null}
     </Card>
   )
