@@ -3,6 +3,8 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { MyContext } from "@/lib/telegram/bot"
 import { validateApiKey, countLinkedMembers } from "@/lib/auth/api-keys"
 import { deterministicHash } from "@/lib/crypto/hash"
+import { encodeLinkedTelegramAccountPiiPatch } from "@/lib/repos/linked-telegram-accounts"
+import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
 import { progressHeader, errorMsg } from "@/lib/telegram/scene-helpers"
 
 const UUID_REGEX =
@@ -221,6 +223,11 @@ async function handleProfileTokenLink(
     return
   }
 
+  const profilePiiInput = {
+    telegram_chat_id: String(chatId),
+    telegram_user_id: String(fromUserId ?? chatId),
+    telegram_username: ctx.from?.username ?? null,
+  }
   const { error: updateError } = await supabase
     .from("profiles")
     .update({
@@ -228,6 +235,7 @@ async function handleProfileTokenLink(
       telegram_user_id: String(fromUserId ?? chatId),
       telegram_username: ctx.from?.username ?? null,
       telegram_last_used: new Date().toISOString(),
+      ...encodeProfilePiiPatch(profilePiiInput),
     })
     .eq("id", profile.id)
 
@@ -335,6 +343,11 @@ async function linkToProfileAndFinish(
     return
   }
 
+  const profilePiiInput = {
+    telegram_chat_id: String(chatId),
+    telegram_user_id: String(from.id),
+    telegram_username: from.username ?? null,
+  }
   const { error: updateErr } = await supabase
     .from("profiles")
     .update({
@@ -342,6 +355,7 @@ async function linkToProfileAndFinish(
       telegram_user_id: String(from.id),
       telegram_username: from.username ?? null,
       telegram_last_used: new Date().toISOString(),
+      ...encodeProfilePiiPatch(profilePiiInput),
     })
     .eq("id", profileId)
 
@@ -388,6 +402,13 @@ async function createProfileAndLink(
     return
   }
 
+  const profilePiiInput = {
+    name,
+    birth_year: 2000,
+    telegram_chat_id: String(chatId),
+    telegram_user_id: String(from.id),
+    telegram_username: from.username ?? null,
+  }
   const { data: newProfile, error: createErr } = await supabase
     .from("profiles")
     .insert({
@@ -398,6 +419,7 @@ async function createProfileAndLink(
       telegram_user_id: String(from.id),
       telegram_username: from.username ?? null,
       telegram_last_used: new Date().toISOString(),
+      ...encodeProfilePiiPatch(profilePiiInput),
     })
     .select("id, name")
     .single()
@@ -424,6 +446,11 @@ async function addToLinkedAccountsIfNeeded(
 ): Promise<void> {
   if (!apiKeyId) return
 
+  const linkedPiiInput = {
+    telegram_user_id: String(from.id),
+    telegram_username: from.username ?? null,
+    telegram_chat_id: String(chatId),
+  }
   await supabase.from("linked_telegram_accounts").upsert(
     {
       link_api_key_id: apiKeyId,
@@ -431,6 +458,7 @@ async function addToLinkedAccountsIfNeeded(
       telegram_user_id: String(from.id),
       telegram_username: from.username ?? null,
       telegram_chat_id: String(chatId),
+      ...encodeLinkedTelegramAccountPiiPatch(linkedPiiInput),
     },
     { onConflict: "link_api_key_id,telegram_user_id" },
   )

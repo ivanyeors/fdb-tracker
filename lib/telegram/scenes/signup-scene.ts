@@ -1,5 +1,8 @@
 import { Scenes } from "telegraf"
 import { MyContext, botState } from "@/lib/telegram/bot"
+import { encodeFamilyPiiPatch } from "@/lib/repos/families"
+import { encodeHouseholdPiiPatch } from "@/lib/repos/households"
+import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { validateCode, markCodeUsed } from "@/lib/auth/signup-codes"
 import { generateAndStoreOtp } from "@/lib/auth/otp"
@@ -142,6 +145,7 @@ async function processSignupCode(
     .insert({
       user_count: 1,
       telegram_chat_id: String(chatId),
+      ...encodeHouseholdPiiPatch({ telegram_chat_id: String(chatId) }),
       account_type: "owner",
     })
     .select("id")
@@ -158,6 +162,7 @@ async function processSignupCode(
     .insert({
       household_id: household.id,
       name: "Family 1",
+      ...encodeFamilyPiiPatch({ name: "Family 1" }),
       user_count: 1,
     })
     .select("id")
@@ -170,6 +175,13 @@ async function processSignupCode(
   }
 
   const displayName = from.first_name || from.username || "User"
+  const profilePiiInput = {
+    name: displayName,
+    birth_year: 2000,
+    telegram_user_id: fromUserId,
+    telegram_chat_id: String(chatId),
+    telegram_username: from.username ?? null,
+  }
   const { error: profileError } = await supabase.from("profiles").insert({
     family_id: family.id,
     name: displayName,
@@ -180,6 +192,7 @@ async function processSignupCode(
       ? from.username.replace(/^@/, "").toLowerCase()
       : null,
     telegram_last_used: new Date().toISOString(),
+    ...encodeProfilePiiPatch(profilePiiInput),
   })
 
   if (profileError) {

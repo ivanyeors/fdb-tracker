@@ -3,6 +3,9 @@
  * Used by webhook and OTP wizard to resolve household_id from chat/user/username.
  */
 
+import { encodeFamilyPiiPatch } from "@/lib/repos/families"
+import { encodeHouseholdPiiPatch } from "@/lib/repos/households"
+import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 export async function getHouseholdFromLinkedProfile(
@@ -283,6 +286,7 @@ export async function resolveOrProvisionPublicUser(
       .insert({
         user_count: 1,
         telegram_chat_id: chatId,
+        ...encodeHouseholdPiiPatch({ telegram_chat_id: chatId }),
         account_type: "public",
         onboarding_completed_at: new Date().toISOString(),
       })
@@ -302,6 +306,7 @@ export async function resolveOrProvisionPublicUser(
       .insert({
         household_id: household.id,
         name: "Personal",
+        ...encodeFamilyPiiPatch({ name: "Personal" }),
         user_count: 1,
       })
       .select("id")
@@ -315,6 +320,13 @@ export async function resolveOrProvisionPublicUser(
       return null
     }
 
+    const profilePiiInput = {
+      name: displayName,
+      birth_year: 2000,
+      telegram_user_id: fromUserIdStr,
+      telegram_chat_id: chatId,
+      telegram_username: fromUsername ?? null,
+    }
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .insert({
@@ -327,6 +339,7 @@ export async function resolveOrProvisionPublicUser(
           ? fromUsername.replace(/^@/, "").toLowerCase()
           : null,
         telegram_last_used: new Date().toISOString(),
+        ...encodeProfilePiiPatch(profilePiiInput),
       })
       .select("id")
       .single()
@@ -381,7 +394,11 @@ export async function getOrCreateAccount(
 
     const { data: created, error: createError } = await supabase
       .from("households")
-      .insert({ user_count: 1, telegram_chat_id: chatId })
+      .insert({
+        user_count: 1,
+        telegram_chat_id: chatId,
+        ...encodeHouseholdPiiPatch({ telegram_chat_id: chatId }),
+      })
       .select("id")
       .single()
 
@@ -396,6 +413,7 @@ export async function getOrCreateAccount(
     const { error: familyError } = await supabase.from("families").insert({
       household_id: householdId,
       name: "Family 1",
+      ...encodeFamilyPiiPatch({ name: "Family 1" }),
       user_count: 1,
     })
 

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, createSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeFamilyPiiPatch } from "@/lib/repos/families"
+import { encodeHouseholdPiiPatch } from "@/lib/repos/households"
+import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 import { z } from "zod"
@@ -170,11 +173,13 @@ export async function POST(request: Request) {
         .select("id", { count: "exact", head: true })
         .eq("household_id", session.accountId)
       const nextNum = (familyCount ?? 0) + 1
+      const newFamilyName = `Family ${nextNum}`
       const { data: newFamily, error: familyError } = await supabase
         .from("families")
         .insert({
           household_id: session.accountId,
-          name: `Family ${nextNum}`,
+          name: newFamilyName,
+          ...encodeFamilyPiiPatch({ name: newFamilyName }),
           user_count: data.userCount,
         })
         .select("id")
@@ -207,6 +212,7 @@ export async function POST(request: Request) {
           .insert({
             household_id: session.accountId,
             name: "Family 1",
+            ...encodeFamilyPiiPatch({ name: "Family 1" }),
             user_count: data.userCount,
           })
           .select("id")
@@ -222,12 +228,17 @@ export async function POST(request: Request) {
       }
     }
 
+    const newChatId = data.telegramChatId || null
+    const householdChatPatch = encodeHouseholdPiiPatch({
+      telegram_chat_id: newChatId,
+    })
     if (!isNewFamily) {
       const { error: householdError } = await supabase
         .from("households")
         .update({
           user_count: data.userCount,
-          telegram_chat_id: data.telegramChatId || null,
+          telegram_chat_id: newChatId,
+          ...householdChatPatch,
           onboarding_completed_at: new Date().toISOString(),
         })
         .eq("id", session.accountId)
@@ -242,7 +253,8 @@ export async function POST(request: Request) {
       const { error: householdError } = await supabase
         .from("households")
         .update({
-          telegram_chat_id: data.telegramChatId || null,
+          telegram_chat_id: newChatId,
+          ...householdChatPatch,
         })
         .eq("id", session.accountId)
       if (householdError) {
@@ -293,6 +305,10 @@ export async function POST(request: Request) {
             family_id: familyId,
             name: p.name,
             birth_year: p.birth_year,
+            ...encodeProfilePiiPatch({
+              name: p.name,
+              birth_year: p.birth_year,
+            }),
           }))
         )
         .select("id")

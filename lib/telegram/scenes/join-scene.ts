@@ -1,5 +1,6 @@
 import { Scenes } from "telegraf"
 import { MyContext, botState } from "@/lib/telegram/bot"
+import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { validateCode, markCodeUsed } from "@/lib/auth/signup-codes"
 import { generateAndStoreOtp } from "@/lib/auth/otp"
@@ -261,6 +262,11 @@ async function linkProfileAndFinish(ctx: MyContext, profileId: string) {
     return
   }
 
+  const profilePiiInput = {
+    telegram_chat_id: String(chatId),
+    telegram_user_id: String(from.id),
+    telegram_username: from.username ?? null,
+  }
   const { error: updateErr } = await supabase
     .from("profiles")
     .update({
@@ -270,6 +276,7 @@ async function linkProfileAndFinish(ctx: MyContext, profileId: string) {
         ? from.username.replace(/^@/, "").toLowerCase()
         : null,
       telegram_last_used: new Date().toISOString(),
+      ...encodeProfilePiiPatch(profilePiiInput),
     })
     .eq("id", profileId)
 
@@ -324,6 +331,13 @@ async function createProfileAndLink(ctx: MyContext, name: string) {
     return
   }
 
+  const profilePiiInput = {
+    name,
+    birth_year: 2000,
+    telegram_chat_id: String(chatId),
+    telegram_user_id: String(from.id),
+    telegram_username: from.username ?? null,
+  }
   const { data: newProfile, error: createErr } = await supabase
     .from("profiles")
     .insert({
@@ -336,6 +350,7 @@ async function createProfileAndLink(ctx: MyContext, name: string) {
         ? from.username.replace(/^@/, "").toLowerCase()
         : null,
       telegram_last_used: new Date().toISOString(),
+      ...encodeProfilePiiPatch(profilePiiInput),
     })
     .select("id, name")
     .single()

@@ -14,6 +14,8 @@ export type Database = {
           id: string
           user_count: number
           telegram_chat_id: string | null
+          telegram_chat_id_enc: string | null
+          telegram_chat_id_hash: string | null
           telegram_bot_token: string | null
           telegram_bot_token_enc: string | null
           onboarding_completed_at: string | null
@@ -24,6 +26,8 @@ export type Database = {
           id?: string
           user_count?: number
           telegram_chat_id?: string | null
+          telegram_chat_id_enc?: string | null
+          telegram_chat_id_hash?: string | null
           telegram_bot_token?: string | null
           telegram_bot_token_enc?: string | null
           onboarding_completed_at?: string | null
@@ -34,6 +38,8 @@ export type Database = {
           id?: string
           user_count?: number
           telegram_chat_id?: string | null
+          telegram_chat_id_enc?: string | null
+          telegram_chat_id_hash?: string | null
           telegram_bot_token?: string | null
           telegram_bot_token_enc?: string | null
           onboarding_completed_at?: string | null
@@ -47,6 +53,7 @@ export type Database = {
           id: string
           household_id: string
           name: string
+          name_enc: string | null
           user_count: number
           created_at: string
         }
@@ -54,6 +61,7 @@ export type Database = {
           id?: string
           household_id: string
           name?: string
+          name_enc?: string | null
           user_count?: number
           created_at?: string
         }
@@ -61,6 +69,7 @@ export type Database = {
           id?: string
           household_id?: string
           name?: string
+          name_enc?: string | null
           user_count?: number
           created_at?: string
         }
@@ -79,14 +88,23 @@ export type Database = {
           id: string
           family_id: string
           name: string
+          name_enc: string | null
+          name_hash: string | null
           telegram_user_id: string | null
+          telegram_user_id_enc: string | null
+          telegram_user_id_hash: string | null
           telegram_username: string | null
+          telegram_username_enc: string | null
+          telegram_username_hash: string | null
           telegram_chat_id: string | null
+          telegram_chat_id_enc: string | null
+          telegram_chat_id_hash: string | null
           telegram_link_token: string | null
           telegram_link_token_enc: string | null
           telegram_link_token_hash: string | null
           telegram_last_used: string | null
           birth_year: number
+          birth_year_enc: string | null
           optional_onboarding_completed_at: string | null
           dps_include_in_projection: boolean
           self_help_group: string
@@ -101,14 +119,23 @@ export type Database = {
           id?: string
           family_id: string
           name: string
+          name_enc?: string | null
+          name_hash?: string | null
           telegram_user_id?: string | null
+          telegram_user_id_enc?: string | null
+          telegram_user_id_hash?: string | null
           telegram_username?: string | null
+          telegram_username_enc?: string | null
+          telegram_username_hash?: string | null
           telegram_chat_id?: string | null
+          telegram_chat_id_enc?: string | null
+          telegram_chat_id_hash?: string | null
           telegram_link_token?: string | null
           telegram_link_token_enc?: string | null
           telegram_link_token_hash?: string | null
           telegram_last_used?: string | null
           birth_year: number
+          birth_year_enc?: string | null
           optional_onboarding_completed_at?: string | null
           dps_include_in_projection?: boolean
           self_help_group?: string
@@ -123,14 +150,23 @@ export type Database = {
           id?: string
           family_id?: string
           name?: string
+          name_enc?: string | null
+          name_hash?: string | null
           telegram_user_id?: string | null
+          telegram_user_id_enc?: string | null
+          telegram_user_id_hash?: string | null
           telegram_username?: string | null
+          telegram_username_enc?: string | null
+          telegram_username_hash?: string | null
           telegram_chat_id?: string | null
+          telegram_chat_id_enc?: string | null
+          telegram_chat_id_hash?: string | null
           telegram_link_token?: string | null
           telegram_link_token_enc?: string | null
           telegram_link_token_hash?: string | null
           telegram_last_used?: string | null
           birth_year?: number
+          birth_year_enc?: string | null
           optional_onboarding_completed_at?: string | null
           dps_include_in_projection?: boolean
           self_help_group?: string
@@ -233,8 +269,14 @@ export type Database = {
           link_api_key_id: string
           household_id: string
           telegram_user_id: string
+          telegram_user_id_enc: string | null
+          telegram_user_id_hash: string | null
           telegram_username: string | null
+          telegram_username_enc: string | null
+          telegram_username_hash: string | null
           telegram_chat_id: string
+          telegram_chat_id_enc: string | null
+          telegram_chat_id_hash: string | null
           linked_at: string
         }
         Insert: {
@@ -242,8 +284,14 @@ export type Database = {
           link_api_key_id: string
           household_id: string
           telegram_user_id: string
+          telegram_user_id_enc?: string | null
+          telegram_user_id_hash?: string | null
           telegram_username?: string | null
+          telegram_username_enc?: string | null
+          telegram_username_hash?: string | null
           telegram_chat_id: string
+          telegram_chat_id_enc?: string | null
+          telegram_chat_id_hash?: string | null
           linked_at?: string
         }
         Update: {
@@ -251,8 +299,14 @@ export type Database = {
           link_api_key_id?: string
           household_id?: string
           telegram_user_id?: string
+          telegram_user_id_enc?: string | null
+          telegram_user_id_hash?: string | null
           telegram_username?: string | null
+          telegram_username_enc?: string | null
+          telegram_username_hash?: string | null
           telegram_chat_id?: string
+          telegram_chat_id_enc?: string | null
+          telegram_chat_id_hash?: string | null
           linked_at?: string
         }
         Relationships: [
@@ -279,10 +333,14 @@ export type Database = {
           code: string
           household_id: string | null
           telegram_username: string | null
+          telegram_username_enc: string | null
+          telegram_username_hash: string | null
           target_profile_id: string | null
           created_by_household_id: string | null
           used: boolean
           used_by_telegram_user_id: string | null
+          used_by_telegram_user_id_enc: string | null
+          used_by_telegram_user_id_hash: string | null
           expires_at: string
           created_at: string
         }
@@ -292,10 +350,14 @@ export type Database = {
           code: string
           household_id?: string | null
           telegram_username?: string | null
+          telegram_username_enc?: string | null
+          telegram_username_hash?: string | null
           target_profile_id?: string | null
           created_by_household_id?: string | null
           used?: boolean
           used_by_telegram_user_id?: string | null
+          used_by_telegram_user_id_enc?: string | null
+          used_by_telegram_user_id_hash?: string | null
           expires_at: string
           created_at?: string
         }
@@ -305,10 +367,14 @@ export type Database = {
           code?: string
           household_id?: string | null
           telegram_username?: string | null
+          telegram_username_enc?: string | null
+          telegram_username_hash?: string | null
           target_profile_id?: string | null
           created_by_household_id?: string | null
           used?: boolean
           used_by_telegram_user_id?: string | null
+          used_by_telegram_user_id_enc?: string | null
+          used_by_telegram_user_id_hash?: string | null
           expires_at?: string
           created_at?: string
         }
@@ -2491,11 +2557,14 @@ export type Database = {
           id: string
           family_id: string
           name: string
+          name_enc: string | null
           birth_year: number
+          birth_year_enc: string | null
           relationship: string
           claimed_by_profile_id: string | null
           in_full_time_education: boolean
           annual_income: number
+          annual_income_enc: string | null
           living_with_claimant: boolean
           is_handicapped: boolean
           created_at: string
@@ -2504,11 +2573,14 @@ export type Database = {
           id?: string
           family_id: string
           name: string
+          name_enc?: string | null
           birth_year: number
+          birth_year_enc?: string | null
           relationship: string
           claimed_by_profile_id?: string | null
           in_full_time_education?: boolean
           annual_income?: number
+          annual_income_enc?: string | null
           living_with_claimant?: boolean
           is_handicapped?: boolean
           created_at?: string
@@ -2517,11 +2589,14 @@ export type Database = {
           id?: string
           family_id?: string
           name?: string
+          name_enc?: string | null
           birth_year?: number
+          birth_year_enc?: string | null
           relationship?: string
           claimed_by_profile_id?: string | null
           in_full_time_education?: boolean
           annual_income?: number
+          annual_income_enc?: string | null
           living_with_claimant?: boolean
           is_handicapped?: boolean
           created_at?: string

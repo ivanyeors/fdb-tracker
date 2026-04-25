@@ -1,3 +1,4 @@
+import { encodeSignupCodePiiPatch } from "@/lib/repos/signup-codes"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 // Exclude ambiguous characters: 0/O, 1/I/L
@@ -38,10 +39,14 @@ export async function generateSignupCode(
   }
 
   const code = generateCode()
+  const usernameEncoded = encodeSignupCodePiiPatch({
+    telegram_username: normalized,
+  })
   const { error } = await supabase.from("signup_codes").insert({
     type: "signup",
     code,
     telegram_username: normalized,
+    ...usernameEncoded,
     expires_at: new Date(Date.now() + SIGNUP_EXPIRY_MS).toISOString(),
   })
 
@@ -52,6 +57,7 @@ export async function generateSignupCode(
       type: "signup",
       code: retryCode,
       telegram_username: normalized,
+      ...usernameEncoded,
       expires_at: new Date(Date.now() + SIGNUP_EXPIRY_MS).toISOString(),
     })
     if (retryError) {
@@ -145,12 +151,16 @@ export async function markCodeUsed(
   telegramUserId: string
 ): Promise<boolean> {
   const supabase = createSupabaseAdmin()
+  const usedByEncoded = encodeSignupCodePiiPatch({
+    used_by_telegram_user_id: telegramUserId,
+  })
 
   const { data, error } = await supabase
     .from("signup_codes")
     .update({
       used: true,
       used_by_telegram_user_id: telegramUserId,
+      ...usedByEncoded,
     })
     .eq("id", codeId)
     .eq("used", false)

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeHouseholdPiiPatch } from "@/lib/repos/households"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { mergePublicHousehold } from "@/lib/onboarding/merge-public-household"
 import { z } from "zod"
@@ -72,9 +73,13 @@ export async function POST(request: Request) {
     }
 
     // No conflict — save the chat ID
+    const newChatId = trimmedChatId || null
     const { error } = await supabase
       .from("households")
-      .update({ telegram_chat_id: trimmedChatId || null })
+      .update({
+        telegram_chat_id: newChatId,
+        ...encodeHouseholdPiiPatch({ telegram_chat_id: newChatId }),
+      })
       .eq("id", session.accountId)
 
     if (error) {

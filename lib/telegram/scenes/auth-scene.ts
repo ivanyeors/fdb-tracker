@@ -2,6 +2,7 @@ import { Scenes } from "telegraf"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { MyContext } from "@/lib/telegram/bot"
 import { validateApiKey, countLinkedMembers } from "@/lib/auth/api-keys"
+import { encodeLinkedTelegramAccountPiiPatch } from "@/lib/repos/linked-telegram-accounts"
 import { progressHeader, errorMsg } from "@/lib/telegram/scene-helpers"
 
 const TOTAL_STEPS = 2 // key, confirm
@@ -110,6 +111,11 @@ export const authScene = new Scenes.WizardScene<MyContext>(
     }
 
     const supabase = createSupabaseAdmin()
+    const linkedPiiInput = {
+      telegram_user_id: String(from.id),
+      telegram_username: from.username ?? null,
+      telegram_chat_id: String(chat.id),
+    }
     const { error } = await supabase.from("linked_telegram_accounts").upsert(
       {
         link_api_key_id: apiKeyId,
@@ -117,6 +123,7 @@ export const authScene = new Scenes.WizardScene<MyContext>(
         telegram_user_id: String(from.id),
         telegram_username: from.username ?? null,
         telegram_chat_id: String(chat.id),
+        ...encodeLinkedTelegramAccountPiiPatch(linkedPiiInput),
       },
       {
         onConflict: "link_api_key_id,telegram_user_id",

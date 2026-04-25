@@ -1,5 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js"
 
+import { encodeHouseholdPiiPatch } from "@/lib/repos/households"
+
 export type MergeResult = {
   success: boolean
   migratedProfileIds: string[]
@@ -101,7 +103,12 @@ export async function mergePublicHousehold(
   if (sourceHousehold.telegram_chat_id) {
     await supabase
       .from("households")
-      .update({ telegram_chat_id: sourceHousehold.telegram_chat_id })
+      .update({
+        telegram_chat_id: sourceHousehold.telegram_chat_id,
+        ...encodeHouseholdPiiPatch({
+          telegram_chat_id: sourceHousehold.telegram_chat_id,
+        }),
+      })
       .eq("id", targetHouseholdId)
   }
 

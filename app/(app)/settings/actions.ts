@@ -6,6 +6,9 @@ import { cookies } from "next/headers"
 import { z } from "zod"
 import { getSessionFromCookies } from "@/lib/auth/session"
 import { encryptStringNullable } from "@/lib/crypto/cipher"
+import { encodeDependentPiiPatch } from "@/lib/repos/dependents"
+import { encodeFamilyPiiPatch } from "@/lib/repos/families"
+import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const updateUserSchema = z.object({
@@ -108,6 +111,7 @@ export async function updateUserProfile(
       .update({
         name,
         birth_year: birthYear,
+        ...encodeProfilePiiPatch({ name, birth_year: birthYear }),
         dps_include_in_projection: dpsIncludeInProjection,
         self_help_group: selfHelpGroup,
         marital_status: maritalStatus,
@@ -247,12 +251,17 @@ export async function createProfile(
       return { error: "Family not found or unauthorized." }
     }
 
+    const trimmedName = name.trim()
     const { data: newProfile, error: profileError } = await supabase
       .from("profiles")
       .insert({
         family_id: familyId,
-        name: name.trim(),
+        name: trimmedName,
         birth_year: birthYear,
+        ...encodeProfilePiiPatch({
+          name: trimmedName,
+          birth_year: birthYear,
+        }),
       })
       .select("id")
       .single()
@@ -502,7 +511,7 @@ export async function updateFamilyName(
 
     const { error: updateError } = await supabase
       .from("families")
-      .update({ name })
+      .update({ name, ...encodeFamilyPiiPatch({ name }) })
       .eq("id", familyId)
 
     if (updateError) {
@@ -572,9 +581,10 @@ export async function createDependent(
       .single()
     if (!family) return { error: "Family not found or unauthorized." }
 
+    const dependentName = parsed.data.name.trim()
     const { error } = await supabase.from("dependents").insert({
       family_id: parsed.data.familyId,
-      name: parsed.data.name.trim(),
+      name: dependentName,
       birth_year: parsed.data.birthYear,
       relationship: parsed.data.relationship,
       claimed_by_profile_id: parsed.data.claimedByProfileId ?? null,
@@ -582,6 +592,11 @@ export async function createDependent(
       annual_income: parsed.data.annualIncome,
       living_with_claimant: parsed.data.livingWithClaimant,
       is_handicapped: parsed.data.isHandicapped,
+      ...encodeDependentPiiPatch({
+        name: dependentName,
+        birth_year: parsed.data.birthYear,
+        annual_income: parsed.data.annualIncome,
+      }),
     })
     if (error) {
       console.error("Error creating dependent:", error)
@@ -631,10 +646,11 @@ export async function updateDependent(
       .single()
     if (!family) return { error: "Family not found or unauthorized." }
 
+    const dependentName = parsed.data.name.trim()
     const { error } = await supabase
       .from("dependents")
       .update({
-        name: parsed.data.name.trim(),
+        name: dependentName,
         birth_year: parsed.data.birthYear,
         relationship: parsed.data.relationship,
         claimed_by_profile_id: parsed.data.claimedByProfileId ?? null,
@@ -642,6 +658,11 @@ export async function updateDependent(
         annual_income: parsed.data.annualIncome,
         living_with_claimant: parsed.data.livingWithClaimant,
         is_handicapped: parsed.data.isHandicapped,
+        ...encodeDependentPiiPatch({
+          name: dependentName,
+          birth_year: parsed.data.birthYear,
+          annual_income: parsed.data.annualIncome,
+        }),
       })
       .eq("id", dependentId)
       .eq("family_id", parsed.data.familyId)

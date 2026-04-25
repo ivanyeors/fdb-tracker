@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeFamilyPiiPatch } from "@/lib/repos/families"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { z } from "zod"
 
@@ -40,11 +41,13 @@ export async function POST(request: Request) {
         .select("id", { count: "exact", head: true })
         .eq("household_id", session.accountId)
       const nextNum = (familyCount ?? 0) + 1
+      const newFamilyName = `Family ${nextNum}`
       const { data: newFamily, error: familyError } = await supabase
         .from("families")
         .insert({
           household_id: session.accountId,
-          name: `Family ${nextNum}`,
+          name: newFamilyName,
+          ...encodeFamilyPiiPatch({ name: newFamilyName }),
           user_count: userCount,
         })
         .select("id")
@@ -78,6 +81,7 @@ export async function POST(request: Request) {
           .insert({
             household_id: session.accountId,
             name: "Family 1",
+            ...encodeFamilyPiiPatch({ name: "Family 1" }),
             user_count: userCount,
           })
           .select("id")
