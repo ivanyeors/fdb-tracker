@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     const [{ data: household }, { data: firstFamily }] = await Promise.all([
       supabase
         .from("households")
-        .select("onboarding_completed_at")
+        .select("onboarding_completed_at, is_super_admin")
         .eq("id", otpToken.household_id)
         .single(),
       supabase
@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
     ])
 
     let onboardingComplete = !!household?.onboarding_completed_at
+    const isSuperAdmin = household?.is_super_admin === true
 
     if (!onboardingComplete) {
       const { canSkip } = await checkOnboardingDataSufficiency(
@@ -85,6 +86,7 @@ export async function POST(request: NextRequest) {
 
     const sessionToken = await createSession(otpToken.household_id, {
       onboardingComplete,
+      isSuperAdmin,
     })
     const isProduction = process.env.NODE_ENV === "production"
 

@@ -196,6 +196,7 @@ export type PublicUserContext = {
   familyId: string
   profileId: string
   accountType: "owner" | "public"
+  isSuperAdmin: boolean
 }
 
 /**
@@ -234,7 +235,7 @@ export async function resolveOrProvisionPublicUser(
       if (family) {
         const { data: household } = await supabase
           .from("households")
-          .select("account_type")
+          .select("account_type, is_super_admin")
           .eq("id", family.household_id)
           .single()
 
@@ -244,6 +245,7 @@ export async function resolveOrProvisionPublicUser(
           profileId: profile.id,
           accountType:
             (household?.account_type as "owner" | "public") ?? "owner",
+          isSuperAdmin: household?.is_super_admin === true,
         }
       }
     }
@@ -283,7 +285,7 @@ export async function resolveOrProvisionPublicUser(
 
       const { data: household } = await supabase
         .from("households")
-        .select("account_type")
+        .select("account_type, is_super_admin")
         .eq("id", linked.household_id)
         .single()
 
@@ -294,6 +296,7 @@ export async function resolveOrProvisionPublicUser(
           profileId,
           accountType:
             (household?.account_type as "owner" | "public") ?? "owner",
+          isSuperAdmin: household?.is_super_admin === true,
         }
       }
     }
@@ -388,6 +391,7 @@ export async function resolveOrProvisionPublicUser(
       familyId: family.id,
       profileId: profile.id,
       accountType: "public",
+      isSuperAdmin: false,
     }
   } catch (err) {
     console.error("[telegram] resolveOrProvisionPublicUser error:", err)

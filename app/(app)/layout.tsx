@@ -7,18 +7,19 @@ import { ActiveProfileProvider } from "@/hooks/use-active-profile"
 import { GlobalMonthProvider } from "@/hooks/use-global-month"
 import { DataRefreshProvider } from "@/hooks/use-data-refresh"
 import { cookies } from "next/headers"
-import { getSessionFromCookies } from "@/lib/auth/session"
+import { getSessionDetails } from "@/lib/auth/session"
 import { decodeFamilyName } from "@/lib/repos/families"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies()
-  const accountId = await getSessionFromCookies(cookieStore)
+  const session = await getSessionDetails(cookieStore)
 
-  if (!accountId) {
+  if (!session) {
     redirect("/login")
   }
+  const accountId = session.accountId
 
   const supabase = createSupabaseAdmin()
   const { data: rawFamilies } = await supabase
@@ -72,7 +73,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <DataRefreshProvider>
           <SidebarProvider>
             <TopNav />
-            <SidebarNav />
+            <SidebarNav isSuperAdmin={session.isSuperAdmin} />
             <SidebarInset className="min-h-0 pt-(--top-nav-height) transition-[padding-top] duration-200">
               <AppMainChrome>{children}</AppMainChrome>
             </SidebarInset>

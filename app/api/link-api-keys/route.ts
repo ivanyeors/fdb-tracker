@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { cookies } from "next/headers"
-import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { requireSuperAdmin } from "@/lib/auth/admin"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import {
   generateApiKey,
@@ -15,11 +14,9 @@ const createBodySchema = z.object({
 
 export async function GET() {
   try {
-    const cookieStore = await cookies()
-    const token = cookieStore.get(COOKIE_NAME)?.value
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const session = await validateSession(token)
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const auth = await requireSuperAdmin()
+    if ("response" in auth) return auth.response
+    const { session } = auth
 
     const supabase = createSupabaseAdmin()
     const { data: keys, error } = await supabase
@@ -56,11 +53,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies()
-    const token = cookieStore.get(COOKIE_NAME)?.value
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const session = await validateSession(token)
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const auth = await requireSuperAdmin()
+    if ("response" in auth) return auth.response
+    const { session } = auth
 
     const body = await request.json()
     const parsed = createBodySchema.safeParse(body)

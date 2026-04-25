@@ -1,6 +1,6 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
-import { getSessionFromCookies } from "@/lib/auth/session"
+import { getSessionDetails } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { decryptBotToken } from "@/lib/telegram/credentials"
 import { ChartPaletteSelector } from "./chart-palette-selector"
@@ -10,9 +10,9 @@ import { TelegramBotConfigSection } from "./telegram-bot-config-section"
 
 export default async function GeneralSettingsPage() {
   const cookieStore = await cookies()
-  const householdId = await getSessionFromCookies(cookieStore)
+  const session = await getSessionDetails(cookieStore)
 
-  if (!householdId) {
+  if (!session) {
     redirect("/login")
   }
 
@@ -20,7 +20,7 @@ export default async function GeneralSettingsPage() {
   const { data: household } = await supabase
     .from("households")
     .select("telegram_bot_token, telegram_bot_token_enc, telegram_chat_id")
-    .eq("id", householdId)
+    .eq("id", session.accountId)
     .single()
 
   const botToken = household ? decryptBotToken(household) : null
@@ -46,7 +46,7 @@ export default async function GeneralSettingsPage() {
           telegram_chat_id: household?.telegram_chat_id ?? null,
         }}
       />
-      <TelegramApiKeysSection />
+      {session.isSuperAdmin && <TelegramApiKeysSection />}
     </div>
   )
 }

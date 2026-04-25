@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+
+import {
+  COOKIE_NAME,
+  SESSION_WINDOW_SECONDS,
+  refreshSession,
+  validateSession,
+} from "@/lib/auth/session"
 
 export async function proxy(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value
@@ -7,15 +13,15 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // Unauthenticated: redirect / to login (OTP) so users land on OTP right away
   if (pathname === "/") {
     if (!session) return NextResponse.redirect(new URL("/login", request.url))
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
   if (!session) {
-    const loginUrl = new URL("/login", request.url)
-    return NextResponse.redirect(loginUrl)
+    const res = NextResponse.redirect(new URL("/login", request.url))
+    res.cookies.delete(COOKIE_NAME)
+    return res
   }
 
   const onboardingComplete = session.onboardingComplete
@@ -39,7 +45,18 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
-  return NextResponse.next()
+  const res = NextResponse.next()
+  const fresh = token ? await refreshSession(token) : null
+  if (fresh) {
+    res.cookies.set(COOKIE_NAME, fresh, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: SESSION_WINDOW_SECONDS,
+    })
+  }
+  return res
 }
 
 export const config = {

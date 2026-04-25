@@ -18,6 +18,7 @@ import {
   Users,
   LogOut,
   Repeat,
+  ShieldCheck,
 } from "lucide-react"
 
 import {
@@ -58,7 +59,17 @@ const settingsItems = [
   { title: "GIRO Rules", href: "/settings/giro", icon: Repeat },
 ]
 
-export function SidebarNav() {
+const adminItem = {
+  title: "Platform Admins",
+  href: "/settings/admins",
+  icon: ShieldCheck,
+}
+
+interface SidebarNavProps {
+  isSuperAdmin?: boolean
+}
+
+export function SidebarNav({ isSuperAdmin = false }: SidebarNavProps) {
   const pathname = usePathname()
   const router = useRouter()
   const isMobile = useIsMobile()
@@ -143,6 +154,21 @@ export function SidebarNav() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {isSuperAdmin && (
+                <SidebarMenuItem key={adminItem.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === adminItem.href}
+                    tooltip={adminItem.title}
+                    className={mobileButtonClass}
+                  >
+                    <Link href={adminItem.href} onClick={handleMobileNav}>
+                      <adminItem.icon />
+                      <span>{adminItem.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

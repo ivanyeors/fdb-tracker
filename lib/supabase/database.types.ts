@@ -552,6 +552,8 @@ export type Database = {
           inflow_memo: string | null
           outflow_memo: string | null
           is_auto_generated: boolean
+          inflow_enc: string | null
+          outflow_enc: string | null
         }
         Insert: {
           id?: string
@@ -565,6 +567,8 @@ export type Database = {
           inflow_memo?: string | null
           outflow_memo?: string | null
           is_auto_generated?: boolean
+          inflow_enc?: string | null
+          outflow_enc?: string | null
         }
         Update: {
           id?: string
@@ -578,6 +582,8 @@ export type Database = {
           inflow_memo?: string | null
           outflow_memo?: string | null
           is_auto_generated?: boolean
+          inflow_enc?: string | null
+          outflow_enc?: string | null
         }
         Relationships: [
           {
@@ -1360,6 +1366,9 @@ export type Database = {
           oa: number
           sa: number
           ma: number
+          oa_enc: string | null
+          sa_enc: string | null
+          ma_enc: string | null
           is_manual_override: boolean
           created_at: string
         }
@@ -1370,6 +1379,9 @@ export type Database = {
           oa?: number
           sa?: number
           ma?: number
+          oa_enc?: string | null
+          sa_enc?: string | null
+          ma_enc?: string | null
           is_manual_override?: boolean
           created_at?: string
         }
@@ -1380,6 +1392,9 @@ export type Database = {
           oa?: number
           sa?: number
           ma?: number
+          oa_enc?: string | null
+          sa_enc?: string | null
+          ma_enc?: string | null
           is_manual_override?: boolean
           created_at?: string
         }
@@ -1452,6 +1467,10 @@ export type Database = {
           csl_annual: number
           csl_supplement_annual: number
           isp_annual: number
+          msl_annual_override_enc: string | null
+          csl_annual_enc: string | null
+          csl_supplement_annual_enc: string | null
+          isp_annual_enc: string | null
           created_at: string
           updated_at: string
         }
@@ -1462,6 +1481,10 @@ export type Database = {
           csl_annual?: number
           csl_supplement_annual?: number
           isp_annual?: number
+          msl_annual_override_enc?: string | null
+          csl_annual_enc?: string | null
+          csl_supplement_annual_enc?: string | null
+          isp_annual_enc?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -1472,6 +1495,10 @@ export type Database = {
           csl_annual?: number
           csl_supplement_annual?: number
           isp_annual?: number
+          msl_annual_override_enc?: string | null
+          csl_annual_enc?: string | null
+          csl_supplement_annual_enc?: string | null
+          isp_annual_enc?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -1491,6 +1518,7 @@ export type Database = {
           profile_id: string
           employer_name: string
           monthly_salary: number
+          monthly_salary_enc: string | null
           start_date: string
           end_date: string | null
           is_primary: boolean
@@ -1502,6 +1530,7 @@ export type Database = {
           profile_id: string
           employer_name: string
           monthly_salary: number
+          monthly_salary_enc?: string | null
           start_date: string
           end_date?: string | null
           is_primary?: boolean
@@ -1513,6 +1542,7 @@ export type Database = {
           profile_id?: string
           employer_name?: string
           monthly_salary?: number
+          monthly_salary_enc?: string | null
           start_date?: string
           end_date?: string | null
           is_primary?: boolean
@@ -1535,6 +1565,8 @@ export type Database = {
           profile_id: string
           annual_salary: number
           bonus_estimate: number
+          annual_salary_enc: string | null
+          bonus_estimate_enc: string | null
           pay_frequency: string
           employee_cpf_rate: number | null
           updated_at: string
@@ -1544,6 +1576,8 @@ export type Database = {
           profile_id: string
           annual_salary: number
           bonus_estimate?: number
+          annual_salary_enc?: string | null
+          bonus_estimate_enc?: string | null
           pay_frequency?: string
           employee_cpf_rate?: number | null
           updated_at?: string
@@ -1553,6 +1587,8 @@ export type Database = {
           profile_id?: string
           annual_salary?: number
           bonus_estimate?: number
+          annual_salary_enc?: string | null
+          bonus_estimate_enc?: string | null
           pay_frequency?: string
           employee_cpf_rate?: number | null
           updated_at?: string
@@ -1609,6 +1645,7 @@ export type Database = {
           year: number
           relief_type: string
           amount: number
+          amount_enc: string | null
           created_at: string
         }
         Insert: {
@@ -1617,6 +1654,7 @@ export type Database = {
           year: number
           relief_type: string
           amount: number
+          amount_enc?: string | null
           created_at?: string
         }
         Update: {
@@ -1625,6 +1663,7 @@ export type Database = {
           year?: number
           relief_type?: string
           amount?: number
+          amount_enc?: string | null
           created_at?: string
         }
         Relationships: [
@@ -1644,6 +1683,7 @@ export type Database = {
           year: number
           relief_type: string
           amount: number
+          amount_enc: string | null
           source: string
           created_at: string
         }
@@ -1653,6 +1693,7 @@ export type Database = {
           year: number
           relief_type: string
           amount: number
+          amount_enc?: string | null
           source: string
           created_at?: string
         }
@@ -1662,6 +1703,7 @@ export type Database = {
           year?: number
           relief_type?: string
           amount?: number
+          amount_enc?: string | null
           source?: string
           created_at?: string
         }
@@ -1689,6 +1731,14 @@ export type Database = {
           payment_due_date: string | null
           reliefs_json: unknown
           bracket_summary_json: unknown
+          employment_income_enc: string | null
+          chargeable_income_enc: string | null
+          total_deductions_enc: string | null
+          donations_deduction_enc: string | null
+          reliefs_total_enc: string | null
+          tax_payable_enc: string | null
+          reliefs_json_enc: string | null
+          bracket_summary_json_enc: string | null
           is_on_giro: boolean
           created_at: string
         }
@@ -1705,6 +1755,14 @@ export type Database = {
           payment_due_date?: string | null
           reliefs_json?: unknown
           bracket_summary_json?: unknown
+          employment_income_enc?: string | null
+          chargeable_income_enc?: string | null
+          total_deductions_enc?: string | null
+          donations_deduction_enc?: string | null
+          reliefs_total_enc?: string | null
+          tax_payable_enc?: string | null
+          reliefs_json_enc?: string | null
+          bracket_summary_json_enc?: string | null
           is_on_giro?: boolean
           created_at?: string
         }
@@ -1721,6 +1779,14 @@ export type Database = {
           payment_due_date?: string | null
           reliefs_json?: unknown
           bracket_summary_json?: unknown
+          employment_income_enc?: string | null
+          chargeable_income_enc?: string | null
+          total_deductions_enc?: string | null
+          donations_deduction_enc?: string | null
+          reliefs_total_enc?: string | null
+          tax_payable_enc?: string | null
+          reliefs_json_enc?: string | null
+          bracket_summary_json_enc?: string | null
           is_on_giro?: boolean
           created_at?: string
         }
@@ -1742,6 +1808,9 @@ export type Database = {
           schedule: unknown
           total_payable: number | null
           outstanding_balance: number
+          schedule_enc: string | null
+          total_payable_enc: string | null
+          outstanding_balance_enc: string | null
           source: string
           created_at: string
         }
@@ -1752,6 +1821,9 @@ export type Database = {
           schedule?: unknown
           total_payable?: number | null
           outstanding_balance?: number
+          schedule_enc?: string | null
+          total_payable_enc?: string | null
+          outstanding_balance_enc?: string | null
           source?: string
           created_at?: string
         }
@@ -1762,6 +1834,9 @@ export type Database = {
           schedule?: unknown
           total_payable?: number | null
           outstanding_balance?: number
+          schedule_enc?: string | null
+          total_payable_enc?: string | null
+          outstanding_balance_enc?: string | null
           source?: string
           created_at?: string
         }
@@ -1954,9 +2029,11 @@ export type Database = {
           name: string
           type: string
           premium_amount: number
+          premium_amount_enc: string | null
           frequency: string
           yearly_outflow_date: number | null
           coverage_amount: number | null
+          coverage_amount_enc: string | null
           coverage_type: string | null
           current_amount: number | null
           end_date: string | null
@@ -1983,9 +2060,11 @@ export type Database = {
           name: string
           type: string
           premium_amount: number
+          premium_amount_enc?: string | null
           frequency?: string
           yearly_outflow_date?: number | null
           coverage_amount?: number | null
+          coverage_amount_enc?: string | null
           coverage_type?: string | null
           current_amount?: number | null
           end_date?: string | null
@@ -2012,9 +2091,11 @@ export type Database = {
           name?: string
           type?: string
           premium_amount?: number
+          premium_amount_enc?: string | null
           frequency?: string
           yearly_outflow_date?: number | null
           coverage_amount?: number | null
+          coverage_amount_enc?: string | null
           coverage_type?: string | null
           current_amount?: number | null
           end_date?: string | null

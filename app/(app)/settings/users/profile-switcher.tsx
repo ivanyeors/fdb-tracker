@@ -1,7 +1,8 @@
 "use client"
 
 import { format } from "date-fns"
-import { Plus } from "lucide-react"
+import { Copy, Plus } from "lucide-react"
+import { toast } from "sonner"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import {
   Card,
@@ -45,14 +46,25 @@ type Household = {
 }
 
 export function AccountOverview({
+  householdId,
   profiles,
   families,
   household,
 }: {
+  householdId: string
   profiles: Profile[]
   families: Family[]
   household: Household
 }) {
+  const handleCopyHouseholdId = async () => {
+    try {
+      await navigator.clipboard.writeText(householdId)
+      toast.success("Household ID copied")
+    } catch {
+      toast.error("Failed to copy")
+    }
+  }
+
   const { activeFamilyId, activeProfileId, setActiveProfileId } =
     useActiveProfile()
 
@@ -104,6 +116,25 @@ export function AccountOverview({
               </Badge>
             )}
           </div>
+        </div>
+
+        <div className="flex flex-col gap-2 rounded-lg border p-3 bg-muted/50 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">
+              Household ID
+            </p>
+            <p className="font-mono text-sm break-all">{householdId}</p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={handleCopyHouseholdId}
+            aria-label="Copy household ID"
+            className="self-end sm:self-center"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
         </div>
 
         <Separator />

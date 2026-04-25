@@ -30,6 +30,7 @@ export async function POST() {
 
     const newToken = await createSession(session.accountId, {
       onboardingComplete: true,
+      isSuperAdmin: session.isSuperAdmin,
     })
     const isProduction = process.env.NODE_ENV === "production"
     const response = NextResponse.json({ success: true })
