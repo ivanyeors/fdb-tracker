@@ -14,6 +14,8 @@ export type GenerateOtpResult =
       code?: string
     }
 
+export const OTP_RATE_LIMIT_PER_HOUR = 5
+
 export async function sha256(message: string): Promise<string> {
   const data = new TextEncoder().encode(message)
   const hash = await crypto.subtle.digest("SHA-256", data)
@@ -34,6 +36,31 @@ export async function generateAndStoreOtp(
       stage: "config",
       error:
         error instanceof Error ? error.message : "Supabase admin client failed",
+    }
+  }
+
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  const { count: recentCount, error: countError } = await supabase
+    .from("otp_tokens")
+    .select("*", { count: "exact", head: true })
+    .eq("household_id", accountId)
+    .gte("created_at", oneHourAgo)
+
+  if (countError) {
+    return {
+      ok: false,
+      stage: "create",
+      error: "Failed to check OTP rate limit",
+      code: countError.code,
+    }
+  }
+
+  if ((recentCount ?? 0) >= OTP_RATE_LIMIT_PER_HOUR) {
+    return {
+      ok: false,
+      stage: "create",
+      error:
+        "Too many OTP requests in the last hour. Try again later or use an existing valid login.",
     }
   }
 
