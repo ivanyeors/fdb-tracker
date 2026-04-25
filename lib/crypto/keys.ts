@@ -1,8 +1,18 @@
-export type KeyVersion = "v1"
+export type KeyVersion = "v1" | "v2"
 
-export const CURRENT_KEY_VERSION: KeyVersion = "v1"
+const SUPPORTED_VERSIONS: readonly KeyVersion[] = ["v1", "v2"] as const
 
-const SUPPORTED_VERSIONS: readonly KeyVersion[] = ["v1"] as const
+function resolveCurrentKeyVersion(): KeyVersion {
+  const override = process.env.PII_CURRENT_KEY_VERSION?.trim()
+  if (override && (SUPPORTED_VERSIONS as readonly string[]).includes(override)) {
+    return override as KeyVersion
+  }
+  return "v1"
+}
+
+// Resolved at module load. Tests that swap PII_CURRENT_KEY_VERSION at runtime
+// must call __resetKeyCacheForTests() to reload (the cache is on getKeys()).
+export const CURRENT_KEY_VERSION: KeyVersion = resolveCurrentKeyVersion()
 
 const ENCRYPTION_KEY_BYTES = 32
 const HASH_SECRET_MIN_BYTES = 32
