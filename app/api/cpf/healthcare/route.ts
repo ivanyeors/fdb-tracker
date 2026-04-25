@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { getAge } from "@/lib/calculations/cpf"
@@ -69,13 +70,19 @@ export async function GET(request: NextRequest) {
         .in("profile_id", profileIds),
       supabase
         .from("profiles")
-        .select("id, name, birth_year")
+        .select("id, name, name_enc, birth_year, birth_year_enc")
         .in("id", profileIds),
     ])
 
     const currentYear = new Date().getFullYear()
 
-    const result = (profiles ?? []).map((profile) => {
+    const result = (profiles ?? []).map((rawProfile) => {
+      const decoded = decodeProfilePii(rawProfile)
+      const profile = {
+        ...rawProfile,
+        name: decoded.name ?? rawProfile.name,
+        birth_year: decoded.birth_year ?? rawProfile.birth_year,
+      }
       const config = configs?.find((c) => c.profile_id === profile.id)
       const age = getAge(profile.birth_year, currentYear)
 

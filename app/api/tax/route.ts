@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeDependentPii } from "@/lib/repos/dependents"
+import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { calculateTax, type TaxResult } from "@/lib/calculations/tax"
@@ -101,18 +103,34 @@ export async function GET(request: NextRequest) {
 
     // Always recalculate for profiles with income_config so reliefs stay in sync with profile/income changes
     // Pre-fetch dependents for the family (shared across all profiles)
-    const { data: familyDependents } = await supabase
+    const { data: rawFamilyDependents } = await supabase
       .from("dependents")
       .select("*")
       .eq("family_id", resolved.familyId)
+    const familyDependents = (rawFamilyDependents ?? []).map((d) => {
+      const decoded = decodeDependentPii(d)
+      return {
+        ...d,
+        name: decoded.name ?? d.name,
+        birth_year: decoded.birth_year ?? d.birth_year,
+        annual_income: decoded.annual_income ?? d.annual_income,
+      }
+    })
 
     for (const profileId of profileIds) {
-      const { data: profile } = await supabase
+      const { data: rawProfile } = await supabase
         .from("profiles")
-        .select("id, birth_year, gender, spouse_profile_id, marital_status")
+        .select(
+          "id, birth_year, birth_year_enc, gender, spouse_profile_id, marital_status",
+        )
         .eq("id", profileId)
         .single()
-      if (!profile) continue
+      if (!rawProfile) continue
+      const profile = {
+        ...rawProfile,
+        birth_year:
+          decodeProfilePii(rawProfile).birth_year ?? rawProfile.birth_year,
+      }
 
       const { data: incomeConfig } = await supabase
         .from("income_config")

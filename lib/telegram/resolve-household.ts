@@ -4,8 +4,20 @@
  */
 
 import { encodeFamilyPiiPatch } from "@/lib/repos/families"
-import { encodeHouseholdPiiPatch } from "@/lib/repos/households"
-import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
+import {
+  encodeHouseholdPiiPatch,
+  hashHouseholdTelegramChatId,
+} from "@/lib/repos/households"
+import {
+  hashTelegramUserIdForLinkedAccounts,
+  hashTelegramUsernameForLinkedAccounts,
+} from "@/lib/repos/linked-telegram-accounts"
+import {
+  encodeProfilePiiPatch,
+  hashProfileTelegramChatId,
+  hashProfileTelegramUserId,
+  hashProfileTelegramUsername,
+} from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 export async function getHouseholdFromLinkedProfile(
@@ -13,9 +25,11 @@ export async function getHouseholdFromLinkedProfile(
   fromUserId: string | null
 ): Promise<string | null> {
   const supabase = createSupabaseAdmin()
-  const orConditions = fromUserId
-    ? `telegram_chat_id.eq.${chatId},telegram_user_id.eq.${fromUserId}`
-    : `telegram_chat_id.eq.${chatId}`
+  const chatIdHash = hashProfileTelegramChatId(chatId)
+  const userIdHash = fromUserId ? hashProfileTelegramUserId(fromUserId) : null
+  const orConditions = userIdHash
+    ? `telegram_chat_id_hash.eq.${chatIdHash},telegram_user_id_hash.eq.${userIdHash}`
+    : `telegram_chat_id_hash.eq.${chatIdHash}`
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
@@ -40,10 +54,11 @@ export async function getHouseholdFromLinkedAccount(
   telegramUserId: string
 ): Promise<string | null> {
   const supabase = createSupabaseAdmin()
+  const userIdHash = hashTelegramUserIdForLinkedAccounts(telegramUserId)
   const { data, error } = await supabase
     .from("linked_telegram_accounts")
     .select("household_id")
-    .eq("telegram_user_id", telegramUserId)
+    .eq("telegram_user_id_hash", userIdHash)
     .order("linked_at", { ascending: false })
     .limit(1)
 
@@ -62,21 +77,23 @@ export async function getHouseholdFromTelegramUsername(
   if (!normalized) return null
 
   const supabase = createSupabaseAdmin()
+  const linkedHash = hashTelegramUsernameForLinkedAccounts(normalized)
 
   const { data: linked, error: linkedError } = await supabase
     .from("linked_telegram_accounts")
     .select("household_id")
-    .ilike("telegram_username", normalized)
+    .eq("telegram_username_hash", linkedHash)
     .order("linked_at", { ascending: false })
     .limit(1)
     .maybeSingle()
 
   if (!linkedError && linked?.household_id) return linked.household_id
 
+  const profileHash = hashProfileTelegramUsername(normalized)
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("family_id")
-    .ilike("telegram_username", normalized)
+    .eq("telegram_username_hash", profileHash)
     .limit(1)
     .maybeSingle()
 
@@ -139,7 +156,9 @@ export async function resolveProfileContext(
 
   if (fromUserIdStr) {
     const supabase = createSupabaseAdmin()
-    const orConditions = `telegram_chat_id.eq.${chatId},telegram_user_id.eq.${fromUserIdStr}`
+    const chatIdHash = hashProfileTelegramChatId(chatId)
+    const userIdHash = hashProfileTelegramUserId(fromUserIdStr)
+    const orConditions = `telegram_chat_id_hash.eq.${chatIdHash},telegram_user_id_hash.eq.${userIdHash}`
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -193,9 +212,11 @@ export async function resolveOrProvisionPublicUser(
   const supabase = createSupabaseAdmin()
   const fromUserIdStr = fromUserId != null ? String(fromUserId) : null
 
-  // 1. Check profiles table by telegram_user_id or telegram_chat_id
+  // 1. Check profiles table by telegram_user_id_hash or telegram_chat_id_hash
   if (fromUserIdStr) {
-    const orConditions = `telegram_chat_id.eq.${chatId},telegram_user_id.eq.${fromUserIdStr}`
+    const chatIdHash = hashProfileTelegramChatId(chatId)
+    const userIdHash = hashProfileTelegramUserId(fromUserIdStr)
+    const orConditions = `telegram_chat_id_hash.eq.${chatIdHash},telegram_user_id_hash.eq.${userIdHash}`
     const { data: profile } = await supabase
       .from("profiles")
       .select("id, family_id")
@@ -230,10 +251,11 @@ export async function resolveOrProvisionPublicUser(
 
   // 2. Check linked_telegram_accounts
   if (fromUserIdStr) {
+    const userIdHash = hashTelegramUserIdForLinkedAccounts(fromUserIdStr)
     const { data: linked } = await supabase
       .from("linked_telegram_accounts")
       .select("household_id")
-      .eq("telegram_user_id", fromUserIdStr)
+      .eq("telegram_user_id_hash", userIdHash)
       .order("linked_at", { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -379,10 +401,11 @@ export async function getOrCreateAccount(
   try {
     const supabase = createSupabaseAdmin()
 
+    const chatIdHash = hashHouseholdTelegramChatId(chatId)
     const { data: existing, error: lookupError } = await supabase
       .from("households")
       .select("id")
-      .eq("telegram_chat_id", chatId)
+      .eq("telegram_chat_id_hash", chatIdHash)
       .maybeSingle()
 
     if (lookupError) {

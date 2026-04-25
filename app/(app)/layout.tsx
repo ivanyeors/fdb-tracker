@@ -8,6 +8,8 @@ import { GlobalMonthProvider } from "@/hooks/use-global-month"
 import { DataRefreshProvider } from "@/hooks/use-data-refresh"
 import { cookies } from "next/headers"
 import { getSessionFromCookies } from "@/lib/auth/session"
+import { decodeFamilyName } from "@/lib/repos/families"
+import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -19,21 +21,40 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   const supabase = createSupabaseAdmin()
-  const { data: families } = await supabase
+  const { data: rawFamilies } = await supabase
     .from("families")
-    .select("id, name, user_count, created_at")
+    .select("id, name, name_enc, user_count, created_at")
     .eq("household_id", accountId)
     .order("created_at", { ascending: true })
 
-  const familyIds = (families ?? []).map((f) => f.id)
-  const { data: profiles } =
+  const families = (rawFamilies ?? []).map((f) => ({
+    id: f.id,
+    name: decodeFamilyName(f) ?? f.name,
+    user_count: f.user_count,
+    created_at: f.created_at,
+  }))
+
+  const familyIds = families.map((f) => f.id)
+  const { data: rawProfiles } =
     familyIds.length > 0
       ? await supabase
           .from("profiles")
-          .select("id, name, birth_year, family_id")
+          .select(
+            "id, name, name_enc, birth_year, birth_year_enc, family_id, created_at",
+          )
           .in("family_id", familyIds)
           .order("created_at", { ascending: true })
       : { data: [] }
+
+  const profiles = (rawProfiles ?? []).map((p) => {
+    const decoded = decodeProfilePii(p)
+    return {
+      id: p.id,
+      name: decoded.name ?? "",
+      birth_year: decoded.birth_year ?? 0,
+      family_id: p.family_id,
+    }
+  })
 
   const cookieFamilyId = cookieStore.get("fdb-active-family-id")?.value ?? null
   const initialFamilyId =
@@ -43,8 +64,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <ActiveProfileProvider
-      families={families ?? []}
-      profiles={profiles ?? []}
+      families={families}
+      profiles={profiles}
       initialFamilyId={initialFamilyId}
     >
       <GlobalMonthProvider>

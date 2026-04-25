@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
@@ -60,14 +61,22 @@ export async function GET(request: NextRequest) {
     }
     const singleProfileId = resolved.profileIds[0]!
 
-    const { data: profile } = await supabase
+    const { data: rawProfile } = await supabase
       .from("profiles")
-      .select("id, birth_year, name, dps_include_in_projection")
+      .select(
+        "id, birth_year, birth_year_enc, name, name_enc, dps_include_in_projection",
+      )
       .eq("id", singleProfileId)
       .single()
 
-    if (!profile) {
+    if (!rawProfile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+    }
+    const decoded = decodeProfilePii(rawProfile)
+    const profile = {
+      ...rawProfile,
+      name: decoded.name ?? rawProfile.name,
+      birth_year: decoded.birth_year ?? rawProfile.birth_year,
     }
 
     const currentYear = new Date().getFullYear()

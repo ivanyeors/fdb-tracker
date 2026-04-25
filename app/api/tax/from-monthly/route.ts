@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { calculateTax, solveBonusForTargetTaxPayable } from "@/lib/calculations/tax"
 
@@ -37,14 +38,19 @@ export async function POST(request: NextRequest) {
 
     const supabase = createSupabaseAdmin()
 
-    const { data: profile } = await supabase
+    const { data: rawProfile } = await supabase
       .from("profiles")
-      .select("id, family_id, birth_year")
+      .select("id, family_id, birth_year, birth_year_enc")
       .eq("id", parsed.data.profile_id)
       .single()
 
-    if (!profile) {
+    if (!rawProfile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+    }
+    const profile = {
+      ...rawProfile,
+      birth_year:
+        decodeProfilePii(rawProfile).birth_year ?? rawProfile.birth_year,
     }
 
     const { data: family } = await supabase

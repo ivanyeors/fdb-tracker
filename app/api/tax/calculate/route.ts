@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { calculateTax } from "@/lib/calculations/tax"
@@ -43,14 +44,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 
-    const { data: profile } = await supabase
+    const { data: rawProfile } = await supabase
       .from("profiles")
-      .select("id, birth_year")
+      .select("id, birth_year, birth_year_enc")
       .eq("id", profileId)
       .single()
 
-    if (!profile) {
+    if (!rawProfile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+    }
+    const profile = {
+      ...rawProfile,
+      birth_year:
+        decodeProfilePii(rawProfile).birth_year ?? rawProfile.birth_year,
     }
 
     const { data: incomeConfig } = await supabase

@@ -2,7 +2,11 @@ import { Scenes } from "telegraf"
 import { MyContext, botState } from "@/lib/telegram/bot"
 import { encodeFamilyPiiPatch } from "@/lib/repos/families"
 import { encodeHouseholdPiiPatch } from "@/lib/repos/households"
-import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
+import {
+  encodeProfilePiiPatch,
+  hashProfileTelegramChatId,
+  hashProfileTelegramUserId,
+} from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { validateCode, markCodeUsed } from "@/lib/auth/signup-codes"
 import { generateAndStoreOtp } from "@/lib/auth/otp"
@@ -81,10 +85,12 @@ async function processSignupCode(
   const supabase = createSupabaseAdmin()
 
   // Check if user already has an owner account
+  const chatIdHash = hashProfileTelegramChatId(String(chatId))
+  const userIdHash = hashProfileTelegramUserId(fromUserId)
   const { data: existingProfile } = await supabase
     .from("profiles")
     .select("id, family_id")
-    .or(`telegram_chat_id.eq.${chatId},telegram_user_id.eq.${fromUserId}`)
+    .or(`telegram_chat_id_hash.eq.${chatIdHash},telegram_user_id_hash.eq.${userIdHash}`)
     .limit(1)
     .maybeSingle()
 

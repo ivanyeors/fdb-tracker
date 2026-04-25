@@ -1,5 +1,6 @@
 import { encryptStringNullable } from "@/lib/crypto/cipher"
 import {
+  deterministicHash,
   deterministicHashNullable,
   normalizeTelegramId,
 } from "@/lib/crypto/hash"
@@ -30,4 +31,11 @@ export function encodeHouseholdPiiPatch(input: HouseholdPiiInput): {
   }
 
   return out
+}
+
+export function hashHouseholdTelegramChatId(telegramChatId: string): string {
+  return deterministicHash(normalizeTelegramId(telegramChatId), {
+    table: "households",
+    column: "telegram_chat_id_hash",
+  })
 }

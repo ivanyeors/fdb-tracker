@@ -1,6 +1,9 @@
 import { Scenes } from "telegraf"
 import { MyContext, botState } from "@/lib/telegram/bot"
-import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
+import {
+  decodeProfilePii,
+  encodeProfilePiiPatch,
+} from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { validateCode, markCodeUsed } from "@/lib/auth/signup-codes"
 import { generateAndStoreOtp } from "@/lib/auth/otp"
@@ -137,10 +140,13 @@ async function showProfilePicker(ctx: MyContext, householdId: string) {
   if (familyIds.length > 0) {
     const { data } = await supabase
       .from("profiles")
-      .select("id, name")
+      .select("id, name, name_enc")
       .in("family_id", familyIds)
-      .is("telegram_user_id", null)
-    profiles = data ?? []
+      .is("telegram_user_id_hash", null)
+    profiles = (data ?? []).map((p) => ({
+      id: p.id,
+      name: decodeProfilePii({ name: p.name, name_enc: p.name_enc }).name ?? "",
+    }))
   }
 
   const buttons = profiles.map((p) => [

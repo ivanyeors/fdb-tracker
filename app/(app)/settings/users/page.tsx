@@ -4,6 +4,8 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { getSessionFromCookies } from "@/lib/auth/session"
 import { decryptString } from "@/lib/crypto/cipher"
+import { decodeFamilyName } from "@/lib/repos/families"
+import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import {
   FamilyMembersTable,
@@ -151,15 +153,16 @@ function decryptLinkToken(profile: Record<string, unknown>): string | null {
 function normalizeProfile(profile: Record<string, unknown>): ProfileWithIncome {
   const incomeConfig = profile.income_config
   const income = Array.isArray(incomeConfig) ? incomeConfig[0] : incomeConfig
+  const decoded = decodeProfilePii(profile as Parameters<typeof decodeProfilePii>[0])
   return {
     id: profile.id as string,
-    name: profile.name as string,
-    birth_year: profile.birth_year as number,
+    name: decoded.name ?? "",
+    birth_year: decoded.birth_year ?? 0,
     dps_include_in_projection:
       (profile.dps_include_in_projection as boolean | undefined) !== false,
     self_help_group: (profile.self_help_group as string | undefined) ?? "none",
-    telegram_user_id: (profile.telegram_user_id as string | null) ?? null,
-    telegram_chat_id: (profile.telegram_chat_id as string | null) ?? null,
+    telegram_user_id: decoded.telegram_user_id,
+    telegram_chat_id: decoded.telegram_chat_id,
     telegram_link_token: decryptLinkToken(profile),
     telegram_last_used: (profile.telegram_last_used as string | null) ?? null,
     marital_status: (profile.marital_status as string | null) ?? null,
@@ -190,11 +193,16 @@ export default async function UserSettingsPage() {
 
   const onboardingComplete = !!household?.onboarding_completed_at
 
-  const { data: families } = await supabase
+  const { data: rawFamilies } = await supabase
     .from("families")
-    .select("id, name, user_count, created_at")
+    .select("id, name, name_enc, user_count, created_at")
     .eq("household_id", householdId)
     .order("created_at", { ascending: true })
+
+  const families = (rawFamilies ?? []).map((f) => ({
+    ...f,
+    name: decodeFamilyName(f) ?? f.name,
+  }))
 
   const familyIds = (families ?? []).map((f) => f.id)
 
@@ -206,7 +214,9 @@ export default async function UserSettingsPage() {
             `
             id,
             name,
+            name_enc,
             birth_year,
+            birth_year_enc,
             created_at,
             marital_status,
             num_dependents,
@@ -216,7 +226,11 @@ export default async function UserSettingsPage() {
             self_help_group,
             family_id,
             telegram_user_id,
+            telegram_user_id_enc,
             telegram_chat_id,
+            telegram_chat_id_enc,
+            telegram_username,
+            telegram_username_enc,
             telegram_link_token,
             telegram_link_token_enc,
             telegram_last_used,

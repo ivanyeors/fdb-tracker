@@ -88,3 +88,12 @@ export function hashTelegramUserIdForLinkedAccounts(
     column: "telegram_user_id_hash",
   })
 }
+
+export function hashTelegramUsernameForLinkedAccounts(
+  username: string,
+): string {
+  return deterministicHash(normalizeTelegramUsername(username), {
+    table: "linked_telegram_accounts",
+    column: "telegram_username_hash",
+  })
+}

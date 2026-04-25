@@ -1,4 +1,7 @@
-import { encodeSignupCodePiiPatch } from "@/lib/repos/signup-codes"
+import {
+  encodeSignupCodePiiPatch,
+  hashSignupCodeTelegramUsername,
+} from "@/lib/repos/signup-codes"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 // Exclude ambiguous characters: 0/O, 1/I/L
@@ -27,11 +30,12 @@ export async function generateSignupCode(
 
   // Rate limit: max 5 codes per hour per username
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  const usernameHash = hashSignupCodeTelegramUsername(normalized)
   const { count } = await supabase
     .from("signup_codes")
     .select("id", { count: "exact", head: true })
     .eq("type", "signup")
-    .ilike("telegram_username", normalized)
+    .eq("telegram_username_hash", usernameHash)
     .gte("created_at", oneHourAgo)
 
   if (count != null && count >= SIGNUP_RATE_LIMIT) {

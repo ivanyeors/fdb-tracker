@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { encodeHouseholdPiiPatch } from "@/lib/repos/households"
+import {
+  encodeHouseholdPiiPatch,
+  hashHouseholdTelegramChatId,
+} from "@/lib/repos/households"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { mergePublicHousehold } from "@/lib/onboarding/merge-public-household"
 import { z } from "zod"
@@ -56,10 +59,11 @@ export async function POST(request: Request) {
 
     // Check for conflicting public household with this chat ID
     if (trimmedChatId) {
+      const chatIdHash = hashHouseholdTelegramChatId(trimmedChatId)
       const { data: publicHousehold } = await supabase
         .from("households")
         .select("id")
-        .eq("telegram_chat_id", trimmedChatId)
+        .eq("telegram_chat_id_hash", chatIdHash)
         .neq("id", session.accountId)
         .eq("account_type", "public")
         .maybeSingle()

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import {
@@ -106,7 +107,7 @@ export async function GET(request: NextRequest) {
     const [{ data: profiles }, { data: incomeConfigs }, { data: healthcareConfigs }, { data: incomeHistoryRows }] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, birth_year")
+        .select("id, birth_year, birth_year_enc")
         .in("id", profileIds),
       supabase
         .from("income_config")
@@ -126,7 +127,12 @@ export async function GET(request: NextRequest) {
     const incomeByProfile = new Map(
       incomeConfigs?.map((ic) => [ic.profile_id, ic]) ?? [],
     )
-    const profileById = new Map(profiles?.map((p) => [p.id, p]) ?? [])
+    const profileById = new Map(
+      profiles?.map((p) => [
+        p.id,
+        { ...p, birth_year: decodeProfilePii(p).birth_year ?? p.birth_year },
+      ]) ?? [],
+    )
     // Group income history by profile for multi-employer support
     const incomeHistoryByProfile = new Map<string, EmploymentPeriod[]>()
     for (const row of incomeHistoryRows ?? []) {

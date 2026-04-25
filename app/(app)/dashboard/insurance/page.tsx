@@ -1,5 +1,6 @@
 import { cookies } from "next/headers"
 import { getSessionFromCookies } from "@/lib/auth/session"
+import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import {
@@ -76,7 +77,9 @@ export default async function InsurancePage() {
           .in("profile_id", profileIds),
         supabase
           .from("profiles")
-          .select("id, name, birth_year, marital_status, num_dependents")
+          .select(
+            "id, name, name_enc, birth_year, birth_year_enc, marital_status, num_dependents",
+          )
           .in("id", profileIds),
       ])
 
@@ -101,7 +104,17 @@ export default async function InsurancePage() {
       (benchmarksRes.data ?? []).map((r) => [r.profile_id, r])
     )
     const profilesMap = new Map(
-      (profilesRes.data ?? []).map((r) => [r.id, r])
+      (profilesRes.data ?? []).map((r) => {
+        const decoded = decodeProfilePii(r)
+        return [
+          r.id,
+          {
+            ...r,
+            name: decoded.name ?? r.name,
+            birth_year: decoded.birth_year ?? r.birth_year,
+          },
+        ]
+      })
     )
 
     const profileAnalyses = profileIds.map((pid) => {

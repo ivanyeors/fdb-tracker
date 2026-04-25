@@ -4,7 +4,10 @@ import { MyContext } from "@/lib/telegram/bot"
 import { validateApiKey, countLinkedMembers } from "@/lib/auth/api-keys"
 import { deterministicHash } from "@/lib/crypto/hash"
 import { encodeLinkedTelegramAccountPiiPatch } from "@/lib/repos/linked-telegram-accounts"
-import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
+import {
+  decodeProfilePii,
+  encodeProfilePiiPatch,
+} from "@/lib/repos/profiles"
 import { progressHeader, errorMsg } from "@/lib/telegram/scene-helpers"
 
 const UUID_REGEX =
@@ -300,11 +303,14 @@ async function fetchUnlinkedProfiles(householdId: string) {
   const familyIds = families.map((f) => f.id)
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, name")
+    .select("id, name, name_enc")
     .in("family_id", familyIds)
-    .is("telegram_user_id", null)
+    .is("telegram_user_id_hash", null)
 
-  return profiles ?? []
+  return (profiles ?? []).map((p) => ({
+    id: p.id,
+    name: decodeProfilePii({ name: p.name, name_enc: p.name_enc }).name ?? "",
+  }))
 }
 
 async function linkToProfileAndFinish(

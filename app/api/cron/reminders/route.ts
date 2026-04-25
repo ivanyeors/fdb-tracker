@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { decryptBotToken } from "@/lib/telegram/credentials"
 import {
@@ -152,11 +153,14 @@ async function generateMessage(
           calculatedTax = taxEntry.calculated_amount
         } else {
           const { calculateTax } = await import("@/lib/calculations/tax")
-          const { data: profile } = await supabase
+          const { data: profileRow } = await supabase
             .from("profiles")
-            .select("birth_year")
+            .select("birth_year, birth_year_enc")
             .eq("id", profileId)
             .single()
+          const profile = profileRow
+            ? { birth_year: decodeProfilePii(profileRow).birth_year ?? profileRow.birth_year }
+            : null
           const { data: incomeConfig } = await supabase
             .from("income_config")
             .select("annual_salary, bonus_estimate")
@@ -255,13 +259,24 @@ export async function GET(request: NextRequest) {
         continue
       }
 
-      const { data: profiles } = await supabase
+      const { data: rawProfiles } = await supabase
         .from("profiles")
-        .select("id, name, telegram_chat_id")
+        .select(
+          "id, name, name_enc, telegram_chat_id, telegram_chat_id_enc",
+        )
         .eq("family_id", schedule.family_id)
 
+      const profiles = (rawProfiles ?? []).map((p) => {
+        const decoded = decodeProfilePii(p)
+        return {
+          id: p.id,
+          name: decoded.name ?? p.name ?? "",
+          telegram_chat_id: decoded.telegram_chat_id ?? p.telegram_chat_id ?? null,
+        }
+      })
+
       const ctx: ReminderContext = {
-        profiles: profiles ?? [],
+        profiles,
         dashboardUrl,
       }
 
@@ -382,12 +397,21 @@ export async function GET(request: NextRequest) {
       }
 
       // Fetch profile + household info
-      const { data: prof } = await supabase
+      const { data: profRow } = await supabase
         .from("profiles")
-        .select("id, name, telegram_chat_id, family_id")
+        .select(
+          "id, name, name_enc, telegram_chat_id, telegram_chat_id_enc, family_id",
+        )
         .eq("id", cp.profile_id)
         .single()
-      if (!prof) continue
+      if (!profRow) continue
+      const profDecoded = decodeProfilePii(profRow)
+      const prof = {
+        id: profRow.id,
+        name: profDecoded.name ?? profRow.name ?? "",
+        telegram_chat_id: profDecoded.telegram_chat_id ?? profRow.telegram_chat_id ?? null,
+        family_id: profRow.family_id,
+      }
 
       const { data: fam } = await supabase
         .from("families")
@@ -464,12 +488,17 @@ export async function GET(request: NextRequest) {
             .eq("household_id", hh.id)
 
           const familyIds = (families ?? []).map((f) => f.id)
-          const { data: hhProfiles } = familyIds.length > 0
+          const { data: rawHhProfiles } = familyIds.length > 0
             ? await supabase
                 .from("profiles")
-                .select("id, telegram_chat_id")
+                .select("id, telegram_chat_id, telegram_chat_id_enc")
                 .in("family_id", familyIds)
-            : { data: [] as { id: string; telegram_chat_id: string | null }[] }
+            : { data: [] as { id: string; telegram_chat_id: string | null; telegram_chat_id_enc: string | null }[] }
+          const hhProfiles = (rawHhProfiles ?? []).map((p) => ({
+            id: p.id,
+            telegram_chat_id:
+              decodeProfilePii(p).telegram_chat_id ?? p.telegram_chat_id ?? null,
+          }))
 
           // Check per-profile opt-outs for seasonality
           const hhProfileIds = (hhProfiles ?? []).map((p) => p.id)

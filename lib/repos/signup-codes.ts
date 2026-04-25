@@ -1,5 +1,6 @@
 import { encryptStringNullable } from "@/lib/crypto/cipher"
 import {
+  deterministicHash,
   deterministicHashNullable,
   normalizeTelegramId,
   normalizeTelegramUsername,
@@ -49,4 +50,11 @@ export function encodeSignupCodePiiPatch(input: SignupCodePiiInput): {
   }
 
   return out
+}
+
+export function hashSignupCodeTelegramUsername(username: string): string {
+  return deterministicHash(normalizeTelegramUsername(username), {
+    table: "signup_codes",
+    column: "telegram_username_hash",
+  })
 }
