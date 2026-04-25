@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeLoanPiiPatch } from "@/lib/repos/loans"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { z } from "zod"
 
@@ -92,6 +93,10 @@ export async function POST(request: Request) {
           tenure_months: loan.tenure_months,
           start_date: loan.start_date,
           lender: loan.lender ?? null,
+          ...encodeLoanPiiPatch({
+            lender: loan.lender ?? null,
+            principal: loan.principal,
+          }),
           use_cpf_oa: loan.use_cpf_oa,
         })
       }

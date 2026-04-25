@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeLoanPiiPatch } from "@/lib/repos/loans"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
@@ -122,6 +123,10 @@ export async function POST(request: NextRequest) {
         tenure_months: parsed.data.tenureMonths,
         start_date: parsed.data.startDate,
         lender: parsed.data.lender ?? null,
+        ...encodeLoanPiiPatch({
+          lender: parsed.data.lender ?? null,
+          principal: parsed.data.principal,
+        }),
         use_cpf_oa: parsed.data.useCpfOa ?? parsed.data.type === "housing",
         valuation_limit: parsed.data.valuationLimit ?? null,
         split_profile_id: parsed.data.splitProfileId ?? null,

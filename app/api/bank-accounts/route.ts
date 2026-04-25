@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeBankAccountPiiPatch } from "@/lib/repos/bank-accounts"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { fetchOcbc360DerivedForAccount } from "@/lib/api/ocbc360-derived"
 import { computeAccountBalancesBulk } from "@/lib/calculations/computed-bank-balance"
@@ -200,7 +201,10 @@ export async function POST(request: NextRequest) {
         bank_name: bankName,
         account_type: accountType,
         ...(profileId && { profile_id: profileId }),
-        ...(accountNumber && { account_number: accountNumber }),
+        ...(accountNumber && {
+          account_number: accountNumber,
+          ...encodeBankAccountPiiPatch({ account_number: accountNumber }),
+        }),
         ...(interestRatePct !== undefined && { interest_rate_pct: interestRatePct }),
         ...(openingBalance !== undefined && { opening_balance: openingBalance }),
         ...(lockedAmount !== undefined && { locked_amount: lockedAmount }),

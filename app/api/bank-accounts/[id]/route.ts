@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeBankAccountPiiPatch } from "@/lib/repos/bank-accounts"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const updateAccountSchema = z.object({
@@ -70,7 +71,13 @@ export async function PATCH(
     const updates: Record<string, unknown> = {}
     if (parsed.data.bankName !== undefined) updates.bank_name = parsed.data.bankName
     if (parsed.data.accountType !== undefined) updates.account_type = parsed.data.accountType
-    if (parsed.data.accountNumber !== undefined) updates.account_number = parsed.data.accountNumber
+    if (parsed.data.accountNumber !== undefined) {
+      updates.account_number = parsed.data.accountNumber
+      Object.assign(
+        updates,
+        encodeBankAccountPiiPatch({ account_number: parsed.data.accountNumber }),
+      )
+    }
     if (parsed.data.profileId !== undefined) updates.profile_id = parsed.data.profileId
     if (parsed.data.interestRatePct !== undefined) updates.interest_rate_pct = parsed.data.interestRatePct
     if (parsed.data.openingBalance !== undefined) updates.opening_balance = parsed.data.openingBalance

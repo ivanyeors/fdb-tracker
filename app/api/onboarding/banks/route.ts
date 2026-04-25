@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeBankAccountPiiPatch } from "@/lib/repos/bank-accounts"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { z } from "zod"
 import { bankAccountSchema } from "@/lib/validations/onboarding"
@@ -101,6 +102,9 @@ export async function POST(request: Request) {
           bank_name: acc.bank_name,
           account_type: acc.account_type,
           account_number: acc.account_number ?? null,
+          ...encodeBankAccountPiiPatch({
+            account_number: acc.account_number ?? null,
+          }),
           profile_id: profileId,
           opening_balance: acc.opening_balance ?? 0,
         })

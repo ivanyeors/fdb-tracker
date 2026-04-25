@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeLoanPiiPatch } from "@/lib/repos/loans"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const updateLoanSchema = z.object({
@@ -77,11 +78,17 @@ export async function PATCH(
     const updates: Record<string, unknown> = {}
     if (parsed.data.name !== undefined) updates.name = parsed.data.name
     if (parsed.data.type !== undefined) updates.type = parsed.data.type
-    if (parsed.data.principal !== undefined) updates.principal = parsed.data.principal
+    if (parsed.data.principal !== undefined) {
+      updates.principal = parsed.data.principal
+      Object.assign(updates, encodeLoanPiiPatch({ principal: parsed.data.principal }))
+    }
     if (parsed.data.ratePct !== undefined) updates.rate_pct = parsed.data.ratePct
     if (parsed.data.tenureMonths !== undefined) updates.tenure_months = parsed.data.tenureMonths
     if (parsed.data.startDate !== undefined) updates.start_date = parsed.data.startDate
-    if (parsed.data.lender !== undefined) updates.lender = parsed.data.lender
+    if (parsed.data.lender !== undefined) {
+      updates.lender = parsed.data.lender
+      Object.assign(updates, encodeLoanPiiPatch({ lender: parsed.data.lender }))
+    }
     if (parsed.data.useCpfOa !== undefined) updates.use_cpf_oa = parsed.data.useCpfOa
     if (parsed.data.valuationLimit !== undefined) updates.valuation_limit = parsed.data.valuationLimit
     if (parsed.data.splitProfileId !== undefined) updates.split_profile_id = parsed.data.splitProfileId

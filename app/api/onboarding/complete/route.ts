@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { validateSession, createSession, COOKIE_NAME } from "@/lib/auth/session"
 import { encodeFamilyPiiPatch } from "@/lib/repos/families"
 import { encodeHouseholdPiiPatch } from "@/lib/repos/households"
+import { encodeLoanPiiPatch } from "@/lib/repos/loans"
 import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
@@ -478,6 +479,10 @@ export async function POST(request: Request) {
           tenure_months: loan.tenure_months,
           start_date: loan.start_date,
           lender: loan.lender ?? null,
+          ...encodeLoanPiiPatch({
+            lender: loan.lender ?? null,
+            principal: loan.principal,
+          }),
           use_cpf_oa: loan.use_cpf_oa,
         })
       }
@@ -520,6 +525,7 @@ export async function POST(request: Request) {
     // Reissue JWT with onboarding complete claim
     const newToken = await createSession(session.accountId, {
       onboardingComplete: true,
+      isSuperAdmin: session.isSuperAdmin,
     })
     const isProduction = process.env.NODE_ENV === "production"
     const response = NextResponse.json({ success: true })

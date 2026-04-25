@@ -20,6 +20,7 @@ export type Database = {
           telegram_bot_token_enc: string | null
           onboarding_completed_at: string | null
           account_type: string
+          is_super_admin: boolean
           created_at: string
         }
         Insert: {
@@ -32,6 +33,7 @@ export type Database = {
           telegram_bot_token_enc?: string | null
           onboarding_completed_at?: string | null
           account_type?: string
+          is_super_admin?: boolean
           created_at?: string
         }
         Update: {
@@ -44,6 +46,7 @@ export type Database = {
           telegram_bot_token_enc?: string | null
           onboarding_completed_at?: string | null
           account_type?: string
+          is_super_admin?: boolean
           created_at?: string
         }
         Relationships: []
@@ -410,6 +413,9 @@ export type Database = {
           bank_name: string
           account_type: string
           account_number: string | null
+          account_number_enc: string | null
+          account_number_hash: string | null
+          account_number_last4: string | null
           interest_rate_pct: number | null
           opening_balance: number
           created_at: string
@@ -421,6 +427,9 @@ export type Database = {
           bank_name: string
           account_type?: string
           account_number?: string | null
+          account_number_enc?: string | null
+          account_number_hash?: string | null
+          account_number_last4?: string | null
           interest_rate_pct?: number | null
           opening_balance?: number
           created_at?: string
@@ -432,6 +441,9 @@ export type Database = {
           bank_name?: string
           account_type?: string
           account_number?: string | null
+          account_number_enc?: string | null
+          account_number_hash?: string | null
+          account_number_last4?: string | null
           interest_rate_pct?: number | null
           opening_balance?: number
           created_at?: string
@@ -1770,10 +1782,12 @@ export type Database = {
           name: string
           type: string
           principal: number
+          principal_enc: string | null
           rate_pct: number
           tenure_months: number
           start_date: string
           lender: string | null
+          lender_enc: string | null
           use_cpf_oa: boolean
           valuation_limit: number | null
           split_profile_id: string | null
@@ -1792,10 +1806,12 @@ export type Database = {
           name: string
           type: string
           principal: number
+          principal_enc?: string | null
           rate_pct: number
           tenure_months: number
           start_date: string
           lender?: string | null
+          lender_enc?: string | null
           use_cpf_oa?: boolean
           valuation_limit?: number | null
           split_profile_id?: string | null
@@ -1814,10 +1830,12 @@ export type Database = {
           name?: string
           type?: string
           principal?: number
+          principal_enc?: string | null
           rate_pct?: number
           tenure_months?: number
           start_date?: string
           lender?: string | null
+          lender_enc?: string | null
           use_cpf_oa?: boolean
           valuation_limit?: number | null
           split_profile_id?: string | null
