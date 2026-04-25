@@ -12,6 +12,7 @@ import {
   splitPayment,
 } from "@/lib/calculations/loans"
 import { vlHeadroom120 } from "@/lib/calculations/cpf-housing"
+import { decodeLoanPii } from "@/lib/repos/loans"
 
 /**
  * Build cpf_housing_usage insert rows, splitting between profiles
@@ -200,15 +201,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Loan not found" }, { status: 404 })
     }
 
-    const { data: loan } = await supabase
+    const { data: rawLoan } = await supabase
       .from("loans")
-      .select("id, profile_id, principal, rate_pct, use_cpf_oa, start_date, valuation_limit, property_type, lock_in_end_date, early_repayment_penalty_pct, max_annual_prepayment_pct, split_profile_id, split_pct")
+      .select("id, profile_id, principal, principal_enc, rate_pct, use_cpf_oa, start_date, valuation_limit, property_type, lock_in_end_date, early_repayment_penalty_pct, max_annual_prepayment_pct, split_profile_id, split_pct")
       .eq("id", loanId)
       .single()
 
-    if (!loan) {
+    if (!rawLoan) {
       return NextResponse.json({ error: "Loan not found" }, { status: 404 })
     }
+
+    const loan = { ...rawLoan, principal: decodeLoanPii(rawLoan).principal ?? 0 }
 
     // Validate CPF OA withdrawal against 120% valuation limit
     if (cpf != null && cpf > 0 && loan.use_cpf_oa && loan.valuation_limit != null) {

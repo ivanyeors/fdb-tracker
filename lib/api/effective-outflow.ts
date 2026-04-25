@@ -6,6 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { calculateTax } from "@/lib/calculations/tax"
 import { getGiroOutflowForProfile } from "@/lib/api/giro-amounts"
+import { decodeLoanPii } from "@/lib/repos/loans"
 
 /**
  * Sum of monthly premiums for shared ILP products (profile_id is null) in a family.
@@ -102,18 +103,19 @@ export async function getEffectiveOutflowForProfile(
   let loans = 0
   const { data: loansData } = await supabase
     .from("loans")
-    .select("id, principal, rate_pct, tenure_months, use_cpf_oa")
+    .select("id, principal, principal_enc, rate_pct, tenure_months, use_cpf_oa")
     .eq("profile_id", profileId)
   if (loansData) {
     for (const loan of loansData) {
       if (loan.use_cpf_oa) continue
+      const principal = decodeLoanPii(loan).principal ?? 0
       const monthlyRate = loan.rate_pct / 100 / 12
       if (monthlyRate > 0 && loan.tenure_months > 0) {
         loans +=
-          (loan.principal * monthlyRate) /
+          (principal * monthlyRate) /
           (1 - Math.pow(1 + monthlyRate, -loan.tenure_months))
       } else if (loan.tenure_months > 0) {
-        loans += loan.principal / loan.tenure_months
+        loans += principal / loan.tenure_months
       }
     }
   }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeLoanPii } from "@/lib/repos/loans"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 function getLastCompletedStep(data: {
@@ -124,7 +125,7 @@ export async function GET(request: NextRequest) {
 
     const { data: loans } = await supabase
       .from("loans")
-      .select("id, name, type, principal, rate_pct, tenure_months, start_date, lender, use_cpf_oa, profile_id")
+      .select("id, name, type, principal, principal_enc, rate_pct, tenure_months, start_date, lender, lender_enc, use_cpf_oa, profile_id")
       .in("profile_id", profileIds)
       .order("created_at", { ascending: true })
 
@@ -196,14 +197,15 @@ export async function GET(request: NextRequest) {
 
     const mappedLoans = (loans ?? []).map((l) => {
       const idx = l.profile_id ? profileIndexMap.get(l.profile_id) ?? 0 : 0
+      const decoded = decodeLoanPii(l)
       return {
         name: l.name,
         type: l.type as "housing" | "personal" | "car" | "education",
-        principal: l.principal ?? 0,
+        principal: decoded.principal ?? 0,
         rate_pct: l.rate_pct ?? 0,
         tenure_months: l.tenure_months ?? 0,
         start_date: l.start_date ?? new Date().toISOString().slice(0, 10),
-        lender: l.lender ?? undefined,
+        lender: decoded.lender ?? undefined,
         use_cpf_oa: l.use_cpf_oa ?? false,
         profileIndex: idx,
       }

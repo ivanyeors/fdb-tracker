@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { getEffectiveInflowForProfile } from "@/lib/api/effective-inflow"
 import { getEffectiveOutflowForProfile } from "@/lib/api/effective-outflow"
 import { loanMonthlyPayment, estimateOutstandingPrincipal } from "@/lib/calculations/loans"
+import { decodeLoanPii } from "@/lib/repos/loans"
 
 function getPreviousMonth(): string {
   const now = new Date()
@@ -74,12 +75,17 @@ export async function GET(request: NextRequest) {
             }
 
             // --- 2. Auto-log scheduled loan payments ---
-            const { data: loans } = await supabase
+            const { data: rawLoans } = await supabase
               .from("loans")
-              .select("id, principal, rate_pct, tenure_months, start_date")
+              .select("id, principal, principal_enc, rate_pct, tenure_months, start_date")
               .eq("profile_id", profile.id)
 
-            for (const loan of loans ?? []) {
+            const loans = (rawLoans ?? []).map((l) => ({
+              ...l,
+              principal: decodeLoanPii(l).principal ?? 0,
+            }))
+
+            for (const loan of loans) {
               // Check if loan is still active (within tenure)
               const start = new Date(loan.start_date)
               const endDate = new Date(start)

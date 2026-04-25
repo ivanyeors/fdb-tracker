@@ -82,7 +82,7 @@ export const repayScene = new Scenes.WizardScene<MyContext>(
 
     const { data: loans, error: loansError } = await supabase
       .from("loans")
-      .select("id, name, principal")
+      .select("id, name")
       .in("profile_id", profileIds)
 
     if (loansError || !loans || loans.length === 0) {

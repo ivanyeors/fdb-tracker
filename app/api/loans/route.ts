@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { encodeLoanPiiPatch } from "@/lib/repos/loans"
+import { decodeLoanPii, encodeLoanPiiPatch } from "@/lib/repos/loans"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
@@ -55,7 +55,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch loans" }, { status: 500 })
     }
 
-    return NextResponse.json(loans || [])
+    const decoded = (loans ?? []).map((l) => ({ ...l, ...decodeLoanPii(l) }))
+    return NextResponse.json(decoded)
   } catch (err) {
     console.error("[api/loans] Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: "Failed to create loan" }, { status: 500 })
     }
-    return NextResponse.json(loan, { status: 201 })
+    return NextResponse.json({ ...loan, ...decodeLoanPii(loan) }, { status: 201 })
   } catch (err) {
     console.error("[api/loans] POST Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeLoanPii } from "@/lib/repos/loans"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
@@ -176,21 +177,22 @@ export async function GET(request: NextRequest) {
     // Fetch use_cpf_oa loans for OA deduction in projections
     const { data: cpfLoans } = await supabase
       .from("loans")
-      .select("id, profile_id, principal, rate_pct, tenure_months, split_profile_id, split_pct")
+      .select("id, profile_id, principal, principal_enc, rate_pct, tenure_months, split_profile_id, split_pct")
       .in("profile_id", profileIds)
       .eq("use_cpf_oa", true)
 
     // Calculate monthly CPF OA deduction per profile from housing loans
     const cpfOaDeductionByProfile = new Map<string, number>()
     for (const loan of cpfLoans ?? []) {
+      const principal = decodeLoanPii(loan).principal ?? 0
       const monthlyRate = loan.rate_pct / 100 / 12
       let monthlyPayment = 0
       if (monthlyRate > 0 && loan.tenure_months > 0) {
         monthlyPayment =
-          (loan.principal * monthlyRate) /
+          (principal * monthlyRate) /
           (1 - Math.pow(1 + monthlyRate, -loan.tenure_months))
       } else if (loan.tenure_months > 0) {
-        monthlyPayment = loan.principal / loan.tenure_months
+        monthlyPayment = principal / loan.tenure_months
       }
 
       // Apply spouse split if applicable

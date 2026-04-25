@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { encodeLoanPiiPatch } from "@/lib/repos/loans"
+import { decodeLoanPii, encodeLoanPiiPatch } from "@/lib/repos/loans"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const updateLoanSchema = z.object({
@@ -111,7 +111,7 @@ export async function PATCH(
       .single()
 
     if (error) return NextResponse.json({ error: "Failed to update loan" }, { status: 500 })
-    return NextResponse.json(data)
+    return NextResponse.json({ ...data, ...decodeLoanPii(data) })
   } catch (err) {
     console.error("[api/loans] PATCH Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

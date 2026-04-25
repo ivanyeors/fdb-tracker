@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeLoanPii } from "@/lib/repos/loans"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const trendQuerySchema = z.object({
@@ -127,12 +128,15 @@ export async function GET(request: NextRequest) {
     if (profileIds.length > 0) {
       const { data: loans } = await supabase
         .from("loans")
-        .select("id, principal")
+        .select("id, principal, principal_enc")
         .in("profile_id", profileIds)
 
       if (loans && loans.length > 0) {
         const loanIds = loans.map((l) => l.id)
-        const totalPrincipal = loans.reduce((s, l) => s + l.principal, 0)
+        const totalPrincipal = loans.reduce(
+          (s, l) => s + (decodeLoanPii(l).principal ?? 0),
+          0,
+        )
         const { data: repayments } = await supabase
           .from("loan_repayments")
           .select("amount")

@@ -4,7 +4,9 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { getSessionFromCookies } from "@/lib/auth/session"
 import { decryptString } from "@/lib/crypto/cipher"
+import { decodeBankAccountPii } from "@/lib/repos/bank-accounts"
 import { decodeFamilyName } from "@/lib/repos/families"
+import { decodeLoanPii } from "@/lib/repos/loans"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import {
@@ -104,10 +106,20 @@ async function fetchFinancialDataForFamily(
     }))
 
   return {
-    bankAccounts: bankAccountsRes.data ?? [],
+    bankAccounts: (bankAccountsRes.data ?? []).map((a) => ({
+      ...a,
+      ...decodeBankAccountPii(a),
+    })),
     savingsGoals: savingsGoalsRes.data ?? [],
     investments,
-    loans: loansRes.data ?? [],
+    loans: (loansRes.data ?? []).map((l) => {
+      const decoded = decodeLoanPii(l)
+      return {
+        ...l,
+        lender: decoded.lender,
+        principal: decoded.principal ?? 0,
+      }
+    }),
     insurancePolicies: (insuranceRes.data ?? []).map((p) => {
       const { insurance_policy_coverages, ...rest } = p as typeof p & {
         insurance_policy_coverages?: Array<{
@@ -366,6 +378,7 @@ export default async function UserSettingsPage() {
       </div>
 
       <AccountOverview
+        householdId={householdId}
         profiles={(allProfiles ?? []).map((p) => ({
           id: p.id as string,
           name: p.name as string,

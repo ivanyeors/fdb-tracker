@@ -32,6 +32,7 @@ import {
   loanMonthlyPayment,
 } from "@/lib/calculations/loans"
 import { computeTotalInvestmentsValue } from "@/lib/api/net-liquid"
+import { decodeLoanPii } from "@/lib/repos/loans"
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -418,7 +419,7 @@ export async function fetchOverviewData(
     // 7. Loans (with extra fields for outstanding principal)
     supabase
       .from("loans")
-      .select("id, profile_id, principal, rate_pct, tenure_months, start_date, use_cpf_oa")
+      .select("id, profile_id, principal, principal_enc, rate_pct, tenure_months, start_date, use_cpf_oa")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     // 8. Tax relief inputs
     supabase
@@ -570,9 +571,10 @@ export async function fetchOverviewData(
   for (const row of loansRes.data ?? []) {
     const pid = row.profile_id as string
     const list = loansByProfile.get(pid) ?? []
+    const decoded = decodeLoanPii(row)
     list.push({
       id: row.id,
-      principal: row.principal,
+      principal: decoded.principal ?? 0,
       rate_pct: row.rate_pct,
       tenure_months: row.tenure_months,
       start_date: row.start_date,

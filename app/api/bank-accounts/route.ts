@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { encodeBankAccountPiiPatch } from "@/lib/repos/bank-accounts"
+import {
+  decodeBankAccountPii,
+  encodeBankAccountPiiPatch,
+} from "@/lib/repos/bank-accounts"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { fetchOcbc360DerivedForAccount } from "@/lib/api/ocbc360-derived"
 import { computeAccountBalancesBulk } from "@/lib/calculations/computed-bank-balance"
@@ -65,11 +68,16 @@ export async function GET(request: NextRequest) {
       query = query.or(`profile_id.eq.${profileId},profile_id.is.null`)
     }
 
-    const { data: accounts, error } = await query
+    const { data: rawAccounts, error } = await query
 
     if (error) {
       return NextResponse.json({ error: "Failed to fetch bank accounts" }, { status: 500 })
     }
+
+    const accounts = (rawAccounts ?? []).map((a) => ({
+      ...a,
+      ...decodeBankAccountPii(a),
+    }))
 
     const ocbcAccountIds = accounts
       .filter((a) => a.account_type === "ocbc_360")
@@ -216,6 +224,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create bank account" }, { status: 500 })
     }
 
+    const accountWithDecoded = { ...account, ...decodeBankAccountPii(account) }
+
     if (accountType === "ocbc_360") {
       const { error: configError } = await supabase
         .from("bank_account_ocbc360_config")
@@ -237,7 +247,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(account, { status: 201 })
+    return NextResponse.json(accountWithDecoded, { status: 201 })
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

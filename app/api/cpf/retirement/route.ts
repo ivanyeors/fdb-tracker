@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeLoanPii } from "@/lib/repos/loans"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
@@ -112,7 +113,7 @@ export async function GET(request: NextRequest) {
     const [{ data: cpfLoans }, { data: healthcareRow }] = await Promise.all([
       supabase
         .from("loans")
-        .select("id, name, principal, rate_pct, tenure_months, start_date")
+        .select("id, name, principal, principal_enc, rate_pct, tenure_months, start_date")
         .eq("profile_id", singleProfileId)
         .eq("use_cpf_oa", true),
       supabase
@@ -145,7 +146,8 @@ export async function GET(request: NextRequest) {
       const remainingMonths = Math.max(0, loan.tenure_months - monthsElapsed)
       const endMonth = startMonth + loan.tenure_months
       const endYear = Math.floor(endMonth / 12)
-      const monthly = loanMonthlyPayment(loan.principal, loan.rate_pct, loan.tenure_months)
+      const principal = decodeLoanPii(loan).principal ?? 0
+      const monthly = loanMonthlyPayment(principal, loan.rate_pct, loan.tenure_months)
       return {
         name: loan.name,
         monthly: Math.round(monthly * 100) / 100,

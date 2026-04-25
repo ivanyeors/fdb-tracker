@@ -32,6 +32,7 @@ import {
   type ProfileData,
   type TaxEntryData,
 } from "@/lib/api/cashflow-aggregation"
+import { decodeLoanPii } from "@/lib/repos/loans"
 
 type SingleMonthResult = {
   month: string
@@ -114,7 +115,7 @@ export async function fetchSingleMonthCashflow(
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("loans")
-      .select("id, profile_id, name, principal, rate_pct, tenure_months, start_date, use_cpf_oa")
+      .select("id, profile_id, name, principal, principal_enc, rate_pct, tenure_months, start_date, use_cpf_oa")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("tax_relief_inputs")
@@ -346,7 +347,7 @@ export async function fetchSingleMonthCashflow(
     const list = loansByProfile.get(pid) ?? []
     list.push({
       name: (row.name as string) ?? "Loan",
-      principal: row.principal,
+      principal: decodeLoanPii(row).principal ?? 0,
       rate_pct: row.rate_pct,
       tenure_months: row.tenure_months,
       use_cpf_oa: !!row.use_cpf_oa,

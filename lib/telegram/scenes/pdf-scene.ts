@@ -434,7 +434,7 @@ async function saveExtractedData(
       // Try to match bank account: account number first, then bank name
       const { data: accounts } = await supabase
         .from("bank_accounts")
-        .select("id, bank_name, account_type, account_number")
+        .select("id, bank_name, account_type, account_number_last4")
         .eq("family_id", familyId)
 
       let accountId: string | null = null
@@ -443,7 +443,7 @@ async function saveExtractedData(
         if (extracted.accountNumber) {
           const last4 = extracted.accountNumber.replace(/[-\s]/g, "").slice(-4)
           const numMatch = accounts.find(
-            (a) => a.account_number && a.account_number.slice(-4) === last4,
+            (a) => a.account_number_last4 === last4,
           )
           if (numMatch) accountId = numMatch.id
         }
@@ -521,7 +521,7 @@ async function saveExtractedData(
       // Try to match bank account: card number first, then bank name
       const { data: ccAccounts } = await supabase
         .from("bank_accounts")
-        .select("id, bank_name, account_number")
+        .select("id, bank_name, account_number_last4")
         .eq("family_id", familyId)
 
       let ccAccountId: string | null = null
@@ -530,7 +530,7 @@ async function saveExtractedData(
         if (extracted.cardNumber) {
           const last4 = extracted.cardNumber.replace(/[-\s]/g, "").slice(-4)
           const numMatch = ccAccounts.find(
-            (a) => a.account_number && a.account_number.slice(-4) === last4,
+            (a) => a.account_number_last4 === last4,
           )
           if (numMatch) ccAccountId = numMatch.id
         }

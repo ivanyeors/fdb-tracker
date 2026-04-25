@@ -2,6 +2,7 @@ import { cookies } from "next/headers"
 import { getSessionFromCookies } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
+import { decodeLoanPii } from "@/lib/repos/loans"
 import { LoansClient, type LoansInitialData } from "./loans-client"
 
 const EMPTY: LoansInitialData = {
@@ -41,7 +42,10 @@ export default async function LoansPage() {
       )
       .order("created_at", { ascending: true })
 
-    const loanList = loans ?? []
+    const loanList = (loans ?? []).map((l) => {
+      const decoded = decodeLoanPii(l)
+      return { ...l, lender: decoded.lender, principal: decoded.principal ?? 0 }
+    })
     const loanIds = loanList.map((l: { id: string }) => l.id)
 
     let repayments: Array<{ loan_id: string; amount: number; date: string }> =

@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { encodeBankAccountPiiPatch } from "@/lib/repos/bank-accounts"
+import {
+  decodeBankAccountPii,
+  encodeBankAccountPiiPatch,
+} from "@/lib/repos/bank-accounts"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const updateAccountSchema = z.object({
@@ -151,7 +154,7 @@ export async function PATCH(
         .single()
 
       if (error) return NextResponse.json({ error: "Failed to update bank account" }, { status: 500 })
-      return NextResponse.json(data)
+      return NextResponse.json({ ...data, ...decodeBankAccountPii(data) })
     }
 
     return NextResponse.json({ ok: true })

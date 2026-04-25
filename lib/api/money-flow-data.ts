@@ -33,6 +33,7 @@ import {
   type ProfileData,
   type TaxEntryData,
 } from "@/lib/api/cashflow-aggregation"
+import { decodeLoanPii } from "@/lib/repos/loans"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
 import {
   calculateSelfHelpContribution,
@@ -140,7 +141,7 @@ export async function fetchMoneyFlowData(
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("loans")
-      .select("id, profile_id, principal, rate_pct, tenure_months, start_date, use_cpf_oa")
+      .select("id, profile_id, principal, principal_enc, rate_pct, tenure_months, start_date, use_cpf_oa")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("tax_relief_inputs")
@@ -270,7 +271,7 @@ export async function fetchMoneyFlowData(
     const list = loansByProfile.get(pid) ?? []
     list.push({
       id: row.id,
-      principal: row.principal,
+      principal: decodeLoanPii(row).principal ?? 0,
       rate_pct: row.rate_pct,
       tenure_months: row.tenure_months,
       start_date: row.start_date,
