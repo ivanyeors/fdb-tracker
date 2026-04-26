@@ -15,6 +15,14 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { useUserSettingsSave } from "@/components/layout/user-settings-save-context"
 import { CombinedImpactConfirmationDialog } from "@/components/ui/combined-impact-confirmation-dialog"
 import type { ImpactNodeId } from "@/lib/impact-graph"
@@ -90,6 +98,7 @@ export function GlobalToolbar() {
               ctas={config.ctas}
               open={ctaOpen}
               onOpenChange={setCtaOpen}
+              isMobile={isMobile}
             />
           )}
         </div>
@@ -129,56 +138,102 @@ function CtaButton({
   ctas,
   open,
   onOpenChange,
+  isMobile,
 }: {
   ctas: ReturnType<typeof getToolbarConfig>["ctas"]
   open: boolean
   onOpenChange: (next: boolean) => void
+  isMobile: boolean
 }) {
   if (ctas.length === 0) {
     return null
   }
+
+  const trigger = (
+    <Button
+      type="button"
+      size="sm"
+      className="h-9 gap-1.5 rounded-full px-4"
+      aria-label="Quick actions"
+    >
+      <Plus className="h-4 w-4" />
+      <span className="hidden sm:inline">Add</span>
+    </Button>
+  )
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+        <DrawerContent className="pb-[calc(env(safe-area-inset-bottom)+12px)]">
+          <DrawerHeader className="text-left">
+            <DrawerTitle>Quick actions</DrawerTitle>
+            <DrawerDescription>
+              Pick what you want to add for this page.
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="mx-auto flex w-full max-w-md flex-col gap-1 px-4 pb-4">
+            {ctas.map((cta) => (
+              <DrawerClose asChild key={cta.id}>
+                <Link
+                  href={cta.href}
+                  className="flex items-start gap-3 rounded-lg border bg-card px-3 py-3 text-sm transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+                >
+                  <cta.icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+                  <div className="flex min-w-0 flex-col">
+                    <span className="font-medium">{cta.label}</span>
+                    {cta.description ? (
+                      <span className="text-xs text-muted-foreground">
+                        {cta.description}
+                      </span>
+                    ) : null}
+                  </div>
+                </Link>
+              </DrawerClose>
+            ))}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    )
+  }
+
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerTrigger asChild>
-        <Button
-          type="button"
-          size="sm"
-          className="h-9 gap-1.5 rounded-full px-4"
-          aria-label="Quick actions"
-        >
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Add</span>
-        </Button>
-      </DrawerTrigger>
-      <DrawerContent className="pb-[calc(env(safe-area-inset-bottom)+12px)]">
-        <DrawerHeader className="text-left">
-          <DrawerTitle>Quick actions</DrawerTitle>
-          <DrawerDescription>
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent
+        align="end"
+        side="top"
+        sideOffset={8}
+        className="w-80 max-w-[min(20rem,calc(100vw-1rem))] gap-2 p-3"
+      >
+        <PopoverHeader>
+          <PopoverTitle>Quick actions</PopoverTitle>
+          <PopoverDescription>
             Pick what you want to add for this page.
-          </DrawerDescription>
-        </DrawerHeader>
-        <div className="mx-auto flex w-full max-w-md flex-col gap-1 px-4 pb-4">
+          </PopoverDescription>
+        </PopoverHeader>
+        <div className="flex flex-col gap-1">
           {ctas.map((cta) => (
-            <DrawerClose asChild key={cta.id}>
-              <Link
-                href={cta.href}
-                className="flex items-start gap-3 rounded-lg border bg-card px-3 py-3 text-sm transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
-              >
-                <cta.icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
-                <div className="flex min-w-0 flex-col">
-                  <span className="font-medium">{cta.label}</span>
-                  {cta.description ? (
-                    <span className="text-xs text-muted-foreground">
-                      {cta.description}
-                    </span>
-                  ) : null}
-                </div>
-              </Link>
-            </DrawerClose>
+            <Link
+              key={cta.id}
+              href={cta.href}
+              onClick={() => onOpenChange(false)}
+              className="flex items-start gap-3 rounded-md border bg-card px-3 py-2.5 text-sm transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+            >
+              <cta.icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+              <div className="flex min-w-0 flex-col">
+                <span className="font-medium">{cta.label}</span>
+                {cta.description ? (
+                  <span className="text-xs text-muted-foreground">
+                    {cta.description}
+                  </span>
+                ) : null}
+              </div>
+            </Link>
           ))}
         </div>
-      </DrawerContent>
-    </Drawer>
+      </PopoverContent>
+    </Popover>
   )
 }
 
