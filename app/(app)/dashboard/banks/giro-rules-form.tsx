@@ -81,7 +81,7 @@ export function GiroRulesForm({ familyId }: { familyId: string | null }) {
       try {
         const [rulesRes, accountsRes] = await Promise.all([
           fetch(`/api/giro-rules?familyId=${familyId}`),
-          fetch(`/api/bank-accounts?familyId=${familyId}`),
+          fetch(`/api/bank-accounts?familyId=${familyId}&minimal=1`),
         ])
         if (rulesRes.ok) {
           const data = await rulesRes.json()

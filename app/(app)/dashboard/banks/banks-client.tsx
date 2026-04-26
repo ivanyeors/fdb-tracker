@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Check, ExternalLink, HelpCircle, Loader2, X } from "lucide-react"
 import {
   Card,
@@ -15,10 +16,12 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { Skeleton } from "@/components/ui/skeleton"
+import { GiroRulesForm } from "./giro-rules-form"
 import { calculateOcbc360Interest } from "@/lib/calculations/bank-interest"
 import {
   ocbc360RowsToConfig,
@@ -164,6 +167,21 @@ export function BanksClient({
     ? formatEvalMonth(derived.evalMonth)
     : null
 
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const defaultTab = searchParams.get("tab") === "giro" ? "giro" : "overview"
+
+  function handleTabChange(value: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value === "giro") {
+      params.set("tab", "giro")
+    } else {
+      params.delete("tab")
+    }
+    const qs = params.toString()
+    router.replace(`/dashboard/banks${qs ? `?${qs}` : ""}`, { scroll: false })
+  }
+
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <SectionHeader
@@ -175,7 +193,14 @@ export function BanksClient({
         }
       />
 
-      {isLoading && accounts.length === 0 ? (
+      <Tabs value={defaultTab} onValueChange={handleTabChange}>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="giro">GIRO Rules</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
+          {isLoading && accounts.length === 0 ? (
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <MetricCard label="" value={0} loading />
@@ -527,16 +552,26 @@ export function BanksClient({
         </>
       )}
 
-      {activeProfileId &&
-        !isLoading &&
-        visibleAccounts.length > 0 && (
-          <BalanceForecastSection
-            profileId={activeProfileId}
-            accounts={visibleAccounts}
-          />
-        )}
+          {activeProfileId &&
+            !isLoading &&
+            visibleAccounts.length > 0 && (
+              <BalanceForecastSection
+                profileId={activeProfileId}
+                accounts={visibleAccounts}
+              />
+            )}
 
-      <SavingsGoalsSection />
+          <SavingsGoalsSection />
+        </TabsContent>
+
+        <TabsContent value="giro" className="space-y-6">
+          <p className="text-sm text-muted-foreground">
+            Set up recurring monthly transfers from a bank account to outflow,
+            investments, CPF, SRS, or another bank account.
+          </p>
+          <GiroRulesForm familyId={activeFamilyId} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

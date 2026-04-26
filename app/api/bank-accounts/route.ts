@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid query" }, { status: 400 })
     }
+    const minimal = searchParams.get("minimal") === "1"
 
     const supabase = createSupabaseAdmin()
     const { resolveFamilyAndProfiles } = await import("@/lib/api/resolve-family")
@@ -57,6 +58,29 @@ export async function GET(request: NextRequest) {
     }
     const { familyId } = resolved
     const profileId = parsed.data.profileId ?? null
+
+    if (minimal) {
+      let minimalQuery = supabase
+        .from("bank_accounts")
+        .select("id, bank_name, account_type, profile_id")
+        .eq("family_id", familyId)
+        .order("created_at", { ascending: true })
+
+      if (profileId) {
+        minimalQuery = minimalQuery.or(
+          `profile_id.eq.${profileId},profile_id.is.null`,
+        )
+      }
+
+      const { data: minimalAccounts, error: minimalError } = await minimalQuery
+      if (minimalError) {
+        return NextResponse.json(
+          { error: "Failed to fetch bank accounts" },
+          { status: 500 },
+        )
+      }
+      return NextResponse.json(minimalAccounts ?? [])
+    }
 
     let query = supabase
       .from("bank_accounts")
