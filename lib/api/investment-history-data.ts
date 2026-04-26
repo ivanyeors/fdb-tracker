@@ -228,30 +228,52 @@ export async function fetchInvestmentHistory(
   const startStr = startDate.toISOString().slice(0, 10)
   const endStr = endDate.toISOString().slice(0, 10)
 
-  let snapshotsQuery = supabase
-    .from("investment_snapshots")
-    .select("date, total_value")
-    .eq("family_id", familyId)
-    .gte("date", startStr)
-    .lte("date", endStr)
-    .order("date", { ascending: true })
-
+  // Combined view (profileId null): fetch per-profile snapshots and sum by date.
+  // The cron writes a profile_id IS NULL aggregate row, but only for "today" — historical
+  // dates may be missing the aggregate, so we always derive the family total from per-profile rows.
+  let snapshotRows: Array<{ date: string; total_value: number }> = []
   if (profileId) {
-    snapshotsQuery = snapshotsQuery.eq("profile_id", profileId)
+    const { data } = await supabase
+      .from("investment_snapshots")
+      .select("date, total_value")
+      .eq("family_id", familyId)
+      .eq("profile_id", profileId)
+      .gte("date", startStr)
+      .lte("date", endStr)
+      .order("date", { ascending: true })
+    snapshotRows = data ?? []
   } else {
-    snapshotsQuery = snapshotsQuery.is("profile_id", null)
+    const { data: familyProfiles } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("family_id", familyId)
+    const profileIds = (familyProfiles ?? []).map((p) => p.id as string)
+    if (profileIds.length > 0) {
+      const { data: perProfile } = await supabase
+        .from("investment_snapshots")
+        .select("date, total_value, profile_id")
+        .eq("family_id", familyId)
+        .in("profile_id", profileIds)
+        .gte("date", startStr)
+        .lte("date", endStr)
+        .order("date", { ascending: true })
+      const sumByDate = new Map<string, number>()
+      for (const r of perProfile ?? []) {
+        sumByDate.set(r.date, (sumByDate.get(r.date) ?? 0) + (r.total_value ?? 0))
+      }
+      snapshotRows = Array.from(sumByDate.entries())
+        .map(([date, total_value]) => ({ date, total_value }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+    }
   }
 
-  const { data: snapshots } = await snapshotsQuery
-
   const todayStr = endDate.toISOString().slice(0, 10)
-  const hasTodaySnapshot = snapshots?.some((s) => s.date === todayStr)
+  const hasTodaySnapshot = snapshotRows.some((s) => s.date === todayStr)
 
-  let data: { date: string; value: number }[] =
-    snapshots?.map((s) => ({
-      date: s.date,
-      value: Math.round(s.total_value * 100) / 100,
-    })) ?? []
+  let data: { date: string; value: number }[] = snapshotRows.map((s) => ({
+    date: s.date,
+    value: Math.round(s.total_value * 100) / 100,
+  }))
 
   if (!hasTodaySnapshot) {
     const { investmentTotal: liveTotal } =

@@ -206,30 +206,45 @@ export async function fetchSingleMonthCashflow(
         return q
       })(),
       // Investment snapshot: last entry before month start
+      // Combined: fetch one row per profile, sum in JS (NULL aggregate row may be missing for historical months)
       (() => {
-        let q = supabase
+        if (profileIds.length === 1) {
+          return supabase
+            .from("investment_snapshots")
+            .select("profile_id, date, total_value")
+            .eq("family_id", familyId)
+            .eq("profile_id", profileIds[0]!)
+            .lt("date", monthStr)
+            .order("date", { ascending: false })
+            .limit(1)
+        }
+        return supabase
           .from("investment_snapshots")
-          .select("total_value")
+          .select("profile_id, date, total_value")
           .eq("family_id", familyId)
+          .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
           .lt("date", monthStr)
           .order("date", { ascending: false })
-          .limit(1)
-        if (profileIds.length === 1) q = q.eq("profile_id", profileIds[0]!)
-        else q = q.is("profile_id", null)
-        return q
       })(),
       // Investment snapshot: last entry before month end
       (() => {
-        let q = supabase
+        if (profileIds.length === 1) {
+          return supabase
+            .from("investment_snapshots")
+            .select("profile_id, date, total_value")
+            .eq("family_id", familyId)
+            .eq("profile_id", profileIds[0]!)
+            .lt("date", nextMonthStr)
+            .order("date", { ascending: false })
+            .limit(1)
+        }
+        return supabase
           .from("investment_snapshots")
-          .select("total_value")
+          .select("profile_id, date, total_value")
           .eq("family_id", familyId)
+          .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
           .lt("date", nextMonthStr)
           .order("date", { ascending: false })
-          .limit(1)
-        if (profileIds.length === 1) q = q.eq("profile_id", profileIds[0]!)
-        else q = q.is("profile_id", null)
-        return q
       })(),
       // CPF balances for prev month and target month
       supabase
@@ -759,21 +774,44 @@ export async function fetchSingleMonthCashflow(
   const round = (n: number) => Math.round(n * 100) / 100
 
   // ── Investment section ──
-  let investmentSection: InvestmentWaterfallSection | undefined
-  const invStartSnapshot = invSnapshotStartRes.data?.[0]
-  const invEndSnapshot = invSnapshotEndRes.data?.[0]
-  if (invStartSnapshot || invEndSnapshot) {
-    const invStartVal = invStartSnapshot?.total_value ?? 0
-    const invEndVal = invEndSnapshot?.total_value ?? 0
-
-    // Raw net deployment (buys - sells, not floored) to isolate actual market movement
-    let netDeployment = 0
-    for (const pid of profileIds) {
-      netDeployment += rawNetDeploymentForMonth(
-        investmentTxnsByProfile.get(pid) ?? [],
-        monthStr,
-      )
+  // Pick the latest snapshot per profile (rows already ordered date desc), then sum across profiles.
+  // Works for both single-profile (one row) and combined (one row per profile) shapes.
+  const sumLatestSnapshotPerProfile = (
+    rows: Array<{ profile_id: string | null; total_value: number }> | null | undefined,
+  ): number => {
+    if (!rows?.length) return 0
+    const seen = new Set<string>()
+    let total = 0
+    for (const r of rows) {
+      const key = r.profile_id ?? "__null__"
+      if (seen.has(key)) continue
+      seen.add(key)
+      total += r.total_value ?? 0
     }
+    return total
+  }
+
+  let investmentSection: InvestmentWaterfallSection | undefined
+  const invStartVal = sumLatestSnapshotPerProfile(invSnapshotStartRes.data)
+  const invEndVal = sumLatestSnapshotPerProfile(invSnapshotEndRes.data)
+
+  // Raw net deployment (buys - sells, not floored) to isolate actual market movement
+  let netDeployment = 0
+  for (const pid of profileIds) {
+    netDeployment += rawNetDeploymentForMonth(
+      investmentTxnsByProfile.get(pid) ?? [],
+      monthStr,
+    )
+  }
+
+  if (
+    invStartVal > 0 ||
+    invEndVal > 0 ||
+    netDeployment !== 0 ||
+    dividends > 0 ||
+    ilp > 0 ||
+    ilpOneTime > 0
+  ) {
 
     // ILP premiums paid from bank this month
     const totalIlpPremiums = ilp + ilpOneTime
