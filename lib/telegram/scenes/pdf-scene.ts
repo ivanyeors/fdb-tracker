@@ -500,8 +500,6 @@ async function saveExtractedData(
           txn_date: txn.date,
           value_date: txn.valueDate ?? null,
           description: txn.description,
-          amount: txn.amount,
-          balance: txn.balance,
           ...encodeBankTransactionPiiPatch({
             amount: txn.amount,
             balance: txn.balance,
@@ -518,7 +516,7 @@ async function saveExtractedData(
         const { error: txnError } = await (supabase as any)
           .from("bank_transactions")
           .upsert(txnRows, {
-            onConflict: "profile_id,month,txn_date,description,amount,statement_type",
+            onConflict: "profile_id,month,txn_date,description,amount_hash,statement_type",
           })
         if (txnError) {
           console.error("[pdf-scene] Failed to save transactions:", txnError.message)
@@ -577,8 +575,6 @@ async function saveExtractedData(
           month: extracted.month!,
           txn_date: txn.date,
           description: txn.description,
-          amount: txn.amount,
-          balance: txn.balance,
           ...encodeBankTransactionPiiPatch({
             amount: txn.amount,
             balance: txn.balance,
@@ -595,7 +591,7 @@ async function saveExtractedData(
         const { error: ccTxnError } = await (supabase as any)
           .from("bank_transactions")
           .upsert(txnRows, {
-            onConflict: "profile_id,month,txn_date,description,amount,statement_type",
+            onConflict: "profile_id,month,txn_date,description,amount_hash,statement_type",
           })
         if (ccTxnError) throw new Error(ccTxnError.message)
         await drainSummaryRefreshQueue(supabase, {

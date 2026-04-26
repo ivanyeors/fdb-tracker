@@ -112,4 +112,4 @@ function tryNum(
 }
 
 export const BANK_TRANSACTION_PII_SELECT =
-  "amount, amount_enc, balance, balance_enc"
+  "amount_enc, balance_enc"

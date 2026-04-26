@@ -92,7 +92,7 @@ export async function POST(request: Request) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: existing } = await (supabase as any)
         .from("bank_transactions")
-        .select("txn_date, description, amount, amount_enc")
+        .select("txn_date, description, amount_enc")
         .eq("profile_id", body.profileId)
         .eq("month", body.month)
         .eq("statement_type", body.statementType)
@@ -102,7 +102,6 @@ export async function POST(request: Request) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           existing.map((t: any) => {
             const amt = decodeBankTransactionPii({
-              amount: t.amount,
               amount_enc: t.amount_enc,
             }).amount
             return `${t.txn_date}|${t.description}|${amt}`
@@ -123,8 +122,6 @@ export async function POST(request: Request) {
         txn_date: txn.date,
         value_date: txn.valueDate ?? null,
         description: txn.description,
-        amount: txn.amount,
-        balance: txn.balance,
         ...encodeBankTransactionPiiPatch({
           amount: txn.amount,
           balance: txn.balance,
@@ -143,7 +140,7 @@ export async function POST(request: Request) {
         .from("bank_transactions")
         .upsert(txnRows, {
           onConflict:
-            "profile_id,month,txn_date,description,amount,statement_type",
+            "profile_id,month,txn_date,description,amount_hash,statement_type",
         })
 
       if (error) {

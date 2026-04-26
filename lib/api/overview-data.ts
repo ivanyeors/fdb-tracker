@@ -778,7 +778,7 @@ export async function fetchOverviewData(
         const months = computePrev ? [prevMonth, latestMonth] : [latestMonth]
         let qb = supabase
           .from("bank_transactions")
-          .select("month, amount, amount_enc")
+          .select("month, amount_enc")
           .in("month", months)
           .eq("txn_type", "debit")
           .eq("exclude_from_spending", false)
@@ -793,7 +793,6 @@ export async function fetchOverviewData(
     for (const t of bankTxnsRes.data ?? []) {
       const m = normalizeMonthKey(t.month as string)
       const decoded = decodeBankTransactionPii({
-        amount: t.amount,
         amount_enc: (t as { amount_enc?: string | null }).amount_enc,
       })
       const amt = Math.abs(decoded.amount ?? 0)

@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   let qb = (supabase as any)
     .from("bank_transactions")
     .select(
-      "month, amount, amount_enc, txn_type, exclude_from_spending, outflow_categories(name)",
+      "month, amount_enc, txn_type, exclude_from_spending, outflow_categories(name)",
     )
     .gte("month", query.startMonth)
     .lte("month", query.endMonth)
@@ -63,7 +63,6 @@ export async function GET(request: NextRequest) {
       (row.outflow_categories as { name: string } | null)?.name ??
       "Uncategorized"
     const decodedAmount = decodeBankTransactionPii({
-      amount: row.amount,
       amount_enc: row.amount_enc,
     }).amount
     const amount = Math.abs(decodedAmount ?? 0)
