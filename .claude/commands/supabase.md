@@ -94,14 +94,17 @@ const query = supabase.from("bank_accounts").select("*")
 if (profileId) query.eq("profile_id", profileId)
 else query.eq("family_id", familyId)
 
-// Upsert pattern
+// Upsert pattern (PII columns must be encoded via the table's encoder)
 const { error } = await supabase
   .from("income_config")
-  .upsert({ profile_id: profileId, annual_salary: salary }, { onConflict: "profile_id" })
+  .upsert(
+    { profile_id: profileId, ...encodeIncomeConfigPiiPatch({ annual_salary: salary }) },
+    { onConflict: "profile_id" }
+  )
 
-// Join pattern
+// Join pattern (select *_enc and decode in JS — plaintext columns were dropped in Phase 4)
 const { data } = await supabase
   .from("profiles")
-  .select("id, name, income_config(annual_salary, bonus_estimate)")
+  .select("id, name, income_config(annual_salary_enc, bonus_estimate_enc)")
   .eq("family_id", familyId)
 ```

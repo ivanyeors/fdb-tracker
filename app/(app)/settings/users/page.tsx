@@ -7,6 +7,7 @@ import { decryptString } from "@/lib/crypto/cipher"
 import { decodeBankAccountPii } from "@/lib/repos/bank-accounts"
 import { decodeCpfBalancesPii } from "@/lib/repos/cpf-balances"
 import { decodeFamilyName } from "@/lib/repos/families"
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
 import { decodeInsurancePoliciesPii } from "@/lib/repos/insurance-policies"
 import { decodeLoanPii } from "@/lib/repos/loans"
 import { decodeMonthlyCashflowPii } from "@/lib/repos/monthly-cashflow"
@@ -239,7 +240,7 @@ export default async function UserSettingsPage() {
 
   const familyIds = (families ?? []).map((f) => f.id)
 
-  const { data: allProfiles, error } =
+  const { data: rawProfiles, error } =
     familyIds.length > 0
       ? await supabase
           .from("profiles")
@@ -269,8 +270,8 @@ export default async function UserSettingsPage() {
             telegram_last_used,
             primary_bank_account_id,
             income_config (
-              annual_salary,
-              bonus_estimate,
+              annual_salary_enc,
+              bonus_estimate_enc,
               pay_frequency,
               employee_cpf_rate
             )
@@ -279,6 +280,28 @@ export default async function UserSettingsPage() {
           .in("family_id", familyIds)
           .order("created_at", { ascending: true })
       : { data: [], error: null }
+
+  const allProfiles = (rawProfiles ?? []).map((p) => {
+    const ic = p.income_config as
+      | {
+          annual_salary_enc: string | null
+          bonus_estimate_enc: string | null
+          pay_frequency: string
+          employee_cpf_rate: number | null
+        }
+      | null
+    if (!ic) return { ...p, income_config: null }
+    const decoded = decodeIncomeConfigPii(ic)
+    return {
+      ...p,
+      income_config: {
+        annual_salary: decoded.annual_salary ?? 0,
+        bonus_estimate: decoded.bonus_estimate ?? 0,
+        pay_frequency: ic.pay_frequency,
+        employee_cpf_rate: ic.employee_cpf_rate,
+      },
+    }
+  })
 
   if (error) {
     return (
