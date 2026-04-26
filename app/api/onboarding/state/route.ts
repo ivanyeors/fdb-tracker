@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
     const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`
     const { data: cpfRows } = await supabase
       .from("cpf_balances")
-      .select("profile_id, oa, oa_enc, sa, sa_enc, ma, ma_enc")
+      .select("profile_id, oa_enc, sa_enc, ma_enc")
       .in("profile_id", profileIds)
       .eq("month", currentMonth)
 

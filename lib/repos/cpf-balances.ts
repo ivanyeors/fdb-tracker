@@ -86,5 +86,4 @@ function tryNum(
   return plain ?? null
 }
 
-export const CPF_BALANCES_PII_SELECT =
-  "oa, oa_enc, sa, sa_enc, ma, ma_enc"
+export const CPF_BALANCES_PII_SELECT = "oa_enc, sa_enc, ma_enc"

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { encodeCpfBalancesPiiPatch } from "@/lib/repos/cpf-balances"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { z } from "zod"
 
@@ -79,9 +80,7 @@ export async function POST(request: Request) {
           {
             profile_id: profileId,
             month: currentMonth,
-            oa: cb.oa,
-            sa: cb.sa,
-            ma: cb.ma,
+            ...encodeCpfBalancesPiiPatch({ oa: cb.oa, sa: cb.sa, ma: cb.ma }),
             is_manual_override: true,
           },
           { onConflict: "profile_id,month" },

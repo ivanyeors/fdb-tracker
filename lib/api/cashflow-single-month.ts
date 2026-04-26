@@ -234,9 +234,7 @@ export async function fetchSingleMonthCashflow(
       // CPF balances for prev month and target month
       supabase
         .from("cpf_balances")
-        .select(
-          "profile_id, month, oa, oa_enc, sa, sa_enc, ma, ma_enc",
-        )
+        .select("profile_id, month, oa_enc, sa_enc, ma_enc")
         .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
         .in("month", [prevMonthStr, monthStr]),
       // ILP fund values at start of month (latest per product before monthStr)

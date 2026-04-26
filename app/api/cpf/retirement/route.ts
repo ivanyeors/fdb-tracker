@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
 
     const { data: latestBalance } = await supabase
       .from("cpf_balances")
-      .select("oa, oa_enc, sa, sa_enc, ma, ma_enc")
+      .select("oa_enc, sa_enc, ma_enc")
       .eq("profile_id", singleProfileId)
       .order("month", { ascending: false })
       .limit(1)

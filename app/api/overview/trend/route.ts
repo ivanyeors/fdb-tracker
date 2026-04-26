@@ -88,9 +88,7 @@ export async function GET(request: NextRequest) {
       profileIds.length > 0
         ? await supabase
             .from("cpf_balances")
-            .select(
-              "profile_id, month, oa, oa_enc, sa, sa_enc, ma, ma_enc",
-            )
+            .select("profile_id, month, oa_enc, sa_enc, ma_enc")
             .in("profile_id", profileIds)
             .lte("month", monthKeys[monthKeys.length - 1] ?? "")
         : { data: [] }

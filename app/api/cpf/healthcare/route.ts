@@ -170,10 +170,6 @@ export async function POST(request: NextRequest) {
       .upsert(
         {
           profile_id: profileId,
-          msl_annual_override: mslOverride,
-          csl_annual: csl,
-          csl_supplement_annual: cslSupp,
-          isp_annual: isp,
           ...encodeCpfHealthcareConfigPiiPatch({
             msl_annual_override: mslOverride,
             csl_annual: csl,

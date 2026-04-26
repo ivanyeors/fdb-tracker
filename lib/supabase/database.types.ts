@@ -1363,9 +1363,6 @@ export type Database = {
           id: string
           profile_id: string
           month: string
-          oa: number
-          sa: number
-          ma: number
           oa_enc: string | null
           sa_enc: string | null
           ma_enc: string | null
@@ -1376,9 +1373,6 @@ export type Database = {
           id?: string
           profile_id: string
           month: string
-          oa?: number
-          sa?: number
-          ma?: number
           oa_enc?: string | null
           sa_enc?: string | null
           ma_enc?: string | null
@@ -1389,9 +1383,6 @@ export type Database = {
           id?: string
           profile_id?: string
           month?: string
-          oa?: number
-          sa?: number
-          ma?: number
           oa_enc?: string | null
           sa_enc?: string | null
           ma_enc?: string | null
@@ -1463,10 +1454,6 @@ export type Database = {
         Row: {
           id: string
           profile_id: string
-          msl_annual_override: number | null
-          csl_annual: number
-          csl_supplement_annual: number
-          isp_annual: number
           msl_annual_override_enc: string | null
           csl_annual_enc: string | null
           csl_supplement_annual_enc: string | null
@@ -1477,10 +1464,6 @@ export type Database = {
         Insert: {
           id?: string
           profile_id: string
-          msl_annual_override?: number | null
-          csl_annual?: number
-          csl_supplement_annual?: number
-          isp_annual?: number
           msl_annual_override_enc?: string | null
           csl_annual_enc?: string | null
           csl_supplement_annual_enc?: string | null
@@ -1491,10 +1474,6 @@ export type Database = {
         Update: {
           id?: string
           profile_id?: string
-          msl_annual_override?: number | null
-          csl_annual?: number
-          csl_supplement_annual?: number
-          isp_annual?: number
           msl_annual_override_enc?: string | null
           csl_annual_enc?: string | null
           csl_supplement_annual_enc?: string | null

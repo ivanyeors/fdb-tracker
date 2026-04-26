@@ -168,9 +168,7 @@ export async function fetchMoneyFlowData(
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("cpf_balances")
-      .select(
-        "profile_id, month, oa, oa_enc, sa, sa_enc, ma, ma_enc",
-      )
+      .select("profile_id, month, oa_enc, sa_enc, ma_enc")
       .in("profile_id", targetProfileIds.length > 0 ? targetProfileIds : ["__none__"])
       .order("month", { ascending: false }),
     supabase
@@ -185,7 +183,7 @@ export async function fetchMoneyFlowData(
     supabase
       .from("cpf_healthcare_config")
       .select(
-        "profile_id, msl_annual_override, msl_annual_override_enc, csl_annual, csl_annual_enc, csl_supplement_annual, csl_supplement_annual_enc, isp_annual, isp_annual_enc",
+        "profile_id, msl_annual_override_enc, csl_annual_enc, csl_supplement_annual_enc, isp_annual_enc",
       )
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase

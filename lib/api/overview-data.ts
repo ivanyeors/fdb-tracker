@@ -350,9 +350,7 @@ export async function fetchOverviewData(
     // 11. CPF balances
     supabase
       .from("cpf_balances")
-      .select(
-        "profile_id, month, oa, oa_enc, sa, sa_enc, ma, ma_enc",
-      )
+      .select("profile_id, month, oa_enc, sa_enc, ma_enc")
       .in(
         "profile_id",
         targetProfileIds.length > 0 ? targetProfileIds : ["__none__"]

@@ -351,9 +351,6 @@ async function saveExtractedData(
         {
           profile_id: profileId,
           month: extracted.month,
-          oa: cpfOa,
-          sa: cpfSa,
-          ma: cpfMa,
           ...encodeCpfBalancesPiiPatch({ oa: cpfOa, sa: cpfSa, ma: cpfMa }),
           is_manual_override: true,
         },

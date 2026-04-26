@@ -363,9 +363,6 @@ export async function POST(request: Request) {
           {
             profile_id: profileId,
             month: currentMonth,
-            oa: cb.oa,
-            sa: cb.sa,
-            ma: cb.ma,
             ...encodeCpfBalancesPiiPatch({ oa: cb.oa, sa: cb.sa, ma: cb.ma }),
             is_manual_override: true,
           },

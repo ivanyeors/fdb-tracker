@@ -107,4 +107,4 @@ function tryNum(
 }
 
 export const CPF_HEALTHCARE_CONFIG_PII_SELECT =
-  "msl_annual_override, msl_annual_override_enc, csl_annual, csl_annual_enc, csl_supplement_annual, csl_supplement_annual_enc, isp_annual, isp_annual_enc"
+  "msl_annual_override_enc, csl_annual_enc, csl_supplement_annual_enc, isp_annual_enc"
