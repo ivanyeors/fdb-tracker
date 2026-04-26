@@ -3,6 +3,7 @@
 import type { ReactNode } from "react"
 import { Header } from "@/components/layout/header"
 import { BottomNav } from "@/components/layout/bottom-nav"
+import { GlobalToolbar } from "@/components/layout/global-toolbar"
 import { PageLoadingBar } from "@/components/layout/page-loading-bar"
 import { PageLoadingProvider } from "@/hooks/use-page-loading"
 import { UserSettingsSaveProvider } from "@/components/layout/user-settings-save-context"
@@ -16,11 +17,12 @@ export function AppMainChrome({ children }: { children: ReactNode }) {
           <PageLoadingBar />
           <div
             id="main-scroll-container"
-            className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-24 md:pb-0"
+            className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-40 md:pb-24"
           >
             {children}
           </div>
           <BottomNav />
+          <GlobalToolbar />
         </div>
       </PageLoadingProvider>
     </UserSettingsSaveProvider>

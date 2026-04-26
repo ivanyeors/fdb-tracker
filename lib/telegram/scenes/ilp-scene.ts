@@ -3,6 +3,7 @@ import { format, startOfMonth } from "date-fns"
 
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { botState, MyContext } from "@/lib/telegram/bot"
+import { resolveOrProvisionPublicUser } from "@/lib/telegram/resolve-household"
 import {
   progressHeader,
   buildConfirmationMessage,
@@ -45,11 +46,37 @@ export const ilpScene = new Scenes.WizardScene<MyContext>(
   "ilp_wizard",
   // STEP 0: Product selection
   async (ctx) => {
-    const accountId = botState(ctx).accountId as string
-    const preFamilyId = botState(ctx).familyId
+    const state = botState(ctx)
+    let accountId = state.accountId as string | undefined
+    let preFamilyId = state.familyId
+
+    // Fallback: if the wizard was entered without setBotContext() running this
+    // turn (e.g. session resumed across webhooks), re-resolve from chat/user.
+    if (!accountId && ctx.chat?.id != null) {
+      const resolved = await resolveOrProvisionPublicUser(
+        String(ctx.chat.id),
+        ctx.from?.id != null ? String(ctx.from.id) : null,
+        ctx.from?.username ?? null,
+        ctx.from?.first_name ?? null
+      )
+      if (resolved) {
+        accountId = resolved.householdId
+        preFamilyId = preFamilyId ?? resolved.familyId
+        state.accountId = accountId
+        state.familyId = preFamilyId
+        state.profileId = state.profileId ?? resolved.profileId
+        state.accountType = state.accountType ?? resolved.accountType
+      }
+    }
 
     if (!accountId) {
-      await ctx.reply("❌ Session error: No account ID found.")
+      console.error("[ilp-scene] Could not resolve account", {
+        chatId: ctx.chat?.id,
+        fromUserId: ctx.from?.id,
+      })
+      await ctx.reply(
+        "❌ Could not resolve your account. Please send /start and try /ilp again."
+      )
       return ctx.scene.leave()
     }
 
@@ -135,6 +162,9 @@ export const ilpScene = new Scenes.WizardScene<MyContext>(
         return ctx.wizard.next()
       }
     }
+    if (ctx.message && "text" in ctx.message) {
+      await ctx.reply("Please tap one of the product buttons above.")
+    }
     return undefined
   },
 
@@ -162,6 +192,9 @@ export const ilpScene = new Scenes.WizardScene<MyContext>(
         await ctx.reply(`${header}\n\nEnter the new fund value:`)
         return ctx.wizard.next()
       }
+      // Unknown callback — acknowledge so the spinner clears.
+      await handleStrayCallback(ctx, "a month")
+      return undefined
     }
 
     if (ctx.message && "text" in ctx.message) {
@@ -217,7 +250,16 @@ export const ilpScene = new Scenes.WizardScene<MyContext>(
         )
 
         if (error) {
-          await ctx.reply(`❌ Database error: ${error.message}`)
+          console.error("[ilp-scene] upsert failed", {
+            productId: s.productId,
+            month: s.month,
+            code: error.code,
+            details: error.details,
+            message: error.message,
+          })
+          await ctx.reply(
+            `❌ Save failed${error.code ? ` (${error.code})` : ""}: ${error.message}`
+          )
           return ctx.scene.leave()
         }
 

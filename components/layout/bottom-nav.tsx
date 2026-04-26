@@ -10,6 +10,7 @@ import {
   Menu,
 } from "lucide-react"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useScrollDirection } from "@/hooks/use-scroll-direction"
 import { useSidebar } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
 
@@ -23,12 +24,20 @@ const navItems = [
 export function BottomNav() {
   const isMobile = useIsMobile()
   const pathname = usePathname()
+  const scrollDir = useScrollDirection()
   const { setOpenMobile } = useSidebar()
+  const hidden = scrollDir === "down"
 
   if (!isMobile) return null
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-center pb-[calc(env(safe-area-inset-bottom)+12px)] px-4">
+    <nav
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] transition-transform duration-200 ease-out",
+        hidden && "translate-y-full"
+      )}
+      aria-hidden={hidden}
+    >
       <div className="flex h-14 w-full max-w-sm items-center justify-around rounded-2xl border bg-background/90 shadow-lg backdrop-blur-md supports-backdrop-filter:bg-background/75">
         {navItems.map((item) => {
           const isActive =
