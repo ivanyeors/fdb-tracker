@@ -425,9 +425,8 @@ export async function GET(request: NextRequest) {
         donations_deduction: decoded.donations_deduction,
         reliefs_total: decoded.reliefs_total,
         tax_payable: decoded.tax_payable,
-        reliefs_json: decoded.reliefs_json ?? row.reliefs_json,
-        bracket_summary_json:
-          decoded.bracket_summary_json ?? row.bracket_summary_json,
+        reliefs_json: decoded.reliefs_json,
+        bracket_summary_json: decoded.bracket_summary_json,
       }
     }
 
@@ -444,7 +443,7 @@ export async function GET(request: NextRequest) {
       const decoded = decodeTaxGiroSchedulePii(row)
       giroSchedules[row.profile_id] = {
         ...row,
-        schedule: decoded.schedule ?? row.schedule,
+        schedule: decoded.schedule,
         total_payable: decoded.total_payable,
         outstanding_balance: decoded.outstanding_balance,
       }

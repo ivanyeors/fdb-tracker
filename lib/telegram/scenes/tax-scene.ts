@@ -143,7 +143,6 @@ export const taxScene = new Scenes.WizardScene<MyContext>(
         {
           profile_id: profile.id,
           year,
-          ...giroPii,
           ...encodeTaxGiroSchedulePiiPatch(giroPii),
           source: "calculated",
         },

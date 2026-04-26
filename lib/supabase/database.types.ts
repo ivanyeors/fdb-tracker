@@ -1686,15 +1686,7 @@ export type Database = {
           id: string
           profile_id: string
           year: number
-          employment_income: number | null
-          chargeable_income: number | null
-          total_deductions: number | null
-          donations_deduction: number | null
-          reliefs_total: number | null
-          tax_payable: number | null
           payment_due_date: string | null
-          reliefs_json: unknown
-          bracket_summary_json: unknown
           employment_income_enc: string | null
           chargeable_income_enc: string | null
           total_deductions_enc: string | null
@@ -1710,15 +1702,7 @@ export type Database = {
           id?: string
           profile_id: string
           year: number
-          employment_income?: number | null
-          chargeable_income?: number | null
-          total_deductions?: number | null
-          donations_deduction?: number | null
-          reliefs_total?: number | null
-          tax_payable?: number | null
           payment_due_date?: string | null
-          reliefs_json?: unknown
-          bracket_summary_json?: unknown
           employment_income_enc?: string | null
           chargeable_income_enc?: string | null
           total_deductions_enc?: string | null
@@ -1734,15 +1718,7 @@ export type Database = {
           id?: string
           profile_id?: string
           year?: number
-          employment_income?: number | null
-          chargeable_income?: number | null
-          total_deductions?: number | null
-          donations_deduction?: number | null
-          reliefs_total?: number | null
-          tax_payable?: number | null
           payment_due_date?: string | null
-          reliefs_json?: unknown
-          bracket_summary_json?: unknown
           employment_income_enc?: string | null
           chargeable_income_enc?: string | null
           total_deductions_enc?: string | null
@@ -1769,9 +1745,6 @@ export type Database = {
           id: string
           profile_id: string
           year: number
-          schedule: unknown
-          total_payable: number | null
-          outstanding_balance: number
           schedule_enc: string | null
           total_payable_enc: string | null
           outstanding_balance_enc: string | null
@@ -1782,9 +1755,6 @@ export type Database = {
           id?: string
           profile_id: string
           year: number
-          schedule?: unknown
-          total_payable?: number | null
-          outstanding_balance?: number
           schedule_enc?: string | null
           total_payable_enc?: string | null
           outstanding_balance_enc?: string | null
@@ -1795,9 +1765,6 @@ export type Database = {
           id?: string
           profile_id?: string
           year?: number
-          schedule?: unknown
-          total_payable?: number | null
-          outstanding_balance?: number
           schedule_enc?: string | null
           total_payable_enc?: string | null
           outstanding_balance_enc?: string | null

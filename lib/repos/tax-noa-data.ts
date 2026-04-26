@@ -179,4 +179,4 @@ function tryJson(
 }
 
 export const TAX_NOA_DATA_PII_SELECT =
-  "employment_income, employment_income_enc, chargeable_income, chargeable_income_enc, total_deductions, total_deductions_enc, donations_deduction, donations_deduction_enc, reliefs_total, reliefs_total_enc, tax_payable, tax_payable_enc, reliefs_json, reliefs_json_enc, bracket_summary_json, bracket_summary_json_enc"
+  "employment_income_enc, chargeable_income_enc, total_deductions_enc, donations_deduction_enc, reliefs_total_enc, tax_payable_enc, reliefs_json_enc, bracket_summary_json_enc"

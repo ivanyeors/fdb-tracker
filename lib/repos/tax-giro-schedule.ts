@@ -115,4 +115,4 @@ function tryJson(
 }
 
 export const TAX_GIRO_SCHEDULE_PII_SELECT =
-  "schedule, schedule_enc, total_payable, total_payable_enc, outstanding_balance, outstanding_balance_enc"
+  "schedule_enc, total_payable_enc, outstanding_balance_enc"

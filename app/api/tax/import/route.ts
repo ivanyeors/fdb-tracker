@@ -118,7 +118,6 @@ export async function POST(request: NextRequest) {
       {
         profile_id: d.profile_id,
         year: d.year,
-        ...noaPii,
         ...encodeTaxNoaDataPiiPatch(noaPii),
         payment_due_date: d.payment_due_date ?? null,
         is_on_giro: d.is_on_giro,
@@ -163,7 +162,6 @@ export async function POST(request: NextRequest) {
         {
           profile_id: d.profile_id,
           year: d.year,
-          ...giroPii,
           ...encodeTaxGiroSchedulePiiPatch(giroPii),
           source: "calculated",
         },

@@ -189,7 +189,7 @@ export async function fetchMoneyFlowData(
     supabase
       .from("tax_giro_schedule")
       .select(
-        "profile_id, year, schedule, schedule_enc, total_payable, total_payable_enc, outstanding_balance, outstanding_balance_enc, source",
+        "profile_id, year, schedule_enc, total_payable_enc, outstanding_balance_enc, source",
       )
       .in("profile_id", targetProfileIds.length > 0 ? targetProfileIds : ["__none__"])
       .eq("year", currentYear),
