@@ -2,21 +2,42 @@ import { format, startOfMonth, subMonths } from "date-fns"
 
 import type { MyContext } from "@/lib/telegram/bot"
 
+// Top-level commands that must always eject any active scene first so the
+// global webhook dispatcher can handle them cleanly. Without this, a /start
+// sent mid-scene gets routed to the scene's text handler (which then errors
+// out with messages like "Session error: No account ID found").
+const SCENE_BREAKING_COMMANDS = new Set([
+  "/start",
+  "/cancel",
+  "/help",
+  "/signup",
+  "/join",
+])
+
+function extractLeadingCommand(text: string): string | null {
+  const match = text.match(/^(\/\w+)(@\S+)?/)
+  return match ? match[1].toLowerCase() : null
+}
+
 /**
- * Cancel middleware — register on the Stage so `/cancel` exits any active scene.
+ * Cancel middleware — register on the Stage so `/cancel` and other top-level
+ * commands exit any active scene before being dispatched.
  */
 export async function cancelMiddleware(
   ctx: MyContext,
   next: () => Promise<void>,
 ) {
-  if (
-    ctx.message &&
-    "text" in ctx.message &&
-    ctx.message.text.trim() === "/cancel"
-  ) {
-    if (ctx.scene.current) {
-      await ctx.reply("Cancelled.")
-      return ctx.scene.leave()
+  if (ctx.message && "text" in ctx.message) {
+    const cmd = extractLeadingCommand(ctx.message.text.trim())
+    if (cmd && SCENE_BREAKING_COMMANDS.has(cmd)) {
+      if (ctx.scene.current) {
+        await ctx.scene.leave()
+      }
+      if (cmd === "/cancel") {
+        await ctx.reply("Cancelled.")
+        return
+      }
+      // Fall through so /start, /help, /signup, /join reach their handlers.
     }
   }
   return next()

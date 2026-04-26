@@ -131,13 +131,27 @@ export async function validateCode(code: string): Promise<ValidateCodeResult> {
     .eq("used", false)
     .maybeSingle()
 
+  const logCtx = {
+    inputLength: code.length,
+    normalizedPrefix: normalized.slice(0, 2) + "***",
+    found: !!data,
+    queryError: error?.message,
+  }
+
   if (error || !data) {
+    console.log("[signup/validate] miss", logCtx)
     return { ok: false, error: "Invalid or already-used code." }
   }
 
   if (new Date(data.expires_at) < new Date()) {
+    console.log("[signup/validate] expired", {
+      ...logCtx,
+      expiresAt: data.expires_at,
+    })
     return { ok: false, error: "This code has expired." }
   }
+
+  console.log("[signup/validate] ok", { ...logCtx, type: data.type })
 
   return {
     ok: true,

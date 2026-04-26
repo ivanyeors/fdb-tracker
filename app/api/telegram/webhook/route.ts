@@ -63,7 +63,8 @@ async function handleStartCommand(
   if (ctx.accountType === "public") {
     await reply(
       "👋 Welcome to fdb-tracker!\n\n" +
-        "Track your finances right here in Telegram:\n" +
+        "Got a signup code from the website? → /signup\n\n" +
+        "Or track your finances right here in Telegram:\n" +
         "  /in — Record monthly income\n" +
         "  /out — Record monthly expenses\n" +
         "  /buy — Record a stock purchase\n" +
@@ -77,7 +78,6 @@ async function handleStartCommand(
     await reply(
       "👋 Welcome to fdb-tracker!\n\n" +
         "Use /otp to get a one-time password for logging in.\n" +
-        "Use /link to link your profile — I'll guide you through it.\n" +
         "Use /auth to link your account with an API key from the platform.\n" +
         "Type / to see all available commands.\n" +
         "Type /cancel at any time to exit a command."
@@ -226,6 +226,7 @@ function ensureHandlers() {
       msg.chat.type
     )
 
+    try {
     // Handle PDF document uploads
     if ("document" in msg && msg.document?.mime_type === "application/pdf") {
       console.log(
@@ -310,6 +311,15 @@ function ensureHandlers() {
       msg.from?.username ?? null,
       msg.from?.first_name ?? null
     )
+
+    console.log("[telegram/dispatch]", {
+      command: parsed.command,
+      chatId,
+      accountType: userContext?.accountType,
+      hasAccount: !!userContext?.householdId,
+      hasFamily: !!userContext?.familyId,
+      hasProfile: !!userContext?.profileId,
+    })
 
     // /signup and /join are always available (not gated by account type)
     if (parsed.command === "signup") {
@@ -483,6 +493,21 @@ function ensureHandlers() {
     if (handler) {
       const reply = await handler(accountId, msg.text)
       await ctx.reply(reply)
+    }
+    } catch (err) {
+      console.error("[telegram/dispatch] Unhandled error", {
+        chatId: msg.chat.id,
+        text: "text" in msg ? msg.text : undefined,
+        err,
+      })
+      try {
+        await ctx.reply("❌ Something went wrong. Please try again.")
+      } catch (replyErr) {
+        console.error(
+          "[telegram/dispatch] Failed to send error reply",
+          replyErr
+        )
+      }
     }
   })
 

@@ -32,6 +32,10 @@ export async function resolveFamilyAndProfiles(
       .limit(1)
       .single()
     targetFamilyId = first?.id ?? null
+    console.warn("[resolve-family] no familyId provided; fell back to first", {
+      accountId,
+      fallbackFamilyId: targetFamilyId,
+    })
   }
   if (!targetFamilyId) return null
   const { data: family } = await supabase

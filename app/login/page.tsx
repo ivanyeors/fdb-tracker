@@ -184,11 +184,20 @@ export default function LoginPage() {
             <div className="space-y-2 text-sm text-muted-foreground">
               <p className="font-medium">Next steps:</p>
               <ol className="list-inside list-decimal space-y-1">
-                <li>Open the Telegram bot</li>
-                <li>The bot will ask for the code above</li>
-                <li>Enter the code to create your account</li>
-                <li>You&apos;ll receive an OTP — come back here to enter it</li>
+                <li>Open the Telegram bot (button below)</li>
+                <li>
+                  Send <code className="font-mono">/signup</code> to the bot
+                </li>
+                <li>Paste the code above when the bot asks</li>
+                <li>
+                  The bot will reply with a 6-digit OTP — come back here to
+                  enter it
+                </li>
               </ol>
+              <p className="text-xs">
+                Tip: tapping the button below auto-fills your code, so you can
+                skip steps 2–3.
+              </p>
             </div>
             {botUrl && (
               <Button asChild className="w-full">

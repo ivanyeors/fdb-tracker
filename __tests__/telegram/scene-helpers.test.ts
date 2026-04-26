@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import {
   progressHeader,
@@ -9,7 +9,9 @@ import {
   errorMsg,
   fmtAmt,
   buildQuickAmountKeyboard,
+  cancelMiddleware,
 } from "@/lib/telegram/scene-helpers"
+import type { MyContext } from "@/lib/telegram/bot"
 
 describe("progressHeader", () => {
   it("formats step indicator with context", () => {
@@ -136,5 +138,80 @@ describe("buildQuickAmountKeyboard", () => {
   it("supports custom prefix", () => {
     const keyboard = buildQuickAmountKeyboard([500], "amt")
     expect(keyboard.inline_keyboard[0][0].callback_data).toBe("amt_500")
+  })
+})
+
+describe("cancelMiddleware", () => {
+  function makeCtx(text: string, hasActiveScene = true) {
+    const leave = vi.fn(async () => undefined)
+    const reply = vi.fn(async () => undefined)
+    const ctx = {
+      message: { text },
+      scene: {
+        current: hasActiveScene ? { id: "fake_wizard" } : null,
+        leave,
+      },
+      reply,
+    } as unknown as MyContext
+    return { ctx, leave, reply }
+  }
+
+  it("ejects active scene and replies on /cancel", async () => {
+    const next = vi.fn(async () => undefined)
+    const { ctx, leave, reply } = makeCtx("/cancel")
+    await cancelMiddleware(ctx, next)
+    expect(leave).toHaveBeenCalledOnce()
+    expect(reply).toHaveBeenCalledWith("Cancelled.")
+    expect(next).not.toHaveBeenCalled()
+  })
+
+  it("ejects active scene for /start and falls through", async () => {
+    const next = vi.fn(async () => undefined)
+    const { ctx, leave, reply } = makeCtx("/start")
+    await cancelMiddleware(ctx, next)
+    expect(leave).toHaveBeenCalledOnce()
+    expect(reply).not.toHaveBeenCalled()
+    expect(next).toHaveBeenCalledOnce()
+  })
+
+  it("ejects active scene for /signup and falls through", async () => {
+    const next = vi.fn(async () => undefined)
+    const { ctx, leave } = makeCtx("/signup ABC123")
+    await cancelMiddleware(ctx, next)
+    expect(leave).toHaveBeenCalledOnce()
+    expect(next).toHaveBeenCalledOnce()
+  })
+
+  it("strips bot suffix on commands like /start@MyBot", async () => {
+    const next = vi.fn(async () => undefined)
+    const { ctx, leave } = makeCtx("/start@MyBot signup_ABC")
+    await cancelMiddleware(ctx, next)
+    expect(leave).toHaveBeenCalledOnce()
+    expect(next).toHaveBeenCalledOnce()
+  })
+
+  it("does not eject scene for normal text input", async () => {
+    const next = vi.fn(async () => undefined)
+    const { ctx, leave } = makeCtx("100")
+    await cancelMiddleware(ctx, next)
+    expect(leave).not.toHaveBeenCalled()
+    expect(next).toHaveBeenCalledOnce()
+  })
+
+  it("does not eject scene for non-breaking commands", async () => {
+    const next = vi.fn(async () => undefined)
+    const { ctx, leave } = makeCtx("/in 500 lunch")
+    await cancelMiddleware(ctx, next)
+    expect(leave).not.toHaveBeenCalled()
+    expect(next).toHaveBeenCalledOnce()
+  })
+
+  it("does not call leave when no scene is active", async () => {
+    const next = vi.fn(async () => undefined)
+    const { ctx, leave, reply } = makeCtx("/start", false)
+    await cancelMiddleware(ctx, next)
+    expect(leave).not.toHaveBeenCalled()
+    expect(reply).not.toHaveBeenCalled()
+    expect(next).toHaveBeenCalledOnce()
   })
 })

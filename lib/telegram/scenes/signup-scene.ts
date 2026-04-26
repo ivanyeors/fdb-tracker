@@ -19,6 +19,31 @@ import {
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? ""
 const TOTAL_STEPS = 2
 
+export function normalizeTelegramUsername(
+  username: string | null | undefined
+): string | null {
+  if (!username) return null
+  return username.replace(/^@/, "").toLowerCase()
+}
+
+export type SignupUsernameCheck =
+  | { ok: true }
+  | { ok: false; expected: string; actualLabel: string }
+
+export function checkSignupUsernameMatch(
+  expectedUsername: string | null,
+  rawActualUsername: string | null | undefined
+): SignupUsernameCheck {
+  if (!expectedUsername) return { ok: true }
+  const actual = normalizeTelegramUsername(rawActualUsername)
+  if (expectedUsername === actual) return { ok: true }
+  return {
+    ok: false,
+    expected: expectedUsername,
+    actualLabel: actual ? "@" + actual : "an account with no username",
+  }
+}
+
 export const signupScene = new Scenes.WizardScene<MyContext>(
   "signup_wizard",
   // Step 0: Ask for signup code — or auto-process if from deep link
@@ -61,6 +86,12 @@ async function processSignupCode(
   ctx: MyContext,
   code: string
 ): Promise<"leave"> {
+  console.log("[signup-scene] processSignupCode", {
+    chatId: ctx.chat?.id,
+    fromUserId: ctx.from?.id,
+    rawLength: code.length,
+    rawPrefix: code.trim().slice(0, 2) + "***",
+  })
   const result = await validateCode(code)
 
   if (!result.ok) {
@@ -83,6 +114,21 @@ async function processSignupCode(
   const from = ctx.from
   if (!chatId || !from) {
     await ctx.reply(errorMsg("Could not resolve your Telegram account."))
+    return "leave"
+  }
+
+  const usernameCheck = checkSignupUsernameMatch(
+    result.telegramUsername,
+    from.username
+  )
+  if (!usernameCheck.ok) {
+    await ctx.reply(
+      errorMsg(
+        `This code was generated for @${usernameCheck.expected}. ` +
+          `You're signed in as ${usernameCheck.actualLabel}. ` +
+          `Generate a new code from your current Telegram account at ${APP_URL}/login.`
+      )
+    )
     return "leave"
   }
 
