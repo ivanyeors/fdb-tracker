@@ -3,15 +3,16 @@
     "app/api/investments/ilp/fund-report/parse/route.ts": {
       "maxDuration": 60,
       "memory": 1024
+    },
+    "app/api/cron/daily-am/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/cron/daily-pm/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
-    { "path": "/api/cron", "schedule": "0 10 * * *" },
-    { "path": "/api/cron/prices", "schedule": "0 9 * * 1-5" },
-    { "path": "/api/cron/investment-snapshots", "schedule": "0 10 * * *" },
-    { "path": "/api/cron/reminders", "schedule": "0 9 * * *" },
-    { "path": "/api/cron/cleanup", "schedule": "0 3 * * 0" },
-    { "path": "/api/cron/purge", "schedule": "0 4 * * *" },
-    { "path": "/api/cron/drain-summary-queue", "schedule": "*/5 * * * *" }
+    { "path": "/api/cron/daily-am", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/daily-pm", "schedule": "0 4 * * *" }
   ]
 }
