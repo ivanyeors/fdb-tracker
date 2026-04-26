@@ -66,5 +66,4 @@ function tryNum(
   return plain ?? null
 }
 
-export const INCOME_HISTORY_PII_SELECT =
-  "monthly_salary, monthly_salary_enc"
+export const INCOME_HISTORY_PII_SELECT = "monthly_salary_enc"

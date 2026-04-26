@@ -117,7 +117,7 @@ async function generateMessage(
       for (const profile of ctx.profiles) {
         const { data: incomeConfig } = await supabase
           .from("income_config")
-          .select("annual_salary, annual_salary_enc, employee_cpf_rate")
+          .select("annual_salary_enc, employee_cpf_rate")
           .eq("profile_id", profile.id)
           .single()
 
@@ -185,9 +185,7 @@ async function generateMessage(
             : null
           const { data: incomeConfig } = await supabase
             .from("income_config")
-            .select(
-              "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
-            )
+            .select("annual_salary_enc, bonus_estimate_enc")
             .eq("profile_id", profileId)
             .single()
           if (profile && incomeConfig) {
@@ -200,7 +198,7 @@ async function generateMessage(
               .eq("profile_id", profileId)
             const { data: manualReliefs } = await supabase
               .from("tax_relief_inputs")
-              .select("relief_type, amount, amount_enc")
+              .select("relief_type, amount_enc")
               .eq("profile_id", profileId)
               .eq("year", now.year)
             const result = calculateTax({

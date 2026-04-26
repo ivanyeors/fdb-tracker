@@ -141,9 +141,7 @@ export async function fetchCashflowRangeSeries(
       .in("id", profileIds),
     supabase
       .from("income_config")
-      .select(
-        "profile_id, annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
-      )
+      .select("profile_id, annual_salary_enc, bonus_estimate_enc")
       .in("profile_id", profileIds),
     supabase
       .from("giro_rules")
@@ -166,7 +164,7 @@ export async function fetchCashflowRangeSeries(
       .in("profile_id", profileIds),
     supabase
       .from("tax_relief_inputs")
-      .select("profile_id, year, relief_type, amount, amount_enc")
+      .select("profile_id, year, relief_type, amount_enc")
       .in("profile_id", profileIds)
       .in("year", years.length ? years : [new Date().getFullYear()]),
     supabase

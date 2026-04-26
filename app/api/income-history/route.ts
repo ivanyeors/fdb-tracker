@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
 
     const decoded = (data ?? []).map((r) => ({
       ...r,
-      monthly_salary: decodeIncomeHistoryPii(r).monthly_salary ?? r.monthly_salary,
+      monthly_salary: decodeIncomeHistoryPii(r).monthly_salary,
     }))
     return NextResponse.json(decoded)
   } catch (err) {
@@ -124,7 +124,6 @@ export async function POST(request: NextRequest) {
       .insert({
         profile_id: profileId,
         employer_name: employerName,
-        monthly_salary: monthlySalary,
         ...encodeIncomeHistoryPiiPatch({ monthly_salary: monthlySalary }),
         start_date: startDate,
         end_date: endDate ?? null,
@@ -187,7 +186,6 @@ export async function PUT(request: NextRequest) {
     if (updates.employerName !== undefined)
       updatePayload.employer_name = updates.employerName
     if (updates.monthlySalary !== undefined) {
-      updatePayload.monthly_salary = updates.monthlySalary
       Object.assign(
         updatePayload,
         encodeIncomeHistoryPiiPatch({ monthly_salary: updates.monthlySalary }),

@@ -49,12 +49,11 @@ export async function checkOnboardingDataSufficiency(
   const profileIds = (profiles ?? []).map((p) => p.id)
 
   const [{ data: incomeRows }, { data: bankRows }] = await Promise.all([
-    // Filter applied in JS — annual_salary may be encrypted, so the SQL .gt
-    // filter would not survive the Phase 4 drop. Fetching all rows for the
-    // profile is bounded (one row per profile) so this is cheap.
+    // Filter applied in JS — annual_salary is encrypted, so SQL .gt would not
+    // work. Fetching all rows for the profile is bounded (one row per profile).
     supabase
       .from("income_config")
-      .select("annual_salary, annual_salary_enc")
+      .select("annual_salary_enc")
       .in("profile_id", profileIds),
     supabase
       .from("bank_accounts")

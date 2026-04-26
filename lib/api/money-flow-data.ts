@@ -131,9 +131,7 @@ export async function fetchMoneyFlowData(
       .in("id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("income_config")
-      .select(
-        "profile_id, annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
-      )
+      .select("profile_id, annual_salary_enc, bonus_estimate_enc")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("giro_rules")
@@ -156,7 +154,7 @@ export async function fetchMoneyFlowData(
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("tax_relief_inputs")
-      .select("profile_id, year, relief_type, amount, amount_enc")
+      .select("profile_id, year, relief_type, amount_enc")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
       .in("year", [currentYear, currentYear - 1]),
     supabase
@@ -745,7 +743,11 @@ export async function fetchMoneyFlowData(
     const taxReliefCash = sumTaxReliefCashForMonth(
       (taxReliefRes.data ?? [])
         .filter((tr) => tr.profile_id === pid)
-        .map((tr) => ({ relief_type: tr.relief_type, amount: tr.amount, year: tr.year as number })),
+        .map((tr) => ({
+          relief_type: tr.relief_type,
+          amount: decodeTaxReliefInputsPii(tr).amount ?? 0,
+          year: tr.year as number,
+        })),
       year,
     )
     totalTaxReliefCashOutflow += taxReliefCash

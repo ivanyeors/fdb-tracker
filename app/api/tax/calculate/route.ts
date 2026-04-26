@@ -64,9 +64,7 @@ export async function GET(request: NextRequest) {
 
     const { data: incomeConfig } = await supabase
       .from("income_config")
-      .select(
-        "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
-      )
+      .select("annual_salary_enc, bonus_estimate_enc")
       .eq("profile_id", profileId)
       .single()
     const decodedIncome = incomeConfig
@@ -82,7 +80,7 @@ export async function GET(request: NextRequest) {
 
     const { data: manualReliefs } = await supabase
       .from("tax_relief_inputs")
-      .select("relief_type, amount, amount_enc")
+      .select("relief_type, amount_enc")
       .eq("profile_id", profileId)
       .eq("year", taxYear)
 

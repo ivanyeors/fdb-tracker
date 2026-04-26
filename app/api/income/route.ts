@@ -138,8 +138,6 @@ export async function PUT(request: NextRequest) {
       .upsert(
         {
           profile_id: profileId,
-          annual_salary: annualSalary,
-          ...(bonusEstimate !== undefined && { bonus_estimate: bonusEstimate }),
           ...encodeIncomeConfigPiiPatch(piiInput),
           ...(payFrequency !== undefined && { pay_frequency: payFrequency }),
           employee_cpf_rate: cpfRates.employeeRate,

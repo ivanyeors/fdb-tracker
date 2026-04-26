@@ -88,9 +88,7 @@ export async function GET(request: NextRequest) {
 
     const { data: incomeConfig } = await supabase
       .from("income_config")
-      .select(
-        "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
-      )
+      .select("annual_salary_enc, bonus_estimate_enc")
       .eq("profile_id", singleProfileId)
       .maybeSingle()
 

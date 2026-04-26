@@ -62,4 +62,4 @@ function tryNum(
   return plain ?? null
 }
 
-export const TAX_RELIEF_INPUTS_PII_SELECT = "amount, amount_enc"
+export const TAX_RELIEF_INPUTS_PII_SELECT = "amount_enc"

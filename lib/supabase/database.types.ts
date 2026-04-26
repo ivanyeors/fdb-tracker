@@ -1517,7 +1517,6 @@ export type Database = {
           id: string
           profile_id: string
           employer_name: string
-          monthly_salary: number
           monthly_salary_enc: string | null
           start_date: string
           end_date: string | null
@@ -1529,7 +1528,6 @@ export type Database = {
           id?: string
           profile_id: string
           employer_name: string
-          monthly_salary: number
           monthly_salary_enc?: string | null
           start_date: string
           end_date?: string | null
@@ -1541,7 +1539,6 @@ export type Database = {
           id?: string
           profile_id?: string
           employer_name?: string
-          monthly_salary?: number
           monthly_salary_enc?: string | null
           start_date?: string
           end_date?: string | null
@@ -1563,8 +1560,6 @@ export type Database = {
         Row: {
           id: string
           profile_id: string
-          annual_salary: number
-          bonus_estimate: number
           annual_salary_enc: string | null
           bonus_estimate_enc: string | null
           pay_frequency: string
@@ -1574,8 +1569,6 @@ export type Database = {
         Insert: {
           id?: string
           profile_id: string
-          annual_salary: number
-          bonus_estimate?: number
           annual_salary_enc?: string | null
           bonus_estimate_enc?: string | null
           pay_frequency?: string
@@ -1585,8 +1578,6 @@ export type Database = {
         Update: {
           id?: string
           profile_id?: string
-          annual_salary?: number
-          bonus_estimate?: number
           annual_salary_enc?: string | null
           bonus_estimate_enc?: string | null
           pay_frequency?: string
@@ -1644,7 +1635,6 @@ export type Database = {
           profile_id: string
           year: number
           relief_type: string
-          amount: number
           amount_enc: string | null
           created_at: string
         }
@@ -1653,7 +1643,6 @@ export type Database = {
           profile_id: string
           year: number
           relief_type: string
-          amount: number
           amount_enc?: string | null
           created_at?: string
         }
@@ -1662,7 +1651,6 @@ export type Database = {
           profile_id?: string
           year?: number
           relief_type?: string
-          amount?: number
           amount_enc?: string | null
           created_at?: string
         }
@@ -1682,7 +1670,6 @@ export type Database = {
           profile_id: string
           year: number
           relief_type: string
-          amount: number
           amount_enc: string | null
           source: string
           created_at: string
@@ -1692,7 +1679,6 @@ export type Database = {
           profile_id: string
           year: number
           relief_type: string
-          amount: number
           amount_enc?: string | null
           source: string
           created_at?: string
@@ -1702,7 +1688,6 @@ export type Database = {
           profile_id?: string
           year?: number
           relief_type?: string
-          amount?: number
           amount_enc?: string | null
           source?: string
           created_at?: string

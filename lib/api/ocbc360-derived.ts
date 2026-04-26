@@ -46,7 +46,7 @@ export async function fetchOcbc360DerivedForAccount(
     cashflowProfileId
       ? supabase
           .from("income_config")
-          .select("annual_salary, annual_salary_enc")
+          .select("annual_salary_enc")
           .eq("profile_id", cashflowProfileId)
           .maybeSingle()
       : Promise.resolve({ data: null }),

@@ -5,6 +5,7 @@ import { encodeCpfBalancesPiiPatch } from "@/lib/repos/cpf-balances"
 import { encodeFamilyPiiPatch } from "@/lib/repos/families"
 import { encodeHouseholdPiiPatch } from "@/lib/repos/households"
 import { encodeIncomeConfigPiiPatch } from "@/lib/repos/income-config"
+import { encodeTaxReliefInputsPiiPatch } from "@/lib/repos/tax-relief-inputs"
 import { encodeLoanPiiPatch } from "@/lib/repos/loans"
 import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
@@ -341,8 +342,6 @@ export async function POST(request: Request) {
         const bonusEstimate = ic.bonus_estimate ?? 0
         return {
           profile_id: insertedProfiles[idx].id,
-          annual_salary: annualSalary,
-          bonus_estimate: bonusEstimate,
           ...encodeIncomeConfigPiiPatch({
             annual_salary: annualSalary,
             bonus_estimate: bonusEstimate,
@@ -526,7 +525,7 @@ export async function POST(request: Request) {
             profile_id: profileId,
             year: currentYear,
             relief_type: rel.relief_type,
-            amount: rel.amount,
+            ...encodeTaxReliefInputsPiiPatch({ amount: rel.amount }),
           },
           { onConflict: "profile_id,year,relief_type" }
         )

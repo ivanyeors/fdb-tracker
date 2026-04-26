@@ -143,9 +143,7 @@ export async function GET(request: NextRequest) {
 
       const { data: incomeConfig } = await supabase
         .from("income_config")
-        .select(
-          "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
-        )
+        .select("annual_salary_enc, bonus_estimate_enc")
         .eq("profile_id", profileId)
         .single()
       if (!incomeConfig) continue
@@ -160,7 +158,7 @@ export async function GET(request: NextRequest) {
 
       const { data: manualReliefs } = await supabase
         .from("tax_relief_inputs")
-        .select("relief_type, amount, amount_enc")
+        .select("relief_type, amount_enc")
         .eq("profile_id", profileId)
         .eq("year", currentYear)
 
@@ -169,9 +167,7 @@ export async function GET(request: NextRequest) {
       if (profile.spouse_profile_id) {
         const { data: spouseIncome } = await supabase
           .from("income_config")
-          .select(
-            "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
-          )
+          .select("annual_salary_enc, bonus_estimate_enc")
           .eq("profile_id", profile.spouse_profile_id)
           .single()
         if (spouseIncome) {
@@ -261,7 +257,6 @@ export async function GET(request: NextRequest) {
             profile_id: profileId,
             year: currentYear,
             relief_type: item.type,
-            amount: item.amount,
             ...encodeTaxReliefAutoPiiPatch({ amount: item.amount }),
             source: "calculated",
           },
@@ -274,9 +269,7 @@ export async function GET(request: NextRequest) {
     for (const profileId of profileIds) {
       const { data: income } = await supabase
         .from("income_config")
-        .select(
-          "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
-        )
+        .select("annual_salary_enc, bonus_estimate_enc")
         .eq("profile_id", profileId)
         .single()
       const dec = income ? decodeIncomeConfigPii(income) : null

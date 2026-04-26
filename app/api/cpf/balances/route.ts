@@ -120,9 +120,7 @@ export async function GET(request: NextRequest) {
         .in("id", profileIds),
       supabase
         .from("income_config")
-        .select(
-          "profile_id, annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
-        )
+        .select("profile_id, annual_salary_enc, bonus_estimate_enc")
         .in("profile_id", profileIds),
       supabase
         .from("cpf_healthcare_config")

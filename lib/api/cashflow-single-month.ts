@@ -103,9 +103,7 @@ export async function fetchSingleMonthCashflow(
       .in("id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("income_config")
-      .select(
-        "profile_id, annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
-      )
+      .select("profile_id, annual_salary_enc, bonus_estimate_enc")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("giro_rules")
@@ -128,7 +126,7 @@ export async function fetchSingleMonthCashflow(
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("tax_relief_inputs")
-      .select("profile_id, year, relief_type, amount, amount_enc")
+      .select("profile_id, year, relief_type, amount_enc")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
       .eq("year", year),
     supabase
@@ -673,7 +671,11 @@ export async function fetchSingleMonthCashflow(
     taxReliefCash += sumTaxReliefCashForMonth(
       (taxReliefRes.data ?? [])
         .filter((tr) => tr.profile_id === pid)
-        .map((tr) => ({ relief_type: tr.relief_type, amount: tr.amount, year: tr.year as number })),
+        .map((tr) => ({
+          relief_type: tr.relief_type,
+          amount: decodeTaxReliefInputsPii(tr).amount ?? 0,
+          year: tr.year as number,
+        })),
       year,
     )
     const CASH_RELIEF_LABELS: Record<string, string> = {
@@ -684,8 +686,9 @@ export async function fetchSingleMonthCashflow(
     for (const tr of (taxReliefRes.data ?? []).filter((r) => r.profile_id === pid)) {
       if (tr.year !== year) continue
       const label = CASH_RELIEF_LABELS[tr.relief_type]
-      if (label && tr.amount > 0) {
-        taxReliefCashSub.push({ label, amount: tr.amount / 12 })
+      const amount = decodeTaxReliefInputsPii(tr).amount ?? 0
+      if (label && amount > 0) {
+        taxReliefCashSub.push({ label, amount: amount / 12 })
       }
     }
 

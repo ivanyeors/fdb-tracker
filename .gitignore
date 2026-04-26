@@ -25,6 +25,9 @@
 # local ILP fund page snapshots (mhtml)
 docs/ILP-pages/
 
+# Phase 4 pre-drop dumps (contain plaintext PII)
+phase4-dumps/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

@@ -134,7 +134,6 @@ export async function PUT(request: NextRequest) {
             profile_id: rel.profile_id,
             year: rel.year,
             relief_type: rel.relief_type,
-            amount: rel.amount,
             ...encodeTaxReliefInputsPiiPatch({ amount: rel.amount }),
           },
           { onConflict: "profile_id,year,relief_type" }

@@ -44,9 +44,7 @@ export async function getEffectiveInflowForProfile(
 
     const { data: incomeConfig } = await supabase
       .from("income_config")
-      .select(
-        "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
-      )
+      .select("annual_salary_enc, bonus_estimate_enc")
       .eq("profile_id", profileId)
       .single()
     const decodedIncome = incomeConfig
@@ -184,9 +182,7 @@ export async function getEffectiveInflowWithBreakdown(
 
   const { data: incomeConfig } = await supabase
     .from("income_config")
-    .select(
-      "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
-    )
+    .select("annual_salary_enc, bonus_estimate_enc")
     .eq("profile_id", profileId)
     .single()
   const decodedIncome = incomeConfig

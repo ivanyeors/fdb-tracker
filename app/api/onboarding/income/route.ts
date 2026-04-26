@@ -80,8 +80,6 @@ export async function POST(request: Request) {
         const bonusEstimate = ic.bonus_estimate ?? 0
         return {
           profile_id: profiles[idx].id,
-          annual_salary: annualSalary,
-          bonus_estimate: bonusEstimate,
           ...encodeIncomeConfigPiiPatch({
             annual_salary: annualSalary,
             bonus_estimate: bonusEstimate,

@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
         ? await supabase
             .from("income_config")
             .select(
-              "profile_id, annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc, pay_frequency",
+              "profile_id, annual_salary_enc, bonus_estimate_enc, pay_frequency",
             )
             .in("profile_id", profileIds)
         : { data: [] }
@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
     const currentYear = new Date().getFullYear()
     const { data: taxReliefInputs } = await supabase
       .from("tax_relief_inputs")
-      .select("profile_id, relief_type, amount, amount_enc")
+      .select("profile_id, relief_type, amount_enc")
       .in("profile_id", profileIds)
       .eq("year", currentYear)
 

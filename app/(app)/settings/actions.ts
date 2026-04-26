@@ -170,8 +170,6 @@ export async function updateUserProfile(
       const { error: incomeError } = await supabase
         .from("income_config")
         .update({
-          annual_salary: annualSalary,
-          bonus_estimate: bonusEstimate,
           ...incomePii,
           pay_frequency: payFrequency,
           employee_cpf_rate: employeeCpfRate,
@@ -187,8 +185,6 @@ export async function updateUserProfile(
         .from("income_config")
         .insert({
           profile_id: profileId,
-          annual_salary: annualSalary,
-          bonus_estimate: bonusEstimate,
           ...incomePii,
           pay_frequency: payFrequency,
           employee_cpf_rate: employeeCpfRate,
@@ -280,8 +276,7 @@ export async function createProfile(
 
     const { error: incomeError } = await supabase.from("income_config").insert({
       profile_id: newProfile.id,
-      annual_salary: 0,
-      bonus_estimate: 0,
+      ...encodeIncomeConfigPiiPatch({ annual_salary: 0, bonus_estimate: 0 }),
       pay_frequency: "monthly",
       employee_cpf_rate: null,
     })

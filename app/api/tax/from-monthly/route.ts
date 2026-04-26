@@ -72,9 +72,7 @@ export async function POST(request: NextRequest) {
 
     const { data: incomeConfig, error: incomeError } = await supabase
       .from("income_config")
-      .select(
-        "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
-      )
+      .select("annual_salary_enc, bonus_estimate_enc")
       .eq("profile_id", parsed.data.profile_id)
       .single()
 
@@ -97,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     const { data: manualReliefs } = await supabase
       .from("tax_relief_inputs")
-      .select("relief_type, amount, amount_enc")
+      .select("relief_type, amount_enc")
       .eq("profile_id", parsed.data.profile_id)
       .eq("year", parsed.data.year)
 
@@ -135,10 +133,7 @@ export async function POST(request: NextRequest) {
 
       const { error: updateIncomeError } = await supabase
         .from("income_config")
-        .update({
-          bonus_estimate: bonusEstimate,
-          ...encodeIncomeConfigPiiPatch({ bonus_estimate: bonusEstimate }),
-        })
+        .update(encodeIncomeConfigPiiPatch({ bonus_estimate: bonusEstimate }))
         .eq("profile_id", parsed.data.profile_id)
 
       if (updateIncomeError) {

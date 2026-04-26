@@ -83,4 +83,4 @@ function tryNum(
 }
 
 export const INCOME_CONFIG_PII_SELECT =
-  "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc"
+  "annual_salary_enc, bonus_estimate_enc"

@@ -140,7 +140,6 @@ export async function POST(request: NextRequest) {
             profile_id: d.profile_id,
             year: d.year,
             relief_type: reliefType,
-            amount: relief.amount,
             ...encodeTaxReliefInputsPiiPatch({ amount: relief.amount }),
           },
           { onConflict: "profile_id,year,relief_type" }

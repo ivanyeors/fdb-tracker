@@ -69,7 +69,7 @@ export default async function InsurancePage() {
           .eq("is_active", true),
         supabase
           .from("income_config")
-          .select("profile_id, annual_salary, annual_salary_enc")
+          .select("profile_id, annual_salary_enc")
           .in("profile_id", profileIds),
         supabase
           .from("insurance_coverage_benchmarks")
