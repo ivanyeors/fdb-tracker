@@ -5,6 +5,7 @@ import { encodeCpfBalancesPiiPatch } from "@/lib/repos/cpf-balances"
 import { encodeFamilyPiiPatch } from "@/lib/repos/families"
 import { encodeHouseholdPiiPatch } from "@/lib/repos/households"
 import { encodeIncomeConfigPiiPatch } from "@/lib/repos/income-config"
+import { encodeInsurancePoliciesPiiPatch } from "@/lib/repos/insurance-policies"
 import { encodeTaxReliefInputsPiiPatch } from "@/lib/repos/tax-relief-inputs"
 import { encodeLoanPiiPatch } from "@/lib/repos/loans"
 import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
@@ -503,9 +504,11 @@ export async function POST(request: Request) {
           profile_id: profileId,
           name: pol.name.trim(),
           type: pol.type,
-          premium_amount: pol.premium_amount,
           frequency: pol.frequency,
-          coverage_amount: pol.coverage_amount ?? null,
+          ...encodeInsurancePoliciesPiiPatch({
+            premium_amount: pol.premium_amount,
+            coverage_amount: pol.coverage_amount ?? null,
+          }),
           is_active: true,
           deduct_from_outflow: true,
         })

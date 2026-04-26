@@ -153,9 +153,7 @@ export async function POST(request: NextRequest) {
         profile_id: parsed.data.profileId,
         name: parsed.data.name,
         type: parsed.data.type,
-        premium_amount: parsed.data.premiumAmount,
         frequency: parsed.data.frequency ?? "yearly",
-        coverage_amount: legacyCoverageAmount,
         coverage_type: legacyCoverageType,
         ...encodeInsurancePoliciesPiiPatch({
           premium_amount: parsed.data.premiumAmount,

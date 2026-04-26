@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
     if (profileId) {
       const { data: cashflow } = await supabase
         .from("monthly_cashflow")
-        .select("month, inflow, inflow_enc, outflow, outflow_enc")
+        .select("month, inflow_enc, outflow_enc")
         .eq("profile_id", profileId)
         .gte("month", startMonth)
         .lte("month", endMonth)

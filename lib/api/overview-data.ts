@@ -297,9 +297,7 @@ export async function fetchOverviewData(
     // 1. Monthly cashflow (for savings rate + bank balance replay)
     supabase
       .from("monthly_cashflow")
-      .select(
-        "profile_id, month, inflow, inflow_enc, outflow, outflow_enc",
-      )
+      .select("profile_id, month, inflow_enc, outflow_enc")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
       .gte("month", rangeStart)
       .order("month", { ascending: false }),
@@ -323,7 +321,7 @@ export async function fetchOverviewData(
     supabase
       .from("insurance_policies")
       .select(
-        "profile_id, premium_amount, premium_amount_enc, frequency, is_active, deduct_from_outflow, type, coverage_amount, coverage_amount_enc, end_date",
+        "profile_id, premium_amount_enc, frequency, is_active, deduct_from_outflow, type, coverage_amount_enc, end_date",
       )
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     // 6. ILP products (profile-scoped)

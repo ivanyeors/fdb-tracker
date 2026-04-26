@@ -72,7 +72,6 @@ export const outflowScene = new Scenes.WizardScene<MyContext>(
           {
             profile_id: one.profileId,
             month,
-            outflow: one.amount,
             ...encodeMonthlyCashflowPiiPatch({ outflow: one.amount }),
             source: "telegram",
             ...(one.memo != null ? { outflow_memo: one.memo } : {}),
@@ -208,7 +207,6 @@ async function handleAmountInput(ctx: MyContext) {
       {
         profile_id: ctx.scene.session.profileId!,
         month,
-        outflow: amount,
         ...encodeMonthlyCashflowPiiPatch({ outflow: amount }),
         source: "telegram",
         ...(memo != null ? { outflow_memo: memo } : {}),

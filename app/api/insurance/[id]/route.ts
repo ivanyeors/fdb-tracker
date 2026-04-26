@@ -123,9 +123,7 @@ export async function PATCH(
       updates.type = parsed.data.type
       updates.coverage_type = getCoverageType(parsed.data.type)
     }
-    if (parsed.data.premiumAmount !== undefined) updates.premium_amount = parsed.data.premiumAmount
     if (parsed.data.frequency !== undefined) updates.frequency = parsed.data.frequency
-    if (parsed.data.coverageAmount !== undefined) updates.coverage_amount = parsed.data.coverageAmount
     if (parsed.data.yearlyOutflowDate !== undefined)
       updates.yearly_outflow_date = parsed.data.yearlyOutflowDate
     if (parsed.data.currentAmount !== undefined) updates.current_amount = parsed.data.currentAmount
@@ -147,27 +145,36 @@ export async function PATCH(
 
     const coverages = parsed.data.coverages
 
+    // Coverage amount derived from coverages[] or top-level coverageAmount (PII).
+    let coverageAmountInput: number | null | undefined = undefined
     if (coverages !== undefined) {
       const firstStandard = coverages.find((c) => c.coverageType)
       if (firstStandard) {
         updates.coverage_type = firstStandard.coverageType
-        updates.coverage_amount = firstStandard.coverageAmount
+        coverageAmountInput = firstStandard.coverageAmount
       } else if (coverages.length > 0) {
         updates.coverage_type = null
-        updates.coverage_amount = coverages[0].coverageAmount
+        coverageAmountInput = coverages[0].coverageAmount
       } else {
         updates.coverage_type = null
-        updates.coverage_amount = null
+        coverageAmountInput = null
       }
+    } else if (parsed.data.coverageAmount !== undefined) {
+      coverageAmountInput = parsed.data.coverageAmount
     }
 
-    if (Object.keys(updates).length === 0 && coverages === undefined) {
+    if (
+      Object.keys(updates).length === 0 &&
+      coverages === undefined &&
+      parsed.data.premiumAmount === undefined &&
+      parsed.data.coverageAmount === undefined
+    ) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })
     }
 
     const piiInput: { premium_amount?: number | null; coverage_amount?: number | null } = {}
-    if ("premium_amount" in updates) piiInput.premium_amount = updates.premium_amount as number | null
-    if ("coverage_amount" in updates) piiInput.coverage_amount = updates.coverage_amount as number | null
+    if (parsed.data.premiumAmount !== undefined) piiInput.premium_amount = parsed.data.premiumAmount
+    if (coverageAmountInput !== undefined) piiInput.coverage_amount = coverageAmountInput
     if (Object.keys(piiInput).length > 0) {
       Object.assign(updates, encodeInsurancePoliciesPiiPatch(piiInput))
     }

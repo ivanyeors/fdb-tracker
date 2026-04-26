@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
     const { data: insurancePolicies } = await supabase
       .from("insurance_policies")
       .select(
-        "id, name, type, premium_amount, premium_amount_enc, frequency, coverage_amount, coverage_amount_enc, profile_id",
+        "id, name, type, premium_amount_enc, frequency, coverage_amount_enc, profile_id",
       )
       .in("profile_id", profileIds)
       .order("created_at", { ascending: true })

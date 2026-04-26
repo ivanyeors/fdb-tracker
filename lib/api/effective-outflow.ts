@@ -57,7 +57,7 @@ export async function getEffectiveOutflowForProfile(
 
   const { data: cashflow } = await supabase
     .from("monthly_cashflow")
-    .select("outflow, outflow_enc")
+    .select("outflow_enc")
     .eq("profile_id", profileId)
     .eq("month", monthStr)
     .single()
@@ -73,7 +73,7 @@ export async function getEffectiveOutflowForProfile(
   const { data: policies } = await supabase
     .from("insurance_policies")
     .select(
-      "premium_amount, premium_amount_enc, frequency, is_active, deduct_from_outflow, type, end_date",
+      "premium_amount_enc, frequency, is_active, deduct_from_outflow, type, end_date",
     )
     .eq("profile_id", profileId)
     .eq("is_active", true)
@@ -266,7 +266,7 @@ export async function getEffectiveOutflowForProfile(
     const { data: insurancePolicies } = await supabase
       .from("insurance_policies")
       .select(
-        "type, premium_amount, premium_amount_enc, frequency, coverage_amount, coverage_amount_enc, is_active",
+        "type, premium_amount_enc, frequency, coverage_amount_enc, is_active",
       )
       .eq("profile_id", profileId)
     const { data: manualReliefs } = await supabase

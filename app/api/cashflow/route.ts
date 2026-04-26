@@ -195,8 +195,6 @@ export async function POST(request: NextRequest) {
         {
           profile_id: profileId,
           month,
-          ...(inflow !== undefined && { inflow }),
-          ...(outflow !== undefined && { outflow }),
           ...encodeMonthlyCashflowPiiPatch(piiInput),
           ...(source !== undefined && { source }),
           ...(inflowMemo !== undefined && { inflow_memo: inflowMemo || null }),

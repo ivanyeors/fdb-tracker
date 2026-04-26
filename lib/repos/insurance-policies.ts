@@ -83,4 +83,4 @@ function tryNum(
 }
 
 export const INSURANCE_POLICIES_PII_SELECT =
-  "premium_amount, premium_amount_enc, coverage_amount, coverage_amount_enc"
+  "premium_amount_enc, coverage_amount_enc"

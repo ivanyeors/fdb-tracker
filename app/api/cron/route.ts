@@ -4,6 +4,7 @@ import { getEffectiveInflowForProfile } from "@/lib/api/effective-inflow"
 import { getEffectiveOutflowForProfile } from "@/lib/api/effective-outflow"
 import { loanMonthlyPayment, estimateOutstandingPrincipal } from "@/lib/calculations/loans"
 import { decodeLoanPii } from "@/lib/repos/loans"
+import { encodeMonthlyCashflowPiiPatch } from "@/lib/repos/monthly-cashflow"
 
 function getPreviousMonth(): string {
   const now = new Date()
@@ -64,11 +65,15 @@ export async function GET(request: NextRequest) {
               const inflow = await getEffectiveInflowForProfile(supabase, profile.id, prevMonth)
               const outflow = await getEffectiveOutflowForProfile(supabase, profile.id, prevMonth)
 
+              const cashflowInflow = Math.round(inflow * 100) / 100
+              const cashflowOutflow = Math.round(outflow.total * 100) / 100
               await supabase.from("monthly_cashflow").insert({
                 profile_id: profile.id,
                 month: prevMonth,
-                inflow: Math.round(inflow * 100) / 100,
-                outflow: Math.round(outflow.total * 100) / 100,
+                ...encodeMonthlyCashflowPiiPatch({
+                  inflow: cashflowInflow,
+                  outflow: cashflowOutflow,
+                }),
                 is_auto_generated: true,
               })
               cashflowCreated++

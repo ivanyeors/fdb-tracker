@@ -92,9 +92,7 @@ export async function fetchSingleMonthCashflow(
   ] = await Promise.all([
     supabase
       .from("monthly_cashflow")
-      .select(
-        "profile_id, month, inflow, inflow_enc, outflow, outflow_enc",
-      )
+      .select("profile_id, month, inflow_enc, outflow_enc")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
       .eq("month", monthStr),
     supabase
@@ -113,7 +111,7 @@ export async function fetchSingleMonthCashflow(
     supabase
       .from("insurance_policies")
       .select(
-        "profile_id, name, premium_amount, premium_amount_enc, frequency, is_active, deduct_from_outflow, type, coverage_amount, coverage_amount_enc, end_date",
+        "profile_id, name, premium_amount_enc, frequency, is_active, deduct_from_outflow, type, coverage_amount_enc, end_date",
       )
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase

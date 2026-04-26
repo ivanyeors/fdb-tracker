@@ -544,8 +544,6 @@ export type Database = {
           id: string
           profile_id: string
           month: string
-          inflow: number
-          outflow: number
           source: string
           created_at: string
           updated_at: string
@@ -559,8 +557,6 @@ export type Database = {
           id?: string
           profile_id: string
           month: string
-          inflow?: number
-          outflow?: number
           source?: string
           created_at?: string
           updated_at?: string
@@ -574,8 +570,6 @@ export type Database = {
           id?: string
           profile_id?: string
           month?: string
-          inflow?: number
-          outflow?: number
           source?: string
           created_at?: string
           updated_at?: string
@@ -1959,11 +1953,9 @@ export type Database = {
           profile_id: string
           name: string
           type: string
-          premium_amount: number
           premium_amount_enc: string | null
           frequency: string
           yearly_outflow_date: number | null
-          coverage_amount: number | null
           coverage_amount_enc: string | null
           coverage_type: string | null
           current_amount: number | null
@@ -1990,11 +1982,9 @@ export type Database = {
           profile_id: string
           name: string
           type: string
-          premium_amount: number
           premium_amount_enc?: string | null
           frequency?: string
           yearly_outflow_date?: number | null
-          coverage_amount?: number | null
           coverage_amount_enc?: string | null
           coverage_type?: string | null
           current_amount?: number | null
@@ -2021,11 +2011,9 @@ export type Database = {
           profile_id?: string
           name?: string
           type?: string
-          premium_amount?: number
           premium_amount_enc?: string | null
           frequency?: string
           yearly_outflow_date?: number | null
-          coverage_amount?: number | null
           coverage_amount_enc?: string | null
           coverage_type?: string | null
           current_amount?: number | null

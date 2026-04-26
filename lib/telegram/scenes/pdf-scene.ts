@@ -387,11 +387,9 @@ async function saveExtractedData(
           profile_id: profileId,
           name: extracted.name ?? `${extracted.insurer ?? "Unknown"} Policy`,
           type: extracted.type ?? "term_life",
-          premium_amount: insurancePremium,
           frequency: extracted.frequency ?? "yearly",
           insurer: extracted.insurer,
           policy_number: extracted.policyNumber,
-          coverage_amount: insuranceCoverage,
           coverage_type: extracted.coverageType,
           ...encodeInsurancePoliciesPiiPatch({
             premium_amount: insurancePremium,

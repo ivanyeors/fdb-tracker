@@ -74,5 +74,4 @@ function tryNum(
   return plain ?? null
 }
 
-export const MONTHLY_CASHFLOW_PII_SELECT =
-  "inflow, inflow_enc, outflow, outflow_enc"
+export const MONTHLY_CASHFLOW_PII_SELECT = "inflow_enc, outflow_enc"

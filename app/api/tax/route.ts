@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
       const { data: insurancePolicies } = await supabase
         .from("insurance_policies")
         .select(
-          "type, premium_amount, premium_amount_enc, frequency, coverage_amount, coverage_amount_enc, is_active",
+          "type, premium_amount_enc, frequency, coverage_amount_enc, is_active",
         )
         .eq("profile_id", profileId)
 

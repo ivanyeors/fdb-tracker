@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
         supabase
           .from("insurance_policies")
           .select(
-            "id, profile_id, name, type, coverage_type, coverage_amount, coverage_amount_enc, is_active, premium_amount, premium_amount_enc, frequency, yearly_outflow_date, insurance_policy_coverages(coverage_type, coverage_amount)",
+            "id, profile_id, name, type, coverage_type, coverage_amount_enc, is_active, premium_amount_enc, frequency, yearly_outflow_date, insurance_policy_coverages(coverage_type, coverage_amount)",
           )
           .in("profile_id", profileIds)
           .eq("is_active", true),

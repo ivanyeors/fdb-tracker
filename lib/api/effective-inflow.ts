@@ -23,7 +23,7 @@ export async function getEffectiveInflowForProfile(
 
   const { data: cashflow } = await supabase
     .from("monthly_cashflow")
-    .select("inflow, inflow_enc")
+    .select("inflow_enc")
     .eq("profile_id", profileId)
     .eq("month", monthStr)
     .single()
@@ -156,7 +156,7 @@ export async function getEffectiveInflowWithBreakdown(
 
   const { data: cashflow } = await supabase
     .from("monthly_cashflow")
-    .select("inflow, inflow_enc")
+    .select("inflow_enc")
     .eq("profile_id", profileId)
     .eq("month", monthStr)
     .single()

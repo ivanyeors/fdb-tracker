@@ -318,13 +318,11 @@ export function createCashflowScene(type: CashflowType) {
             type === "inflow"
               ? {
                   ...base,
-                  inflow: s.amount!,
                   ...encodeMonthlyCashflowPiiPatch({ inflow: s.amount! }),
                   ...(s.memo ? { inflow_memo: s.memo } : {}),
                 }
               : {
                   ...base,
-                  outflow: s.amount!,
                   ...encodeMonthlyCashflowPiiPatch({ outflow: s.amount! }),
                   ...(s.memo ? { outflow_memo: s.memo } : {}),
                 }

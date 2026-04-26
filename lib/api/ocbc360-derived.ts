@@ -53,7 +53,7 @@ export async function fetchOcbc360DerivedForAccount(
     cashflowProfileId
       ? supabase
           .from("monthly_cashflow")
-          .select("inflow, inflow_enc, outflow, outflow_enc")
+          .select("inflow_enc, outflow_enc")
           .eq("profile_id", cashflowProfileId)
           .eq("month", evalMonth)
           .maybeSingle()

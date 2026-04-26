@@ -80,7 +80,7 @@ export async function getOutflowBreakdownForProfile(
   // Fallback: single outflow value from monthly_cashflow
   const { data: cashflow } = await supabase
     .from("monthly_cashflow")
-    .select("outflow, outflow_enc")
+    .select("outflow_enc")
     .eq("profile_id", profileId)
     .eq("month", monthStr)
     .single()

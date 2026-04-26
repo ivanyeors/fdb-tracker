@@ -130,7 +130,7 @@ export async function fetchCashflowRangeSeries(
     supabase
       .from("monthly_cashflow")
       .select(
-        "profile_id, month, inflow, inflow_enc, outflow, outflow_enc, inflow_memo, outflow_memo",
+        "profile_id, month, inflow_enc, outflow_enc, inflow_memo, outflow_memo",
       )
       .in("profile_id", profileIds)
       .gte("month", startMonth)
@@ -151,7 +151,7 @@ export async function fetchCashflowRangeSeries(
     supabase
       .from("insurance_policies")
       .select(
-        "profile_id, premium_amount, premium_amount_enc, frequency, is_active, deduct_from_outflow, type, coverage_amount, coverage_amount_enc",
+        "profile_id, premium_amount_enc, frequency, is_active, deduct_from_outflow, type, coverage_amount_enc",
       )
       .in("profile_id", profileIds),
     supabase
