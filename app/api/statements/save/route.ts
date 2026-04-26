@@ -6,7 +6,7 @@ import {
   decodeBankTransactionPii,
   encodeBankTransactionPiiPatch,
 } from "@/lib/repos/bank-transactions"
-import { refreshTransactionSummary } from "@/lib/repos/monthly-transaction-summary"
+import { drainSummaryRefreshQueue } from "@/lib/repos/summary-refresh-queue"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
@@ -153,14 +153,19 @@ export async function POST(request: Request) {
         )
       }
 
-      await refreshTransactionSummary(supabase, [
-        {
-          profile_id: body.profileId,
-          family_id: body.familyId,
-          month: body.month,
-          statement_type: body.statementType,
-        },
-      ])
+      // Trigger on bank_transactions enqueued the scope atomically. Drain
+      // it now so the response reflects fresh totals; cron sweeps anything
+      // we miss.
+      await drainSummaryRefreshQueue(supabase, {
+        scopes: [
+          {
+            profile_id: body.profileId,
+            family_id: body.familyId,
+            month: body.month,
+            statement_type: body.statementType,
+          },
+        ],
+      })
     }
 
     // Save category rule changes (user-learned mappings)

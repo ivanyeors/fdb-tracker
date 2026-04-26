@@ -3,7 +3,7 @@ import { cookies } from "next/headers"
 import { z } from "zod"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { decodeBankTransactionPii } from "@/lib/repos/bank-transactions"
-import { refreshTransactionSummary } from "@/lib/repos/monthly-transaction-summary"
+import { drainSummaryRefreshQueue } from "@/lib/repos/summary-refresh-queue"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const querySchema = z.object({
@@ -104,15 +104,14 @@ export async function PATCH(request: Request) {
     }
 
     if (affected && affected.length > 0) {
-      await refreshTransactionSummary(
-        supabase,
-        affected as Array<{
+      await drainSummaryRefreshQueue(supabase, {
+        scopes: affected as Array<{
           profile_id: string
           family_id: string
           month: string
           statement_type: "bank" | "cc"
         }>,
-      )
+      })
     }
 
     // Save category rules

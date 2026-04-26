@@ -4,7 +4,7 @@ import { encodeBankTransactionPiiPatch } from "@/lib/repos/bank-transactions"
 import { encodeCpfBalancesPiiPatch } from "@/lib/repos/cpf-balances"
 import { encodeInsurancePoliciesPiiPatch } from "@/lib/repos/insurance-policies"
 import { encodeLoanPiiPatch } from "@/lib/repos/loans"
-import { refreshTransactionSummary } from "@/lib/repos/monthly-transaction-summary"
+import { drainSummaryRefreshQueue } from "@/lib/repos/summary-refresh-queue"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { calculateWeightedAverageCost } from "@/lib/calculations/investments"
 import { botState, MyContext } from "@/lib/telegram/bot"
@@ -528,14 +528,16 @@ async function saveExtractedData(
         if (txnError) {
           console.error("[pdf-scene] Failed to save transactions:", txnError.message)
         } else {
-          await refreshTransactionSummary(supabase, [
-            {
-              profile_id: profileId,
-              family_id: familyId,
-              month: extracted.month!,
-              statement_type: "bank",
-            },
-          ])
+          await drainSummaryRefreshQueue(supabase, {
+            scopes: [
+              {
+                profile_id: profileId,
+                family_id: familyId,
+                month: extracted.month!,
+                statement_type: "bank",
+              },
+            ],
+          })
         }
       }
       break
@@ -601,14 +603,16 @@ async function saveExtractedData(
             onConflict: "profile_id,month,txn_date,description,amount,statement_type",
           })
         if (ccTxnError) throw new Error(ccTxnError.message)
-        await refreshTransactionSummary(supabase, [
-          {
-            profile_id: profileId,
-            family_id: familyId,
-            month: extracted.month!,
-            statement_type: "cc",
-          },
-        ])
+        await drainSummaryRefreshQueue(supabase, {
+          scopes: [
+            {
+              profile_id: profileId,
+              family_id: familyId,
+              month: extracted.month!,
+              statement_type: "cc",
+            },
+          ],
+        })
       }
       break
     }

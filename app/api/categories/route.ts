@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { z } from "zod"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { refreshTransactionSummary } from "@/lib/repos/monthly-transaction-summary"
+import { drainSummaryRefreshQueue } from "@/lib/repos/summary-refresh-queue"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 export async function GET(request: NextRequest) {
@@ -255,15 +255,14 @@ export async function DELETE(request: Request) {
       .eq("category_id", body.id)
 
     if (affectedTxns && affectedTxns.length > 0) {
-      await refreshTransactionSummary(
-        supabase,
-        affectedTxns as Array<{
+      await drainSummaryRefreshQueue(supabase, {
+        scopes: affectedTxns as Array<{
           profile_id: string
           family_id: string
           month: string
           statement_type: "bank" | "cc"
         }>,
-      )
+      })
     }
 
     // Also reassign outflow_entries
