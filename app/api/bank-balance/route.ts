@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeMonthlyCashflowPii } from "@/lib/repos/monthly-cashflow"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { buildBalanceTimeline } from "@/lib/calculations/bank-balance"
 import { getEffectiveInflowForProfile } from "@/lib/api/effective-inflow"
@@ -95,14 +96,18 @@ export async function GET(request: NextRequest) {
     if (profileId) {
       const { data: cashflow } = await supabase
         .from("monthly_cashflow")
-        .select("month, inflow, outflow")
+        .select("month, inflow, inflow_enc, outflow, outflow_enc")
         .eq("profile_id", profileId)
         .gte("month", startMonth)
         .lte("month", endMonth)
 
       if (cashflow) {
         for (const row of cashflow) {
-          cashflowMap[row.month] = { inflow: row.inflow, outflow: row.outflow }
+          const decoded = decodeMonthlyCashflowPii(row)
+          cashflowMap[row.month] = {
+            inflow: decoded.inflow ?? 0,
+            outflow: decoded.outflow ?? 0,
+          }
         }
       }
     }

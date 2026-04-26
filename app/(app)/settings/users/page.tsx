@@ -5,8 +5,11 @@ import Link from "next/link"
 import { getSessionFromCookies } from "@/lib/auth/session"
 import { decryptString } from "@/lib/crypto/cipher"
 import { decodeBankAccountPii } from "@/lib/repos/bank-accounts"
+import { decodeCpfBalancesPii } from "@/lib/repos/cpf-balances"
 import { decodeFamilyName } from "@/lib/repos/families"
+import { decodeInsurancePoliciesPii } from "@/lib/repos/insurance-policies"
 import { decodeLoanPii } from "@/lib/repos/loans"
+import { decodeMonthlyCashflowPii } from "@/lib/repos/monthly-cashflow"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import {
@@ -134,13 +137,31 @@ async function fetchFinancialDataForFamily(
           sort_order: number
         }>
       }
+      const decoded = decodeInsurancePoliciesPii(p)
       return {
         ...rest,
+        premium_amount: decoded.premium_amount ?? 0,
+        coverage_amount: decoded.coverage_amount,
         coverages: insurance_policy_coverages ?? [],
       }
     }),
-    cpfBalances: cpfRes.data ?? [],
-    monthlyCashflow: cashflowRes.data ?? [],
+    cpfBalances: (cpfRes.data ?? []).map((cb) => {
+      const decoded = decodeCpfBalancesPii(cb)
+      return {
+        ...cb,
+        oa: decoded.oa ?? 0,
+        sa: decoded.sa ?? 0,
+        ma: decoded.ma ?? 0,
+      }
+    }),
+    monthlyCashflow: (cashflowRes.data ?? []).map((mc) => {
+      const decoded = decodeMonthlyCashflowPii(mc)
+      return {
+        ...mc,
+        inflow: decoded.inflow ?? 0,
+        outflow: decoded.outflow ?? 0,
+      }
+    }),
   } satisfies FinancialDataByFamily
 }
 

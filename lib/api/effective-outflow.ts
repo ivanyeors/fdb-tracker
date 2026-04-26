@@ -6,7 +6,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { calculateTax } from "@/lib/calculations/tax"
 import { getGiroOutflowForProfile } from "@/lib/api/giro-amounts"
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
+import { decodeInsurancePoliciesPii } from "@/lib/repos/insurance-policies"
 import { decodeLoanPii } from "@/lib/repos/loans"
+import { decodeMonthlyCashflowPii } from "@/lib/repos/monthly-cashflow"
+import { decodeTaxReliefInputsPii } from "@/lib/repos/tax-relief-inputs"
 
 /**
  * Sum of monthly premiums for shared ILP products (profile_id is null) in a family.
@@ -53,14 +57,14 @@ export async function getEffectiveOutflowForProfile(
 
   const { data: cashflow } = await supabase
     .from("monthly_cashflow")
-    .select("outflow")
+    .select("outflow, outflow_enc")
     .eq("profile_id", profileId)
     .eq("month", monthStr)
     .single()
 
   // monthly_cashflow.outflow: user-reported discretionary outflow.
   // The user inputs their variable spending, and we ADDD fixed costs on top of it.
-  const userOutflow = cashflow?.outflow ?? 0
+  const userOutflow = cashflow ? decodeMonthlyCashflowPii(cashflow).outflow ?? 0 : 0
   const giroOutflow = await getGiroOutflowForProfile(supabase, profileId)
   const discretionary = userOutflow + giroOutflow
 
@@ -68,7 +72,9 @@ export async function getEffectiveOutflowForProfile(
   let ilp = 0
   const { data: policies } = await supabase
     .from("insurance_policies")
-    .select("premium_amount, frequency, is_active, deduct_from_outflow, type, end_date")
+    .select(
+      "premium_amount, premium_amount_enc, frequency, is_active, deduct_from_outflow, type, end_date",
+    )
     .eq("profile_id", profileId)
     .eq("is_active", true)
     .eq("deduct_from_outflow", true)
@@ -78,7 +84,8 @@ export async function getEffectiveOutflowForProfile(
     for (const p of policies) {
       // Skip expired policies even if is_active hasn't been toggled yet
       if (p.end_date && p.end_date < now) continue
-      const monthlyEq = p.frequency === "monthly" ? p.premium_amount : p.premium_amount / 12
+      const premium = decodeInsurancePoliciesPii(p).premium_amount ?? 0
+      const monthlyEq = p.frequency === "monthly" ? premium : premium / 12
       if (p.type === "ilp") {
         ilp += monthlyEq
       } else {
@@ -192,13 +199,13 @@ export async function getEffectiveOutflowForProfile(
   const cashReliefTypes = ["srs", "cpf_topup_self", "cpf_topup_family"]
   const { data: cashReliefs } = await supabase
     .from("tax_relief_inputs")
-    .select("amount")
+    .select("amount, amount_enc")
     .eq("profile_id", profileId)
     .eq("year", year)
     .in("relief_type", cashReliefTypes)
   if (cashReliefs) {
     for (const r of cashReliefs) {
-      taxReliefCash += r.amount / 12
+      taxReliefCash += (decodeTaxReliefInputsPii(r).amount ?? 0) / 12
     }
   }
 
@@ -253,16 +260,20 @@ export async function getEffectiveOutflowForProfile(
       .single()
     const { data: incomeConfig } = await supabase
       .from("income_config")
-      .select("annual_salary, bonus_estimate")
+      .select(
+        "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
+      )
       .eq("profile_id", profileId)
       .single()
     const { data: insurancePolicies } = await supabase
       .from("insurance_policies")
-      .select("type, premium_amount, frequency, coverage_amount, is_active")
+      .select(
+        "type, premium_amount, premium_amount_enc, frequency, coverage_amount, coverage_amount_enc, is_active",
+      )
       .eq("profile_id", profileId)
     const { data: manualReliefs } = await supabase
       .from("tax_relief_inputs")
-      .select("relief_type, amount")
+      .select("relief_type, amount, amount_enc")
       .eq("profile_id", profileId)
       .eq("year", year)
 
@@ -275,22 +286,26 @@ export async function getEffectiveOutflowForProfile(
     }
 
     if (profile && incomeConfig) {
+      const decodedIncome = decodeIncomeConfigPii(incomeConfig)
       const result = calculateTax({
         profile: { birth_year: profile.birth_year },
         incomeConfig: {
-          annual_salary: incomeConfig.annual_salary,
-          bonus_estimate: incomeConfig.bonus_estimate ?? 0,
+          annual_salary: decodedIncome.annual_salary ?? 0,
+          bonus_estimate: decodedIncome.bonus_estimate ?? 0,
         },
-        insurancePolicies: (insurancePolicies ?? []).map((p) => ({
-          type: p.type,
-          premium_amount: p.premium_amount,
-          frequency: p.frequency,
-          coverage_amount: p.coverage_amount ?? 0,
-          is_active: p.is_active,
-        })),
+        insurancePolicies: (insurancePolicies ?? []).map((p) => {
+          const dec = decodeInsurancePoliciesPii(p)
+          return {
+            type: p.type,
+            premium_amount: dec.premium_amount ?? 0,
+            frequency: p.frequency,
+            coverage_amount: dec.coverage_amount ?? 0,
+            is_active: p.is_active,
+          }
+        }),
         manualReliefs: (manualReliefs ?? []).map((r) => ({
           relief_type: r.relief_type,
-          amount: r.amount,
+          amount: decodeTaxReliefInputsPii(r).amount ?? 0,
         })),
         year,
       })

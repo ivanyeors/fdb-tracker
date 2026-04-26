@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { encodeIncomeHistoryPiiPatch } from "@/lib/repos/income-history"
+import {
+  decodeIncomeHistoryPii,
+  encodeIncomeHistoryPiiPatch,
+} from "@/lib/repos/income-history"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
@@ -71,7 +74,11 @@ export async function GET(request: NextRequest) {
       .in("profile_id", resolved.profileIds)
       .order("start_date", { ascending: false })
 
-    return NextResponse.json(data ?? [])
+    const decoded = (data ?? []).map((r) => ({
+      ...r,
+      monthly_salary: decodeIncomeHistoryPii(r).monthly_salary ?? r.monthly_salary,
+    }))
+    return NextResponse.json(decoded)
   } catch (err) {
     console.error("[api/income-history] GET error:", err)
     return NextResponse.json(

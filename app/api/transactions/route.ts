@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { z } from "zod"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeBankTransactionPii } from "@/lib/repos/bank-transactions"
 import { refreshTransactionSummary } from "@/lib/repos/monthly-transaction-summary"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
@@ -42,7 +43,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json(data)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const decoded = (data ?? []).map((row: any) => {
+    const dec = decodeBankTransactionPii(row)
+    return { ...row, amount: dec.amount, balance: dec.balance }
+  })
+  return NextResponse.json(decoded)
 }
 
 const patchSchema = z.object({

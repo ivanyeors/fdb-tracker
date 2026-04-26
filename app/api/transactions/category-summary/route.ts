@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { z } from "zod"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeBankTransactionPii } from "@/lib/repos/bank-transactions"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const querySchema = z.object({
@@ -33,7 +34,9 @@ export async function GET(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let qb = (supabase as any)
     .from("bank_transactions")
-    .select("month, amount, txn_type, exclude_from_spending, outflow_categories(name)")
+    .select(
+      "month, amount, amount_enc, txn_type, exclude_from_spending, outflow_categories(name)",
+    )
     .gte("month", query.startMonth)
     .lte("month", query.endMonth)
     .eq("txn_type", "debit")
@@ -59,7 +62,11 @@ export async function GET(request: NextRequest) {
     const name =
       (row.outflow_categories as { name: string } | null)?.name ??
       "Uncategorized"
-    const amount = Math.abs(row.amount as number)
+    const decodedAmount = decodeBankTransactionPii({
+      amount: row.amount,
+      amount_enc: row.amount_enc,
+    }).amount
+    const amount = Math.abs(decodedAmount ?? 0)
 
     if (!byMonth.has(month)) byMonth.set(month, new Map())
     const cats = byMonth.get(month)!

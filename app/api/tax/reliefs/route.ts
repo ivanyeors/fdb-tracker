@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { encodeTaxReliefInputsPiiPatch } from "@/lib/repos/tax-relief-inputs"
+import {
+  decodeTaxReliefInputsPii,
+  encodeTaxReliefInputsPiiPatch,
+} from "@/lib/repos/tax-relief-inputs"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
@@ -79,7 +82,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch reliefs" }, { status: 500 })
     }
 
-    return NextResponse.json({ reliefs: data ?? [] })
+    const reliefs = (data ?? []).map((r) => ({
+      ...r,
+      amount: decodeTaxReliefInputsPii(r).amount ?? 0,
+    }))
+    return NextResponse.json({ reliefs })
   } catch (err) {
     console.error("[api/tax/reliefs] GET Error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

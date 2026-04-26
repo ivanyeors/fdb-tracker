@@ -6,6 +6,9 @@ import {
   decodeCpfBalancesPii,
   encodeCpfBalancesPiiPatch,
 } from "@/lib/repos/cpf-balances"
+import { decodeCpfHealthcareConfigPii } from "@/lib/repos/cpf-healthcare-config"
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
+import { decodeIncomeHistoryPii } from "@/lib/repos/income-history"
 import { decodeLoanPii } from "@/lib/repos/loans"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
@@ -117,7 +120,9 @@ export async function GET(request: NextRequest) {
         .in("id", profileIds),
       supabase
         .from("income_config")
-        .select("profile_id, annual_salary, bonus_estimate")
+        .select(
+          "profile_id, annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
+        )
         .in("profile_id", profileIds),
       supabase
         .from("cpf_healthcare_config")
@@ -131,7 +136,17 @@ export async function GET(request: NextRequest) {
     ])
 
     const incomeByProfile = new Map(
-      incomeConfigs?.map((ic) => [ic.profile_id, ic]) ?? [],
+      incomeConfigs?.map((ic) => {
+        const decoded = decodeIncomeConfigPii(ic)
+        return [
+          ic.profile_id,
+          {
+            ...ic,
+            annual_salary: decoded.annual_salary ?? 0,
+            bonus_estimate: decoded.bonus_estimate ?? 0,
+          },
+        ]
+      }) ?? [],
     )
     const profileById = new Map(
       profiles?.map((p) => [
@@ -143,9 +158,10 @@ export async function GET(request: NextRequest) {
     const incomeHistoryByProfile = new Map<string, EmploymentPeriod[]>()
     for (const row of incomeHistoryRows ?? []) {
       const periods = incomeHistoryByProfile.get(row.profile_id) ?? []
+      const decoded = decodeIncomeHistoryPii(row)
       periods.push({
         employerName: row.employer_name,
-        monthlySalary: Number(row.monthly_salary),
+        monthlySalary: Number(decoded.monthly_salary ?? 0),
         startDate: row.start_date,
         endDate: row.end_date,
       })
@@ -153,19 +169,19 @@ export async function GET(request: NextRequest) {
     }
 
     const healthcareByProfile = new Map<string, CpfHealthcareConfig | null>(
-      (healthcareConfigs ?? []).map((hc) => [
-        hc.profile_id,
-        {
-          profileId: hc.profile_id,
-          mslAnnualOverride:
-            hc.msl_annual_override != null
-              ? Number(hc.msl_annual_override)
-              : null,
-          cslAnnual: Number(hc.csl_annual),
-          cslSupplementAnnual: Number(hc.csl_supplement_annual),
-          ispAnnual: Number(hc.isp_annual),
-        },
-      ]),
+      (healthcareConfigs ?? []).map((hc) => {
+        const decoded = decodeCpfHealthcareConfigPii(hc)
+        return [
+          hc.profile_id,
+          {
+            profileId: hc.profile_id,
+            mslAnnualOverride: decoded.msl_annual_override,
+            cslAnnual: decoded.csl_annual ?? 0,
+            cslSupplementAnnual: decoded.csl_supplement_annual ?? 0,
+            ispAnnual: decoded.isp_annual ?? 0,
+          },
+        ]
+      }),
     )
 
     const now = new Date()

@@ -5,6 +5,9 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js"
+
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
+import { decodeMonthlyCashflowPii } from "@/lib/repos/monthly-cashflow"
 import { calculateTakeHome } from "@/lib/calculations/take-home"
 import type { SelfHelpGroup } from "@/lib/calculations/self-help-group"
 
@@ -20,16 +23,17 @@ export async function getEffectiveInflowForProfile(
 
   const { data: cashflow } = await supabase
     .from("monthly_cashflow")
-    .select("inflow")
+    .select("inflow, inflow_enc")
     .eq("profile_id", profileId)
     .eq("month", monthStr)
     .single()
 
   let baseInflow = 0
+  const decodedCashflow = cashflow ? decodeMonthlyCashflowPii(cashflow) : null
 
   // Manual override: if user has a cashflow row for this month, use stored inflow
   if (cashflow != null) {
-    baseInflow = cashflow.inflow ?? 0
+    baseInflow = decodedCashflow?.inflow ?? 0
   } else {
     // Derive from income_config: income + bonus - CPF
     const { data: profile } = await supabase
@@ -40,11 +44,17 @@ export async function getEffectiveInflowForProfile(
 
     const { data: incomeConfig } = await supabase
       .from("income_config")
-      .select("annual_salary, bonus_estimate")
+      .select(
+        "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
+      )
       .eq("profile_id", profileId)
       .single()
+    const decodedIncome = incomeConfig
+      ? decodeIncomeConfigPii(incomeConfig)
+      : null
+    const annualSalary = decodedIncome?.annual_salary ?? 0
 
-    if (!profile || !incomeConfig || incomeConfig.annual_salary <= 0) {
+    if (!profile || !incomeConfig || annualSalary <= 0) {
       if (!profile) {
         console.warn(`[effective-inflow] Profile ${profileId} not found or missing birth_year`)
       } else if (!incomeConfig) {
@@ -52,8 +62,8 @@ export async function getEffectiveInflowForProfile(
       }
     } else {
       const result = calculateTakeHome(
-        incomeConfig.annual_salary,
-        incomeConfig.bonus_estimate ?? 0,
+        annualSalary,
+        decodedIncome?.bonus_estimate ?? 0,
         profile.birth_year,
         year,
         (profile.self_help_group as SelfHelpGroup) ?? "none",
@@ -148,14 +158,14 @@ export async function getEffectiveInflowWithBreakdown(
 
   const { data: cashflow } = await supabase
     .from("monthly_cashflow")
-    .select("inflow")
+    .select("inflow, inflow_enc")
     .eq("profile_id", profileId)
     .eq("month", monthStr)
     .single()
 
   // Manual override: no salary/bonus breakdown available
   if (cashflow != null) {
-    const income = cashflow.inflow ?? 0
+    const income = decodeMonthlyCashflowPii(cashflow).inflow ?? 0
     const total = income + bankInterest + dividends
     return {
       total,
@@ -174,11 +184,18 @@ export async function getEffectiveInflowWithBreakdown(
 
   const { data: incomeConfig } = await supabase
     .from("income_config")
-    .select("annual_salary, bonus_estimate")
+    .select(
+      "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
+    )
     .eq("profile_id", profileId)
     .single()
+  const decodedIncome = incomeConfig
+    ? decodeIncomeConfigPii(incomeConfig)
+    : null
+  const annualSalary = decodedIncome?.annual_salary ?? 0
+  const bonus = decodedIncome?.bonus_estimate ?? 0
 
-  if (!profile || !incomeConfig || incomeConfig.annual_salary <= 0) {
+  if (!profile || !incomeConfig || annualSalary <= 0) {
     const total = bankInterest + dividends
     return {
       total,
@@ -188,15 +205,12 @@ export async function getEffectiveInflowWithBreakdown(
   }
 
   const result = calculateTakeHome(
-    incomeConfig.annual_salary,
-    incomeConfig.bonus_estimate ?? 0,
+    annualSalary,
+    bonus,
     profile.birth_year,
     year,
     (profile.self_help_group as SelfHelpGroup) ?? "none",
   )
-
-  const annualSalary = incomeConfig.annual_salary
-  const bonus = incomeConfig.bonus_estimate ?? 0
   const totalAnnual = annualSalary + bonus
   const salaryPct = totalAnnual > 0 ? annualSalary / totalAnnual : 1
 

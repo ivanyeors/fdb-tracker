@@ -2,7 +2,10 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { z } from "zod"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { encodeBankTransactionPiiPatch } from "@/lib/repos/bank-transactions"
+import {
+  decodeBankTransactionPii,
+  encodeBankTransactionPiiPatch,
+} from "@/lib/repos/bank-transactions"
 import { refreshTransactionSummary } from "@/lib/repos/monthly-transaction-summary"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
@@ -89,7 +92,7 @@ export async function POST(request: Request) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: existing } = await (supabase as any)
         .from("bank_transactions")
-        .select("txn_date, description, amount")
+        .select("txn_date, description, amount, amount_enc")
         .eq("profile_id", body.profileId)
         .eq("month", body.month)
         .eq("statement_type", body.statementType)
@@ -97,7 +100,13 @@ export async function POST(request: Request) {
       if (existing && existing.length > 0) {
         const existingSet = new Set(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          existing.map((t: any) => `${t.txn_date}|${t.description}|${t.amount}`)
+          existing.map((t: any) => {
+            const amt = decodeBankTransactionPii({
+              amount: t.amount,
+              amount_enc: t.amount_enc,
+            }).amount
+            return `${t.txn_date}|${t.description}|${amt}`
+          })
         )
         skippedCount = body.transactions.filter((txn) =>
           existingSet.has(`${txn.date}|${txn.description}|${txn.amount}`)

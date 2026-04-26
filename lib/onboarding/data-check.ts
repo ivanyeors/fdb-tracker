@@ -1,5 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js"
 
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
+
 const PLACEHOLDER_NAMES = new Set(["person", "user"])
 
 export type DataSufficiencyResult = {
@@ -47,12 +49,13 @@ export async function checkOnboardingDataSufficiency(
   const profileIds = (profiles ?? []).map((p) => p.id)
 
   const [{ data: incomeRows }, { data: bankRows }] = await Promise.all([
+    // Filter applied in JS — annual_salary may be encrypted, so the SQL .gt
+    // filter would not survive the Phase 4 drop. Fetching all rows for the
+    // profile is bounded (one row per profile) so this is cheap.
     supabase
       .from("income_config")
-      .select("annual_salary")
-      .in("profile_id", profileIds)
-      .gt("annual_salary", 0)
-      .limit(1),
+      .select("annual_salary, annual_salary_enc")
+      .in("profile_id", profileIds),
     supabase
       .from("bank_accounts")
       .select("id")
@@ -60,7 +63,9 @@ export async function checkOnboardingDataSufficiency(
       .limit(1),
   ])
 
-  const hasIncome = (incomeRows ?? []).length > 0
+  const hasIncome = (incomeRows ?? []).some(
+    (r) => (decodeIncomeConfigPii(r).annual_salary ?? 0) > 0,
+  )
   const hasBanks = (bankRows ?? []).length > 0
   const canSkip = hasProfiles && hasIncome && hasBanks
 

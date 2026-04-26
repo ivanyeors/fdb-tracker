@@ -3,8 +3,16 @@ import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { decodeDependentPii } from "@/lib/repos/dependents"
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
+import { decodeInsurancePoliciesPii } from "@/lib/repos/insurance-policies"
 import { decodeProfilePii } from "@/lib/repos/profiles"
-import { encodeTaxReliefAutoPiiPatch } from "@/lib/repos/tax-relief-auto"
+import { decodeTaxGiroSchedulePii } from "@/lib/repos/tax-giro-schedule"
+import { decodeTaxNoaDataPii } from "@/lib/repos/tax-noa-data"
+import {
+  decodeTaxReliefAutoPii,
+  encodeTaxReliefAutoPiiPatch,
+} from "@/lib/repos/tax-relief-auto"
+import { decodeTaxReliefInputsPii } from "@/lib/repos/tax-relief-inputs"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { calculateTax, type TaxResult } from "@/lib/calculations/tax"
@@ -135,19 +143,24 @@ export async function GET(request: NextRequest) {
 
       const { data: incomeConfig } = await supabase
         .from("income_config")
-        .select("annual_salary, bonus_estimate")
+        .select(
+          "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
+        )
         .eq("profile_id", profileId)
         .single()
       if (!incomeConfig) continue
+      const decodedIncome = decodeIncomeConfigPii(incomeConfig)
 
       const { data: insurancePolicies } = await supabase
         .from("insurance_policies")
-        .select("type, premium_amount, frequency, coverage_amount, is_active")
+        .select(
+          "type, premium_amount, premium_amount_enc, frequency, coverage_amount, coverage_amount_enc, is_active",
+        )
         .eq("profile_id", profileId)
 
       const { data: manualReliefs } = await supabase
         .from("tax_relief_inputs")
-        .select("relief_type, amount")
+        .select("relief_type, amount, amount_enc")
         .eq("profile_id", profileId)
         .eq("year", currentYear)
 
@@ -156,12 +169,17 @@ export async function GET(request: NextRequest) {
       if (profile.spouse_profile_id) {
         const { data: spouseIncome } = await supabase
           .from("income_config")
-          .select("annual_salary, bonus_estimate")
+          .select(
+            "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
+          )
           .eq("profile_id", profile.spouse_profile_id)
           .single()
         if (spouseIncome) {
+          const decodedSpouse = decodeIncomeConfigPii(spouseIncome)
           spouseForTax = {
-            annual_income: (spouseIncome.annual_salary ?? 0) + (spouseIncome.bonus_estimate ?? 0),
+            annual_income:
+              (decodedSpouse.annual_salary ?? 0) +
+              (decodedSpouse.bonus_estimate ?? 0),
           }
         }
       }
@@ -186,19 +204,22 @@ export async function GET(request: NextRequest) {
         },
         profileId,
         incomeConfig: {
-          annual_salary: incomeConfig.annual_salary,
-          bonus_estimate: incomeConfig.bonus_estimate ?? 0,
+          annual_salary: decodedIncome.annual_salary ?? 0,
+          bonus_estimate: decodedIncome.bonus_estimate ?? 0,
         },
-        insurancePolicies: (insurancePolicies ?? []).map((p) => ({
-          type: p.type,
-          premium_amount: p.premium_amount,
-          frequency: p.frequency,
-          coverage_amount: p.coverage_amount ?? 0,
-          is_active: p.is_active,
-        })),
+        insurancePolicies: (insurancePolicies ?? []).map((p) => {
+          const decoded = decodeInsurancePoliciesPii(p)
+          return {
+            type: p.type,
+            premium_amount: decoded.premium_amount ?? 0,
+            frequency: p.frequency,
+            coverage_amount: decoded.coverage_amount ?? 0,
+            is_active: p.is_active,
+          }
+        }),
         manualReliefs: (manualReliefs ?? []).map((r) => ({
           relief_type: r.relief_type,
-          amount: r.amount,
+          amount: decodeTaxReliefInputsPii(r).amount ?? 0,
         })),
         spouse: spouseForTax,
         dependents: dependentsForTax,
@@ -253,10 +274,14 @@ export async function GET(request: NextRequest) {
     for (const profileId of profileIds) {
       const { data: income } = await supabase
         .from("income_config")
-        .select("annual_salary, bonus_estimate")
+        .select(
+          "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
+        )
         .eq("profile_id", profileId)
         .single()
-      const employmentIncome = (income?.annual_salary ?? 0) + (income?.bonus_estimate ?? 0)
+      const dec = income ? decodeIncomeConfigPii(income) : null
+      const employmentIncome =
+        (dec?.annual_salary ?? 0) + (dec?.bonus_estimate ?? 0)
       profileDetails.set(profileId, { employmentIncome })
     }
 
@@ -278,8 +303,16 @@ export async function GET(request: NextRequest) {
       .order("year", { ascending: false })
 
     const reliefs = [
-      ...(reliefInputs ?? []).map((r) => ({ ...r, source: "manual" as const })),
-      ...(reliefAuto ?? []).map((r) => ({ ...r, source: "auto" as const })),
+      ...(reliefInputs ?? []).map((r) => ({
+        ...r,
+        amount: decodeTaxReliefInputsPii(r).amount ?? 0,
+        source: "manual" as const,
+      })),
+      ...(reliefAuto ?? []).map((r) => ({
+        ...r,
+        amount: decodeTaxReliefAutoPii(r).amount ?? 0,
+        source: "auto" as const,
+      })),
     ].sort((a, b) => b.year - a.year)
 
     // Build suggested reliefs from existing data (SRS accounts, etc.)
@@ -390,7 +423,19 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const noaData: Record<string, any> = {}
     for (const row of noaDataRows ?? []) {
-      noaData[row.profile_id] = row
+      const decoded = decodeTaxNoaDataPii(row)
+      noaData[row.profile_id] = {
+        ...row,
+        employment_income: decoded.employment_income,
+        chargeable_income: decoded.chargeable_income,
+        total_deductions: decoded.total_deductions,
+        donations_deduction: decoded.donations_deduction,
+        reliefs_total: decoded.reliefs_total,
+        tax_payable: decoded.tax_payable,
+        reliefs_json: decoded.reliefs_json ?? row.reliefs_json,
+        bracket_summary_json:
+          decoded.bracket_summary_json ?? row.bracket_summary_json,
+      }
     }
 
     // Fetch GIRO schedules
@@ -403,7 +448,13 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const giroSchedules: Record<string, any> = {}
     for (const row of giroRows ?? []) {
-      giroSchedules[row.profile_id] = row
+      const decoded = decodeTaxGiroSchedulePii(row)
+      giroSchedules[row.profile_id] = {
+        ...row,
+        schedule: decoded.schedule ?? row.schedule,
+        total_payable: decoded.total_payable,
+        outstanding_balance: decoded.outstanding_balance,
+      }
     }
 
     return NextResponse.json({

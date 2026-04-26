@@ -33,7 +33,14 @@ import {
   type ProfileData,
   type TaxEntryData,
 } from "@/lib/api/cashflow-aggregation"
+import { decodeCpfBalancesPii } from "@/lib/repos/cpf-balances"
+import { decodeCpfHealthcareConfigPii } from "@/lib/repos/cpf-healthcare-config"
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
+import { decodeInsurancePoliciesPii } from "@/lib/repos/insurance-policies"
 import { decodeLoanPii } from "@/lib/repos/loans"
+import { decodeMonthlyCashflowPii } from "@/lib/repos/monthly-cashflow"
+import { decodeTaxGiroSchedulePii } from "@/lib/repos/tax-giro-schedule"
+import { decodeTaxReliefInputsPii } from "@/lib/repos/tax-relief-inputs"
 import { getAge, calculateCpfContribution } from "@/lib/calculations/cpf"
 import {
   calculateSelfHelpContribution,
@@ -112,7 +119,9 @@ export async function fetchMoneyFlowData(
   ] = await Promise.all([
     supabase
       .from("monthly_cashflow")
-      .select("profile_id, month, inflow, outflow")
+      .select(
+        "profile_id, month, inflow, inflow_enc, outflow, outflow_enc",
+      )
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
       .gte("month", rangeStart)
       .order("month", { ascending: false }),
@@ -122,7 +131,9 @@ export async function fetchMoneyFlowData(
       .in("id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("income_config")
-      .select("profile_id, annual_salary, bonus_estimate")
+      .select(
+        "profile_id, annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
+      )
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("giro_rules")
@@ -132,7 +143,7 @@ export async function fetchMoneyFlowData(
     supabase
       .from("insurance_policies")
       .select(
-        "profile_id, premium_amount, frequency, is_active, deduct_from_outflow, type, coverage_amount, end_date"
+        "profile_id, premium_amount, premium_amount_enc, frequency, is_active, deduct_from_outflow, type, coverage_amount, coverage_amount_enc, end_date",
       )
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
@@ -145,7 +156,7 @@ export async function fetchMoneyFlowData(
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("tax_relief_inputs")
-      .select("profile_id, year, relief_type, amount")
+      .select("profile_id, year, relief_type, amount, amount_enc")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
       .in("year", [currentYear, currentYear - 1]),
     supabase
@@ -159,7 +170,9 @@ export async function fetchMoneyFlowData(
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("cpf_balances")
-      .select("profile_id, month, oa, sa, ma")
+      .select(
+        "profile_id, month, oa, oa_enc, sa, sa_enc, ma, ma_enc",
+      )
       .in("profile_id", targetProfileIds.length > 0 ? targetProfileIds : ["__none__"])
       .order("month", { ascending: false }),
     supabase
@@ -173,11 +186,15 @@ export async function fetchMoneyFlowData(
       .eq("family_id", familyId),
     supabase
       .from("cpf_healthcare_config")
-      .select("profile_id, msl_annual_override, csl_annual, csl_supplement_annual, isp_annual")
+      .select(
+        "profile_id, msl_annual_override, msl_annual_override_enc, csl_annual, csl_annual_enc, csl_supplement_annual, csl_supplement_annual_enc, isp_annual, isp_annual_enc",
+      )
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("tax_giro_schedule")
-      .select("profile_id, year, schedule, total_payable, outstanding_balance, source")
+      .select(
+        "profile_id, year, schedule, schedule_enc, total_payable, total_payable_enc, outstanding_balance, outstanding_balance_enc, source",
+      )
       .in("profile_id", targetProfileIds.length > 0 ? targetProfileIds : ["__none__"])
       .eq("year", currentYear),
   ])
@@ -188,7 +205,11 @@ export async function fetchMoneyFlowData(
     const m = normalizeMonthKey(row.month as string)
     const key = `${row.profile_id}:${m}`
     if (!cashflowByKey.has(key)) {
-      cashflowByKey.set(key, { inflow: row.inflow, outflow: row.outflow })
+      const decoded = decodeMonthlyCashflowPii(row)
+      cashflowByKey.set(key, {
+        inflow: decoded.inflow,
+        outflow: decoded.outflow,
+      })
     }
   }
 
@@ -206,9 +227,10 @@ export async function fetchMoneyFlowData(
 
   const incomeByProfileId = new Map<string, IncomeData>()
   for (const ic of incomeRes.data ?? []) {
+    const decoded = decodeIncomeConfigPii(ic)
     incomeByProfileId.set(ic.profile_id, {
-      annual_salary: ic.annual_salary,
-      bonus_estimate: ic.bonus_estimate,
+      annual_salary: decoded.annual_salary ?? 0,
+      bonus_estimate: decoded.bonus_estimate ?? null,
     })
   }
 
@@ -230,13 +252,14 @@ export async function fetchMoneyFlowData(
     const pid = pol.profile_id as string
     if (pol.end_date && pol.end_date < nowDate) continue
     const list = insuranceByProfile.get(pid) ?? []
+    const decoded = decodeInsurancePoliciesPii(pol)
     list.push({
-      premium_amount: pol.premium_amount,
+      premium_amount: decoded.premium_amount ?? 0,
       frequency: pol.frequency,
       is_active: pol.is_active,
       deduct_from_outflow: pol.deduct_from_outflow,
       type: pol.type,
-      coverage_amount: pol.coverage_amount,
+      coverage_amount: decoded.coverage_amount,
     })
     insuranceByProfile.set(pid, list)
   }
@@ -287,7 +310,10 @@ export async function fetchMoneyFlowData(
   for (const tr of taxReliefRes.data ?? []) {
     const key = `${tr.profile_id}:${tr.year}`
     const list = taxReliefByProfileYear.get(key) ?? []
-    list.push({ relief_type: tr.relief_type, amount: tr.amount })
+    list.push({
+      relief_type: tr.relief_type,
+      amount: decodeTaxReliefInputsPii(tr).amount ?? 0,
+    })
     taxReliefByProfileYear.set(key, list)
   }
 
@@ -327,12 +353,13 @@ export async function fetchMoneyFlowData(
   // Healthcare config by profile
   const healthcareByProfile = new Map<string, CpfHealthcareConfig | null>()
   for (const hc of healthcareConfigRes.data ?? []) {
+    const decoded = decodeCpfHealthcareConfigPii(hc)
     healthcareByProfile.set(hc.profile_id as string, {
       profileId: hc.profile_id as string,
-      mslAnnualOverride: hc.msl_annual_override != null ? Number(hc.msl_annual_override) : null,
-      cslAnnual: Number(hc.csl_annual),
-      cslSupplementAnnual: Number(hc.csl_supplement_annual),
-      ispAnnual: Number(hc.isp_annual),
+      mslAnnualOverride: decoded.msl_annual_override,
+      cslAnnual: decoded.csl_annual ?? 0,
+      cslSupplementAnnual: decoded.csl_supplement_annual ?? 0,
+      ispAnnual: decoded.isp_annual ?? 0,
     })
   }
 
@@ -471,9 +498,10 @@ export async function fetchMoneyFlowData(
     const cpfEntries = (cpfRes.data ?? []).filter((c) => c.profile_id === pid)
     const latestCpf = cpfEntries[0]
     if (latestCpf) {
-      totalCpfBalanceOa += latestCpf.oa ?? 0
-      totalCpfBalanceSa += latestCpf.sa ?? 0
-      totalCpfBalanceMa += latestCpf.ma ?? 0
+      const decodedCpf = decodeCpfBalancesPii(latestCpf)
+      totalCpfBalanceOa += decodedCpf.oa ?? 0
+      totalCpfBalanceSa += decodedCpf.sa ?? 0
+      totalCpfBalanceMa += decodedCpf.ma ?? 0
     } else {
       // Project from contributions
       const monthsElapsed = now.getMonth() + 1
@@ -984,11 +1012,16 @@ export async function fetchMoneyFlowData(
     // Sum across profiles
     let giroTotal = 0
     for (const row of giroScheduleRows) {
-      giroTotal += Number(row.total_payable ?? 0)
+      const decoded = decodeTaxGiroSchedulePii(row)
+      giroTotal += Number(decoded.total_payable ?? 0)
     }
     giroMonthlyBase = Math.floor((giroTotal / 12) * 100) / 100
     // Use first profile's schedule for next-payment display
-    const firstSchedule = giroScheduleRows[0]?.schedule as Array<{ month: string; amount: number }> | null
+    const firstSchedule = giroScheduleRows[0]
+      ? (decodeTaxGiroSchedulePii(giroScheduleRows[0]).schedule as
+          | Array<{ month: string; amount: number }>
+          | null)
+      : null
     if (firstSchedule) {
       const nextIdx = getNextGiroPaymentIndex(firstSchedule)
       giroNextLabel = nextIdx >= 0 ? `Next: ${firstSchedule[nextIdx].month}` : "All paid"

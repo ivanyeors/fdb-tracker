@@ -1,6 +1,7 @@
 import { Scenes } from "telegraf"
 
 import { encodeBankTransactionPiiPatch } from "@/lib/repos/bank-transactions"
+import { encodeCpfBalancesPiiPatch } from "@/lib/repos/cpf-balances"
 import { encodeInsurancePoliciesPiiPatch } from "@/lib/repos/insurance-policies"
 import { encodeLoanPiiPatch } from "@/lib/repos/loans"
 import { refreshTransactionSummary } from "@/lib/repos/monthly-transaction-summary"
@@ -343,13 +344,17 @@ async function saveExtractedData(
   switch (extracted.docType) {
     case "cpf_statement": {
       if (!extracted.month) throw new Error("Month is required for CPF statement")
+      const cpfOa = extracted.oa ?? 0
+      const cpfSa = extracted.sa ?? 0
+      const cpfMa = extracted.ma ?? 0
       const { error } = await supabase.from("cpf_balances").upsert(
         {
           profile_id: profileId,
           month: extracted.month,
-          oa: extracted.oa ?? 0,
-          sa: extracted.sa ?? 0,
-          ma: extracted.ma ?? 0,
+          oa: cpfOa,
+          sa: cpfSa,
+          ma: cpfMa,
+          ...encodeCpfBalancesPiiPatch({ oa: cpfOa, sa: cpfSa, ma: cpfMa }),
           is_manual_override: true,
         },
         { onConflict: "profile_id,month" },

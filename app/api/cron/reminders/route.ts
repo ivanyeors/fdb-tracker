@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
+import { decodeInsurancePoliciesPii } from "@/lib/repos/insurance-policies"
 import { decodeProfilePii } from "@/lib/repos/profiles"
+import { decodeTaxReliefInputsPii } from "@/lib/repos/tax-relief-inputs"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { decryptBotToken } from "@/lib/telegram/credentials"
 import {
@@ -114,13 +117,15 @@ async function generateMessage(
       for (const profile of ctx.profiles) {
         const { data: incomeConfig } = await supabase
           .from("income_config")
-          .select("annual_salary, employee_cpf_rate")
+          .select("annual_salary, annual_salary_enc, employee_cpf_rate")
           .eq("profile_id", profile.id)
           .single()
 
         if (incomeConfig) {
           const cpfRate = incomeConfig.employee_cpf_rate ?? 0.2
-          const monthlyGross = incomeConfig.annual_salary / 12
+          const annualSalary =
+            decodeIncomeConfigPii(incomeConfig).annual_salary ?? 0
+          const monthlyGross = annualSalary / 12
           const takeHome = Math.round(monthlyGross * (1 - cpfRate))
           return incomeMonthlyReminder(now.monthLabel, profile.name, takeHome)
         }
@@ -136,14 +141,19 @@ async function generateMessage(
         const profileIds = ctx.profiles.map((p) => p.id)
         const { data: policies } = await supabase
           .from("insurance_policies")
-          .select("name, premium_amount, frequency")
+          .select("name, premium_amount, premium_amount_enc, frequency")
           .in("profile_id", profileIds)
           .eq("is_active", true)
           .eq("frequency", "monthly")
 
         if (policies && policies.length > 0) {
           return policies
-            .map((p) => insuranceMonthlyReminder(p.name, p.premium_amount))
+            .map((p) =>
+              insuranceMonthlyReminder(
+                p.name,
+                decodeInsurancePoliciesPii(p).premium_amount ?? 0,
+              ),
+            )
             .join("\n\n")
         }
       }
@@ -175,35 +185,43 @@ async function generateMessage(
             : null
           const { data: incomeConfig } = await supabase
             .from("income_config")
-            .select("annual_salary, bonus_estimate")
+            .select(
+              "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
+            )
             .eq("profile_id", profileId)
             .single()
           if (profile && incomeConfig) {
+            const decodedIncome = decodeIncomeConfigPii(incomeConfig)
             const { data: insurancePolicies } = await supabase
               .from("insurance_policies")
-              .select("type, premium_amount, frequency, coverage_amount, is_active")
+              .select(
+                "type, premium_amount, premium_amount_enc, frequency, coverage_amount, coverage_amount_enc, is_active",
+              )
               .eq("profile_id", profileId)
             const { data: manualReliefs } = await supabase
               .from("tax_relief_inputs")
-              .select("relief_type, amount")
+              .select("relief_type, amount, amount_enc")
               .eq("profile_id", profileId)
               .eq("year", now.year)
             const result = calculateTax({
               profile: { birth_year: profile.birth_year },
               incomeConfig: {
-                annual_salary: incomeConfig.annual_salary,
-                bonus_estimate: incomeConfig.bonus_estimate ?? 0,
+                annual_salary: decodedIncome.annual_salary ?? 0,
+                bonus_estimate: decodedIncome.bonus_estimate ?? 0,
               },
-              insurancePolicies: (insurancePolicies ?? []).map((p) => ({
-                type: p.type,
-                premium_amount: p.premium_amount,
-                frequency: p.frequency,
-                coverage_amount: p.coverage_amount ?? 0,
-                is_active: p.is_active,
-              })),
+              insurancePolicies: (insurancePolicies ?? []).map((p) => {
+                const dec = decodeInsurancePoliciesPii(p)
+                return {
+                  type: p.type,
+                  premium_amount: dec.premium_amount ?? 0,
+                  frequency: p.frequency,
+                  coverage_amount: dec.coverage_amount ?? 0,
+                  is_active: p.is_active,
+                }
+              }),
               manualReliefs: (manualReliefs ?? []).map((r) => ({
                 relief_type: r.relief_type,
-                amount: r.amount,
+                amount: decodeTaxReliefInputsPii(r).amount ?? 0,
               })),
               year: now.year,
             })

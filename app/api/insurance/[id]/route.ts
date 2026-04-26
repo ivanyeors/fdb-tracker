@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { encodeInsurancePoliciesPiiPatch } from "@/lib/repos/insurance-policies"
+import {
+  decodeInsurancePoliciesPii,
+  encodeInsurancePoliciesPiiPatch,
+} from "@/lib/repos/insurance-policies"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { getCoverageType, COVERAGE_TYPES } from "@/lib/insurance/coverage-config"
 
@@ -214,8 +217,11 @@ export async function PATCH(
 
     if (fetchError) return NextResponse.json({ error: "Failed to fetch updated policy" }, { status: 500 })
 
+    const decoded = decodeInsurancePoliciesPii(data)
     const result = {
       ...data,
+      premium_amount: decoded.premium_amount,
+      coverage_amount: decoded.coverage_amount,
       coverages: data.insurance_policy_coverages ?? [],
       insurance_policy_coverages: undefined,
     }

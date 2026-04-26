@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeCpfBalancesPii } from "@/lib/repos/cpf-balances"
 import { decodeLoanPii } from "@/lib/repos/loans"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
@@ -83,14 +84,26 @@ export async function GET(request: NextRequest) {
           ).data ?? []
         : []
 
-    const { data: allCpfRows } =
+    const { data: allCpfRowsRaw } =
       profileIds.length > 0
         ? await supabase
             .from("cpf_balances")
-            .select("profile_id, month, oa, sa, ma")
+            .select(
+              "profile_id, month, oa, oa_enc, sa, sa_enc, ma, ma_enc",
+            )
             .in("profile_id", profileIds)
             .lte("month", monthKeys[monthKeys.length - 1] ?? "")
         : { data: [] }
+
+    const allCpfRows = (allCpfRowsRaw ?? []).map((r) => {
+      const decoded = decodeCpfBalancesPii(r)
+      return {
+        ...r,
+        oa: decoded.oa ?? 0,
+        sa: decoded.sa ?? 0,
+        ma: decoded.ma ?? 0,
+      }
+    })
 
     let investmentQuery = supabase
       .from("investments")

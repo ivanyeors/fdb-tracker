@@ -1,5 +1,6 @@
 import { Scenes } from "telegraf"
 
+import { encodeTaxGiroSchedulePiiPatch } from "@/lib/repos/tax-giro-schedule"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { botState, MyContext } from "@/lib/telegram/bot"
 import {
@@ -133,13 +134,17 @@ export const taxScene = new Scenes.WizardScene<MyContext>(
 
       // Auto-calculate GIRO schedule
       const giro = calculateGiroSchedule({ taxPayable: amount, year })
+      const giroPii = {
+        schedule: giro.schedule,
+        total_payable: giro.total,
+        outstanding_balance: 0,
+      }
       await supabase.from("tax_giro_schedule").upsert(
         {
           profile_id: profile.id,
           year,
-          schedule: giro.schedule,
-          total_payable: giro.total,
-          outstanding_balance: 0,
+          ...giroPii,
+          ...encodeTaxGiroSchedulePiiPatch(giroPii),
           source: "calculated",
         },
         { onConflict: "profile_id,year" }

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeCpfBalancesPii } from "@/lib/repos/cpf-balances"
+import { decodeCpfHealthcareConfigPii } from "@/lib/repos/cpf-healthcare-config"
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
 import { decodeLoanPii } from "@/lib/repos/loans"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
@@ -85,24 +88,32 @@ export async function GET(request: NextRequest) {
 
     const { data: incomeConfig } = await supabase
       .from("income_config")
-      .select("annual_salary, bonus_estimate")
+      .select(
+        "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
+      )
       .eq("profile_id", singleProfileId)
       .maybeSingle()
 
     const { data: latestBalance } = await supabase
       .from("cpf_balances")
-      .select("oa, sa, ma")
+      .select("oa, oa_enc, sa, sa_enc, ma, ma_enc")
       .eq("profile_id", singleProfileId)
       .order("month", { ascending: false })
       .limit(1)
       .single()
 
-    const currentOa = latestBalance?.oa ?? 0
-    const currentSa = latestBalance?.sa ?? 0
-    const currentMa = latestBalance?.ma ?? 0
+    const decodedBalance = latestBalance
+      ? decodeCpfBalancesPii(latestBalance)
+      : null
+    const currentOa = decodedBalance?.oa ?? 0
+    const currentSa = decodedBalance?.sa ?? 0
+    const currentMa = decodedBalance?.ma ?? 0
     const cpfTotal = currentOa + currentSa + currentMa
 
-    const annualSalary = incomeConfig?.annual_salary ?? 0
+    const decodedIncome = incomeConfig
+      ? decodeIncomeConfigPii(incomeConfig)
+      : null
+    const annualSalary = decodedIncome?.annual_salary ?? 0
     const monthlyGross = annualSalary / 12
     const monthlyContribution = calculateCpfContribution(monthlyGross, currentAge, currentYear)
 
@@ -123,19 +134,20 @@ export async function GET(request: NextRequest) {
         .maybeSingle(),
     ])
 
-    const healthcareConfig: CpfHealthcareConfig | null = healthcareRow
-      ? {
-          id: healthcareRow.id,
-          profileId: healthcareRow.profile_id,
-          mslAnnualOverride:
-            healthcareRow.msl_annual_override != null
-              ? Number(healthcareRow.msl_annual_override)
-              : null,
-          cslAnnual: Number(healthcareRow.csl_annual),
-          cslSupplementAnnual: Number(healthcareRow.csl_supplement_annual),
-          ispAnnual: Number(healthcareRow.isp_annual),
-        }
+    const decodedHealthcare = healthcareRow
+      ? decodeCpfHealthcareConfigPii(healthcareRow)
       : null
+    const healthcareConfig: CpfHealthcareConfig | null =
+      healthcareRow && decodedHealthcare
+        ? {
+            id: healthcareRow.id,
+            profileId: healthcareRow.profile_id,
+            mslAnnualOverride: decodedHealthcare.msl_annual_override,
+            cslAnnual: decodedHealthcare.csl_annual ?? 0,
+            cslSupplementAnnual: decodedHealthcare.csl_supplement_annual ?? 0,
+            ispAnnual: decodedHealthcare.isp_annual ?? 0,
+          }
+        : null
 
     const now = new Date()
     const currentMonth = now.getFullYear() * 12 + now.getMonth()

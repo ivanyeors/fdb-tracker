@@ -23,7 +23,11 @@ import {
   GIRO_OUTFLOW_DESTINATIONS,
   type TaxEntryData,
 } from "@/lib/api/cashflow-aggregation"
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
+import { decodeInsurancePoliciesPii } from "@/lib/repos/insurance-policies"
 import { decodeLoanPii } from "@/lib/repos/loans"
+import { decodeMonthlyCashflowPii } from "@/lib/repos/monthly-cashflow"
+import { decodeTaxReliefInputsPii } from "@/lib/repos/tax-relief-inputs"
 
 export type CashflowRangeRow = {
   month: string
@@ -125,7 +129,9 @@ export async function fetchCashflowRangeSeries(
   ] = await Promise.all([
     supabase
       .from("monthly_cashflow")
-      .select("profile_id, month, inflow, outflow, inflow_memo, outflow_memo")
+      .select(
+        "profile_id, month, inflow, inflow_enc, outflow, outflow_enc, inflow_memo, outflow_memo",
+      )
       .in("profile_id", profileIds)
       .gte("month", startMonth)
       .lte("month", endMonth),
@@ -135,7 +141,9 @@ export async function fetchCashflowRangeSeries(
       .in("id", profileIds),
     supabase
       .from("income_config")
-      .select("profile_id, annual_salary, bonus_estimate")
+      .select(
+        "profile_id, annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
+      )
       .in("profile_id", profileIds),
     supabase
       .from("giro_rules")
@@ -145,7 +153,7 @@ export async function fetchCashflowRangeSeries(
     supabase
       .from("insurance_policies")
       .select(
-        "profile_id, premium_amount, frequency, is_active, deduct_from_outflow, type, coverage_amount"
+        "profile_id, premium_amount, premium_amount_enc, frequency, is_active, deduct_from_outflow, type, coverage_amount, coverage_amount_enc",
       )
       .in("profile_id", profileIds),
     supabase
@@ -158,7 +166,7 @@ export async function fetchCashflowRangeSeries(
       .in("profile_id", profileIds),
     supabase
       .from("tax_relief_inputs")
-      .select("profile_id, year, relief_type, amount")
+      .select("profile_id, year, relief_type, amount, amount_enc")
       .in("profile_id", profileIds)
       .in("year", years.length ? years : [new Date().getFullYear()]),
     supabase
@@ -309,7 +317,8 @@ export async function fetchCashflowRangeSeries(
   for (const tr of taxReliefRes.data ?? []) {
     const key = `${tr.profile_id}:${tr.year}`
     const list = taxReliefCashByProfileYear.get(key) ?? []
-    list.push({ relief_type: tr.relief_type, amount: tr.amount, year: tr.year as number })
+    const amount = decodeTaxReliefInputsPii(tr).amount ?? 0
+    list.push({ relief_type: tr.relief_type, amount, year: tr.year as number })
     taxReliefCashByProfileYear.set(key, list)
   }
 
@@ -337,9 +346,10 @@ export async function fetchCashflowRangeSeries(
   for (const row of cashflowRes.data ?? []) {
     const m = normalizeMonthKey(row.month as string)
     const key = `${row.profile_id}:${m}`
+    const decoded = decodeMonthlyCashflowPii(row)
     cashflowByKey.set(key, {
-      inflow: row.inflow,
-      outflow: row.outflow,
+      inflow: decoded.inflow,
+      outflow: decoded.outflow,
     })
     const r = row as {
       profile_id: string
@@ -365,9 +375,10 @@ export async function fetchCashflowRangeSeries(
     { annual_salary: number; bonus_estimate: number | null }
   >()
   for (const ic of incomeRes.data ?? []) {
+    const decoded = decodeIncomeConfigPii(ic)
     incomeByProfileId.set(ic.profile_id, {
-      annual_salary: ic.annual_salary,
-      bonus_estimate: ic.bonus_estimate,
+      annual_salary: decoded.annual_salary ?? 0,
+      bonus_estimate: decoded.bonus_estimate ?? null,
     })
   }
 
@@ -391,13 +402,14 @@ export async function fetchCashflowRangeSeries(
   for (const pol of insuranceRes.data ?? []) {
     const pid = pol.profile_id as string
     const list = insuranceByProfile.get(pid) ?? []
+    const decoded = decodeInsurancePoliciesPii(pol)
     list.push({
-      premium_amount: pol.premium_amount,
+      premium_amount: decoded.premium_amount ?? 0,
       frequency: pol.frequency,
       is_active: pol.is_active,
       deduct_from_outflow: pol.deduct_from_outflow,
       type: pol.type,
-      coverage_amount: pol.coverage_amount,
+      coverage_amount: decoded.coverage_amount,
     })
     insuranceByProfile.set(pid, list)
   }
@@ -442,7 +454,10 @@ export async function fetchCashflowRangeSeries(
     const y = tr.year as number
     const key = `${pid}:${y}`
     const list = taxReliefByProfileYear.get(key) ?? []
-    list.push({ relief_type: tr.relief_type, amount: tr.amount })
+    list.push({
+      relief_type: tr.relief_type,
+      amount: decodeTaxReliefInputsPii(tr).amount ?? 0,
+    })
     taxReliefByProfileYear.set(key, list)
   }
 

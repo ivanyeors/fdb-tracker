@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { decodeInsurancePoliciesPii } from "@/lib/repos/insurance-policies"
+
 export async function fetchInsurancePolicies(
   supabase: SupabaseClient,
   params: { profileIds: string[] }
@@ -16,9 +18,14 @@ export async function fetchInsurancePolicies(
 
   if (error) throw new Error("Failed to fetch policies")
 
-  return (policies || []).map((p) => ({
-    ...p,
-    coverages: p.insurance_policy_coverages ?? [],
-    insurance_policy_coverages: undefined,
-  }))
+  return (policies || []).map((p) => {
+    const decoded = decodeInsurancePoliciesPii(p)
+    return {
+      ...p,
+      premium_amount: decoded.premium_amount,
+      coverage_amount: decoded.coverage_amount,
+      coverages: p.insurance_policy_coverages ?? [],
+      insurance_policy_coverages: undefined,
+    }
+  })
 }

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers"
 import { getSessionFromCookies } from "@/lib/auth/session"
+import { decodeBankTransactionPii } from "@/lib/repos/bank-transactions"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { fetchCashflowRangeSeries } from "@/lib/api/cashflow-range"
@@ -94,12 +95,18 @@ export default async function CashflowPage() {
         .order("priority", { ascending: false }),
     ])
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const decodedTxns = (txnResult.data ?? []).map((row: any) => {
+    const dec = decodeBankTransactionPii(row)
+    return { ...row, amount: dec.amount, balance: dec.balance }
+  })
+
   return (
     <CashflowClient
       initialData={cashflowResult}
       initialWaterfallData={waterfallResult}
       initialTransactionsData={{
-        transactions: txnResult.data ?? [],
+        transactions: decodedTxns,
         categories: catResult.data ?? [],
         categoryRules: rulesResult.data ?? [],
       }}

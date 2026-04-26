@@ -1,5 +1,7 @@
 import { cookies } from "next/headers"
 import { getSessionFromCookies } from "@/lib/auth/session"
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
+import { decodeInsurancePoliciesPii } from "@/lib/repos/insurance-policies"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
@@ -61,13 +63,13 @@ export default async function InsurancePage() {
         supabase
           .from("insurance_policies")
           .select(
-            "id, profile_id, name, type, coverage_type, coverage_amount, is_active, premium_amount, frequency, yearly_outflow_date, insurance_policy_coverages(coverage_type, coverage_amount)"
+            "id, profile_id, name, type, coverage_type, coverage_amount, coverage_amount_enc, is_active, premium_amount, premium_amount_enc, frequency, yearly_outflow_date, insurance_policy_coverages(coverage_type, coverage_amount)"
           )
           .in("profile_id", profileIds)
           .eq("is_active", true),
         supabase
           .from("income_config")
-          .select("profile_id, annual_salary")
+          .select("profile_id, annual_salary, annual_salary_enc")
           .in("profile_id", profileIds),
         supabase
           .from("insurance_coverage_benchmarks")
@@ -83,22 +85,35 @@ export default async function InsurancePage() {
           .in("id", profileIds),
       ])
 
-    // Map policies for the client list
-    const policies = (policiesRes.data ?? []).map((p) => ({
-      ...p,
-      coverages: p.insurance_policy_coverages ?? [],
-      insurance_policy_coverages: undefined,
-    }))
+    // Map policies for the client list (decode amounts)
+    const policies = (policiesRes.data ?? []).map((p) => {
+      const decoded = decodeInsurancePoliciesPii(p)
+      return {
+        ...p,
+        premium_amount: decoded.premium_amount ?? 0,
+        coverage_amount: decoded.coverage_amount,
+        coverages: p.insurance_policy_coverages ?? [],
+        insurance_policy_coverages: undefined,
+      }
+    })
 
     // Build coverage analysis (mirrors /api/insurance/coverage logic)
-    const activePolicies = (activePoliciesRes.data ?? []).map((p) => ({
-      ...p,
-      coverages: (p as Record<string, unknown>).insurance_policy_coverages as
-        | { coverage_type: string; coverage_amount: number }[]
-        | undefined,
-    }))
+    const activePolicies = (activePoliciesRes.data ?? []).map((p) => {
+      const decoded = decodeInsurancePoliciesPii(p)
+      return {
+        ...p,
+        premium_amount: decoded.premium_amount,
+        coverage_amount: decoded.coverage_amount,
+        coverages: (p as Record<string, unknown>).insurance_policy_coverages as
+          | { coverage_type: string; coverage_amount: number }[]
+          | undefined,
+      }
+    })
     const incomeByProfile = new Map(
-      (incomeRes.data ?? []).map((r) => [r.profile_id, r.annual_salary ?? 0])
+      (incomeRes.data ?? []).map((r) => [
+        r.profile_id,
+        decodeIncomeConfigPii(r).annual_salary ?? 0,
+      ])
     )
     const benchmarksByProfile = new Map(
       (benchmarksRes.data ?? []).map((r) => [r.profile_id, r])

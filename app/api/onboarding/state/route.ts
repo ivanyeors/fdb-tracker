@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
+import { decodeCpfBalancesPii } from "@/lib/repos/cpf-balances"
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
+import { decodeInsurancePoliciesPii } from "@/lib/repos/insurance-policies"
 import { decodeLoanPii } from "@/lib/repos/loans"
+import { decodeTaxReliefInputsPii } from "@/lib/repos/tax-relief-inputs"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 function getLastCompletedStep(data: {
@@ -88,22 +92,39 @@ export async function GET(request: NextRequest) {
       profileIds.length > 0
         ? await supabase
             .from("income_config")
-            .select("profile_id, annual_salary, bonus_estimate, pay_frequency")
+            .select(
+              "profile_id, annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc, pay_frequency",
+            )
             .in("profile_id", profileIds)
         : { data: [] }
 
     const incomeByProfile = new Map(
-      (incomeConfigs ?? []).map((ic) => [ic.profile_id, ic]),
+      (incomeConfigs ?? []).map((ic) => {
+        const decoded = decodeIncomeConfigPii(ic)
+        return [
+          ic.profile_id,
+          {
+            ...ic,
+            annual_salary: decoded.annual_salary,
+            bonus_estimate: decoded.bonus_estimate,
+          },
+        ]
+      }),
     )
 
     const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`
     const { data: cpfRows } = await supabase
       .from("cpf_balances")
-      .select("profile_id, oa, sa, ma")
+      .select("profile_id, oa, oa_enc, sa, sa_enc, ma, ma_enc")
       .in("profile_id", profileIds)
       .eq("month", currentMonth)
 
-    const cpfByProfile = new Map((cpfRows ?? []).map((r) => [r.profile_id, r]))
+    const cpfByProfile = new Map(
+      (cpfRows ?? []).map((r) => {
+        const decoded = decodeCpfBalancesPii(r)
+        return [r.profile_id, { ...r, ...decoded }]
+      }),
+    )
 
     const { data: bankAccounts } = await supabase
       .from("bank_accounts")
@@ -131,14 +152,16 @@ export async function GET(request: NextRequest) {
 
     const { data: insurancePolicies } = await supabase
       .from("insurance_policies")
-      .select("id, name, type, premium_amount, frequency, coverage_amount, profile_id")
+      .select(
+        "id, name, type, premium_amount, premium_amount_enc, frequency, coverage_amount, coverage_amount_enc, profile_id",
+      )
       .in("profile_id", profileIds)
       .order("created_at", { ascending: true })
 
     const currentYear = new Date().getFullYear()
     const { data: taxReliefInputs } = await supabase
       .from("tax_relief_inputs")
-      .select("profile_id, relief_type, amount")
+      .select("profile_id, relief_type, amount, amount_enc")
       .in("profile_id", profileIds)
       .eq("year", currentYear)
 
@@ -213,12 +236,13 @@ export async function GET(request: NextRequest) {
 
     const mappedInsurance = (insurancePolicies ?? []).map((p) => {
       const idx = p.profile_id ? profileIndexMap.get(p.profile_id) ?? 0 : 0
+      const decoded = decodeInsurancePoliciesPii(p)
       return {
         name: p.name,
         type: p.type,
-        premium_amount: p.premium_amount ?? 0,
+        premium_amount: decoded.premium_amount ?? 0,
         frequency: (p.frequency ?? "yearly") as "monthly" | "yearly",
-        coverage_amount: p.coverage_amount ?? undefined,
+        coverage_amount: decoded.coverage_amount ?? undefined,
         profileIndex: idx,
       }
     })
@@ -227,7 +251,7 @@ export async function GET(request: NextRequest) {
       const idx = r.profile_id ? profileIndexMap.get(r.profile_id) ?? 0 : 0
       return {
         relief_type: r.relief_type,
-        amount: r.amount ?? 0,
+        amount: decodeTaxReliefInputsPii(r).amount ?? 0,
         profileIndex: idx,
       }
     })

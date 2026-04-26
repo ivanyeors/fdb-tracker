@@ -1,3 +1,5 @@
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
+import { decodeMonthlyCashflowPii } from "@/lib/repos/monthly-cashflow"
 import type { createSupabaseAdmin } from "@/lib/supabase/server"
 import {
   computeOcbc360CategoryRows,
@@ -44,14 +46,14 @@ export async function fetchOcbc360DerivedForAccount(
     cashflowProfileId
       ? supabase
           .from("income_config")
-          .select("annual_salary")
+          .select("annual_salary, annual_salary_enc")
           .eq("profile_id", cashflowProfileId)
           .maybeSingle()
       : Promise.resolve({ data: null }),
     cashflowProfileId
       ? supabase
           .from("monthly_cashflow")
-          .select("inflow, outflow")
+          .select("inflow, inflow_enc, outflow, outflow_enc")
           .eq("profile_id", cashflowProfileId)
           .eq("month", evalMonth)
           .maybeSingle()
@@ -65,16 +67,18 @@ export async function fetchOcbc360DerivedForAccount(
   ])
 
   const ic = icResult.data
-  if (ic && typeof ic.annual_salary === "number" && ic.annual_salary > 0) {
-    monthlyGrossSalaryFromIncome = ic.annual_salary / 12
+  if (ic) {
+    const annualSalary = decodeIncomeConfigPii(ic).annual_salary ?? 0
+    if (annualSalary > 0) {
+      monthlyGrossSalaryFromIncome = annualSalary / 12
+    }
   }
 
   const cf = cfResult.data
   if (cf) {
-    monthlyCashflowInflow =
-      cf.inflow !== null && cf.inflow !== undefined ? Number(cf.inflow) : 0
-    monthlyDiscretionaryOutflow =
-      cf.outflow !== null && cf.outflow !== undefined ? Number(cf.outflow) : 0
+    const decoded = decodeMonthlyCashflowPii(cf)
+    monthlyCashflowInflow = decoded.inflow ?? 0
+    monthlyDiscretionaryOutflow = decoded.outflow ?? 0
   }
 
   const twoSnaps = snapsResult.data

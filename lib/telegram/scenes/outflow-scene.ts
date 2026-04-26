@@ -1,6 +1,7 @@
 import { Scenes } from "telegraf"
 import { format, startOfMonth } from "date-fns"
 
+import { encodeMonthlyCashflowPiiPatch } from "@/lib/repos/monthly-cashflow"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { botState, MyContext } from "@/lib/telegram/bot"
 import {
@@ -72,6 +73,7 @@ export const outflowScene = new Scenes.WizardScene<MyContext>(
             profile_id: one.profileId,
             month,
             outflow: one.amount,
+            ...encodeMonthlyCashflowPiiPatch({ outflow: one.amount }),
             source: "telegram",
             ...(one.memo != null ? { outflow_memo: one.memo } : {}),
             updated_at: new Date().toISOString(),
@@ -207,6 +209,7 @@ async function handleAmountInput(ctx: MyContext) {
         profile_id: ctx.scene.session.profileId!,
         month,
         outflow: amount,
+        ...encodeMonthlyCashflowPiiPatch({ outflow: amount }),
         source: "telegram",
         ...(memo != null ? { outflow_memo: memo } : {}),
         updated_at: new Date().toISOString(),

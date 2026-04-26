@@ -3,8 +3,13 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { encodeIncomeConfigPiiPatch } from "@/lib/repos/income-config"
+import {
+  decodeIncomeConfigPii,
+  encodeIncomeConfigPiiPatch,
+} from "@/lib/repos/income-config"
+import { decodeInsurancePoliciesPii } from "@/lib/repos/insurance-policies"
 import { decodeProfilePii } from "@/lib/repos/profiles"
+import { decodeTaxReliefInputsPii } from "@/lib/repos/tax-relief-inputs"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { calculateTax, solveBonusForTargetTaxPayable } from "@/lib/calculations/tax"
 
@@ -67,7 +72,9 @@ export async function POST(request: NextRequest) {
 
     const { data: incomeConfig, error: incomeError } = await supabase
       .from("income_config")
-      .select("annual_salary, bonus_estimate")
+      .select(
+        "annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
+      )
       .eq("profile_id", parsed.data.profile_id)
       .single()
 
@@ -77,39 +84,45 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    const decodedIncome = decodeIncomeConfigPii(incomeConfig)
 
     const annualTax = roundToCent(parsed.data.monthly_amount * parsed.data.payments_per_year)
 
     const { data: insurancePolicies } = await supabase
       .from("insurance_policies")
-      .select("type, premium_amount, frequency, coverage_amount, is_active")
+      .select(
+        "type, premium_amount, premium_amount_enc, frequency, coverage_amount, coverage_amount_enc, is_active",
+      )
       .eq("profile_id", parsed.data.profile_id)
 
     const { data: manualReliefs } = await supabase
       .from("tax_relief_inputs")
-      .select("relief_type, amount")
+      .select("relief_type, amount, amount_enc")
       .eq("profile_id", parsed.data.profile_id)
       .eq("year", parsed.data.year)
 
-    const insuranceMapped = (insurancePolicies ?? []).map((p) => ({
-      type: p.type,
-      premium_amount: p.premium_amount,
-      frequency: p.frequency,
-      coverage_amount: p.coverage_amount ?? 0,
-      is_active: p.is_active,
-    }))
+    const insuranceMapped = (insurancePolicies ?? []).map((p) => {
+      const decoded = decodeInsurancePoliciesPii(p)
+      return {
+        type: p.type,
+        premium_amount: decoded.premium_amount ?? 0,
+        frequency: p.frequency,
+        coverage_amount: decoded.coverage_amount ?? 0,
+        is_active: p.is_active,
+      }
+    })
 
     const manualMapped = (manualReliefs ?? []).map((r) => ({
       relief_type: r.relief_type,
-      amount: r.amount,
+      amount: decodeTaxReliefInputsPii(r).amount ?? 0,
     }))
 
-    let bonusEstimate = Number(incomeConfig.bonus_estimate ?? 0)
+    let bonusEstimate = Number(decodedIncome.bonus_estimate ?? 0)
 
     if (parsed.data.sync_bonus_estimate) {
       const solved = solveBonusForTargetTaxPayable({
         profile: { birth_year: profile.birth_year },
-        annual_salary: Number(incomeConfig.annual_salary),
+        annual_salary: Number(decodedIncome.annual_salary ?? 0),
         insurancePolicies: insuranceMapped,
         manualReliefs: manualMapped,
         year: parsed.data.year,
@@ -137,7 +150,7 @@ export async function POST(request: NextRequest) {
     const result = calculateTax({
       profile: { birth_year: profile.birth_year },
       incomeConfig: {
-        annual_salary: Number(incomeConfig.annual_salary),
+        annual_salary: Number(decodedIncome.annual_salary ?? 0),
         bonus_estimate: bonusEstimate,
       },
       insurancePolicies: insuranceMapped,

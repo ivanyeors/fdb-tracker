@@ -33,7 +33,13 @@ import {
   loanMonthlyPayment,
 } from "@/lib/calculations/loans"
 import { computeTotalInvestmentsValue } from "@/lib/api/net-liquid"
+import { decodeBankTransactionPii } from "@/lib/repos/bank-transactions"
+import { decodeCpfBalancesPii } from "@/lib/repos/cpf-balances"
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
+import { decodeInsurancePoliciesPii } from "@/lib/repos/insurance-policies"
 import { decodeLoanPii } from "@/lib/repos/loans"
+import { decodeMonthlyCashflowPii } from "@/lib/repos/monthly-cashflow"
+import { decodeTaxReliefInputsPii } from "@/lib/repos/tax-relief-inputs"
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -291,7 +297,9 @@ export async function fetchOverviewData(
     // 1. Monthly cashflow (for savings rate + bank balance replay)
     supabase
       .from("monthly_cashflow")
-      .select("profile_id, month, inflow, outflow")
+      .select(
+        "profile_id, month, inflow, inflow_enc, outflow, outflow_enc",
+      )
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
       .gte("month", rangeStart)
       .order("month", { ascending: false }),
@@ -303,7 +311,9 @@ export async function fetchOverviewData(
     // 3. Income config
     supabase
       .from("income_config")
-      .select("profile_id, annual_salary, bonus_estimate")
+      .select(
+        "profile_id, annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
+      )
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     // 4. GIRO rules for outflow
     supabase
@@ -315,7 +325,7 @@ export async function fetchOverviewData(
     supabase
       .from("insurance_policies")
       .select(
-        "profile_id, premium_amount, frequency, is_active, deduct_from_outflow, type, coverage_amount, end_date"
+        "profile_id, premium_amount, premium_amount_enc, frequency, is_active, deduct_from_outflow, type, coverage_amount, coverage_amount_enc, end_date",
       )
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     // 6. ILP products (profile-scoped)
@@ -331,7 +341,7 @@ export async function fetchOverviewData(
     // 8. Tax relief inputs
     supabase
       .from("tax_relief_inputs")
-      .select("profile_id, year, relief_type, amount")
+      .select("profile_id, year, relief_type, amount, amount_enc")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
       .in("year", [currentYear, currentYear - 1]),
     // 9. Savings goals
@@ -342,7 +352,9 @@ export async function fetchOverviewData(
     // 11. CPF balances
     supabase
       .from("cpf_balances")
-      .select("profile_id, month, oa, sa, ma")
+      .select(
+        "profile_id, month, oa, oa_enc, sa, sa_enc, ma, ma_enc",
+      )
       .in(
         "profile_id",
         targetProfileIds.length > 0 ? targetProfileIds : ["__none__"]
@@ -391,7 +403,11 @@ export async function fetchOverviewData(
     const key = `${row.profile_id}:${m}`
     // Keep the first (latest) entry per key since ordered desc
     if (!cashflowByKey.has(key)) {
-      cashflowByKey.set(key, { inflow: row.inflow, outflow: row.outflow })
+      const decoded = decodeMonthlyCashflowPii(row)
+      cashflowByKey.set(key, {
+        inflow: decoded.inflow,
+        outflow: decoded.outflow,
+      })
     }
   }
 
@@ -406,9 +422,10 @@ export async function fetchOverviewData(
 
   const incomeByProfileId = new Map<string, IncomeData>()
   for (const ic of incomeRes.data ?? []) {
+    const decoded = decodeIncomeConfigPii(ic)
     incomeByProfileId.set(ic.profile_id, {
-      annual_salary: ic.annual_salary,
-      bonus_estimate: ic.bonus_estimate,
+      annual_salary: decoded.annual_salary ?? 0,
+      bonus_estimate: decoded.bonus_estimate ?? null,
     })
   }
 
@@ -433,13 +450,14 @@ export async function fetchOverviewData(
     // Skip expired policies
     if (pol.end_date && pol.end_date < nowDate) continue
     const list = insuranceByProfile.get(pid) ?? []
+    const decoded = decodeInsurancePoliciesPii(pol)
     list.push({
-      premium_amount: pol.premium_amount,
+      premium_amount: decoded.premium_amount ?? 0,
       frequency: pol.frequency,
       is_active: pol.is_active,
       deduct_from_outflow: pol.deduct_from_outflow,
       type: pol.type,
-      coverage_amount: pol.coverage_amount,
+      coverage_amount: decoded.coverage_amount,
     })
     insuranceByProfile.set(pid, list)
   }
@@ -509,7 +527,10 @@ export async function fetchOverviewData(
   for (const tr of taxReliefRes.data ?? []) {
     const key = `${tr.profile_id}:${tr.year}`
     const list = taxReliefByProfileYear.get(key) ?? []
-    list.push({ relief_type: tr.relief_type, amount: tr.amount })
+    list.push({
+      relief_type: tr.relief_type,
+      amount: decodeTaxReliefInputsPii(tr).amount ?? 0,
+    })
     taxReliefByProfileYear.set(key, list)
   }
 
@@ -596,9 +617,10 @@ export async function fetchOverviewData(
       const latest = cpfEntries[0]
 
       if (latest) {
-        const o = latest.oa ?? 0
-        const s = latest.sa ?? 0
-        const m = latest.ma ?? 0
+        const decoded = decodeCpfBalancesPii(latest)
+        const o = decoded.oa ?? 0
+        const s = decoded.sa ?? 0
+        const m = decoded.ma ?? 0
         oa += o
         sa += s
         ma += m
@@ -762,7 +784,7 @@ export async function fetchOverviewData(
         const months = computePrev ? [prevMonth, latestMonth] : [latestMonth]
         let qb = supabase
           .from("bank_transactions")
-          .select("month, amount")
+          .select("month, amount, amount_enc")
           .in("month", months)
           .eq("txn_type", "debit")
           .eq("exclude_from_spending", false)
@@ -776,7 +798,11 @@ export async function fetchOverviewData(
     const bankTotalByMonth = new Map<string, number>()
     for (const t of bankTxnsRes.data ?? []) {
       const m = normalizeMonthKey(t.month as string)
-      const amt = Math.abs((t.amount as number) ?? 0)
+      const decoded = decodeBankTransactionPii({
+        amount: t.amount,
+        amount_enc: (t as { amount_enc?: string | null }).amount_enc,
+      })
+      const amt = Math.abs(decoded.amount ?? 0)
       bankTotalByMonth.set(m, (bankTotalByMonth.get(m) ?? 0) + amt)
     }
 

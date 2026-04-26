@@ -32,7 +32,12 @@ import {
   type ProfileData,
   type TaxEntryData,
 } from "@/lib/api/cashflow-aggregation"
+import { decodeCpfBalancesPii } from "@/lib/repos/cpf-balances"
+import { decodeIncomeConfigPii } from "@/lib/repos/income-config"
+import { decodeInsurancePoliciesPii } from "@/lib/repos/insurance-policies"
 import { decodeLoanPii } from "@/lib/repos/loans"
+import { decodeMonthlyCashflowPii } from "@/lib/repos/monthly-cashflow"
+import { decodeTaxReliefInputsPii } from "@/lib/repos/tax-relief-inputs"
 
 type SingleMonthResult = {
   month: string
@@ -87,7 +92,9 @@ export async function fetchSingleMonthCashflow(
   ] = await Promise.all([
     supabase
       .from("monthly_cashflow")
-      .select("profile_id, month, inflow, outflow")
+      .select(
+        "profile_id, month, inflow, inflow_enc, outflow, outflow_enc",
+      )
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
       .eq("month", monthStr),
     supabase
@@ -96,7 +103,9 @@ export async function fetchSingleMonthCashflow(
       .in("id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("income_config")
-      .select("profile_id, annual_salary, bonus_estimate")
+      .select(
+        "profile_id, annual_salary, annual_salary_enc, bonus_estimate, bonus_estimate_enc",
+      )
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("giro_rules")
@@ -106,7 +115,7 @@ export async function fetchSingleMonthCashflow(
     supabase
       .from("insurance_policies")
       .select(
-        "profile_id, name, premium_amount, frequency, is_active, deduct_from_outflow, type, coverage_amount, end_date"
+        "profile_id, name, premium_amount, premium_amount_enc, frequency, is_active, deduct_from_outflow, type, coverage_amount, coverage_amount_enc, end_date",
       )
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
@@ -119,7 +128,7 @@ export async function fetchSingleMonthCashflow(
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"]),
     supabase
       .from("tax_relief_inputs")
-      .select("profile_id, year, relief_type, amount")
+      .select("profile_id, year, relief_type, amount, amount_enc")
       .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
       .eq("year", year),
     supabase
@@ -227,7 +236,9 @@ export async function fetchSingleMonthCashflow(
       // CPF balances for prev month and target month
       supabase
         .from("cpf_balances")
-        .select("profile_id, month, oa, sa, ma")
+        .select(
+          "profile_id, month, oa, oa_enc, sa, sa_enc, ma, ma_enc",
+        )
         .in("profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
         .in("month", [prevMonthStr, monthStr]),
       // ILP fund values at start of month (latest per product before monthStr)
@@ -268,7 +279,11 @@ export async function fetchSingleMonthCashflow(
   const cashflowByKey = new Map<string, CashflowRow>()
   for (const row of cashflowRes.data ?? []) {
     const key = `${row.profile_id}:${normalizeMonthKey(row.month as string)}`
-    cashflowByKey.set(key, { inflow: row.inflow, outflow: row.outflow })
+    const decoded = decodeMonthlyCashflowPii(row)
+    cashflowByKey.set(key, {
+      inflow: decoded.inflow,
+      outflow: decoded.outflow,
+    })
   }
 
   const profileById = new Map<string, ProfileData>()
@@ -278,9 +293,10 @@ export async function fetchSingleMonthCashflow(
 
   const incomeByProfileId = new Map<string, IncomeData>()
   for (const ic of incomeRes.data ?? []) {
+    const decoded = decodeIncomeConfigPii(ic)
     incomeByProfileId.set(ic.profile_id, {
-      annual_salary: ic.annual_salary,
-      bonus_estimate: ic.bonus_estimate,
+      annual_salary: decoded.annual_salary ?? 0,
+      bonus_estimate: decoded.bonus_estimate ?? null,
     })
   }
 
@@ -311,14 +327,15 @@ export async function fetchSingleMonthCashflow(
     const pid = pol.profile_id as string
     if (pol.end_date && pol.end_date < nowDate) continue
     const list = insuranceByProfile.get(pid) ?? []
+    const decoded = decodeInsurancePoliciesPii(pol)
     list.push({
       name: (pol.name as string) ?? "Policy",
-      premium_amount: pol.premium_amount,
+      premium_amount: decoded.premium_amount ?? 0,
       frequency: pol.frequency,
       is_active: pol.is_active,
       deduct_from_outflow: pol.deduct_from_outflow,
       type: pol.type,
-      coverage_amount: pol.coverage_amount,
+      coverage_amount: decoded.coverage_amount,
     })
     insuranceByProfile.set(pid, list)
   }
@@ -363,7 +380,10 @@ export async function fetchSingleMonthCashflow(
   for (const tr of taxReliefRes.data ?? []) {
     const key = `${tr.profile_id}:${tr.year}`
     const list = taxReliefByProfileYear.get(key) ?? []
-    list.push({ relief_type: tr.relief_type, amount: tr.amount })
+    list.push({
+      relief_type: tr.relief_type,
+      amount: decodeTaxReliefInputsPii(tr).amount ?? 0,
+    })
     taxReliefByProfileYear.set(key, list)
   }
 
@@ -816,9 +836,10 @@ export async function fetchSingleMonthCashflow(
 
     for (const row of cpfRows) {
       const m = typeof row.month === "string" ? row.month.slice(0, 10) : ""
-      const oa = Number(row.oa) || 0
-      const sa = Number(row.sa) || 0
-      const ma = Number(row.ma) || 0
+      const decoded = decodeCpfBalancesPii(row)
+      const oa = Number(decoded.oa) || 0
+      const sa = Number(decoded.sa) || 0
+      const ma = Number(decoded.ma) || 0
       if (m === prevMonthStr) {
         cpfStartOa += oa; cpfStartSa += sa; cpfStartMa += ma
       } else if (m === monthStr) {

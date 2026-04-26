@@ -7,6 +7,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { decodeMonthlyCashflowPii } from "@/lib/repos/monthly-cashflow"
+
 export type OutflowCategoryEntry = {
   categoryId: string | null
   categoryName: string | null
@@ -78,13 +80,13 @@ export async function getOutflowBreakdownForProfile(
   // Fallback: single outflow value from monthly_cashflow
   const { data: cashflow } = await supabase
     .from("monthly_cashflow")
-    .select("outflow")
+    .select("outflow, outflow_enc")
     .eq("profile_id", profileId)
     .eq("month", monthStr)
     .single()
 
   return {
-    total: cashflow?.outflow ?? 0,
+    total: cashflow ? decodeMonthlyCashflowPii(cashflow).outflow ?? 0 : 0,
     categories: null,
   }
 }

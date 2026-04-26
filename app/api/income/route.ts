@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
-import { encodeIncomeConfigPiiPatch } from "@/lib/repos/income-config"
+import {
+  decodeIncomeConfigPii,
+  encodeIncomeConfigPiiPatch,
+} from "@/lib/repos/income-config"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
@@ -68,7 +71,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch income config" }, { status: 500 })
     }
 
-    return NextResponse.json(incomeConfig ?? null)
+    if (!incomeConfig) return NextResponse.json(null)
+    const decoded = decodeIncomeConfigPii(incomeConfig)
+    return NextResponse.json({
+      ...incomeConfig,
+      annual_salary: decoded.annual_salary,
+      bonus_estimate: decoded.bonus_estimate,
+    })
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
