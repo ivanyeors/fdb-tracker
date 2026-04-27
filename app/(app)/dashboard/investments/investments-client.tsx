@@ -48,7 +48,7 @@ import {
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { useDataRefresh } from "@/hooks/use-data-refresh"
 import { useApi } from "@/hooks/use-api"
-import { Loader2 } from "lucide-react"
+import { CreditCard, Loader2, Package, Plus } from "lucide-react"
 import { toast } from "sonner"
 import {
   currentMonthYm,
@@ -78,7 +78,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { Plus, CreditCard, Package } from "lucide-react"
 import { PortfolioSummary } from "@/components/dashboard/investments/portfolio-summary"
 
 const AllocationChart = dynamic(

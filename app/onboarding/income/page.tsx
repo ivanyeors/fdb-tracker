@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Loader2 } from "lucide-react"
+import { ArrowLeft, ArrowRight, HelpCircle, Loader2 } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -26,7 +26,6 @@ import {
   type IncomeConfig,
 } from "@/components/onboarding/onboarding-provider"
 import { incomeSchema } from "@/lib/validations/onboarding"
-import { ArrowLeft, ArrowRight, HelpCircle } from "lucide-react"
 import { toast } from "sonner"
 
 const PAY_FREQUENCIES = [
