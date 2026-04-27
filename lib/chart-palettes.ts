@@ -53,7 +53,7 @@ function semanticColors(baseHue: number) {
     negative: oklch(0.58, 0.22, negHue),
     neutral: oklch(0.55, 0.02, baseHue),
     positiveDark: oklch(0.72, 0.17, posHue),
-    negativeDark: oklch(0.70, 0.19, negHue),
+    negativeDark: oklch(0.7, 0.19, negHue),
     neutralDark: oklch(0.65, 0.02, baseHue),
   }
 }

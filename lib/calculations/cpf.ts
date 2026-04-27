@@ -35,15 +35,15 @@ type AllocationBracket = {
 };
 
 const RATES_2025: RateBracket[] = [
-  { maxAge: 55, employeeRate: 0.20, employerRate: 0.17, totalRate: 0.37 },
+  { maxAge: 55, employeeRate: 0.2, employerRate: 0.17, totalRate: 0.37 },
   { maxAge: 60, employeeRate: 0.15, employerRate: 0.155, totalRate: 0.305 },
-  { maxAge: 65, employeeRate: 0.09, employerRate: 0.11, totalRate: 0.20 },
+  { maxAge: 65, employeeRate: 0.09, employerRate: 0.11, totalRate: 0.2 },
   { maxAge: 70, employeeRate: 0.075, employerRate: 0.09, totalRate: 0.165 },
   { maxAge: Infinity, employeeRate: 0.05, employerRate: 0.075, totalRate: 0.125 },
 ];
 
 const RATES_2026: RateBracket[] = [
-  { maxAge: 55, employeeRate: 0.20, employerRate: 0.17, totalRate: 0.37 },
+  { maxAge: 55, employeeRate: 0.2, employerRate: 0.17, totalRate: 0.37 },
   { maxAge: 60, employeeRate: 0.18, employerRate: 0.16, totalRate: 0.34 },
   { maxAge: 65, employeeRate: 0.125, employerRate: 0.125, totalRate: 0.25 },
   { maxAge: 70, employeeRate: 0.075, employerRate: 0.09, totalRate: 0.165 },
@@ -56,17 +56,17 @@ const OW_CEILING: Record<number, number> = {
 };
 
 const ALLOCATIONS_2025: AllocationBracket[] = [
-  { maxAge: 35, oa: 0.3400, sa: 0.0886, ma: 0.5714 },
-  { maxAge: 45, oa: 0.3000, sa: 0.1000, ma: 0.6000 },
-  { maxAge: 50, oa: 0.2639, sa: 0.1111, ma: 0.6250 },
+  { maxAge: 35, oa: 0.34, sa: 0.0886, ma: 0.5714 },
+  { maxAge: 45, oa: 0.3, sa: 0.1, ma: 0.6 },
+  { maxAge: 50, oa: 0.2639, sa: 0.1111, ma: 0.625 },
   { maxAge: 55, oa: 0.2059, sa: 0.1578, ma: 0.6363 },
 ];
 
 const ALLOCATIONS_2026: AllocationBracket[] = [
-  { maxAge: 35, oa: 0.4759, sa: 0.1241, ma: 0.4000 },
+  { maxAge: 35, oa: 0.4759, sa: 0.1241, ma: 0.4 },
   { maxAge: 45, oa: 0.4287, sa: 0.1428, ma: 0.4285 },
   { maxAge: 50, oa: 0.3839, sa: 0.1616, ma: 0.4545 },
-  { maxAge: 55, oa: 0.3020, sa: 0.2314, ma: 0.4666 },
+  { maxAge: 55, oa: 0.302, sa: 0.2314, ma: 0.4666 },
   { maxAge: 60, oa: 0.2725, sa: 0.2609, ma: 0.4666 },
   { maxAge: 65, oa: 0.1115, sa: 0.3501, ma: 0.5384 },
 ];
