@@ -4913,7 +4913,7 @@ function filterByProfile<T extends { profile_id: string | null }>(
 function profileInitials(name: string) {
   const parts = name.trim().split(/\s+/)
   const a = parts[0]?.[0] ?? "?"
-  const b = parts.length > 1 ? parts[parts.length - 1][0] : ""
+  const b = parts.length > 1 ? parts.at(-1)![0] : ""
   return (a + b).toUpperCase()
 }
 

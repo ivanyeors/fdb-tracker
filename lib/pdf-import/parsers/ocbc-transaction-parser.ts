@@ -453,7 +453,7 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
       const amounts = [...valuesLine[1].matchAll(/S\$([\d,]+(?:\.\d{2})?)/g)]
       if (amounts.length > 0) {
         // Last S$ amount is the minimum payment
-        minimumPayment = parseAmount(amounts[amounts.length - 1][1])
+        minimumPayment = parseAmount(amounts.at(-1)![1])
       }
     }
   }

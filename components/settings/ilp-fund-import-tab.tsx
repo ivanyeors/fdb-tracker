@@ -344,7 +344,7 @@ export function IlpFundImportTab({
     membersInSelectedGroup.forEach((m, i) => {
       next[`e:${m.id}`] = split[i]!
     })
-    next.new = split[split.length - 1]!
+    next.new = split.at(-1)!
     setSingleAllocPct((prev) => {
       const keys = Object.keys(next)
         .sort((a, b) => a.localeCompare(b))

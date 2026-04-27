@@ -73,7 +73,7 @@ function InvestmentLineChart({
   if (data.length === 0 || width < 10) return null
 
   const stroke =
-    data[data.length - 1]?.value >= (data[0]?.value ?? 0)
+    data.at(-1)!.value >= (data[0]?.value ?? 0)
       ? "var(--color-chart-positive)"
       : "var(--color-chart-negative)"
 

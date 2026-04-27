@@ -55,7 +55,7 @@ export function calculateGiroSchedule(params: {
   // Remainder goes to last payment
   const sumOfEleven = roundToCent(monthlyBase * 11)
   const lastAmount = roundToCent(total - sumOfEleven)
-  schedule[schedule.length - 1].amount = lastAmount
+  schedule.at(-1)!.amount = lastAmount
 
   // If there's outstanding balance, add it to first payment
   if (outstanding > 0) {

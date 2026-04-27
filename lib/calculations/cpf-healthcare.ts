@@ -49,7 +49,7 @@ export function getMslAnnualPremium(age: number): number {
   for (const band of MSL_BANDS_2025) {
     if (ageNextBday <= band.maxAgeNextBirthday) return band.annualPremium
   }
-  return MSL_BANDS_2025[MSL_BANDS_2025.length - 1].annualPremium
+  return MSL_BANDS_2025.at(-1)!.annualPremium
 }
 
 // ---------------------------------------------------------------------------

@@ -146,7 +146,7 @@ function OverviewTab({
   healthcare?: RetirementData["healthcare"]
   interest?: RetirementData["interest"]
 }) {
-  const latest = data[data.length - 1] || { oa: 0, sa: 0, ma: 0 }
+  const latest = data.at(-1)! || { oa: 0, sa: 0, ma: 0 }
 
   const sortedData = useMemo(
     () =>
@@ -395,7 +395,7 @@ function RetirementReadinessCard({
   const analysis = useMemo(() => {
     const at55 = projection.find((p) => p.age === 55)
     const projectedTotal =
-      at55?.total ?? projection[projection.length - 1]?.total ?? 0
+      at55?.total ?? projection.at(-1)!.total ?? 0
 
     const brsGap = calculateRetirementGap(projectedTotal, retirementSums.brs)
     const frsGap = calculateRetirementGap(projectedTotal, retirementSums.frs)

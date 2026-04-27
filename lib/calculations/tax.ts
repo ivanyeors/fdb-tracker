@@ -294,7 +294,7 @@ export function getMarginalBracketInfo(chargeableIncome: number): {
     return { marginalRate: 0, marginalBandFrom: 0, marginalBandTo: null };
   }
   const bands = getProgressiveBracketAllocation(chargeableIncome);
-  const last = bands[bands.length - 1];
+  const last = bands.at(-1)!;
   if (!last) {
     return { marginalRate: 0, marginalBandFrom: 0, marginalBandTo: null };
   }

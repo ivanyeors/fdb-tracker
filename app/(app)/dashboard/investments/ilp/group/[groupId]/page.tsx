@@ -325,7 +325,7 @@ export default function IlpFundGroupDetailPage() {
               <MetricCard
                 label="Monthly Change"
                 value={groupSummary.monthlyVariance.length > 0
-                  ? groupSummary.monthlyVariance[groupSummary.monthlyVariance.length - 1].deltaFromPrevious
+                  ? groupSummary.monthlyVariance.at(-1)!.deltaFromPrevious
                   : 0}
                 prefix="$"
                 trend={0}

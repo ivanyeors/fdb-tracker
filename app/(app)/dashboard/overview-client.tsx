@@ -314,8 +314,8 @@ export function OverviewClient({
       return ((savingsThisMonth - prevSavings) / Math.abs(prevSavings)) * 100
     }
     if (savingsHistory.length < 2) return 0
-    const current = savingsHistory[savingsHistory.length - 1]?.value ?? 0
-    const previous = savingsHistory[savingsHistory.length - 2]?.value ?? 0
+    const current = savingsHistory.at(-1)!.value ?? 0
+    const previous = savingsHistory.at(-2)!.value ?? 0
     if (previous === 0) return 0
     return ((current - previous) / Math.abs(previous)) * 100
   }, [
@@ -508,8 +508,8 @@ export function OverviewClient({
           ? investmentMonthlyData
           : []
     if (series.length < 2) return 0
-    const current = series[series.length - 1]?.value ?? 0
-    const previous = series[series.length - 2]?.value ?? 0
+    const current = series.at(-1)!.value ?? 0
+    const previous = series.at(-2)!.value ?? 0
     if (Math.abs(previous) < 1e-9) return 0
     return ((current - previous) / Math.abs(previous)) * 100
   }, [investmentHistory, investmentMonthlyData])

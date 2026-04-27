@@ -141,7 +141,7 @@ export const stockImgScene = new Scenes.WizardScene<MyContext>(
       Array.isArray(ctx.message.photo) &&
       ctx.message.photo.length > 0
     ) {
-      fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id
+      fileId = ctx.message.photo.at(-1)!.file_id
     }
 
     if (!fileId) {

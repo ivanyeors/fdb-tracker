@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
               .from("bank_balance_snapshots")
               .select("account_id, month, closing_balance")
               .in("account_id", accountIds)
-              .lte("month", monthKeys[monthKeys.length - 1] ?? "")
+              .lte("month", monthKeys.at(-1)! ?? "")
           ).data ?? []
         : []
 
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
             .from("cpf_balances")
             .select("profile_id, month, oa_enc, sa_enc, ma_enc")
             .in("profile_id", profileIds)
-            .lte("month", monthKeys[monthKeys.length - 1] ?? "")
+            .lte("month", monthKeys.at(-1)! ?? "")
         : { data: [] }
 
     const allCpfRows = (allCpfRowsRaw ?? []).map((r) => {

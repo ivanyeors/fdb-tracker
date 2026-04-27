@@ -16,7 +16,7 @@ export function deriveMonthlyPremiumsFromGroupTotal(
     allocated += amt
     map.set(row.productId, amt)
   }
-  const last = items[items.length - 1]
+  const last = items.at(-1)!
   const lastAmt = Math.round((groupTotal - allocated) * 100) / 100
   map.set(last.productId, lastAmt)
   return map

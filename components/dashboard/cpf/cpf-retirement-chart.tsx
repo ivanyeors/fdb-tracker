@@ -83,7 +83,7 @@ function ChartInner({
   const xScale = useMemo(
     () =>
       scaleLinear<number>({
-        domain: [data[0]?.year ?? 0, data[data.length - 1]?.year ?? 1],
+        domain: [data[0]?.year ?? 0, data.at(-1)!.year ?? 1],
         range: [0, innerWidth],
       }),
     [data, innerWidth],

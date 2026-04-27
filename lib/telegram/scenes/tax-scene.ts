@@ -157,10 +157,10 @@ export const taxScene = new Scenes.WizardScene<MyContext>(
             1
           ).toLocaleDateString("en-SG", { month: "short", year: "numeric" })
         : "Apr"
-      const lastMonth = giro.schedule[giro.schedule.length - 1]
+      const lastMonth = giro.schedule.at(-1)!
         ? new Date(
-            Number(giro.schedule[giro.schedule.length - 1].month.split("-")[0]),
-            Number(giro.schedule[giro.schedule.length - 1].month.split("-")[1]) - 1,
+            Number(giro.schedule.at(-1)!.month.split("-")[0]),
+            Number(giro.schedule.at(-1)!.month.split("-")[1]) - 1,
             1
           ).toLocaleDateString("en-SG", { month: "short", year: "numeric" })
         : "Mar"

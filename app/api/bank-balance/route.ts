@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
 
     const monthRange = generateMonthRange(monthCount)
     const startMonth = monthRange[0]
-    const endMonth = monthRange[monthRange.length - 1]
+    const endMonth = monthRange.at(-1)!
 
     const profileId = account.profile_id
 

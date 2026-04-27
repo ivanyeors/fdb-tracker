@@ -414,7 +414,7 @@ function extractBenefits(text: string): InsuranceBenefitEntry[] {
 
     if (sorted.length >= 3) {
       renewalBonus = sorted[1]
-      benefitPremium = sorted[sorted.length - 1]
+      benefitPremium = sorted.at(-1)!
     } else if (sorted.length === 2) {
       // Two amounts: larger = coverage, smaller = premium
       benefitPremium = sorted[1]

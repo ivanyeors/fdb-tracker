@@ -92,7 +92,7 @@ export function getAge(birthYear: number, referenceYear?: number): number {
 
 export function getCpfRates(age: number, year: number = 2026): CpfRates {
   const brackets = RATES_BY_YEAR[year] ?? RATES_BY_YEAR[2026];
-  const bracket = brackets.find((b) => age <= b.maxAge) ?? brackets[brackets.length - 1];
+  const bracket = brackets.find((b) => age <= b.maxAge) ?? brackets.at(-1)!;
   const owCeiling = OW_CEILING[year] ?? OW_CEILING[2026];
 
   return {
@@ -105,7 +105,7 @@ export function getCpfRates(age: number, year: number = 2026): CpfRates {
 
 export function getCpfAllocation(age: number, year: number = 2026): CpfAllocation {
   const brackets = ALLOCATIONS_BY_YEAR[year] ?? ALLOCATIONS_BY_YEAR[2026];
-  const bracket = brackets.find((b) => age <= b.maxAge) ?? brackets[brackets.length - 1];
+  const bracket = brackets.find((b) => age <= b.maxAge) ?? brackets.at(-1)!;
 
   return {
     oa: bracket.oa,

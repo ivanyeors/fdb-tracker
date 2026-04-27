@@ -53,7 +53,7 @@ function buildBreadcrumbs(pathname: string): Crumb[] {
     if (UUID_RE.test(seg)) continue
 
     const isFirst = i === 0
-    const isLast = i === segments.length - 1 || (i === segments.length - 2 && UUID_RE.test(segments[segments.length - 1]))
+    const isLast = i === segments.length - 1 || (i === segments.length - 2 && UUID_RE.test(segments.at(-1)!))
 
     // Root section pages get special labels
     if (isFirst && isLast && rootOverrides[path]) {

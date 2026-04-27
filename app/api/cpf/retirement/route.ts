@@ -203,7 +203,7 @@ export async function GET(request: NextRequest) {
     })
 
     const projectedAt55 = projection.length > 0
-      ? projection[projection.length - 1].total
+      ? projection.at(-1)!.total
       : cpfTotal
 
     const brsGap = calculateRetirementGap(projectedAt55, retirementSums.brs)

@@ -135,7 +135,7 @@ function IlpInvestmentStyleSparkline({
   if (chartData.length === 0 || width < 10) return null
 
   const stroke =
-    chartData[chartData.length - 1]?.value >= (chartData[0]?.value ?? 0)
+    chartData.at(-1)!.value >= (chartData[0]?.value ?? 0)
       ? "var(--color-chart-positive)"
       : "var(--color-chart-negative)"
 
@@ -215,7 +215,7 @@ function IlpDetailedLineChart({
   )
 
   const stroke =
-    series.length > 0 && (series[series.length - 1].value >= (series[0]?.value ?? 0))
+    series.length > 0 && (series.at(-1)!.value >= (series[0]?.value ?? 0))
       ? "var(--color-chart-positive)"
       : "var(--color-chart-negative)"
 
@@ -493,8 +493,8 @@ export function IlpCard({
 
   const variance = useMemo(() => {
     if (monthlyData.length < 2) return null
-    const curr = monthlyData[monthlyData.length - 1]
-    const prev = monthlyData[monthlyData.length - 2]
+    const curr = monthlyData.at(-1)!
+    const prev = monthlyData.at(-2)!
     if (prev.value <= 0) return null
     const delta = curr.value - prev.value
     const pct = (delta / prev.value) * 100

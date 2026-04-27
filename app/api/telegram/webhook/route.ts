@@ -467,7 +467,7 @@ function ensureHandlers() {
     if (parsed.command === "stockimg") {
       let fileId: string | undefined
       if ("photo" in msg && Array.isArray(msg.photo) && msg.photo.length > 0) {
-        fileId = (msg.photo[msg.photo.length - 1] as { file_id: string })
+        fileId = (msg.photo.at(-1)! as { file_id: string })
           .file_id
       } else if (
         "reply_to_message" in msg &&
@@ -477,7 +477,7 @@ function ensureHandlers() {
         msg.reply_to_message.photo.length > 0
       ) {
         const photos = msg.reply_to_message.photo as Array<{ file_id: string }>
-        fileId = photos[photos.length - 1].file_id
+        fileId = photos.at(-1)!.file_id
       }
 
       setBotContext()

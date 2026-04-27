@@ -125,7 +125,7 @@ function ChartInner({
   )
 
   const stroke =
-    data[data.length - 1]?.value >= (data[0]?.value ?? 0)
+    data.at(-1)!.value >= (data[0]?.value ?? 0)
       ? "var(--color-chart-positive)"
       : "var(--color-chart-negative)"
 
@@ -291,7 +291,7 @@ export function InvestmentValueChart({
     [history, effectiveDisplayCurrency, sgdPerUsd],
   )
 
-  const latestValueSgd = liveTotal ?? (history[history.length - 1]?.value ?? 0)
+  const latestValueSgd = liveTotal ?? (history.at(-1)!.value ?? 0)
   const firstValueSgd = history[0]?.value ?? 0
   const trend =
     firstValueSgd > 0
