@@ -73,7 +73,7 @@ export default function CpfPage() {
       const idx = prev.findIndex((b) => b.profileIndex === profileIndex)
       const copy = [...prev]
       if (idx >= 0) {
-        copy[idx] = { ...copy[idx]!, [field]: num }
+        copy[idx] = { ...copy[idx], [field]: num }
       } else {
         copy.push({
           profileIndex,

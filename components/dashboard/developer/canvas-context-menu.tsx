@@ -62,7 +62,7 @@ export function CanvasContextMenu({
           icon: Eye,
           label: "View Details",
           onClick: () => {
-            onSelectNode(node as Node<CalcNodeData>)
+            onSelectNode(node)
             onClose()
           },
         },
@@ -70,7 +70,7 @@ export function CanvasContextMenu({
           icon: FileCode,
           label: "Copy File Path",
           onClick: () => {
-            navigator.clipboard.writeText((node.data as CalcNodeData).filePath)
+            navigator.clipboard.writeText((node.data).filePath)
             toast.success("File path copied")
             onClose()
           },

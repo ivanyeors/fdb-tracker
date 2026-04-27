@@ -76,8 +76,8 @@ export async function GET(request: NextRequest) {
     }
 
     const monthRange = generateMonthRange(monthCount)
-    const startMonth = monthRange[0]!
-    const endMonth = monthRange[monthRange.length - 1]!
+    const startMonth = monthRange[0]
+    const endMonth = monthRange[monthRange.length - 1]
 
     const profileId = account.profile_id
 
@@ -142,8 +142,8 @@ export async function GET(request: NextRequest) {
     const outflowMap = new Map<string, Awaited<ReturnType<typeof getEffectiveOutflowForProfile>>>()
     profileMonthPairs.forEach(({ pid, month }, i) => {
       const key = `${pid}:${month}`
-      inflowMap.set(key, inflowResults[i]!)
-      outflowMap.set(key, outflowResults[i]!)
+      inflowMap.set(key, inflowResults[i])
+      outflowMap.set(key, outflowResults[i])
     })
 
     const monthlyData = monthRange.map((month) => {

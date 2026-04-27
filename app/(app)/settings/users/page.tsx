@@ -330,7 +330,7 @@ export default async function UserSettingsPage() {
   >()
   for (const fam of families ?? []) {
     const famProfiles = profilesByFamily.get(fam.id) ?? []
-    const profileIds = famProfiles.map((p) => p.id as string)
+    const profileIds = famProfiles.map((p) => p.id)
     financialDataByFamily.set(
       fam.id,
       await fetchFinancialDataForFamily(supabase, fam.id, profileIds)
@@ -338,7 +338,7 @@ export default async function UserSettingsPage() {
   }
 
   // Fetch notification preferences for all profiles
-  const allProfileIds = (allProfiles ?? []).map((p) => p.id as string)
+  const allProfileIds = (allProfiles ?? []).map((p) => p.id)
   const { data: allNotifPrefs } =
     allProfileIds.length > 0
       ? await supabase
@@ -424,10 +424,10 @@ export default async function UserSettingsPage() {
       <AccountOverview
         householdId={householdId}
         profiles={(allProfiles ?? []).map((p) => ({
-          id: p.id as string,
-          name: p.name as string,
-          birth_year: p.birth_year as number,
-          created_at: p.created_at as string,
+          id: p.id,
+          name: p.name,
+          birth_year: p.birth_year,
+          created_at: p.created_at,
           family_id: (p as Record<string, unknown>).family_id as string,
         }))}
         families={(families ?? []).map((f) => ({
@@ -500,7 +500,7 @@ export default async function UserSettingsPage() {
       <InviteCodesSection
         unlinkedProfiles={(allProfiles ?? [])
           .filter((p) => !p.telegram_user_id)
-          .map((p) => ({ id: p.id as string, name: p.name as string }))}
+          .map((p) => ({ id: p.id, name: p.name }))}
       />
     </div>
   )

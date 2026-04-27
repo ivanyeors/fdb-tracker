@@ -144,7 +144,7 @@ export async function DELETE(
       return NextResponse.json({ error: "ILP product not found" }, { status: 404 })
     }
 
-    const resolvedFamilyId = product.family_id as string
+    const resolvedFamilyId = product.family_id
 
     // Find all groups this product belongs to BEFORE deleting
     const { data: groupMemberships } = await supabase

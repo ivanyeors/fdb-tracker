@@ -189,7 +189,7 @@ function CompactVariant() {
     if (a.type !== "risk" && b.type === "risk") return 1
     return 0
   })
-  const event = sorted[0]!
+  const event = sorted[0]
   const isRisk = event.type === "risk"
 
   return (

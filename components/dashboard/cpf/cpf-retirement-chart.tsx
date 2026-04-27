@@ -118,7 +118,7 @@ function ChartInner({
       if (data.length === 0) return
       const rect = e.currentTarget.getBoundingClientRect()
       const mouseX = e.clientX - rect.left - MARGIN.left
-      let closest = data[0]!
+      let closest = data[0]
       let closestDist = Infinity
       for (const d of data) {
         const dist = Math.abs((xScale(d.year) ?? 0) - mouseX)
@@ -151,8 +151,8 @@ function ChartInner({
     .map((r) => ({ ...r, y: yScale(r.value) ?? 0 }))
     .sort((a, b) => a.y - b.y)
   for (let i = 1; i < refPositions.length; i++) {
-    if (refPositions[i]!.y - refPositions[i - 1]!.y < 16) {
-      refPositions[i]!.y = refPositions[i - 1]!.y + 16
+    if (refPositions[i].y - refPositions[i - 1].y < 16) {
+      refPositions[i].y = refPositions[i - 1].y + 16
     }
   }
 
@@ -224,7 +224,7 @@ function ChartInner({
                   x={(d) => xScale(d.year) ?? 0}
                   y={(d) => yScale(d.oa) ?? 0}
                   curve={curveMonotoneX}
-                  stroke={LAYERS[0]!.color}
+                  stroke={LAYERS[0].color}
                   strokeWidth={1.5}
                   strokeOpacity={0.6}
                 />
@@ -233,7 +233,7 @@ function ChartInner({
                   x={(d) => xScale(d.year) ?? 0}
                   y={(d) => yScale(d.oa + d.sa) ?? 0}
                   curve={curveMonotoneX}
-                  stroke={LAYERS[1]!.color}
+                  stroke={LAYERS[1].color}
                   strokeWidth={1.5}
                   strokeOpacity={0.6}
                 />
@@ -244,7 +244,7 @@ function ChartInner({
                   x={(d) => xScale(d.year) ?? 0}
                   y={(d) => yScale(d.total) ?? 0}
                   curve={curveMonotoneX}
-                  stroke={LAYERS[2]!.color}
+                  stroke={LAYERS[2].color}
                   strokeWidth={2}
                   strokeLinecap="round"
                 />
@@ -361,9 +361,9 @@ function ChartInner({
                   strokeWidth={1}
                   strokeOpacity={0.15}
                 />
-                <circle cx={cx} cy={yScale(d.oa) ?? 0} r={3} fill={LAYERS[0]!.color} />
-                <circle cx={cx} cy={yScale(d.oa + d.sa) ?? 0} r={3} fill={LAYERS[1]!.color} />
-                <circle cx={cx} cy={yScale(d.total) ?? 0} r={4} fill={LAYERS[2]!.color} stroke="var(--color-card)" strokeWidth={2} />
+                <circle cx={cx} cy={yScale(d.oa) ?? 0} r={3} fill={LAYERS[0].color} />
+                <circle cx={cx} cy={yScale(d.oa + d.sa) ?? 0} r={3} fill={LAYERS[1].color} />
+                <circle cx={cx} cy={yScale(d.total) ?? 0} r={4} fill={LAYERS[2].color} stroke="var(--color-card)" strokeWidth={2} />
               </g>
             )
           })()}

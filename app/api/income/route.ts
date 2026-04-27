@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       )
     }
-    const profileId = resolved.profileIds[0]!
+    const profileId = resolved.profileIds[0]
 
     const { data: incomeConfig, error } = await supabase
       .from("income_config")

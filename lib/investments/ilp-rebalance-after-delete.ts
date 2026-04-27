@@ -64,7 +64,7 @@ export async function rebalanceIlpFundGroupAfterProductDelete(
 
   const items = productIds.map((pid, i) => ({
     productId: pid,
-    allocationPct: newPcts[i]!,
+    allocationPct: newPcts[i],
   }))
 
   const groupTotal = Number(group?.group_premium_amount ?? 0)
@@ -74,8 +74,8 @@ export async function rebalanceIlpFundGroupAfterProductDelete(
   for (let i = 0; i < memberIds.length; i++) {
     const { error } = await supabase
       .from("ilp_fund_group_members")
-      .update({ allocation_pct: newPcts[i]! })
-      .eq("id", memberIds[i]!)
+      .update({ allocation_pct: newPcts[i] })
+      .eq("id", memberIds[i])
     if (error) return { error: error.message }
   }
 

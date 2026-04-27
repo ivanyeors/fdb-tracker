@@ -77,9 +77,9 @@ export function EditIlpDialog({
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled =
     controlledOpen !== undefined && onOpenChangeProp !== undefined
-  const open = isControlled ? controlledOpen! : internalOpen
+  const open = isControlled ? controlledOpen : internalOpen
   const setOpen = (v: boolean) => {
-    if (isControlled) onOpenChangeProp!(v)
+    if (isControlled) onOpenChangeProp(v)
     else setInternalOpen(v)
   }
   const [name, setName] = useState(productName)

@@ -166,7 +166,7 @@ async function showStockNotes(ctx: MyContext): Promise<void> {
       month: "short",
       year: "numeric",
     })
-    const typeTag = (n.type as string).charAt(0).toUpperCase() + (n.type as string).slice(1)
+    const typeTag = (n.type).charAt(0).toUpperCase() + (n.type).slice(1)
     return `📅 ${date} (${typeTag})\n${n.journal_text}`
   })
 

@@ -216,8 +216,8 @@ export async function GET(request: NextRequest) {
 
       // Apply spouse split if applicable
       const primaryPct = (loan.split_pct ?? 100) / 100
-      const primaryPid = loan.profile_id as string
-      const splitPid = loan.split_profile_id as string | null
+      const primaryPid = loan.profile_id
+      const splitPid = loan.split_profile_id
 
       cpfOaDeductionByProfile.set(
         primaryPid,

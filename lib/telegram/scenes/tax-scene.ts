@@ -85,7 +85,7 @@ export const taxScene = new Scenes.WizardScene<MyContext>(
     }
 
     // Parse amount (allow pre-filled from step 0)
-    let amount = ctx.scene.session.amount as number | undefined
+    let amount = ctx.scene.session.amount
     if (!amount) {
       const parsed = Number.parseFloat(text.replaceAll(/[$,]/g, ""))
       if (Number.isNaN(parsed) || parsed <= 0) {

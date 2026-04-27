@@ -355,8 +355,8 @@ function WaterfallChartInner({
     const barOffset = (bw - barH) / 2
 
     for (let i = 0; i < chartData.length - 1; i++) {
-      const curr = chartData[i]!
-      const next = chartData[i + 1]!
+      const curr = chartData[i]
+      const next = chartData[i + 1]
       // Skip connector TO anchor/net bars (they start from 0)
       if (next.type === "anchor" || next.type === "net") continue
       const xVal = curr.end

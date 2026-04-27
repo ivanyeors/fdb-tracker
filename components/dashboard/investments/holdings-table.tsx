@@ -80,8 +80,8 @@ export function HoldingsTable({
         ? av.localeCompare(bv)
         : bv.localeCompare(av)
     }
-    const av = ha[sortKey] as number | null
-    const bv = hb[sortKey] as number | null
+    const av = ha[sortKey]
+    const bv = hb[sortKey]
     const nullLast = (n: number | null) =>
       n ??
       (sortDir === "asc" ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY)

@@ -219,8 +219,8 @@ function WaterfallMiniChart({ bars, width }: { bars: WaterfallBarItem[]; width: 
     const barOffset = (bw - barH) / 2
 
     for (let i = 0; i < bars.length - 1; i++) {
-      const curr = bars[i]!
-      const next = bars[i + 1]!
+      const curr = bars[i]
+      const next = bars[i + 1]
       // Skip connectors to anchor/net bars (they start from 0)
       if (next.type === "anchor" || next.type === "net") continue
       // Skip connector from solid anchor to first perceived bar (visual separator)

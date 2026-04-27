@@ -526,7 +526,7 @@ async function saveExtractedData(
               {
                 profile_id: profileId,
                 family_id: familyId,
-                month: extracted.month!,
+                month: extracted.month,
                 statement_type: "bank",
               },
             ],
@@ -599,7 +599,7 @@ async function saveExtractedData(
             {
               profile_id: profileId,
               family_id: familyId,
-              month: extracted.month!,
+              month: extracted.month,
               statement_type: "cc",
             },
           ],

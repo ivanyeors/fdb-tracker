@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     if (resolved.profileIds.length === 0) {
       return NextResponse.json({ error: "No profiles in family" }, { status: 404 })
     }
-    const singleProfileId = resolved.profileIds[0]!
+    const singleProfileId = resolved.profileIds[0]
 
     const { data: rawProfile } = await supabase
       .from("profiles")
@@ -203,7 +203,7 @@ export async function GET(request: NextRequest) {
     })
 
     const projectedAt55 = projection.length > 0
-      ? projection[projection.length - 1]!.total
+      ? projection[projection.length - 1].total
       : cpfTotal
 
     const brsGap = calculateRetirementGap(projectedAt55, retirementSums.brs)

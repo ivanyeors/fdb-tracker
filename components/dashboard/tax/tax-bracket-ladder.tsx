@@ -137,7 +137,7 @@ export function TaxBracketLadder({
   const householdDotStagger = new Map<number, number>()
   const householdPositions =
     showHouseholdDots && axisMax > 0
-      ? householdChargeableMarkers!.map((m) => {
+      ? householdChargeableMarkers.map((m) => {
           const ciMember = Math.max(0, m.chargeableIncome)
           const posPct = Math.min(
             100,

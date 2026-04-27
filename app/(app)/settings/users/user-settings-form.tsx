@@ -3173,7 +3173,7 @@ function LoanRepaymentsSection({
     if (loans.length === 0) return
     setForm((f) => {
       if (f.loanId && loans.some((l) => l.id === f.loanId)) return f
-      return { ...f, loanId: loans[0]!.id }
+      return { ...f, loanId: loans[0].id }
     })
   }, [loans])
 
@@ -4913,7 +4913,7 @@ function filterByProfile<T extends { profile_id: string | null }>(
 function profileInitials(name: string) {
   const parts = name.trim().split(/\s+/)
   const a = parts[0]?.[0] ?? "?"
-  const b = parts.length > 1 ? parts[parts.length - 1]![0] : ""
+  const b = parts.length > 1 ? parts[parts.length - 1][0] : ""
   return (a + b).toUpperCase()
 }
 
@@ -5245,7 +5245,7 @@ export function FamilyMembersTable({
       return
     }
     if (!profiles.some((p) => p.id === activeTab)) {
-      const next = profiles[0]!.id
+      const next = profiles[0].id
       setActiveTab(next)
       if (!hasUnsavedChanges) {
         const params = new URLSearchParams(searchParams.toString())

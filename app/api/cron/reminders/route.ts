@@ -163,7 +163,7 @@ async function generateMessage(
     case "tax_yearly": {
       let calculatedTax: number | null = null
       if (ctx.profiles.length > 0) {
-        const profileId = ctx.profiles[0]!.id
+        const profileId = ctx.profiles[0].id
         const { data: taxEntry } = await supabase
           .from("tax_entries")
           .select("calculated_amount")

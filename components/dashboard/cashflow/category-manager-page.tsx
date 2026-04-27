@@ -251,8 +251,8 @@ export function CategoryManagerPage({
 
       setRulesMap((prev) => {
         const next = new Map(prev)
-        const rules = [...(next.get(activeCategoryId!) ?? []), newRule]
-        next.set(activeCategoryId!, rules)
+        const rules = [...(next.get(activeCategoryId) ?? []), newRule]
+        next.set(activeCategoryId, rules)
         return next
       })
       setNewRulePattern("")

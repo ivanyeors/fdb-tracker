@@ -67,7 +67,7 @@ function roundToCent(value: number): number {
 }
 
 export function getRetirementSums(cohortYear: number = 2026): RetirementSums {
-  const data = RETIREMENT_SUMS[cohortYear] ?? RETIREMENT_SUMS[2026]!;
+  const data = RETIREMENT_SUMS[cohortYear] ?? RETIREMENT_SUMS[2026];
   return { ...data };
 }
 

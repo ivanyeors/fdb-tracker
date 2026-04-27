@@ -81,7 +81,7 @@ export type OverviewResult = {
 
 function getPreviousMonth(monthStr: string): string {
   const [y, m] = monthStr.split("-").map(Number)
-  const date = new Date(y!, (m ?? 1) - 2, 1)
+  const date = new Date(y, (m ?? 1) - 2, 1)
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`
 }
 
@@ -756,7 +756,7 @@ export async function fetchOverviewData(
       ? cashflowRows.filter((r) => r.profile_id === profileId)
       : cashflowRows.filter((r) => profileIds.includes(r.profile_id))
     if (relevantRows.length > 0) {
-      computeMonth = normalizeMonthKey(relevantRows[0]!.month as string)
+      computeMonth = normalizeMonthKey(relevantRows[0].month as string)
     }
   }
 

@@ -146,7 +146,7 @@ function CashflowChartInner({
       if (stackedData.length === 0) return
       const rect = e.currentTarget.getBoundingClientRect()
       const mouseX = e.clientX - rect.left - MARGIN.left
-      let closest = stackedData[0]!
+      let closest = stackedData[0]
       let closestDist = Infinity
       for (const d of stackedData) {
         const dist = Math.abs((xScale(d.month) ?? 0) - mouseX)
@@ -222,8 +222,8 @@ function CashflowChartInner({
               key={layer.key}
               data={stackedData}
               x={(d) => xScale(d.month) ?? 0}
-              y={(d) => yScale(d.cumulative[i]!.y1) ?? 0}
-              y0={(d) => yScale(d.cumulative[i]!.y0) ?? innerHeight}
+              y={(d) => yScale(d.cumulative[i].y1) ?? 0}
+              y0={(d) => yScale(d.cumulative[i].y0) ?? innerHeight}
               yScale={yScale}
               curve={curveMonotoneX}
               fill={`url(#${gradPrefix}${layer.key})`}
@@ -236,7 +236,7 @@ function CashflowChartInner({
               key={`line-${layer.key}`}
               data={stackedData}
               x={(d) => xScale(d.month) ?? 0}
-              y={(d) => yScale(d.cumulative[i]!.y1) ?? 0}
+              y={(d) => yScale(d.cumulative[i].y1) ?? 0}
               curve={curveMonotoneX}
               stroke={layer.color}
               strokeWidth={1.5}
@@ -276,7 +276,7 @@ function CashflowChartInner({
                     <circle
                       key={layer.key}
                       cx={cx}
-                      cy={yScale(tooltipData.cumulative[i]!.y1) ?? 0}
+                      cy={yScale(tooltipData.cumulative[i].y1) ?? 0}
                       r={3}
                       fill={layer.color}
                     />

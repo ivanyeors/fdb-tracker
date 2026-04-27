@@ -246,7 +246,7 @@ export function IlpFundImportTab({
     setParsedBundles(bundles)
     setFileLabel(
       bundles.length === 1
-        ? bundles[0]!.file.name
+        ? bundles[0].file.name
         : `${bundles.length} files (restored)`,
     )
     setStep("preview")
@@ -268,7 +268,7 @@ export function IlpFundImportTab({
     // Pad multiRows if draft has fewer rows than parsed bundles
     const restoredRows = [...draft.multiRows]
     for (let i = restoredRows.length; i < draft.parsedBundleMeta.length; i++) {
-      const meta = draft.parsedBundleMeta[i]!
+      const meta = draft.parsedBundleMeta[i]
       restoredRows.push({
         productId: CREATE_NEW_ILP,
         newProductName: meta.snapshot.investmentName ?? "",
@@ -409,7 +409,7 @@ export function IlpFundImportTab({
         }
         setFiles((f) => f.filter((_, i) => i !== index))
         setFileLabel(
-          next.length === 1 ? next[0]!.file.name : `${next.length} files selected`,
+          next.length === 1 ? next[0].file.name : `${next.length} files selected`,
         )
         setMultiRows((rows) => rows.filter((_, i) => i !== index))
         // Re-index n:* keys (file-based allocation entries)
@@ -513,7 +513,7 @@ export function IlpFundImportTab({
       toast.message("Some files were skipped (only .mhtml / .mht).")
     }
     setFiles(arr)
-    setFileLabel(arr.length === 1 ? arr[0]!.name : `${arr.length} files selected`)
+    setFileLabel(arr.length === 1 ? arr[0].name : `${arr.length} files selected`)
     setParsedBundles([])
     setStep("idle")
   }
@@ -875,7 +875,7 @@ export function IlpFundImportTab({
     setProgress(10)
     try {
       for (let i = 0; i < parsedBundles.length; i++) {
-        const b = parsedBundles[i]!
+        const b = parsedBundles[i]
         const row = multiRows[i]
         if (!row) throw new Error(`Missing row ${i + 1}`)
         if (!row.month || !/^\d{4}-\d{2}-\d{2}$/.test(row.month)) {
@@ -966,7 +966,7 @@ export function IlpFundImportTab({
         const pct = multiAllocPct[`n:${i}`] ?? 0
         const computed = Math.round(multiGroupTotalFundValue * pct) / 100
         if (next[i] && next[i].fundValue !== computed) {
-          next[i] = { ...next[i]!, fundValue: computed }
+          next[i] = { ...next[i], fundValue: computed }
           changed = true
         }
       }
@@ -1012,7 +1012,7 @@ export function IlpFundImportTab({
       return
     }
     for (let i = 0; i < multiRows.length; i++) {
-      const row = multiRows[i]!
+      const row = multiRows[i]
       if (!row.month || !/^\d{4}-\d{2}-\d{2}$/.test(row.month)) {
         toast.error(`Row ${i + 1}: invalid statement month.`)
         return
@@ -1049,7 +1049,7 @@ export function IlpFundImportTab({
       const newProductIds: string[] = []
       const createdProductIds: string[] = []
       for (let i = 0; i < parsedBundles.length; i++) {
-        const row = multiRows[i]!
+        const row = multiRows[i]
         setProgress(5 + Math.round((40 * i) / parsedBundles.length))
         const wasNew = row.productId === CREATE_NEW_ILP
         const pid = await resolveMultiRowProductId(row, i, {
@@ -1091,11 +1091,11 @@ export function IlpFundImportTab({
       setProgress(50)
 
       for (let i = 0; i < parsedBundles.length; i++) {
-        const b = parsedBundles[i]!
-        const row = multiRows[i]!
+        const b = parsedBundles[i]
+        const row = multiRows[i]
         setProgress(50 + Math.round((50 * i) / parsedBundles.length))
         await commitFundReport(
-          newProductIds[i]!,
+          newProductIds[i],
           b.parse.snapshot,
           row.month,
           row.fundValue ?? 0,

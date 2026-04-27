@@ -5,7 +5,6 @@ import {
   CURRENT_KEY_VERSION,
   getEncryptionKey,
   isSupportedVersion,
-  type KeyVersion,
 } from "@/lib/crypto/keys"
 
 const ALGORITHM = "aes-256-gcm"
@@ -43,7 +42,7 @@ function decryptBytes(blob: string, ctx: CryptoContext): Buffer {
   const tag = payload.subarray(payload.length - TAG_BYTES)
   const ciphertext = payload.subarray(IV_BYTES, payload.length - TAG_BYTES)
 
-  const key = getEncryptionKey(version as KeyVersion)
+  const key = getEncryptionKey(version)
   const decipher = createDecipheriv(ALGORITHM, key, iv)
   decipher.setAAD(buildAad(ctx))
   decipher.setAuthTag(tag)

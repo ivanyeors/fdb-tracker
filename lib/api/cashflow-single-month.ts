@@ -183,7 +183,7 @@ export async function fetchSingleMonthCashflow(
           .in("type", ["buy", "sell"])
           .gte("created_at", monthStr)
           .lt("created_at", nextMonthStr)
-        if (profileIds.length === 1) q = q.eq("profile_id", profileIds[0]!)
+        if (profileIds.length === 1) q = q.eq("profile_id", profileIds[0])
         return q
       })(),
       // Bank accounts for interest estimation
@@ -200,7 +200,7 @@ export async function fetchSingleMonthCashflow(
           .eq("type", "dividend")
           .gte("created_at", monthStr)
           .lt("created_at", nextMonthStr)
-        if (profileIds.length === 1) q = q.eq("profile_id", profileIds[0]!)
+        if (profileIds.length === 1) q = q.eq("profile_id", profileIds[0])
         return q
       })(),
       // Investment snapshot: last entry before month start
@@ -211,7 +211,7 @@ export async function fetchSingleMonthCashflow(
             .from("investment_snapshots")
             .select("profile_id, date, total_value")
             .eq("family_id", familyId)
-            .eq("profile_id", profileIds[0]!)
+            .eq("profile_id", profileIds[0])
             .lt("date", monthStr)
             .order("date", { ascending: false })
             .limit(1)
@@ -231,7 +231,7 @@ export async function fetchSingleMonthCashflow(
             .from("investment_snapshots")
             .select("profile_id, date, total_value")
             .eq("family_id", familyId)
-            .eq("profile_id", profileIds[0]!)
+            .eq("profile_id", profileIds[0])
             .lt("date", nextMonthStr)
             .order("date", { ascending: false })
             .limit(1)

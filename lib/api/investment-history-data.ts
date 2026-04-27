@@ -194,7 +194,7 @@ async function backfillHistory(
         }
       } else if (inv.type === "gold" || inv.type === "silver") {
         const byDate = metalPricesByType.get(
-          inv.type as "gold" | "silver",
+          inv.type,
         )
         const current =
           currentMetalMap.get(inv.type.toLowerCase()) ?? 0

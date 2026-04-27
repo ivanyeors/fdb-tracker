@@ -164,7 +164,7 @@ export function LoanFormSheet({
       }
 
       if (isEdit) {
-        const res = await fetch(`/api/loans/${loan!.id}`, {
+        const res = await fetch(`/api/loans/${loan.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),

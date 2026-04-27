@@ -25,7 +25,7 @@ export function split100Across(n: number): number[] {
   const base = Math.floor(10000 / n) / 100
   const rows = Array.from({ length: n }, () => base)
   const s = sumAllocationPcts(rows)
-  rows[n - 1] = Math.round((100 - s + rows[n - 1]!) * 100) / 100
+  rows[n - 1] = Math.round((100 - s + rows[n - 1]) * 100) / 100
   return rows
 }
 
@@ -40,7 +40,7 @@ export function normalizeProportionalTo100(weights: number[]): number[] {
   const out: number[] = []
   let acc = 0
   for (let i = 0; i < n - 1; i++) {
-    const v = Math.round(((weights[i]! / sum) * 100) * 100) / 100
+    const v = Math.round(((weights[i] / sum) * 100) * 100) / 100
     out.push(v)
     acc += v
   }
@@ -69,7 +69,7 @@ export function mergeMultiGroupAllocationItems(
     byId.set(m.id, (byId.get(m.id) ?? 0) + pct)
   }
   for (let fi = 0; fi < newProductIds.length; fi++) {
-    const pid = newProductIds[fi]!
+    const pid = newProductIds[fi]
     const pct = multiAllocPct[`n:${fi}`]
     if (pct == null) throw new Error(`Missing allocation for file ${fi + 1}.`)
     byId.set(pid, (byId.get(pid) ?? 0) + pct)
@@ -94,7 +94,7 @@ export function applySwitchOutZero(
   } else {
     newPcts = normalizeProportionalTo100(weights)
   }
-  const m = new Map(rest.map((r, i) => [r.productId, newPcts[i]!]))
+  const m = new Map(rest.map((r, i) => [r.productId, newPcts[i]]))
   return items.map((row) =>
     row.productId === productId
       ? { ...row, allocationPct: 0 }

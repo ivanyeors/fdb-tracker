@@ -544,7 +544,7 @@ export function TaxClient({ initialData }: { initialData: TaxData }) {
                 reliefBreakdown: reliefsForYear.map((r) => ({
                   type: r.relief_type,
                   amount: r.amount,
-                  source: (r.source ?? "manual") as "auto" | "manual",
+                  source: (r.source ?? "manual"),
                 })),
               }}
             />
@@ -649,7 +649,7 @@ export function TaxClient({ initialData }: { initialData: TaxData }) {
                           profiles={data.profiles}
                           reliefs={reliefsForYear
                             .filter(
-                              (r) => (r as TaxRelief).source === "manual"
+                              (r) => (r).source === "manual"
                             )
                             .map((r) => ({
                               id: r.id,
@@ -712,7 +712,7 @@ export function TaxClient({ initialData }: { initialData: TaxData }) {
                   year={selectedYear}
                   profiles={data.profiles}
                   reliefs={reliefsForYear
-                    .filter((r) => (r as TaxRelief).source === "manual")
+                    .filter((r) => (r).source === "manual")
                     .map((r) => ({
                       id: r.id,
                       profile_id: r.profile_id,

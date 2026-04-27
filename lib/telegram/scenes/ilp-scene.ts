@@ -47,7 +47,7 @@ export const ilpScene = new Scenes.WizardScene<MyContext>(
   // STEP 0: Product selection
   async (ctx) => {
     const state = botState(ctx)
-    let accountId = state.accountId as string | undefined
+    let accountId = state.accountId
     let preFamilyId = state.familyId
 
     // Fallback: if the wizard was entered without setBotContext() running this

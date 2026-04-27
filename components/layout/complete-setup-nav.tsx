@@ -47,7 +47,7 @@ export function CompleteSetupNav() {
     status.profiles.length === 1 ? (
       <SidebarMenuItem>
         <SidebarMenuButton asChild tooltip="Complete setup">
-          <Link href={`/onboarding/optional?profileId=${status.profiles[0]!.id}`}>
+          <Link href={`/onboarding/optional?profileId=${status.profiles[0].id}`}>
             <Rocket />
             <span>Complete setup</span>
           </Link>

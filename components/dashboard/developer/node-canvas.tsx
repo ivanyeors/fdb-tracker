@@ -179,8 +179,8 @@ export function NodeCanvas() {
         moneyFlowRef.current = null
         setNodes((currentNodes) => {
           const result = clearMoneyFlowData(
-            currentNodes as Node<CalcNodeData>[],
-            edges as Edge<CalcEdgeData>[]
+            currentNodes,
+            edges
           )
           setEdges(result.edges)
           return result.nodes
@@ -202,8 +202,8 @@ export function NodeCanvas() {
         moneyFlowRef.current = data
         setNodes((currentNodes) => {
           const result = applyMoneyFlowData(
-            currentNodes as Node<CalcNodeData>[],
-            edges as Edge<CalcEdgeData>[],
+            currentNodes,
+            edges,
             data
           )
           setEdges(result.edges)
@@ -225,13 +225,13 @@ export function NodeCanvas() {
       if (layout?.positions && Object.keys(layout.positions).length > 0) {
         setNodes((currentNodes) =>
           applyPositionsToNodes(
-            currentNodes as Node<CalcNodeData>[],
+            currentNodes,
             layout.positions
           )
         )
         // Also update localStorage to keep them in sync
         saveNodePositions(
-          applyPositionsToNodes(nodes as Node<CalcNodeData>[], layout.positions)
+          applyPositionsToNodes(nodes, layout.positions)
         )
       }
     })
@@ -251,7 +251,7 @@ export function NodeCanvas() {
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
         saveTimeoutRef.current = setTimeout(() => {
           setNodes((currentNodes) => {
-            saveNodePositions(currentNodes as Node<CalcNodeData>[])
+            saveNodePositions(currentNodes)
             return currentNodes
           })
         }, 500)
@@ -340,9 +340,9 @@ export function NodeCanvas() {
       exportedAt: new Date().toISOString(),
       nodes: nodes.map((n) => ({
         id: n.id,
-        type: (n.data as CalcNodeData).nodeType,
-        label: (n.data as CalcNodeData).label,
-        filePath: (n.data as CalcNodeData).filePath,
+        type: (n.data).nodeType,
+        label: (n.data).label,
+        filePath: (n.data).filePath,
         position: n.position,
       })),
       edges: edges.map((e) => ({

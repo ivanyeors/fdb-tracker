@@ -223,14 +223,14 @@ export function NotificationPreferencesSection({
   )
 
   function handleToggle(type: NotificationType, checked: boolean) {
-    const prev = localState[type]!
+    const prev = localState[type]
     const next = { ...prev, enabled: checked }
     setLocalState((s) => ({ ...s, [type]: next }))
     save(type, next)
   }
 
   function handleUseDefault(type: NotificationType, useDefault: boolean) {
-    const prev = localState[type]!
+    const prev = localState[type]
     const next = { ...prev, useDefault }
     if (useDefault) {
       next.dayOfMonth = null
@@ -255,7 +255,7 @@ export function NotificationPreferencesSection({
     field: "dayOfMonth" | "monthOfYear" | "time",
     value: number | string | null
   ) {
-    const prev = localState[type]!
+    const prev = localState[type]
     const next = { ...prev, [field]: value }
     setLocalState((s) => ({ ...s, [type]: next }))
     save(type, next)
@@ -279,14 +279,14 @@ export function NotificationPreferencesSection({
         Choose which Telegram reminders this profile receives and when.
       </p>
 
-      {(Object.entries(grouped) as [string, typeof NOTIFICATION_CONFIG][]).map(
+      {(Object.entries(grouped)).map(
         ([group, items]) => (
           <div key={group} className="space-y-3">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               {group}
             </p>
             {items.map((config) => {
-              const pref = localState[config.type]!
+              const pref = localState[config.type]
               const isExpanded = expandedType === config.type
               const defaultSched = getDefaultSchedule(
                 config,

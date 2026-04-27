@@ -70,7 +70,7 @@ export function parseFundReportSnapshot(
       return null
     }
   } else if (typeof raw === "object") {
-    o = raw as Record<string, unknown>
+    o = raw
   } else {
     return null
   }

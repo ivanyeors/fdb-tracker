@@ -12,8 +12,8 @@ export const stockImgScene = new Scenes.WizardScene<MyContext>(
     // Step 1: Initialize, check for pre-filled args, prompt for symbol
     const st = botState(ctx)
     const accountId = st.accountId as string
-    const prefilledSymbol = st.symbol as string | undefined
-    const prefilledFileId = st.fileId as string | undefined
+    const prefilledSymbol = st.symbol
+    const prefilledFileId = st.fileId
 
     if (!accountId) {
       await ctx.reply("❌ Session error: Missing account ID.")
