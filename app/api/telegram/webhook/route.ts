@@ -35,7 +35,7 @@ const textCommands: Record<string, CommandHandler> = {}
 function extractCommand(
   text: string
 ): { command: string; rest: string } | null {
-  const match = text.match(/^\/(\w+)(@\S+)?\s*([\s\S]*)$/)
+  const match = /^\/(\w+)(@\S+)?\s*([\s\S]*)$/.exec(text)
   if (!match) return null
   return { command: match[1], rest: match[3] ?? "" }
 }

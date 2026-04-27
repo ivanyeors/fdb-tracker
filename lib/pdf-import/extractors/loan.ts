@@ -108,7 +108,7 @@ export function extractLoan(text: string): LoanExtractionResult {
 
   // Tenure
   let tenureMonths: number | null = null
-  const tenureMatch = text.match(/(?:tenure|loan\s+period|repayment\s+period)\s*:?\s*(\d+)\s*(months?|years?)/i)
+  const tenureMatch = /(?:tenure|loan\s+period|repayment\s+period)\s*:?\s*(\d+)\s*(months?|years?)/i.exec(text)
   if (tenureMatch) {
     const val = Number.parseInt(tenureMatch[1], 10)
     tenureMonths = tenureMatch[2].toLowerCase().startsWith("year") ? val * 12 : val

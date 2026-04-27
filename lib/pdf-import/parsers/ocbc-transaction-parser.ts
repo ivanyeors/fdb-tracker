@@ -142,7 +142,7 @@ export function parseOcbcBankStatement(pages: string[]): BankParseResult {
   // Extract metadata from all pages
   const allText = pages.join("\n")
 
-  const acctMatch = allText.match(/Account No\.\s*(\d{10,})/)
+  const acctMatch = /Account No\.\s*(\d{10,})/.exec(allText)
   if (acctMatch) accountNumber = acctMatch[1]
 
   const periodMatch = allText.match(
@@ -158,11 +158,11 @@ export function parseOcbcBankStatement(pages: string[]): BankParseResult {
   }
 
   // Parse BALANCE B/F
-  const bfMatch = allText.match(/([\d,]+\.\d{2})BALANCE B\/F/)
+  const bfMatch = /([\d,]+\.\d{2})BALANCE B\/F/.exec(allText)
   if (bfMatch) openingBalance = parseAmount(bfMatch[1])
 
   // Parse BALANCE C/F
-  const cfMatch = allText.match(/([\d,]+\.\d{2})BALANCE C\/F/)
+  const cfMatch = /([\d,]+\.\d{2})BALANCE C\/F/.exec(allText)
   if (cfMatch) closingBalance = parseAmount(cfMatch[1])
 
   // Parse totals
@@ -309,7 +309,7 @@ export function parseOcbcBankStatement(pages: string[]): BankParseResult {
         currentTxn.rawLines.push(trimmed)
 
         // Check for foreign currency
-        const fcyMatch = trimmed.match(/^(USD|EUR|GBP|JPY|AUD|CNY)\s+([\d,.]+)$/)
+        const fcyMatch = /^(USD|EUR|GBP|JPY|AUD|CNY)\s+([\d,.]+)$/.exec(trimmed)
         if (fcyMatch) {
           currentTxn.foreignCurrency = `${fcyMatch[1]} ${fcyMatch[2]}`
         } else {
@@ -408,7 +408,7 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
   const allText = pages.join("\n")
 
   // Extract metadata
-  const cardMatch = allText.match(/(\d{4}-\d{4}-\d{4}-\d{4})/)
+  const cardMatch = /(\d{4}-\d{4}-\d{4}-\d{4})/.exec(allText)
   if (cardMatch) cardNumber = cardMatch[1]
 
   // Match "STATEMENT DATE" label then date on same or next line
@@ -420,7 +420,7 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
     statementMonth = `${stmtDateMatch[3]}-${stmtDateMatch[2]}-01`
   } else {
     // Fallback: find standalone DD-MM-YYYY pattern early in the text
-    const standaloneDate = allText.match(/^(\d{2})-(\d{2})-(\d{4})\s/m)
+    const standaloneDate = /^(\d{2})-(\d{2})-(\d{4})\s/m.exec(allText)
     if (standaloneDate) {
       statementDate = `${standaloneDate[3]}-${standaloneDate[2]}-${standaloneDate[1]}`
       statementMonth = `${standaloneDate[3]}-${standaloneDate[2]}-01`
@@ -447,7 +447,7 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
   if (minPayHeaderIdx >= 0) {
     const afterHeader = allText.slice(minPayHeaderIdx)
     // Find the line with DD-MM-YYYY values
-    const valuesLine = afterHeader.match(/\n([^\n]*\d{2}-\d{2}-\d{4}[^\n]*)/)
+    const valuesLine = /\n([^\n]*\d{2}-\d{2}-\d{4}[^\n]*)/.exec(afterHeader)
     if (valuesLine) {
       // Get all S$ amounts on that line
       const amounts = [...valuesLine[1].matchAll(/S\$([\d,]+(?:\.\d{2})?)/g)]
@@ -526,8 +526,8 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
 
       // Skip card info lines
       if (trimmed.startsWith("OCBC 365") || trimmed.startsWith("OCBC FRANK")) continue
-      if (trimmed.match(/^YEO\s+/)) continue
-      if (trimmed.match(/^\d{4}-\d{4}-\d{4}-\d{4}/)) continue
+      if (/^YEO\s+/.exec(trimmed)) continue
+      if (/^\d{4}-\d{4}-\d{4}-\d{4}/.exec(trimmed)) continue
 
       // Skip LAST MONTH'S BALANCE
       if (trimmed.includes("LAST MONTH'S BALANCE")) continue
@@ -554,9 +554,9 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
         let descPart: string
 
         // New format: credit with amount mashed inside parens
-        const newCreditMatch = rest.match(/^\(([\d,]+\.\d{2})(.*?)\)\s*$/)
+        const newCreditMatch = /^\(([\d,]+\.\d{2})(.*?)\)\s*$/.exec(rest)
         // Old format: credit with amount at end in parens
-        const oldCreditMatch = rest.match(/\(([\d,]+\.\d{2})\)\s*$/)
+        const oldCreditMatch = /\(([\d,]+\.\d{2})\)\s*$/.exec(rest)
 
         if (newCreditMatch) {
           amount = parseAmount(newCreditMatch[1]) ?? 0
@@ -568,9 +568,9 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
           descPart = rest.slice(0, rest.lastIndexOf("(")).trim()
         } else {
           // Debit: try amount-before-description first
-          const newDebitMatch = rest.match(/^([\d,]+\.\d{2})(.+)$/)
+          const newDebitMatch = /^([\d,]+\.\d{2})(.+)$/.exec(rest)
           // Fallback: amount-after-description
-          const oldDebitMatch = rest.match(/([\d,]+\.\d{2})\s*$/)
+          const oldDebitMatch = /([\d,]+\.\d{2})\s*$/.exec(rest)
 
           if (newDebitMatch) {
             amount = parseAmount(newDebitMatch[1]) ?? 0

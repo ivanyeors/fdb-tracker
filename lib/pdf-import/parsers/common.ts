@@ -83,7 +83,7 @@ export function extractMonth(text: string): string | null {
   }
 
   // "STATEMENT DATE DD-MM-YYYY" (OCBC CC format)
-  const stmtDate = text.match(/STATEMENT\s+DATE\s+(\d{2})-(\d{2})-(\d{4})/i)
+  const stmtDate = /STATEMENT\s+DATE\s+(\d{2})-(\d{2})-(\d{4})/i.exec(text)
   if (stmtDate) {
     return `${stmtDate[3]}-${stmtDate[2]}-01`
   }

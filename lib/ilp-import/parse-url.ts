@@ -6,7 +6,7 @@ export function parseTokioFundReportUrl(url: string | null): {
   if (!url || typeof url !== "string") return { msId: null, currencyId: null }
   let msId: string | null = null
   let currencyId: string | null = null
-  const cur = url.match(/[?&]currencyId=([^&#]+)/i)
+  const cur = /[?&]currencyId=([^&#]+)/i.exec(url)
   if (cur) {
     try {
       currencyId = decodeURIComponent(cur[1].trim()) || null
@@ -15,8 +15,8 @@ export function parseTokioFundReportUrl(url: string | null): {
     }
   }
   const afterHash = url.split("#")[1] ?? ""
-  const idInHash = afterHash.match(/[?&]id=([^&#]+)/i)
-  const idInQuery = url.match(/[?&]id=([^&#]+)/i)
+  const idInHash = /[?&]id=([^&#]+)/i.exec(afterHash)
+  const idInQuery = /[?&]id=([^&#]+)/i.exec(url)
   const raw = idInHash?.[1] ?? idInQuery?.[1]
   if (raw) {
     try {

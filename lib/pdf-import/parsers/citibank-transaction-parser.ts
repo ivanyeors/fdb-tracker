@@ -215,7 +215,7 @@ export function parseCitibankCcStatement(
         const rest = trimmed.slice(txnMatch[0].length)
 
         // Extract amount (last number on line, possibly parenthesized)
-        const parenMatch = rest.match(/\(([\d,]+\.\d{2})\)\s*$/)
+        const parenMatch = /\(([\d,]+\.\d{2})\)\s*$/.exec(rest)
         let amount: number
         let isCredit: boolean
         let descPart: string
@@ -225,7 +225,7 @@ export function parseCitibankCcStatement(
           isCredit = true
           descPart = rest.slice(0, rest.lastIndexOf("(")).trim()
         } else {
-          const amountMatch = rest.match(/([\d,]+\.\d{2})\s*$/)
+          const amountMatch = /([\d,]+\.\d{2})\s*$/.exec(rest)
           amount = amountMatch ? (parseAmount(amountMatch[1]) ?? 0) : 0
           isCredit = false
           descPart = amountMatch

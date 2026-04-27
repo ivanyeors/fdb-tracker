@@ -33,11 +33,11 @@ export function extractTax(text: string): TaxExtractionResult {
 
   // ── Year of Assessment ──
   let year: number | null = null
-  const yoaMatch = text.match(/year\s+of\s+assessment\s*:?\s*(\d{4})/i)
+  const yoaMatch = /year\s+of\s+assessment\s*:?\s*(\d{4})/i.exec(text)
   if (yoaMatch) {
     year = Number.parseInt(yoaMatch[1], 10)
   } else {
-    const yaMatch = text.match(/\bYA\s*(\d{4})/i)
+    const yaMatch = /\bYA\s*(\d{4})/i.exec(text)
     if (yaMatch) year = Number.parseInt(yaMatch[1], 10)
   }
   if (!year) {

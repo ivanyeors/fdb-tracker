@@ -11,9 +11,9 @@ function extractBoundary(headerBlock: string): string | null {
     /Content-Type:\s*multipart\/[^;]+;\s*[^]*?boundary\s*=\s*"([^"]+)"/i
   )
   if (m) return m[1].trim()
-  const m2 = joined.match(/boundary\s*=\s*"([^"]+)"/i)
+  const m2 = /boundary\s*=\s*"([^"]+)"/i.exec(joined)
   if (m2) return m2[1].trim()
-  const m3 = joined.match(/boundary\s*=\s*([^\s;]+)/i)
+  const m3 = /boundary\s*=\s*([^\s;]+)/i.exec(joined)
   return m3 ? m3[1].trim() : null
 }
 
@@ -52,7 +52,7 @@ export function stripMhtmlToHtmlOnly(raw: string): string {
     if (endIdx === -1) continue
 
     const partHeaders = chunk.slice(0, endIdx)
-    const ctMatch = partHeaders.match(/^Content-Type:\s*(.+)$/im)
+    const ctMatch = /^Content-Type:\s*(.+)$/im.exec(partHeaders)
     const contentType = ctMatch
       ? ctMatch[1].trim().split(";")[0]?.trim()
       : null

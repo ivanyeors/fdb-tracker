@@ -7,18 +7,18 @@ import { decodeQuotedPrintable } from "./quoted-printable"
 
 /** Top-level MIME headers before the first blank line + multipart body. */
 export function extractTopSnapshotUrl(raw: string): string | null {
-  const m = raw.match(/^Snapshot-Content-Location:\s*(.+)$/im)
+  const m = /^Snapshot-Content-Location:\s*(.+)$/im.exec(raw)
   if (!m) return null
   return m[1].trim().replace(/\r$/, "")
 }
 
 function extractBoundaryFromHeaders(headerBlock: string): string | null {
   const joined = headerBlock.replaceAll(/\r?\n[ \t]+/g, " ")
-  const m = joined.match(/Content-Type:\s*multipart\/[^;]+;\s*[^]*?boundary\s*=\s*"([^"]+)"/i)
+  const m = /Content-Type:\s*multipart\/[^;]+;\s*[^]*?boundary\s*=\s*"([^"]+)"/i.exec(joined)
   if (m) return m[1].trim()
-  const m2 = joined.match(/boundary\s*=\s*"([^"]+)"/i)
+  const m2 = /boundary\s*=\s*"([^"]+)"/i.exec(joined)
   if (m2) return m2[1].trim()
-  const m3 = joined.match(/boundary\s*=\s*([^\s;]+)/i)
+  const m3 = /boundary\s*=\s*([^\s;]+)/i.exec(joined)
   return m3 ? m3[1].trim() : null
 }
 
@@ -40,9 +40,9 @@ function parsePartHeaders(partHeaderBlock: string): {
   let contentType: string | null = null
   let transferEncoding: string | null = null
   for (const line of lines) {
-    const lm = line.match(/^Content-Type:\s*(.+)$/i)
+    const lm = /^Content-Type:\s*(.+)$/i.exec(line)
     if (lm) contentType = lm[1].trim().split(";")[0]?.trim() ?? null
-    const te = line.match(/^Content-Transfer-Encoding:\s*(.+)$/i)
+    const te = /^Content-Transfer-Encoding:\s*(.+)$/i.exec(line)
     if (te) transferEncoding = te[1].trim().toLowerCase()
   }
   return { contentType, transferEncoding }

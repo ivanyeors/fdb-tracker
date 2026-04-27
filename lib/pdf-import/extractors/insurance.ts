@@ -89,7 +89,7 @@ function extractPremium(text: string): { amount: number | null; frequency: strin
 
   // Check "Payment Mode" field (e.g., "Payment Mode : Annual")
   if (!frequency) {
-    const modeMatch = text.match(/payment\s+mode\s*:?\s*(annual|yearly|monthly|quarterly)/i)
+    const modeMatch = /payment\s+mode\s*:?\s*(annual|yearly|monthly|quarterly)/i.exec(text)
     if (modeMatch) {
       const mode = modeMatch[1].toLowerCase()
       if (mode === "annual" || mode === "yearly") frequency = "yearly"
@@ -473,7 +473,7 @@ function extractCoverageTillAge(text: string): number | null {
 
 function extractSubType(text: string, policyType: string | null): string | null {
   if (policyType !== "integrated_shield") return null
-  const match = text.match(/(?:ward\s+([ab]\d?)|private|semi[- ]private)/i)
+  const match = /(?:ward\s+([ab]\d?)|private|semi[- ]private)/i.exec(text)
   if (match) {
     const full = match[0].toLowerCase().trim()
     if (full.includes("private") && !full.includes("semi")) return "private"

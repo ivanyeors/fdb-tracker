@@ -15,7 +15,7 @@ const SCENE_BREAKING_COMMANDS = new Set([
 ])
 
 function extractLeadingCommand(text: string): string | null {
-  const match = text.match(/^(\/\w+)(@\S+)?/)
+  const match = /^(\/\w+)(@\S+)?/.exec(text)
   return match ? match[1].toLowerCase() : null
 }
 

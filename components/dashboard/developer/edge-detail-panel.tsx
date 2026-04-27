@@ -39,7 +39,7 @@ function LogicBlock({ text }: { text: string }) {
         }
 
         // Line with bold prefix: **Label:** rest
-        const boldMatch = trimmed.match(/^\*\*(.+?)\*\*\s*(.*)$/)
+        const boldMatch = /^\*\*(.+?)\*\*\s*(.*)$/.exec(trimmed)
         if (boldMatch) {
           return (
             <div key={i} className="text-[11px] text-muted-foreground">

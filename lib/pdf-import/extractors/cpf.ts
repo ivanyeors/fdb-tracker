@@ -73,7 +73,7 @@ function extractBalance(text: string, accountPattern: RegExp): number | null {
   if (!match) return null
   // Look for a dollar amount near the match
   const afterMatch = text.slice((match.index ?? 0) + match[0].length, (match.index ?? 0) + match[0].length + 200)
-  const amountMatch = afterMatch.match(/(?:S?\$)?\s*([\d,]+\.\d{2})/)
+  const amountMatch = /(?:S?\$)?\s*([\d,]+\.\d{2})/.exec(afterMatch)
   if (amountMatch) {
     return parseAmount(amountMatch[1])
   }

@@ -13,7 +13,7 @@ import type {
 import { parseTokioFundReportUrl } from "./parse-url"
 
 function parseMonthFromNavDate(text: string): string | null {
-  const m = text.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/)
+  const m = /(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/.exec(text)
   if (!m) return null
   const day = Number.parseInt(m[1], 10)
   const monStr = m[2].toLowerCase().slice(0, 3)
