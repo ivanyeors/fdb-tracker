@@ -91,7 +91,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                   value={state.incomeGrowthRate * 100}
                   onChange={(e) =>
                     simulator.setIncomeGrowthRate(
-                      parseFloat(e.target.value) / 100 || 0,
+                      Number.parseFloat(e.target.value) / 100 || 0,
                     )
                   }
                 />
@@ -164,7 +164,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                               simulator.setLoanField(
                                 i,
                                 "ratePct",
-                                parseFloat(e.target.value) || 0,
+                                Number.parseFloat(e.target.value) || 0,
                               )
                             }
                           />
@@ -183,7 +183,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                               simulator.setLoanField(
                                 i,
                                 "tenureMonths",
-                                parseInt(e.target.value) || 1,
+                                Number.parseInt(e.target.value) || 1,
                               )
                             }
                           />
@@ -243,7 +243,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                           onChange={(e) =>
                             simulator.setHypotheticalLoan({
                               ...state.hypotheticalLoan!,
-                              ratePct: parseFloat(e.target.value) || 0,
+                              ratePct: Number.parseFloat(e.target.value) || 0,
                             })
                           }
                         />
@@ -262,7 +262,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                             simulator.setHypotheticalLoan({
                               ...state.hypotheticalLoan!,
                               tenureMonths:
-                                parseInt(e.target.value) || 1,
+                                Number.parseInt(e.target.value) || 1,
                             })
                           }
                         />
@@ -330,7 +330,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                           onChange={(e) =>
                             setHypoDraft((d) => ({
                               ...d,
-                              ratePct: parseFloat(e.target.value) || 0,
+                              ratePct: Number.parseFloat(e.target.value) || 0,
                             }))
                           }
                         />
@@ -349,7 +349,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
                             setHypoDraft((d) => ({
                               ...d,
                               tenureMonths:
-                                parseInt(e.target.value) || 1,
+                                Number.parseInt(e.target.value) || 1,
                             }))
                           }
                         />

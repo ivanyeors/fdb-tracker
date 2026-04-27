@@ -482,8 +482,8 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     if (await handleStrayCallback(ctx, "the new quantity")) return
     if (!ctx.message || !("text" in ctx.message)) return undefined
 
-    const quantity = parseFloat(ctx.message.text)
-    if (isNaN(quantity) || quantity <= 0) {
+    const quantity = Number.parseFloat(ctx.message.text)
+    if (Number.isNaN(quantity) || quantity <= 0) {
       await ctx.reply(
         errorMsg("Invalid quantity. Enter a positive number.", "10")
       )
@@ -509,8 +509,8 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     if (await handleStrayCallback(ctx, "the new price per share")) return
     if (!ctx.message || !("text" in ctx.message)) return undefined
 
-    const price = parseFloat(ctx.message.text)
-    if (isNaN(price) || price <= 0) {
+    const price = Number.parseFloat(ctx.message.text)
+    if (Number.isNaN(price) || price <= 0) {
       await ctx.reply(
         errorMsg("Invalid price. Enter a positive number.", "150.50"),
       )
@@ -543,8 +543,8 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     if (t === "/skip" || t.toLowerCase() === "skip" || t === "0") {
       ctx.scene.session.commission = 0
     } else {
-      const fee = parseFloat(t)
-      if (isNaN(fee) || fee < 0) {
+      const fee = Number.parseFloat(t)
+      if (Number.isNaN(fee) || fee < 0) {
         await ctx.reply(
           errorMsg("Invalid commission. Enter a number ≥ 0.", "1.50"),
         )

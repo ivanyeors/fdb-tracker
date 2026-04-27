@@ -6,8 +6,8 @@ import type {
 
 function parseAmount(str: string): number | null {
   const cleaned = str.replace(/[S$,\s]/g, "")
-  const num = parseFloat(cleaned)
-  return isNaN(num) ? null : num
+  const num = Number.parseFloat(cleaned)
+  return Number.isNaN(num) ? null : num
 }
 
 const INSURER_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
@@ -465,7 +465,7 @@ function extractCoverageTillAge(text: string): number | null {
     /(?:coverage|covered?|term)\s+(?:till?|to|until)\s+age\s+(\d{2,3})/i
   )
   if (match) {
-    const age = parseInt(match[1])
+    const age = Number.parseInt(match[1])
     if (age >= 20 && age <= 120) return age
   }
   return null

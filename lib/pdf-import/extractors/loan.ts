@@ -2,8 +2,8 @@ import type { LoanExtractionResult, ExtractionWarning } from "@/lib/pdf-import/t
 
 function parseAmount(str: string): number | null {
   const cleaned = str.replace(/[$,\s]/g, "")
-  const num = parseFloat(cleaned)
-  return isNaN(num) ? null : num
+  const num = Number.parseFloat(cleaned)
+  return Number.isNaN(num) ? null : num
 }
 
 const MONTH_MAP: Record<string, string> = {
@@ -102,7 +102,7 @@ export function extractLoan(text: string): LoanExtractionResult {
     /(?:interest\s+rate|rate\s+of\s+interest)\s*:?\s*(\d+\.?\d{0,4})\s*%/i
   )
   if (rateMatch) {
-    ratePct = parseFloat(rateMatch[1])
+    ratePct = Number.parseFloat(rateMatch[1])
   }
   if (ratePct === null) warnings.push({ field: "ratePct", message: "Could not extract interest rate" })
 
@@ -110,7 +110,7 @@ export function extractLoan(text: string): LoanExtractionResult {
   let tenureMonths: number | null = null
   const tenureMatch = text.match(/(?:tenure|loan\s+period|repayment\s+period)\s*:?\s*(\d+)\s*(months?|years?)/i)
   if (tenureMatch) {
-    const val = parseInt(tenureMatch[1], 10)
+    const val = Number.parseInt(tenureMatch[1], 10)
     tenureMonths = tenureMatch[2].toLowerCase().startsWith("year") ? val * 12 : val
   }
   if (tenureMonths === null) warnings.push({ field: "tenureMonths", message: "Could not extract tenure" })

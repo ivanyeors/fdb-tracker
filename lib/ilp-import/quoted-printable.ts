@@ -10,7 +10,7 @@ export function decodeQuotedPrintable(input: string): string {
     if (c === "=" && i + 2 < withoutSoftBreaks.length) {
       const hex = withoutSoftBreaks.slice(i + 1, i + 3)
       if (/^[0-9A-Fa-f]{2}$/.test(hex)) {
-        bytes.push(parseInt(hex, 16))
+        bytes.push(Number.parseInt(hex, 16))
         i += 2
         continue
       }

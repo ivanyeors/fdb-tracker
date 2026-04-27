@@ -268,7 +268,7 @@ export default function InsurancePage() {
                         <Select
                           value={item.yearly_outflow_date?.toString()}
                           onValueChange={(v) =>
-                            updateItem(i, "yearly_outflow_date", v ? parseInt(v, 10) : null)
+                            updateItem(i, "yearly_outflow_date", v ? Number.parseInt(v, 10) : null)
                           }
                         >
                           <SelectTrigger>

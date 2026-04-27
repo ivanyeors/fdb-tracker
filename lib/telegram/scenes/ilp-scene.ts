@@ -208,8 +208,8 @@ export const ilpScene = new Scenes.WizardScene<MyContext>(
     if (await handleStrayCallback(ctx, "the new fund value")) return
     if (!ctx.message || !("text" in ctx.message)) return undefined
 
-    const value = parseFloat(ctx.message.text)
-    if (isNaN(value) || value < 0) {
+    const value = Number.parseFloat(ctx.message.text)
+    if (Number.isNaN(value) || value < 0) {
       await ctx.reply(
         errorMsg("Invalid value. Enter a positive number.", "12500"),
       )

@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     }
 
     const bankAccountId = parsed.data.accountId
-    const monthCount = parsed.data.months ? parseInt(parsed.data.months, 10) : 12
+    const monthCount = parsed.data.months ? Number.parseInt(parsed.data.months, 10) : 12
     const supabase = createSupabaseAdmin()
 
     const { data: account } = await supabase

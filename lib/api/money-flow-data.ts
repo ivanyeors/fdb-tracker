@@ -587,7 +587,7 @@ export async function fetchMoneyFlowData(
 
   // Effective inflow/outflow
   const monthStr = normalizeMonthKey(targetMonth)
-  const year = parseInt(monthStr.slice(0, 4), 10) || currentYear
+  const year = Number.parseInt(monthStr.slice(0, 4), 10) || currentYear
 
   let totalEffectiveInflow = 0
   let totalEffectiveOutflow = 0

@@ -25,7 +25,7 @@ export function formatIlpChartMonthLabel(ym: string): string {
     "Nov",
     "Dec",
   ]
-  const mi = Math.max(0, Math.min(11, parseInt(m ?? "1", 10) - 1))
+  const mi = Math.max(0, Math.min(11, Number.parseInt(m ?? "1", 10) - 1))
   const yy = (y ?? "").slice(-2)
   return yy ? `${monthNames[mi]} ’${yy}` : monthNames[mi]
 }

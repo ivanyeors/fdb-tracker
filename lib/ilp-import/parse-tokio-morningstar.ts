@@ -15,9 +15,9 @@ import { parseTokioFundReportUrl } from "./parse-url"
 function parseMonthFromNavDate(text: string): string | null {
   const m = text.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/)
   if (!m) return null
-  const day = parseInt(m[1], 10)
+  const day = Number.parseInt(m[1], 10)
   const monStr = m[2].toLowerCase().slice(0, 3)
-  const year = parseInt(m[3], 10)
+  const year = Number.parseInt(m[3], 10)
   const months: Record<string, number> = {
     jan: 0,
     feb: 1,
@@ -42,7 +42,7 @@ function parseMonthFromNavDate(text: string): string | null {
 
 function parseLatestNavNumber(text: string): number | null {
   const t = text.replace(/,/g, "").trim()
-  const n = parseFloat(t)
+  const n = Number.parseFloat(t)
   return Number.isFinite(n) ? n : null
 }
 
@@ -57,7 +57,7 @@ function parseNumericCell(raw: string): number | null {
     .replace(/[,%]/g, "")
     .trim()
   if (t.length === 0 || t === "-" || t === "—") return null
-  const n = parseFloat(t)
+  const n = Number.parseFloat(t)
   return Number.isFinite(n) ? n : null
 }
 
@@ -449,9 +449,9 @@ export function parseTokioMorningstarHtml(
           .get()
         if (cells.length < 2) return
         const label = cells[0]
-        const w = parseFloat(cells[1].replace(/[−–-]/g, "-"))
+        const w = Number.parseFloat(cells[1].replace(/[−–-]/g, "-"))
         const cat =
-          cells.length > 2 ? parseFloat(cells[2].replace(/[−–-]/g, "-")) : NaN
+          cells.length > 2 ? Number.parseFloat(cells[2].replace(/[−–-]/g, "-")) : Number.NaN
         rows.push({
           label,
           weightPct: Number.isFinite(w) ? w : null,

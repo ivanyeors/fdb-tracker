@@ -221,7 +221,7 @@ export default function LoansPage() {
                   placeholder="240"
                   value={item.tenure_months || ""}
                   onChange={(e) =>
-                    updateItem(i, "tenure_months", parseInt(e.target.value, 10) || 0)
+                    updateItem(i, "tenure_months", Number.parseInt(e.target.value, 10) || 0)
                   }
                 />
               </div>

@@ -61,7 +61,7 @@ export function MonthYearPicker({
   const [displayYear, setDisplayYear] = React.useState(() => {
     if (value) {
       const [y] = value.split("-")
-      return parseInt(y ?? String(new Date().getFullYear()), 10)
+      return Number.parseInt(y ?? String(new Date().getFullYear()), 10)
     }
     return new Date().getFullYear()
   })
@@ -69,18 +69,18 @@ export function MonthYearPicker({
   React.useEffect(() => {
     if (open && value) {
       const [y] = value.split("-")
-      setDisplayYear(parseInt(y ?? String(new Date().getFullYear()), 10))
+      setDisplayYear(Number.parseInt(y ?? String(new Date().getFullYear()), 10))
     }
   }, [open, value])
 
   const { minYear, maxYear } = React.useMemo(() => {
     const now = new Date()
     const maxMonthYear = maxMonth
-      ? parseInt(maxMonth.split("-")[0] ?? "0", 10)
+      ? Number.parseInt(maxMonth.split("-")[0] ?? "0", 10)
       : null
 
     if (availableMonths && availableMonths.length > 0) {
-      const years = availableMonths.map((m) => parseInt(m.split("-")[0] ?? "0", 10))
+      const years = availableMonths.map((m) => Number.parseInt(m.split("-")[0] ?? "0", 10))
       return {
         minYear: Math.min(...years),
         maxYear: maxMonthYear
@@ -169,7 +169,7 @@ export function MonthYearPicker({
           </div>
           <div className="grid grid-cols-3 gap-1">
             {(Object.entries(MONTH_LABELS) as [string, string][]).map(([num, label]) => {
-              const monthNum = parseInt(num, 10)
+              const monthNum = Number.parseInt(num, 10)
               const available = isMonthAvailable(displayYear, monthNum)
               const monthStr = `${displayYear}-${num}-01`
               const isSelected = value === monthStr

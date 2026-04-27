@@ -148,8 +148,8 @@ export function parseCitibankCcStatement(
   let stmtMonthNum = 1
   if (stmtDateMatch) {
     const mm = MONTH_MAP[stmtDateMatch[1].toLowerCase()]
-    stmtYear = parseInt(stmtDateMatch[3])
-    stmtMonthNum = parseInt(mm || "1")
+    stmtYear = Number.parseInt(stmtDateMatch[3])
+    stmtMonthNum = Number.parseInt(mm || "1")
   }
 
   // Parse transactions

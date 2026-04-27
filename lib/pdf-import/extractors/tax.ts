@@ -7,8 +7,8 @@ import type {
 
 function parseAmount(str: string): number | null {
   const cleaned = str.replace(/[$,\s]/g, "")
-  const num = parseFloat(cleaned)
-  return isNaN(num) ? null : num
+  const num = Number.parseFloat(cleaned)
+  return Number.isNaN(num) ? null : num
 }
 
 /** Map NOA relief labels to normalized type keys */
@@ -35,10 +35,10 @@ export function extractTax(text: string): TaxExtractionResult {
   let year: number | null = null
   const yoaMatch = text.match(/year\s+of\s+assessment\s*:?\s*(\d{4})/i)
   if (yoaMatch) {
-    year = parseInt(yoaMatch[1], 10)
+    year = Number.parseInt(yoaMatch[1], 10)
   } else {
     const yaMatch = text.match(/\bYA\s*(\d{4})/i)
-    if (yaMatch) year = parseInt(yaMatch[1], 10)
+    if (yaMatch) year = Number.parseInt(yaMatch[1], 10)
   }
   if (!year) {
     warnings.push({
@@ -202,9 +202,9 @@ export function extractTax(text: string): TaxExtractionResult {
   let nextMatch: RegExpExecArray | null
   while ((nextMatch = nextRegex.exec(text)) !== null) {
     const income = parseAmount(nextMatch[1])
-    const rate = parseFloat(nextMatch[2])
+    const rate = Number.parseFloat(nextMatch[2])
     const tax = parseAmount(nextMatch[3])
-    if (income !== null && !isNaN(rate) && tax !== null) {
+    if (income !== null && !Number.isNaN(rate) && tax !== null) {
       bracketSummary.push({
         label: `Next ${nextMatch[1]} @ ${nextMatch[2]}%`,
         income,
@@ -221,9 +221,9 @@ export function extractTax(text: string): TaxExtractionResult {
     /by\s+(\d{1,2})\s+(\w+)\s+(\d{4})/i
   )
   if (dueDateMatch) {
-    const day = parseInt(dueDateMatch[1], 10)
+    const day = Number.parseInt(dueDateMatch[1], 10)
     const monthStr = dueDateMatch[2]
-    const yearStr = parseInt(dueDateMatch[3], 10)
+    const yearStr = Number.parseInt(dueDateMatch[3], 10)
     const monthNames: Record<string, number> = {
       jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
       apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6,
@@ -231,7 +231,7 @@ export function extractTax(text: string): TaxExtractionResult {
       nov: 10, november: 10, dec: 11, december: 11,
     }
     const monthIndex = monthNames[monthStr.toLowerCase()]
-    if (monthIndex !== undefined && !isNaN(day) && !isNaN(yearStr)) {
+    if (monthIndex !== undefined && !Number.isNaN(day) && !Number.isNaN(yearStr)) {
       const d = new Date(yearStr, monthIndex, day)
       paymentDueDate = d.toISOString().split("T")[0]
     }

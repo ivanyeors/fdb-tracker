@@ -113,11 +113,11 @@ export function AddCardForm({
         ...(edition.trim() && { edition: edition.trim() }),
         ...(cardNumber.trim() && { cardNumber: cardNumber.trim() }),
         ...(gradingCompany && { gradingCompany }),
-        ...(grade && { grade: parseFloat(grade) }),
+        ...(grade && { grade: Number.parseFloat(grade) }),
         ...(certNumber.trim() && { certNumber: certNumber.trim() }),
         ...(condition && { condition }),
         ...(rarity.trim() && { rarity: rarity.trim() }),
-        ...(quantity && parseInt(quantity) > 1 && { quantity: parseInt(quantity) }),
+        ...(quantity && Number.parseInt(quantity) > 1 && { quantity: Number.parseInt(quantity) }),
         ...(notes.trim() && { notes: notes.trim() }),
       }
 

@@ -82,8 +82,8 @@ export function SellHoldingDialog({ initial, defaultPrice, onSuccess }: SellHold
       toast.error("Please select a profile or family first.")
       return
     }
-    const qty = parseFloat(quantity)
-    if (isNaN(qty) || qty <= 0) {
+    const qty = Number.parseFloat(quantity)
+    if (Number.isNaN(qty) || qty <= 0) {
       toast.error("Enter a valid quantity.")
       return
     }
@@ -213,7 +213,7 @@ export function SellHoldingDialog({ initial, defaultPrice, onSuccess }: SellHold
               {(commission ?? 0) > 0 && price != null && quantity && (
                 <p className="text-muted-foreground text-xs">
                   Net proceeds: $
-                  {(parseFloat(quantity) * price - (commission ?? 0)).toLocaleString(undefined, {
+                  {(Number.parseFloat(quantity) * price - (commission ?? 0)).toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}

@@ -90,7 +90,7 @@ export function AddOtherForm({
         ...(brand.trim() && { brand: brand.trim() }),
         ...(description.trim() && { description: description.trim() }),
         ...(condition && { condition }),
-        ...(quantity && parseInt(quantity) > 1 && { quantity: parseInt(quantity) }),
+        ...(quantity && Number.parseInt(quantity) > 1 && { quantity: Number.parseInt(quantity) }),
         ...(notes.trim() && { notes: notes.trim() }),
       }
 

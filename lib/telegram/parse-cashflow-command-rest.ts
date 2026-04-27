@@ -19,7 +19,7 @@ export function parseAmountAndMemoFromRest(
   if (!trimmed) return null
   const m = trimmed.match(AMOUNT_MEMO)
   if (!m) return null
-  const amount = parseFloat(m[1])
+  const amount = Number.parseFloat(m[1])
   if (Number.isNaN(amount) || amount <= 0) return null
   const memoRaw = (m[2] ?? "").trim()
   const memo = memoRaw.length > 0 ? memoRaw.slice(0, 2000) : undefined

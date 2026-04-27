@@ -152,8 +152,8 @@ export function parseOcbcBankStatement(pages: string[]): BankParseResult {
   let stmtMonthNum = 1
   if (periodMatch) {
     const endMM = MONTH_MAP[periodMatch[5].toLowerCase()]
-    stmtYear = parseInt(periodMatch[6])
-    stmtMonthNum = parseInt(endMM || "1")
+    stmtYear = Number.parseInt(periodMatch[6])
+    stmtMonthNum = Number.parseInt(endMM || "1")
     statementMonth = `${stmtYear}-${endMM}-01`
   }
 
@@ -469,8 +469,8 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
   let stmtYear = new Date().getFullYear()
   let stmtMonthNum = 1
   if (stmtDateMatch) {
-    stmtYear = parseInt(stmtDateMatch[3])
-    stmtMonthNum = parseInt(stmtDateMatch[2])
+    stmtYear = Number.parseInt(stmtDateMatch[3])
+    stmtMonthNum = Number.parseInt(stmtDateMatch[2])
   }
 
   // Parse transactions from each page

@@ -5,8 +5,8 @@
 
 export function parseAmount(str: string): number | null {
   const cleaned = str.replace(/[$,\s]/g, "")
-  const num = parseFloat(cleaned)
-  return isNaN(num) ? null : num
+  const num = Number.parseFloat(cleaned)
+  return Number.isNaN(num) ? null : num
 }
 
 export const BANK_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
@@ -123,7 +123,7 @@ export function resolveDateDDMMM(
   const mm = MONTH_MAP[monthStr.toLowerCase()]
   if (!mm) return `${statementYear}-01-${dayStr.padStart(2, "0")}`
 
-  const txnMonth = parseInt(mm)
+  const txnMonth = Number.parseInt(mm)
   let year = statementYear
 
   // If txn month is much larger than statement month, it's from previous year
@@ -153,7 +153,7 @@ export function resolveDateDDSlashMM(
 
   const day = parts[0].padStart(2, "0")
   const month = parts[1].padStart(2, "0")
-  const txnMonth = parseInt(month)
+  const txnMonth = Number.parseInt(month)
   let year = statementYear
 
   if (txnMonth - statementMonth > 6) {

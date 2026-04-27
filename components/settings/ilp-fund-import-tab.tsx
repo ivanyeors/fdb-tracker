@@ -1591,7 +1591,7 @@ export function IlpFundImportTab({
                           className="w-24"
                           value={singleAllocPct[`e:${m.id}`] ?? ""}
                           onChange={(e) => {
-                            const v = parseFloat(e.target.value)
+                            const v = Number.parseFloat(e.target.value)
                             setSingleAllocPct((prev) => ({
                               ...prev,
                               [`e:${m.id}`]: Number.isFinite(v) ? v : 0,
@@ -1615,7 +1615,7 @@ export function IlpFundImportTab({
                       className="w-24"
                       value={singleAllocPct.new ?? ""}
                       onChange={(e) => {
-                        const v = parseFloat(e.target.value)
+                        const v = Number.parseFloat(e.target.value)
                         setSingleAllocPct((prev) => ({
                           ...prev,
                           new: Number.isFinite(v) ? v : 0,
@@ -1994,7 +1994,7 @@ export function IlpFundImportTab({
                             className="w-24"
                             value={multiAllocPct[`e:${m.id}`] ?? ""}
                             onChange={(e) => {
-                              const v = parseFloat(e.target.value)
+                              const v = Number.parseFloat(e.target.value)
                               setMultiAllocPct((prev) => ({
                                 ...prev,
                                 [`e:${m.id}`]: Number.isFinite(v) ? v : 0,
@@ -2017,7 +2017,7 @@ export function IlpFundImportTab({
                           className="w-24"
                           value={multiAllocPct[`n:${fi}`] ?? ""}
                           onChange={(e) => {
-                            const v = parseFloat(e.target.value)
+                            const v = Number.parseFloat(e.target.value)
                             setMultiAllocPct((prev) => ({
                               ...prev,
                               [`n:${fi}`]: Number.isFinite(v) ? v : 0,

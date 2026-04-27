@@ -75,7 +75,7 @@ export async function fetchSingleMonthCashflow(
 ): Promise<SingleMonthResult> {
   const { profileIds, familyId, month } = params
   const monthStr = normalizeMonthKey(month)
-  const year = parseInt(monthStr.slice(0, 4), 10) || new Date().getFullYear()
+  const year = Number.parseInt(monthStr.slice(0, 4), 10) || new Date().getFullYear()
 
   // Batch load all data in parallel
   const [

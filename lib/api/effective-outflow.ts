@@ -52,7 +52,7 @@ export async function getEffectiveOutflowForProfile(
   month: string
 ): Promise<EffectiveOutflowResult> {
   const parts = month.split("-")
-  const year = parts[0] ? parseInt(parts[0], 10) : new Date().getFullYear()
+  const year = parts[0] ? Number.parseInt(parts[0], 10) : new Date().getFullYear()
   const monthStr = month.includes("-01") ? month : `${month}-01`
 
   const { data: cashflow } = await supabase

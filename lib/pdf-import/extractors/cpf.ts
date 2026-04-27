@@ -5,8 +5,8 @@ import type { CpfExtractionResult, ExtractionWarning } from "@/lib/pdf-import/ty
  */
 function parseAmount(str: string): number | null {
   const cleaned = str.replace(/[$,\s]/g, "")
-  const num = parseFloat(cleaned)
-  return isNaN(num) ? null : num
+  const num = Number.parseFloat(cleaned)
+  return Number.isNaN(num) ? null : num
 }
 
 /**
@@ -33,8 +33,8 @@ function extractMonth(text: string): string | null {
   // "DD/MM/YYYY" or "DD-MM-YYYY" date near keywords
   const dateMatch = text.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
   if (dateMatch) {
-    const month = parseInt(dateMatch[2], 10)
-    const year = parseInt(dateMatch[3], 10)
+    const month = Number.parseInt(dateMatch[2], 10)
+    const year = Number.parseInt(dateMatch[3], 10)
     if (month >= 1 && month <= 12 && year >= 2000 && year <= 2100) {
       return `${year}-${String(month).padStart(2, "0")}-01`
     }

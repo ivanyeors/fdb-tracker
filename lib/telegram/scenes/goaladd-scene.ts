@@ -155,17 +155,17 @@ export const goalAddScene = new Scenes.WizardScene<MyContext>(
     if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
       const data = ctx.callbackQuery.data
       if (data.startsWith("qa_")) {
-        amount = parseFloat(data.replace("qa_", ""))
+        amount = Number.parseFloat(data.replace("qa_", ""))
         await ctx.answerCbQuery()
       }
     }
 
     // Handle text input
     if (!amount && ctx.message && "text" in ctx.message) {
-      amount = parseFloat(ctx.message.text)
+      amount = Number.parseFloat(ctx.message.text)
     }
 
-    if (!amount || isNaN(amount) || amount <= 0) {
+    if (!amount || Number.isNaN(amount) || amount <= 0) {
       if (ctx.message && "text" in ctx.message) {
         await ctx.reply(
           errorMsg("Invalid amount. Enter a positive number.", "500"),

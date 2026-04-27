@@ -129,7 +129,7 @@ export function parseMonthCallback(data: string): {
   if (!data.startsWith("m_")) return null
   const month = data.slice(2)
   const d = new Date(month + "T00:00:00")
-  if (isNaN(d.getTime())) return null
+  if (Number.isNaN(d.getTime())) return null
   return { month, monthLabel: format(d, "MMMM yyyy") }
 }
 

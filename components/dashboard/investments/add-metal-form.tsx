@@ -30,8 +30,8 @@ export function AddMetalForm({ onSuccess }: AddMetalFormProps) {
       return
     }
 
-    const unitsNum = parseFloat(units)
-    if (isNaN(unitsNum) || unitsNum <= 0) {
+    const unitsNum = Number.parseFloat(units)
+    if (Number.isNaN(unitsNum) || unitsNum <= 0) {
       toast.error("Please enter a valid quantity (oz).")
       return
     }

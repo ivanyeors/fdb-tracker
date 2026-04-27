@@ -472,7 +472,7 @@ export async function fetchCashflowRangeSeries(
   const result: CashflowRangeRow[] = []
   for (const month of months) {
     const monthStr = normalizeMonthKey(month)
-    const year = parseInt(monthStr.slice(0, 4), 10) || new Date().getFullYear()
+    const year = Number.parseInt(monthStr.slice(0, 4), 10) || new Date().getFullYear()
 
     let inflow = 0
     let discretionary = 0

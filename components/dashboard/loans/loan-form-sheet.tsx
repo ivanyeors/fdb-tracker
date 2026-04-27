@@ -127,7 +127,7 @@ export function LoanFormSheet({
     if (!name.trim()) return toast.error("Name is required")
     if (!principal || principal <= 0) return toast.error("Principal must be positive")
     if (ratePct == null || ratePct < 0) return toast.error("Rate must be >= 0")
-    const months = parseInt(tenureMonths)
+    const months = Number.parseInt(tenureMonths)
     if (!months || months <= 0) return toast.error("Tenure must be positive")
     if (!startDate) return toast.error("Start date is required")
     if (!profileId) return toast.error("Profile is required")
@@ -151,7 +151,7 @@ export function LoanFormSheet({
         body.rateIncreasePct = rateIncreasePct || null
         if (splitProfileId && splitProfileId !== "none") {
           body.splitProfileId = splitProfileId
-          body.splitPct = parseInt(splitPct) || 100
+          body.splitPct = Number.parseInt(splitPct) || 100
         } else {
           body.splitProfileId = null
           body.splitPct = 100

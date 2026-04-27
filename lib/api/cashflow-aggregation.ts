@@ -461,7 +461,7 @@ export function normalizeMonthKey(month: string): string {
 export function yearsInMonths(months: string[]): number[] {
   const ys = new Set<number>()
   for (const mo of months) {
-    const y = parseInt(mo.slice(0, 4), 10)
+    const y = Number.parseInt(mo.slice(0, 4), 10)
     if (!Number.isNaN(y)) ys.add(y)
   }
   return [...ys]

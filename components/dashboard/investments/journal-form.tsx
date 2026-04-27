@@ -33,8 +33,8 @@ export function JournalForm({ onSuccess }: JournalFormProps) {
       return
     }
 
-    const qty = parseFloat(quantity)
-    if (isNaN(qty) || qty <= 0) {
+    const qty = Number.parseFloat(quantity)
+    if (Number.isNaN(qty) || qty <= 0) {
       toast.error("Please enter a valid quantity.")
       return
     }

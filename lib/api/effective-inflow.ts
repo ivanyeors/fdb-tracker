@@ -18,7 +18,7 @@ export async function getEffectiveInflowForProfile(
 ): Promise<number> {
   const monthStr = month.includes("-01") ? month : `${month}-01`
   const year = monthStr.slice(0, 4)
-    ? parseInt(monthStr.slice(0, 4), 10)
+    ? Number.parseInt(monthStr.slice(0, 4), 10)
     : new Date().getFullYear()
 
   const { data: cashflow } = await supabase
@@ -123,7 +123,7 @@ export async function getEffectiveInflowWithBreakdown(
 ): Promise<InflowBreakdown> {
   const monthStr = month.includes("-01") ? month : `${month}-01`
   const year = monthStr.slice(0, 4)
-    ? parseInt(monthStr.slice(0, 4), 10)
+    ? Number.parseInt(monthStr.slice(0, 4), 10)
     : new Date().getFullYear()
 
   // Bank interest (always included)

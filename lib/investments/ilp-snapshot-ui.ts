@@ -96,7 +96,7 @@ export function parsePercentCell(
     .replace(/%/g, "")
     .trim()
   if (t === "" || t === "—" || t === "-" || /^n\/?a$/i.test(t)) return null
-  const n = parseFloat(t)
+  const n = Number.parseFloat(t)
   return Number.isFinite(n) ? n : null
 }
 

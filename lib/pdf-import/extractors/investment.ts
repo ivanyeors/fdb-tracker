@@ -5,8 +5,8 @@ import type {
 
 function parseAmount(str: string): number | null {
   const cleaned = str.replace(/[$,\s]/g, "")
-  const num = parseFloat(cleaned)
-  return isNaN(num) ? null : num
+  const num = Number.parseFloat(cleaned)
+  return Number.isNaN(num) ? null : num
 }
 
 const MONTH_MAP: Record<string, string> = {

@@ -213,7 +213,7 @@ function computeBankTotalFromData(
       if (profileId && isPrimary) {
         const monthStr = normalizeMonthKey(month)
         const year =
-          parseInt(monthStr.slice(0, 4), 10) || new Date().getFullYear()
+          Number.parseInt(monthStr.slice(0, 4), 10) || new Date().getFullYear()
 
         inflow = effectiveInflowFromContext(
           profileId,

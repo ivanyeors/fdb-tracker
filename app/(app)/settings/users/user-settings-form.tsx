@@ -3929,7 +3929,7 @@ function InsuranceSection({
                 <Select
                   value={newPolicy.yearly_outflow_date?.toString()}
                   onValueChange={(v) =>
-                    setNewPolicy((p) => ({ ...p, yearly_outflow_date: v ? parseInt(v, 10) : null }))
+                    setNewPolicy((p) => ({ ...p, yearly_outflow_date: v ? Number.parseInt(v, 10) : null }))
                   }
                 >
                   <SelectTrigger>
@@ -3994,7 +3994,7 @@ function InsuranceSection({
                   onChange={(e) =>
                     setNewPolicy((p) => ({
                       ...p,
-                      coverage_till_age: e.target.value ? parseInt(e.target.value, 10) : null,
+                      coverage_till_age: e.target.value ? Number.parseInt(e.target.value, 10) : null,
                     }))
                   }
                   min={1}
@@ -4450,7 +4450,7 @@ function InsuranceSection({
                                   ...prev,
                                   [p.id]: {
                                     ...(prev[p.id] ?? p),
-                                    yearly_outflow_date: val ? parseInt(val, 10) : null,
+                                    yearly_outflow_date: val ? Number.parseInt(val, 10) : null,
                                   },
                                 }))
                               }
@@ -4496,7 +4496,7 @@ function InsuranceSection({
                                   ...prev,
                                   [p.id]: {
                                     ...(prev[p.id] ?? p),
-                                    coverage_till_age: ev.target.value ? parseInt(ev.target.value, 10) : null,
+                                    coverage_till_age: ev.target.value ? Number.parseInt(ev.target.value, 10) : null,
                                   },
                                 }))
                               }

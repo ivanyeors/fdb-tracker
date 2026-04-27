@@ -202,7 +202,7 @@ export function TelegramApiKeysSection() {
                   value={newKeyMaxMembers}
                   onChange={(e) =>
                     setNewKeyMaxMembers(
-                      Math.max(1, parseInt(e.target.value) || 1)
+                      Math.max(1, Number.parseInt(e.target.value) || 1)
                     )
                   }
                 />

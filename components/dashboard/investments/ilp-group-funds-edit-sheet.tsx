@@ -171,7 +171,7 @@ export function IlpGroupFundsEditSheet({
   const allocationOk = isValidIlpGroupAllocationSum(allocationSum)
 
   function updatePct(productId: string, raw: string) {
-    const v = parseFloat(raw)
+    const v = Number.parseFloat(raw)
     const pct = Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : 0
     setRows((prev) =>
       prev.map((r) =>

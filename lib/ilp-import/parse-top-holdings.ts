@@ -37,7 +37,7 @@ export function parseTopHoldingsTable(
       $(tds[0]).find(".ec-table__cell-content").first().text() ||
         $(tds[0]).text(),
     )
-    const rankParsed = parseInt(rankText, 10)
+    const rankParsed = Number.parseInt(rankText, 10)
     const rank = Number.isFinite(rankParsed) ? rankParsed : null
 
     const nameText = normalizeCell(
@@ -60,7 +60,7 @@ export function parseTopHoldingsTable(
       $(tds[4]).find(".ec-table__cell-content").first().text() ||
         $(tds[4]).text(),
     )
-    const w = parseFloat(wText.replace(/,/g, ""))
+    const w = Number.parseFloat(wText.replace(/,/g, ""))
     const weightPct = Number.isFinite(w) ? w : null
 
     rows.push({

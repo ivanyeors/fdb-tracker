@@ -62,8 +62,8 @@ export function EditHoldingDialog({ initial, onSuccess }: EditHoldingDialogProps
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const unitsNum = parseFloat(units)
-    if (isNaN(unitsNum) || unitsNum < 0) {
+    const unitsNum = Number.parseFloat(units)
+    if (Number.isNaN(unitsNum) || unitsNum < 0) {
       toast.error("Please enter a valid quantity.")
       return
     }

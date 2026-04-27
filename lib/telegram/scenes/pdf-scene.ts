@@ -374,7 +374,7 @@ async function saveExtractedData(
           .eq("id", profileId)
           .single()
         if (prof?.birth_year) {
-          const endYear = parseInt(extracted.endDate.slice(0, 4))
+          const endYear = Number.parseInt(extracted.endDate.slice(0, 4))
           if (endYear > 0) computedCoverageTillAge = endYear - prof.birth_year
         }
       }
