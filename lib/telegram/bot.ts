@@ -37,6 +37,18 @@ export interface MySessionData extends Scenes.WizardSessionData {
   loanName?: string
   /** Cached ILP product name for confirmation display. */
   productName?: string
+  /** ILP scene: target kind — single product or fund group. */
+  ilpKind?: "individual" | "grouped"
+  /** ILP scene: id of the selected product (individual) or fund group (grouped). */
+  ilpTargetId?: string
+  /** ILP scene: cached fund value already saved for the selected month (overwrite preview). */
+  ilpCurrentMonthValue?: number | null
+  /** ILP scene: latest fund value across all months for context. */
+  ilpLatestValue?: number | null
+  /** ILP scene: month string for the latest value above (yyyy-MM-dd). */
+  ilpLatestMonth?: string | null
+  /** ILP scene: cached member allocations for grouped ILP — used to distribute the new total on save. */
+  ilpGroupAllocations?: Array<{ productId: string; allocationPct: number }>
   /** Stock company name from FMP search (for display in confirmation). */
   symbolName?: string
   /** Which field is being edited in the confirmation step. */

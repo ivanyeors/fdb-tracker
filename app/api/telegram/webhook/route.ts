@@ -275,6 +275,11 @@ function ensureHandlers() {
     console.log("[telegram/webhook] Parsed command:", parsed.command)
     const chatId = msg.chat.id
 
+    if (parsed.command === "cancel") {
+      await ctx.reply("Nothing to cancel — you're not in a command.")
+      return
+    }
+
     if (parsed.command === "start") {
       const payload = parsed.rest.trim()
 
