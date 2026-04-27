@@ -5,7 +5,7 @@ import type {
 } from "@/lib/pdf-import/types"
 
 function parseAmount(str: string): number | null {
-  const cleaned = str.replace(/[S$,\s]/g, "")
+  const cleaned = str.replaceAll(/[S$,\s]/g, "")
   const num = Number.parseFloat(cleaned)
   return Number.isNaN(num) ? null : num
 }
@@ -288,12 +288,12 @@ function mapBenefitCoverageType(header: string): string | null {
 /** Clean up a benefit section header into a readable name. */
 function cleanBenefitName(header: string): string {
   return header
-    .replace(/\s+/g, " ")
+    .replaceAll(/\s+/g, " ")
     .trim()
     .split(/\n/)[0]
     .trim()
     // Title-case: uppercase first letter of each word, lowercase the rest
-    .replace(/\b\w+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase())
+    .replaceAll(/\b\w+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase())
 }
 
 /** Known benefit section header patterns (uppercase in SG insurance docs). */

@@ -13,7 +13,7 @@ export function extractTopSnapshotUrl(raw: string): string | null {
 }
 
 function extractBoundaryFromHeaders(headerBlock: string): string | null {
-  const joined = headerBlock.replace(/\r?\n[ \t]+/g, " ")
+  const joined = headerBlock.replaceAll(/\r?\n[ \t]+/g, " ")
   const m = joined.match(/Content-Type:\s*multipart\/[^;]+;\s*[^]*?boundary\s*=\s*"([^"]+)"/i)
   if (m) return m[1].trim()
   const m2 = joined.match(/boundary\s*=\s*"([^"]+)"/i)

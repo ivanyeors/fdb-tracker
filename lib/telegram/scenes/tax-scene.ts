@@ -26,7 +26,7 @@ export const taxScene = new Scenes.WizardScene<MyContext>(
     // Check if amount was pre-filled from "/tax 1694.50"
     const rest = botState(ctx).rest
     if (rest) {
-      const parsed = Number.parseFloat(rest.replace(/[$,]/g, ""))
+      const parsed = Number.parseFloat(rest.replaceAll(/[$,]/g, ""))
       if (!Number.isNaN(parsed) && parsed > 0) {
         ctx.scene.session.amount = parsed
         ctx.scene.session.year = new Date().getFullYear()
@@ -87,7 +87,7 @@ export const taxScene = new Scenes.WizardScene<MyContext>(
     // Parse amount (allow pre-filled from step 0)
     let amount = ctx.scene.session.amount as number | undefined
     if (!amount) {
-      const parsed = Number.parseFloat(text.replace(/[$,]/g, ""))
+      const parsed = Number.parseFloat(text.replaceAll(/[$,]/g, ""))
       if (Number.isNaN(parsed) || parsed <= 0) {
         await ctx.reply("Please enter a valid positive amount (e.g. 1694.50)")
         return

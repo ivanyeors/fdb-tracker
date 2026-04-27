@@ -95,7 +95,7 @@ function CashflowChartInner({
   width: number
   height: number
 }) {
-  const gradPrefix = useId().replace(/:/g, "_")
+  const gradPrefix = useId().replaceAll(/:/g, "_")
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<StackedPoint>()
 

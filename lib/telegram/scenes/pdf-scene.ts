@@ -191,7 +191,7 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
       // switch here would map to the wrong fields. Ask for re-upload instead.
       if (selectedType !== ctx.scene.session.pdfDocType) {
         await ctx.reply(
-          `🔁 Re-upload the PDF to reclassify it as ${selectedType.replace(/_/g, " ")}.`,
+          `🔁 Re-upload the PDF to reclassify it as ${selectedType.replaceAll(/_/g, " ")}.`,
         )
         return ctx.scene.leave()
       }
@@ -450,7 +450,7 @@ async function saveExtractedData(
       if (accounts) {
         // 1. Try account number match (last 4 digits)
         if (extracted.accountNumber) {
-          const last4 = extracted.accountNumber.replace(/[-\s]/g, "").slice(-4)
+          const last4 = extracted.accountNumber.replaceAll(/[-\s]/g, "").slice(-4)
           const numMatch = accounts.find(
             (a) => a.account_number_last4 === last4,
           )
@@ -550,7 +550,7 @@ async function saveExtractedData(
       if (ccAccounts) {
         // 1. Try card number match (last 4 digits)
         if (extracted.cardNumber) {
-          const last4 = extracted.cardNumber.replace(/[-\s]/g, "").slice(-4)
+          const last4 = extracted.cardNumber.replaceAll(/[-\s]/g, "").slice(-4)
           const numMatch = ccAccounts.find(
             (a) => a.account_number_last4 === last4,
           )

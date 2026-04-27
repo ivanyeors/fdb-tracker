@@ -63,7 +63,7 @@ function ChartInner({
   simulatedData?: ProjectionPoint[] | null
   isSimulating?: boolean
 }) {
-  const gradPrefix = useId().replace(/:/g, "_")
+  const gradPrefix = useId().replaceAll(/:/g, "_")
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<{ point: ProjectionPoint; comparisonTotal?: number; simulatedPoint?: ProjectionPoint; referenceLines: ReferenceLine[] }>()
 

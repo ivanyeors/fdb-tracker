@@ -51,7 +51,7 @@ export function formatExtractionSummary(
       if (result.insurer) fields.push({ label: "Insurer", value: result.insurer })
       if (result.name) fields.push({ label: "Policy Name", value: result.name })
       if (result.policyNumber) fields.push({ label: "Policy No.", value: result.policyNumber })
-      if (result.type) fields.push({ label: "Policy Type", value: result.type.replace(/_/g, " ") })
+      if (result.type) fields.push({ label: "Policy Type", value: result.type.replaceAll(/_/g, " ") })
       if (result.premiumAmount !== null) fields.push({ label: "Premium", value: fmtAmt(result.premiumAmount) })
       if (result.frequency) fields.push({ label: "Frequency", value: result.frequency })
       if (result.cpfPremium !== null) fields.push({ label: "CPF Premium", value: fmtAmt(result.cpfPremium) })

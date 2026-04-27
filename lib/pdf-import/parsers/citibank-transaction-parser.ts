@@ -90,7 +90,7 @@ export function parseCitibankCcStatement(
   const cardNumMatch = allText.match(
     /(\d{4}\s+\d{4}\s+\d{4}\s+\d{4})/
   )
-  if (cardNumMatch) cardNumber = cardNumMatch[1].replace(/\s+/g, "-")
+  if (cardNumMatch) cardNumber = cardNumMatch[1].replaceAll(/\s+/g, "-")
 
   if (allText.includes("CITI PREMIERMILES")) cardName = "Citi PremierMiles"
   else if (allText.includes("CITI REWARDS")) cardName = "Citi Rewards"

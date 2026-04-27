@@ -691,7 +691,7 @@ function isCcPayment(description: string): boolean {
     upper.includes("CREDIT CARD") ||
     upper.includes("BILL PAYMENT INB") ||
     // Check for CC card number patterns (16 consecutive digits)
-    /\d{16}/.test(description.replace(/[-\s]/g, "")) ||
+    /\d{16}/.test(description.replaceAll(/[-\s]/g, "")) ||
     /PAYMENT BY INTERNET|PAYMENT BY GIRO|FAST INCOMING PAYMENT/i.test(description)
   )
 }
@@ -753,7 +753,7 @@ export function categorizeTransaction(
   }
 
   for (const rule of sorted) {
-    const pattern = rule.pattern.toUpperCase().replace(/\*/g, "")
+    const pattern = rule.pattern.toUpperCase().replaceAll(/\*/g, "")
     if (descUpper.includes(pattern)) {
       return rule.categoryName
     }

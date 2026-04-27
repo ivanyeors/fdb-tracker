@@ -4,7 +4,7 @@
  */
 
 export function parseAmount(str: string): number | null {
-  const cleaned = str.replace(/[$,\s]/g, "")
+  const cleaned = str.replaceAll(/[$,\s]/g, "")
   const num = Number.parseFloat(cleaned)
   return Number.isNaN(num) ? null : num
 }

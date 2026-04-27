@@ -168,7 +168,7 @@ function IlpDetailedLineChart({
 }) {
   const { effectiveDisplayCurrency, sgdPerUsd, formatMoney } =
     useInvestmentsDisplayCurrency()
-  const gradId = useId().replace(/:/g, "_")
+  const gradId = useId().replaceAll(/:/g, "_")
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<{ index: number; point: IlpSparkPoint }>()
 

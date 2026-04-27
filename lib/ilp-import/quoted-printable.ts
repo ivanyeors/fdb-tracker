@@ -3,7 +3,7 @@
  * Handles soft line breaks (=\r\n) and hex byte sequences (=3D, etc.).
  */
 export function decodeQuotedPrintable(input: string): string {
-  const withoutSoftBreaks = input.replace(/=\r?\n/g, "")
+  const withoutSoftBreaks = input.replaceAll(/=\r?\n/g, "")
   const bytes: number[] = []
   for (let i = 0; i < withoutSoftBreaks.length; i++) {
     const c = withoutSoftBreaks[i]

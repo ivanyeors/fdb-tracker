@@ -30,5 +30,5 @@ export function normalizeTelegramId(id: string | number): string {
 }
 
 export function normalizeAccountNumber(value: string): string {
-  return value.replace(/[\s-]/g, "")
+  return value.replaceAll(/[\s-]/g, "")
 }

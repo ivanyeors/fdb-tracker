@@ -590,18 +590,18 @@ function extractMerchantKeyword(description: string): string | null {
       /^(DEBIT PURCHASE|FAST PAYMENT|BILL PAYMENT INB?|NETS QR|GIRO|FUND TRANSFER|IBG GIRO)\s*/i,
       ""
     )
-    .replace(/\d{2}\/\d{2}\/\d{2}\s*/g, "") // dates
-    .replace(/xx-\d{4}\s*/g, "") // card refs
-    .replace(/\d{8,}\s*/g, "") // reference numbers
-    .replace(/via PayNow[^\s]*\s*/gi, "")
-    .replace(/(to|from)\s+/gi, "")
+    .replaceAll(/\d{2}\/\d{2}\/\d{2}\s*/g, "") // dates
+    .replaceAll(/xx-\d{4}\s*/g, "") // card refs
+    .replaceAll(/\d{8,}\s*/g, "") // reference numbers
+    .replaceAll(/via PayNow[^\s]*\s*/gi, "")
+    .replaceAll(/(to|from)\s+/gi, "")
     .replace(/OTHR[-\s].*/i, "") // purpose codes
     .replace(/SALA\s*/i, "")
-    .replace(/-\d{4}\s+/g, "") // terminal prefix
-    .replace(/XXXX-XXXX-XXXX-\d{4}/g, "") // card suffix
-    .replace(/SINGAPORE\s+SG/gi, "")
-    .replace(/\bSG\b/g, "")
-    .replace(/[A-Z]-[A-Z0-9]{10,}/g, "") // long reference codes
+    .replaceAll(/-\d{4}\s+/g, "") // terminal prefix
+    .replaceAll(/XXXX-XXXX-XXXX-\d{4}/g, "") // card suffix
+    .replaceAll(/SINGAPORE\s+SG/gi, "")
+    .replaceAll(/\bSG\b/g, "")
+    .replaceAll(/[A-Z]-[A-Z0-9]{10,}/g, "") // long reference codes
     .trim()
 
   // Take first 2-3 meaningful words

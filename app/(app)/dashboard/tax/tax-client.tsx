@@ -611,7 +611,7 @@ export function TaxClient({ initialData }: { initialData: TaxData }) {
                               >
                                 <div className="min-w-0 flex-1 text-sm">
                                   <span className="truncate font-medium capitalize">
-                                    {s.relief_type.replace(/_/g, " ")}
+                                    {s.relief_type.replaceAll(/_/g, " ")}
                                   </span>{" "}
                                   <span className="hidden text-muted-foreground sm:inline">
                                     — {s.label}
@@ -687,7 +687,7 @@ export function TaxClient({ initialData }: { initialData: TaxData }) {
                       >
                         <div className="min-w-0 flex-1 text-sm">
                           <span className="truncate font-medium capitalize">
-                            {s.relief_type.replace(/_/g, " ")}
+                            {s.relief_type.replaceAll(/_/g, " ")}
                           </span>{" "}
                           <span className="hidden text-muted-foreground sm:inline">
                             — {s.label}

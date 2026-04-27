@@ -100,7 +100,7 @@ function holdingWeightPctFromRow(row: {
   if (typeof w === "number" && Number.isFinite(w)) return Math.max(0, w)
   if (typeof w === "string") {
     const n = Number.parseFloat(
-      w.replace(/,/g, "").replace(/%/g, "").replace(/\u2212/g, "-").trim(),
+      w.replaceAll(/,/g, "").replaceAll(/%/g, "").replaceAll(/\u2212/g, "-").trim(),
     )
     return Number.isFinite(n) ? Math.max(0, n) : null
   }

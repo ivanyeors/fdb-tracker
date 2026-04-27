@@ -78,7 +78,7 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
         transformRawValue={(raw) => {
           if (!raw) return raw
           // Comma as decimal (e.g. "1500,25" or "1,5") -> convert to period
-          return raw.replace(/(\d),(\d{1,2})(?=\D|$)/g, "$1.$2")
+          return raw.replaceAll(/(\d),(\d{1,2})(?=\D|$)/g, "$1.$2")
         }}
         allowDecimals={true}
         decimalsLimit={2}

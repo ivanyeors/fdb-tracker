@@ -41,20 +41,20 @@ function parseMonthFromNavDate(text: string): string | null {
 }
 
 function parseLatestNavNumber(text: string): number | null {
-  const t = text.replace(/,/g, "").trim()
+  const t = text.replaceAll(/,/g, "").trim()
   const n = Number.parseFloat(t)
   return Number.isFinite(n) ? n : null
 }
 
 function normalizeCell(s: string): string {
-  return s.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim()
+  return s.replaceAll(/\u00a0/g, " ").replaceAll(/\s+/g, " ").trim()
 }
 
 /** Parse a numeric value from a cell that may contain −, –, %, commas, etc. */
 function parseNumericCell(raw: string): number | null {
   const t = raw
-    .replace(/[−–]/g, "-")
-    .replace(/[,%]/g, "")
+    .replaceAll(/[−–]/g, "-")
+    .replaceAll(/[,%]/g, "")
     .trim()
   if (t.length === 0 || t === "-" || t === "—") return null
   const n = Number.parseFloat(t)
@@ -449,9 +449,9 @@ export function parseTokioMorningstarHtml(
           .get()
         if (cells.length < 2) return
         const label = cells[0]
-        const w = Number.parseFloat(cells[1].replace(/[−–-]/g, "-"))
+        const w = Number.parseFloat(cells[1].replaceAll(/[−–-]/g, "-"))
         const cat =
-          cells.length > 2 ? Number.parseFloat(cells[2].replace(/[−–-]/g, "-")) : Number.NaN
+          cells.length > 2 ? Number.parseFloat(cells[2].replaceAll(/[−–-]/g, "-")) : Number.NaN
         rows.push({
           label,
           weightPct: Number.isFinite(w) ? w : null,

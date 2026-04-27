@@ -1,7 +1,7 @@
 /** Human-readable labels and hover copy for IRAS-style relief_type keys. */
 
 export function formatReliefType(type: string): string {
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  return type.replaceAll(/_/g, " ").replaceAll(/\b\w/g, (c) => c.toUpperCase())
 }
 
 const RELIEF_HELP: Record<string, string> = {

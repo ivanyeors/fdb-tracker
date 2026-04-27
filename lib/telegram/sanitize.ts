@@ -15,7 +15,7 @@ const HTML_ENTITIES: Record<string, string> = {
 export function sanitizeText(input: string, maxLength = 2000): string {
   return input
     .trim()
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "") // strip control chars except \n \t
-    .replace(/[&<>"']/g, (ch) => HTML_ENTITIES[ch] ?? ch)
+    .replaceAll(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "") // strip control chars except \n \t
+    .replaceAll(/[&<>"']/g, (ch) => HTML_ENTITIES[ch] ?? ch)
     .slice(0, maxLength)
 }
