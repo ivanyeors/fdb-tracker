@@ -178,20 +178,17 @@ export type InvestmentsInitialData = {
   fx: FxPayload | null
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  stock: "Stocks",
+  etf: "ETF",
+  gold: "Gold",
+  silver: "Silver",
+  ilp: "ILP",
+  bond: "Bonds",
+}
+
 function mapToCategoryLabel(type: string): string {
-  return type === "stock"
-    ? "Stocks"
-    : type === "etf"
-      ? "ETF"
-      : type === "gold"
-        ? "Gold"
-        : type === "silver"
-          ? "Silver"
-          : type === "ilp"
-            ? "ILP"
-            : type === "bond"
-              ? "Bonds"
-              : type.charAt(0).toUpperCase() + type.slice(1)
+  return CATEGORY_LABELS[type] ?? type.charAt(0).toUpperCase() + type.slice(1)
 }
 
 /** One donut slice per ticker / metal type (merged if duplicate symbols). */
@@ -846,52 +843,64 @@ export function InvestmentsClient({
             }
           />
           <div className="rounded-xl border bg-card p-4">
-            {isLoading ? (
-              <ChartSkeleton height={336} className="rounded-lg" />
-            ) : allocationByHolding.length === 0 ? (
-              <div className="flex h-[336px] flex-col justify-center gap-1 px-2 text-center text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">
-                  Listed holdings &amp; cash
-                </span>
-                <span>
-                  No slices to chart. Add live-priced holdings, positive
-                  brokerage cash, or see ILP in the next card.
-                  {cashBalance < 0 ? (
-                    <span className="mt-1 block text-xs">
-                      Negative cash (e.g. GIRO) is included in portfolio total
-                      but not shown in the donut.
+            {(() => {
+              if (isLoading) {
+                return <ChartSkeleton height={336} className="rounded-lg" />
+              }
+              if (allocationByHolding.length === 0) {
+                return (
+                  <div className="flex h-[336px] flex-col justify-center gap-1 px-2 text-center text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">
+                      Listed holdings &amp; cash
                     </span>
-                  ) : null}
-                </span>
-              </div>
-            ) : (
-              <AllocationChart
-                data={allocationByHolding}
-                title="Listed holdings & cash"
-                legendMaxItems={3}
-                height={336}
-              />
-            )}
+                    <span>
+                      No slices to chart. Add live-priced holdings, positive
+                      brokerage cash, or see ILP in the next card.
+                      {cashBalance < 0 && (
+                        <span className="mt-1 block text-xs">
+                          Negative cash (e.g. GIRO) is included in portfolio total
+                          but not shown in the donut.
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )
+              }
+              return (
+                <AllocationChart
+                  data={allocationByHolding}
+                  title="Listed holdings & cash"
+                  legendMaxItems={3}
+                  height={336}
+                />
+              )
+            })()}
           </div>
           <div className="rounded-xl border bg-card p-4">
-            {isLoading ? (
-              <ChartSkeleton height={280} className="rounded-lg" />
-            ) : ilpDonutSlices.length === 0 ? (
-              <div className="flex h-[280px] flex-col justify-center gap-1 px-2 text-center text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">ILP</span>
-                <span>
-                  No ILP fund value yet. Add a product and monthly entries in
-                  the ILP tab.
-                </span>
-              </div>
-            ) : (
-              <AllocationChart
-                data={ilpDonutSlices}
-                title="ILP"
-                legendMaxItems={6}
-                height={336}
-              />
-            )}
+            {(() => {
+              if (isLoading) {
+                return <ChartSkeleton height={280} className="rounded-lg" />
+              }
+              if (ilpDonutSlices.length === 0) {
+                return (
+                  <div className="flex h-[280px] flex-col justify-center gap-1 px-2 text-center text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">ILP</span>
+                    <span>
+                      No ILP fund value yet. Add a product and monthly entries in
+                      the ILP tab.
+                    </span>
+                  </div>
+                )
+              }
+              return (
+                <AllocationChart
+                  data={ilpDonutSlices}
+                  title="ILP"
+                  legendMaxItems={6}
+                  height={336}
+                />
+              )
+            })()}
           </div>
         </div>
 
@@ -1085,35 +1094,41 @@ export function InvestmentsClient({
                 </div>
               </ResponsiveSheetContent>
             </ResponsiveSheet>
-            {isLoading ? (
-              <ChartSkeleton height={256} className="rounded-xl" />
-            ) : holdingGroups.length === 0 ? (
-              <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-                No holdings found. Use{" "}
-                <strong className="text-foreground">Add holding</strong> to add
-                a position.
-              </div>
-            ) : (
-              <>
-                <HoldingsTable
-                  groups={holdingGroups}
-                  portfolioDenominator={fullPortfolioTotal}
-                  onChanged={handleMutation}
-                  onRowClick={(g) => setHoldingDetail(g)}
-                />
-                <HoldingDetailSheet
-                  open={holdingDetail != null}
-                  onOpenChange={(open) => {
-                    if (!open) setHoldingDetail(null)
-                  }}
-                  summary={holdingDetail?.summary ?? null}
-                  lots={holdingDetail?.lots ?? []}
-                  profileId={activeProfileId}
-                  familyId={activeFamilyId}
-                  onChanged={handleMutation}
-                />
-              </>
-            )}
+            {(() => {
+              if (isLoading) {
+                return <ChartSkeleton height={256} className="rounded-xl" />
+              }
+              if (holdingGroups.length === 0) {
+                return (
+                  <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+                    No holdings found. Use{" "}
+                    <strong className="text-foreground">Add holding</strong> to add
+                    a position.
+                  </div>
+                )
+              }
+              return (
+                <>
+                  <HoldingsTable
+                    groups={holdingGroups}
+                    portfolioDenominator={fullPortfolioTotal}
+                    onChanged={handleMutation}
+                    onRowClick={(g) => setHoldingDetail(g)}
+                  />
+                  <HoldingDetailSheet
+                    open={holdingDetail != null}
+                    onOpenChange={(open) => {
+                      if (!open) setHoldingDetail(null)
+                    }}
+                    summary={holdingDetail?.summary ?? null}
+                    lots={holdingDetail?.lots ?? []}
+                    profileId={activeProfileId}
+                    familyId={activeFamilyId}
+                    onChanged={handleMutation}
+                  />
+                </>
+              )
+            })()}
           </TabsContent>
 
           <TabsContent value="allocation" className="mt-4">
@@ -1259,19 +1274,26 @@ export function InvestmentsClient({
                 />
               </ResponsiveSheetContent>
             </ResponsiveSheet>
-            {isLoading ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <ChartSkeleton height={200} className="rounded-xl" />
-                <ChartSkeleton height={200} className="rounded-xl" />
-                <ChartSkeleton height={200} className="rounded-xl" />
-              </div>
-            ) : ilpCardsData.length === 0 ? (
-              <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-                No ILP products yet. Use{" "}
-                <strong className="text-foreground">Add ILP Product</strong> to
-                get started.
-              </div>
-            ) : showIlpGrouped ? (
+            {(() => {
+              if (isLoading) {
+                return (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <ChartSkeleton height={200} className="rounded-xl" />
+                    <ChartSkeleton height={200} className="rounded-xl" />
+                    <ChartSkeleton height={200} className="rounded-xl" />
+                  </div>
+                )
+              }
+              if (ilpCardsData.length === 0) {
+                return (
+                  <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+                    No ILP products yet. Use{" "}
+                    <strong className="text-foreground">Add ILP Product</strong> to
+                    get started.
+                  </div>
+                )
+              }
+              return showIlpGrouped ? (
               <div className="space-y-8">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {ilpGroupedSections
@@ -1359,7 +1381,8 @@ export function InvestmentsClient({
                   />
                 ))}
               </div>
-            )}
+            )
+            })()}
           </TabsContent>
 
           <TabsContent value="activity" className="mt-4 space-y-4">
@@ -1368,15 +1391,17 @@ export function InvestmentsClient({
               appear here. Use <strong>Holdings</strong> to add positions or{" "}
               <strong>Sell</strong> from the table to record a sale with a note.
             </p>
-            {isLoading ? (
-              <ChartSkeleton height={256} className="rounded-xl" />
-            ) : journalEntries.length === 0 ? (
-              <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-                No trades recorded yet.
-              </div>
-            ) : (
-              <JournalList entries={journalEntries} />
-            )}
+            {(() => {
+              if (isLoading) return <ChartSkeleton height={256} className="rounded-xl" />
+              if (journalEntries.length === 0) {
+                return (
+                  <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+                    No trades recorded yet.
+                  </div>
+                )
+              }
+              return <JournalList entries={journalEntries} />
+            })()}
           </TabsContent>
         </Tabs>
       </div>

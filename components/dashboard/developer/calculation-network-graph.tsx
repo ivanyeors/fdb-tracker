@@ -32,6 +32,27 @@ const NODE_RADIUS = 22
 const LABEL_FONT_SIZE = 9
 const CLUSTER_PADDING = 16
 
+function getEdgeColor(
+  isSelected: boolean,
+  isHighlighted: boolean,
+  sourceType: GraphNodeType
+): string {
+  if (isSelected) return "#f97316"
+  if (isHighlighted) return NODE_COLORS[sourceType]
+  return "#94a3b8"
+}
+
+function getEdgeOpacity(
+  dimmed: boolean,
+  isSelected: boolean,
+  isHoveredOrHighlighted: boolean
+): number {
+  if (dimmed) return 0.08
+  if (isSelected) return 0.9
+  if (isHoveredOrHighlighted) return 0.7
+  return 0.25
+}
+
 const TYPE_COLUMN_ORDER: GraphNodeType[] = [
   "cashflow",
   "cpf",
@@ -646,25 +667,15 @@ function NetworkGraphInner({
                   <path
                     d={bezierPath(source.x, source.y, target.x, target.y)}
                     fill="none"
-                    stroke={
-                      isSelected
-                        ? "#f97316"
-                        : isHighlighted
-                          ? NODE_COLORS[source.type]
-                          : "#94a3b8"
-                    }
+                    stroke={getEdgeColor(isSelected, isHighlighted, source.type)}
                     strokeWidth={
                       isSelected ? 2.5 : isHovered || isHighlighted ? 2 : 1.2
                     }
-                    strokeOpacity={
-                      dimmed
-                        ? 0.08
-                        : isSelected
-                          ? 0.9
-                          : isHovered || isHighlighted
-                            ? 0.7
-                            : 0.25
-                    }
+                    strokeOpacity={getEdgeOpacity(
+                      dimmed,
+                      isSelected,
+                      isHovered || isHighlighted
+                    )}
                     className="cursor-pointer transition-opacity duration-150"
                     onClick={() => setSelectedLink(link)}
                     onMouseEnter={() => setHoveredLink(i)}
@@ -703,13 +714,7 @@ function NetworkGraphInner({
                       return (
                         <polygon
                           points={`${pt.x},${pt.y} ${x1},${y1} ${x2},${y2}`}
-                          fill={
-                            isSelected
-                              ? "#f97316"
-                              : isHighlighted
-                                ? NODE_COLORS[source.type]
-                                : "#94a3b8"
-                          }
+                          fill={getEdgeColor(isSelected, isHighlighted, source.type)}
                           fillOpacity={isSelected ? 0.9 : 0.7}
                           pointerEvents="none"
                         />

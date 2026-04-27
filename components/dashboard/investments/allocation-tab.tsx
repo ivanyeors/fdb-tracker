@@ -68,20 +68,20 @@ function CollapsibleSection({
 // Helpers (moved from page.tsx)
 // ---------------------------------------------------------------------------
 
+const ALLOCATION_CATEGORY_LABELS: Record<string, string> = {
+  stock: "Stocks",
+  etf: "ETF",
+  gold: "Gold",
+  silver: "Silver",
+  ilp: "ILP",
+  bond: "Bonds",
+}
+
 function mapToCategoryLabel(type: string): string {
-  return type === "stock"
-    ? "Stocks"
-    : type === "etf"
-      ? "ETF"
-      : type === "gold"
-        ? "Gold"
-        : type === "silver"
-          ? "Silver"
-          : type === "ilp"
-            ? "ILP"
-            : type === "bond"
-              ? "Bonds"
-              : type.charAt(0).toUpperCase() + type.slice(1)
+  return (
+    ALLOCATION_CATEGORY_LABELS[type] ??
+    type.charAt(0).toUpperCase() + type.slice(1)
+  )
 }
 
 function mapToMarketLabel(symbol: string, type: string): string {

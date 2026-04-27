@@ -1860,6 +1860,12 @@ function CpfHealthcareSection({ profileId }: { readonly profileId: string }) {
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
+function getCellClass(isExpanded: boolean, hasData: boolean): string {
+  if (isExpanded) return "border-primary bg-primary/5 ring-1 ring-primary"
+  if (hasData) return "border-border bg-muted/30 hover:bg-muted/60"
+  return "border-dashed border-border/50 hover:bg-muted/30"
+}
+
 function MonthlyLogSection({
   profileId,
   profileName,
@@ -2017,11 +2023,7 @@ function MonthlyLogSection({
                       onClick={() => toggleMonth(mk)}
                       className={cn(
                         "rounded-lg border p-3 text-left text-sm transition-colors",
-                        isExpanded
-                          ? "border-primary bg-primary/5 ring-1 ring-primary"
-                          : hasData
-                            ? "border-border bg-muted/30 hover:bg-muted/60"
-                            : "border-dashed border-border/50 hover:bg-muted/30"
+                        getCellClass(isExpanded, hasData)
                       )}
                     >
                       <div className="font-medium">{MONTH_NAMES[monthIndex]}</div>
@@ -2283,10 +2285,9 @@ function InvestmentsSection({
   }
 
   async function handleAdd() {
+    const metalSymbolForSave = newInv.type === "gold" ? "Gold" : "Silver"
     const symbolToSave = isGoldOrSilver(newInv.type)
-      ? newInv.type === "gold"
-        ? "Gold"
-        : "Silver"
+      ? metalSymbolForSave
       : newInv.symbol.trim()
     if (!symbolToSave) {
       toast.error(newInv.type === "ilp" ? "Policy name is required" : "Symbol is required")
@@ -2374,10 +2375,9 @@ function InvestmentsSection({
     persistInvestments
   )
 
+  const metalSymbol = newInv.type === "gold" ? "Gold" : "Silver"
   const effectiveNewSymbol = isGoldOrSilver(newInv.type)
-    ? newInv.type === "gold"
-      ? "Gold"
-      : "Silver"
+    ? metalSymbol
     : newInv.symbol
 
   function onNewInvestmentTypeChange(nextType: InvestmentKind) {
@@ -2424,37 +2424,46 @@ function InvestmentsSection({
             </div>
             <div className="space-y-2">
               <Label>{newInv.type === "ilp" ? "Policy name" : "Symbol"}</Label>
-              {isGoldOrSilver(newInv.type) ? (
-                <Input value={effectiveNewSymbol} disabled className="bg-muted" />
-              ) : newInv.type === "ilp" ? (
-                <Input
-                  placeholder="e.g. Prudential ILP"
-                  value={newInv.symbol}
-                  onChange={(e) => setNewInv((p) => ({ ...p, symbol: e.target.value }))}
-                />
-              ) : effectiveNewSymbol ? (
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-9 items-center gap-1 rounded-md border bg-muted px-3 text-sm font-medium">
-                    {effectiveNewSymbol}
-                    <button
-                      type="button"
-                      onClick={() => setNewInv((p) => ({ ...p, symbol: "" }))}
-                      className="rounded p-0.5 hover:bg-muted-foreground/20"
-                      aria-label="Clear symbol"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </span>
-                  <Button size="sm" variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
-                    Change
+              {(() => {
+                if (isGoldOrSilver(newInv.type)) {
+                  return <Input value={effectiveNewSymbol} disabled className="bg-muted" />
+                }
+                if (newInv.type === "ilp") {
+                  return (
+                    <Input
+                      placeholder="e.g. Prudential ILP"
+                      value={newInv.symbol}
+                      onChange={(e) => setNewInv((p) => ({ ...p, symbol: e.target.value }))}
+                    />
+                  )
+                }
+                if (effectiveNewSymbol) {
+                  return (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex h-9 items-center gap-1 rounded-md border bg-muted px-3 text-sm font-medium">
+                        {effectiveNewSymbol}
+                        <button
+                          type="button"
+                          onClick={() => setNewInv((p) => ({ ...p, symbol: "" }))}
+                          className="rounded p-0.5 hover:bg-muted-foreground/20"
+                          aria-label="Clear symbol"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                      <Button size="sm" variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
+                        Change
+                      </Button>
+                    </div>
+                  )
+                }
+                return (
+                  <Button variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
+                    <Plus className="mr-2 size-3.5" />
+                    Search symbol
                   </Button>
-                </div>
-              ) : (
-                <Button variant="outline" onClick={() => setSymbolDrawerOpen(true)}>
-                  <Plus className="mr-2 size-3.5" />
-                  Search symbol
-                </Button>
-              )}
+                )
+              })()}
             </div>
             <div className="space-y-2">
               <Label>Units</Label>
@@ -2543,35 +2552,41 @@ function InvestmentsSection({
             return (
               <TableRow key={inv.id}>
                 <TableCell>
-                  {isMetal ? (
-                    <Input value={e.symbol} disabled className="h-8 w-24 bg-muted" />
-                  ) : e.type === "ilp" ? (
-                    <Input
-                      value={e.symbol}
-                      onChange={(ev) =>
-                        setEditing((prev) => ({
-                          ...prev,
-                          [inv.id]: { ...(prev[inv.id] ?? inv), symbol: ev.target.value },
-                        }))
-                      }
-                      placeholder="e.g. Prudential ILP"
-                      className="h-8 w-32"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <span className="inline-flex h-8 min-w-[4rem] items-center gap-1 rounded-md border bg-muted px-2 text-sm font-medium">
-                        {e.symbol}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 px-1"
-                        onClick={() => setSymbolDrawerEditId(inv.id)}
-                      >
-                        Change
-                      </Button>
-                    </div>
-                  )}
+                  {(() => {
+                    if (isMetal) {
+                      return <Input value={e.symbol} disabled className="h-8 w-24 bg-muted" />
+                    }
+                    if (e.type === "ilp") {
+                      return (
+                        <Input
+                          value={e.symbol}
+                          onChange={(ev) =>
+                            setEditing((prev) => ({
+                              ...prev,
+                              [inv.id]: { ...(prev[inv.id] ?? inv), symbol: ev.target.value },
+                            }))
+                          }
+                          placeholder="e.g. Prudential ILP"
+                          className="h-8 w-32"
+                        />
+                      )
+                    }
+                    return (
+                      <div className="flex items-center gap-1">
+                        <span className="inline-flex h-8 min-w-[4rem] items-center gap-1 rounded-md border bg-muted px-2 text-sm font-medium">
+                          {e.symbol}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 px-1"
+                          onClick={() => setSymbolDrawerEditId(inv.id)}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                    )
+                  })()}
                 </TableCell>
                 <TableCell>
                   <Select
@@ -3309,20 +3324,26 @@ function LoanRepaymentsSection({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-muted-foreground text-sm">
-                  Loading…
-                </TableCell>
-              </TableRow>
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-muted-foreground text-sm">
-                  No repayments logged yet.
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.slice(0, 25).map((r) => (
+            {(() => {
+              if (loading) {
+                return (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-muted-foreground text-sm">
+                      Loading…
+                    </TableCell>
+                  </TableRow>
+                )
+              }
+              if (rows.length === 0) {
+                return (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-muted-foreground text-sm">
+                      No repayments logged yet.
+                    </TableCell>
+                  </TableRow>
+                )
+              }
+              return rows.slice(0, 25).map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="tabular-nums">{r.date}</TableCell>
                   <TableCell>{loanNameById.get(r.loan_id) ?? r.loan_id}</TableCell>
@@ -3340,7 +3361,7 @@ function LoanRepaymentsSection({
                   </TableCell>
                 </TableRow>
               ))
-            )}
+            })()}
           </TableBody>
         </Table>
         </ScrollableTableWrapper>
@@ -3438,6 +3459,15 @@ function InsuranceSection({
     remarks: null,
   })
 
+  function nextYearlyOutflowDate(
+    frequency: "monthly" | "yearly",
+    current: number | null
+  ): number | null {
+    if (frequency === "yearly" && !current) return 1
+    if (frequency === "monthly") return null
+    return current
+  }
+
   const newPolicyFields = getFieldsForInsurancePolicyRow(newPolicy.type, newPolicy.frequency)
 
   function setNewPolicyType(type: InsuranceType) {
@@ -3464,12 +3494,7 @@ function InsuranceSection({
     setNewPolicy((prev) => ({
       ...prev,
       frequency,
-      yearly_outflow_date:
-        frequency === "yearly" && !prev.yearly_outflow_date
-          ? 1
-          : frequency === "monthly"
-            ? null
-            : prev.yearly_outflow_date,
+      yearly_outflow_date: nextYearlyOutflowDate(frequency, prev.yearly_outflow_date),
     }))
   }
 

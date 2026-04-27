@@ -164,7 +164,7 @@ export function createCashflowScene(type: CashflowType) {
       }
 
       const buttons = profiles.map((p) => [
-        { text: p.name, callback_data: `profile_${p.id}_${p.name}` },
+        { text: p.name, callback_data: `profile_${p.id}` },
       ])
 
       const header = progressHeader(1, TOTAL_STEPS, `Recording ${label(type)}`)
@@ -179,9 +179,15 @@ export function createCashflowScene(type: CashflowType) {
       if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
         const data = ctx.callbackQuery.data
         if (data.startsWith("profile_")) {
-          const parts = data.replace("profile_", "").split("_")
-          ctx.scene.session.profileId = parts[0]
-          ctx.scene.session.profileName = parts.slice(1).join("_")
+          const profileId = data.replace("profile_", "")
+          const supabase = createSupabaseAdmin()
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("name")
+            .eq("id", profileId)
+            .single()
+          ctx.scene.session.profileId = profileId
+          ctx.scene.session.profileName = profile?.name ?? ""
           await ctx.answerCbQuery()
 
           const header = progressHeader(
@@ -368,7 +374,7 @@ export function createCashflowScene(type: CashflowType) {
           await ctx.reply(`💡 Log ${oppLabel} for ${s.monthLabel} too?`, {
             reply_markup: {
               inline_keyboard: [
-                [{ text: `Yes, log ${oppLabel}`, callback_data: `cross_${oppScene}_${s.profileId}_${s.month}_${s.profileName}` }],
+                [{ text: `Yes, log ${oppLabel}`, callback_data: `cross_${oppScene}_${s.profileId}_${s.month}` }],
                 [{ text: "Done", callback_data: "cross_skip" }],
               ],
             },

@@ -61,6 +61,18 @@ function formatEvalMonth(iso: string) {
   return d.toLocaleDateString("en-SG", { year: "numeric", month: "short" })
 }
 
+function zoneBadgeClass(zone: string | null | undefined): string {
+  if (zone === "safe") return "border-emerald-500/50 text-emerald-600 dark:text-emerald-400"
+  if (zone === "cautious") return "border-amber-500/50 text-amber-600 dark:text-amber-400"
+  return "border-red-500/50 text-red-600 dark:text-red-400"
+}
+
+function zoneBgClass(zone: string | null | undefined): string {
+  if (zone === "safe") return "bg-emerald-500"
+  if (zone === "cautious") return "bg-amber-500"
+  return "bg-red-500"
+}
+
 /** Matches GET /api/bank-accounts when `profileId` is set: that profile's rows + shared (`profile_id` null). */
 function filterAccountsForActiveProfile(
   list: BankAccountRow[],
@@ -200,13 +212,15 @@ export function BanksClient({
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          {isLoading && accounts.length === 0 ? (
+          {(() => {
+            if (isLoading && accounts.length === 0) {
+              return (
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <MetricCard label="" value={0} loading />
             <MetricCard label="" value={0} loading />
           </div>
-          {activeProfileId ? (
+          {activeProfileId && (
             <Card>
               <CardHeader>
                 <Skeleton className="h-6 w-48" />
@@ -220,13 +234,18 @@ export function BanksClient({
                 </div>
               </CardContent>
             </Card>
-          ) : null}
+          )}
         </>
-      ) : visibleAccounts.length === 0 ? (
+              )
+            }
+            if (visibleAccounts.length === 0) {
+              return (
         <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
           No bank accounts found for this profile.
         </div>
-      ) : (
+              )
+            }
+            return (
         <>
           {staleRowsRemoved ? (
             <p className="text-muted-foreground text-sm">
@@ -287,11 +306,7 @@ export function BanksClient({
                           variant="outline"
                           className={cn(
                             "text-xs",
-                            spendCat.zone === "safe"
-                              ? "border-emerald-500/50 text-emerald-600 dark:text-emerald-400"
-                              : spendCat.zone === "cautious"
-                                ? "border-amber-500/50 text-amber-600 dark:text-amber-400"
-                                : "border-red-500/50 text-red-600 dark:text-red-400",
+                            zoneBadgeClass(spendCat.zone),
                           )}
                         >
                           {spendCat.met ? "Met" : `${pct.toFixed(0)}%`}
@@ -311,11 +326,7 @@ export function BanksClient({
                         <div
                           className={cn(
                             "relative h-full rounded-full transition-all",
-                            spendCat.zone === "safe"
-                              ? "bg-emerald-500"
-                              : spendCat.zone === "cautious"
-                                ? "bg-amber-500"
-                                : "bg-red-500",
+                            zoneBgClass(spendCat.zone),
                           )}
                           style={{ width: `${pct}%` }}
                         />
@@ -503,11 +514,7 @@ export function BanksClient({
                                       <div
                                         className={cn(
                                           "relative h-full rounded-full transition-all",
-                                          cat.zone === "safe"
-                                            ? "bg-emerald-500"
-                                            : cat.zone === "cautious"
-                                              ? "bg-amber-500"
-                                              : "bg-red-500",
+                                          zoneBgClass(cat.zone),
                                         )}
                                         style={{
                                           width: `${Math.min(
@@ -550,7 +557,8 @@ export function BanksClient({
             </>
           ) : null}
         </>
-      )}
+            )
+          })()}
 
           {activeProfileId &&
             !isLoading &&

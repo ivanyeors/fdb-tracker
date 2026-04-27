@@ -111,7 +111,7 @@ export const outflowScene = new Scenes.WizardScene<MyContext>(
 
     // Multiple profiles, show inline keyboard
     const buttons = profiles.map((p) => [
-      { text: p.name, callback_data: `profile_${p.id}_${p.name}` }
+      { text: p.name, callback_data: `profile_${p.id}` }
     ])
 
     await ctx.reply("Select a profile:", {
@@ -129,13 +129,18 @@ export const outflowScene = new Scenes.WizardScene<MyContext>(
     if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
       const data = ctx.callbackQuery.data
       if (data.startsWith("profile_")) {
-        const parts = data.replace("profile_", "").split("_")
-        const profileId = parts[0]
-        const profileName = parts.slice(1).join("_")
-        
+        const profileId = data.replace("profile_", "")
+        const supabase = createSupabaseAdmin()
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", profileId)
+          .single()
+        const profileName = profile?.name ?? ""
+
         ctx.scene.session.profileId = profileId
         ctx.scene.session.profileName = profileName
-        
+
         await ctx.answerCbQuery()
         await ctx.reply(`Selected profile: ${profileName}\n\nEnter the outflow amount:`)
         return ctx.wizard.next()

@@ -255,7 +255,7 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
 
       // Multiple profiles — show picker
       const buttons = profiles.map((p) => [
-        { text: p.name, callback_data: `prf_${p.id}_${p.name}` },
+        { text: p.name, callback_data: `prf_${p.id}` },
       ])
       const header = progressHeader(2, TOTAL_STEPS, "PDF Upload")
       await ctx.reply(`${header}\n\nSelect a profile:`, {
@@ -282,9 +282,15 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
     }
 
     if (data.startsWith("prf_")) {
-      const parts = data.slice(4).split("_")
-      ctx.scene.session.profileId = parts[0]
-      ctx.scene.session.profileName = parts.slice(1).join("_")
+      const profileId = data.slice(4)
+      const supabase = createSupabaseAdmin()
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("name")
+        .eq("id", profileId)
+        .single()
+      ctx.scene.session.profileId = profileId
+      ctx.scene.session.profileName = profile?.name ?? ""
 
       ctx.wizard.selectStep(STEP_CONFIRM)
       await sendConfirmation(ctx)

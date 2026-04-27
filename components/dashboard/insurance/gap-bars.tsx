@@ -90,17 +90,16 @@ function GapBarRow({
     item.coverageType === "accident_death_tpd" ||
     item.coverageType === "medical_reimbursement"
 
-  const rightLabel = isHosp
-    ? item.hasCoverage
-      ? "Active ISP"
-      : "No ISP"
-    : isInformational
-      ? item.hasCoverage
-        ? `$${formatCurrency(item.held)}`
-        : "None"
-      : showDollars
-        ? `$${formatCurrency(item.held)} / $${formatCurrency(item.needed)}`
-        : `${Math.round(pct)}%`
+  const rightLabel = (() => {
+    if (isHosp) return item.hasCoverage ? "Active ISP" : "No ISP"
+    if (isInformational) {
+      return item.hasCoverage ? `$${formatCurrency(item.held)}` : "None"
+    }
+    if (showDollars) {
+      return `$${formatCurrency(item.held)} / $${formatCurrency(item.needed)}`
+    }
+    return `${Math.round(pct)}%`
+  })()
 
   return (
     <div
@@ -163,19 +162,26 @@ function GapBarRow({
       {/* Expanded detail */}
       {isExpanded && (
         <div className="border-t px-4 py-3 pl-[3.75rem]">
-          {isHosp ? (
-            <p className="text-xs text-muted-foreground">
-              {item.hasCoverage
-                ? "You have an active Integrated Shield Plan. This covers private hospital bills beyond MediShield Life."
-                : "No Integrated Shield Plan found. MediShield Life provides basic coverage only. Consider a private ISP for better hospital coverage."}
-            </p>
-          ) : isInformational ? (
-            <p className="text-xs text-muted-foreground">
-              {item.hasCoverage
-                ? `${item.label} coverage of $${formatCurrency(item.held)}. No standard benchmark — this is informational.`
-                : `No ${item.label.toLowerCase()} coverage found. This is optional.`}
-            </p>
-          ) : (
+          {(() => {
+            if (isHosp) {
+              return (
+                <p className="text-xs text-muted-foreground">
+                  {item.hasCoverage
+                    ? "You have an active Integrated Shield Plan. This covers private hospital bills beyond MediShield Life."
+                    : "No Integrated Shield Plan found. MediShield Life provides basic coverage only. Consider a private ISP for better hospital coverage."}
+                </p>
+              )
+            }
+            if (isInformational) {
+              return (
+                <p className="text-xs text-muted-foreground">
+                  {item.hasCoverage
+                    ? `${item.label} coverage of $${formatCurrency(item.held)}. No standard benchmark — this is informational.`
+                    : `No ${item.label.toLowerCase()} coverage found. This is optional.`}
+                </p>
+              )
+            }
+            return (
             <div className="space-y-1.5 text-xs">
               <div className="flex justify-between text-muted-foreground">
                 <span>Coverage held</span>
@@ -198,7 +204,8 @@ function GapBarRow({
                 </div>
               )}
             </div>
-          )}
+            )
+          })()}
         </div>
       )}
     </div>

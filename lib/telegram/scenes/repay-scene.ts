@@ -110,7 +110,7 @@ export const repayScene = new Scenes.WizardScene<MyContext>(
     }
 
     const buttons = loans.map((l) => [
-      { text: l.name, callback_data: `loan_${l.id}_${l.name}` },
+      { text: l.name, callback_data: `loan_${l.id}` },
     ])
 
     const header = progressHeader(
@@ -129,11 +129,15 @@ export const repayScene = new Scenes.WizardScene<MyContext>(
     if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
       const data = ctx.callbackQuery.data
       if (data.startsWith("loan_")) {
-        const rest = data.replace("loan_", "")
-        const idx = rest.indexOf("_")
-        ctx.scene.session.loanId = idx > -1 ? rest.slice(0, idx) : rest
-        ctx.scene.session.loanName =
-          idx > -1 ? rest.slice(idx + 1) : "Loan"
+        const loanId = data.replace("loan_", "")
+        const supabase = createSupabaseAdmin()
+        const { data: loan } = await supabase
+          .from("loans")
+          .select("name")
+          .eq("id", loanId)
+          .single()
+        ctx.scene.session.loanId = loanId
+        ctx.scene.session.loanName = loan?.name ?? "Loan"
         await ctx.answerCbQuery()
 
         const repayLabel = ctx.scene.session.isEarlyRepayment

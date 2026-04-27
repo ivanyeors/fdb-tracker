@@ -311,25 +311,32 @@ export function InsuranceClient({
         description="Coverage analysis, gap detection, and premium tracking."
       />
 
-      {isLoading && !policiesData && !coverageRaw ? (
-        <>
-          <div className="grid gap-4 md:grid-cols-4">
-            <MetricCard label="" value={0} loading />
-            <MetricCard label="" value={0} loading />
-            <MetricCard label="" value={0} loading />
-            <MetricCard label="" value={0} loading />
-          </div>
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={`policy-skeleton-${i}`} className="h-16 w-full" />
-            ))}
-          </div>
-        </>
-      ) : policies.length === 0 && !coverageData ? (
-        <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
-          No insurance policies found for this profile.
-        </div>
-      ) : (
+      {(() => {
+        if (isLoading && !policiesData && !coverageRaw) {
+          return (
+            <>
+              <div className="grid gap-4 md:grid-cols-4">
+                <MetricCard label="" value={0} loading />
+                <MetricCard label="" value={0} loading />
+                <MetricCard label="" value={0} loading />
+                <MetricCard label="" value={0} loading />
+              </div>
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={`policy-skeleton-${i}`} className="h-16 w-full" />
+                ))}
+              </div>
+            </>
+          )
+        }
+        if (policies.length === 0 && !coverageData) {
+          return (
+            <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
+              No insurance policies found for this profile.
+            </div>
+          )
+        }
+        return (
         <Tabs defaultValue={defaultTab}>
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -440,17 +447,17 @@ export function InsuranceClient({
                               </span>
                             </div>
                             <span className="text-sm tabular-nums text-muted-foreground">
-                              {item.coverageType === "hospitalization"
-                                ? item.hasCoverage
-                                  ? "Active ISP"
-                                  : "No ISP"
-                                : item.coverageType === "personal_accident"
-                                  ? item.hasCoverage
+                              {(() => {
+                                if (item.coverageType === "hospitalization") {
+                                  return item.hasCoverage ? "Active ISP" : "No ISP"
+                                }
+                                if (item.coverageType === "personal_accident") {
+                                  return item.hasCoverage
                                     ? `$${formatCurrency(item.held)}`
                                     : "None"
-                                  : pct != null
-                                    ? `${pct}%`
-                                    : "—"}
+                                }
+                                return pct != null ? `${pct}%` : "—"
+                              })()}
                             </span>
                           </div>
                           {item.coverageType !== "hospitalization" &&
@@ -946,7 +953,8 @@ export function InsuranceClient({
             )}
           </TabsContent>
         </Tabs>
-      )}
+        )
+      })()}
     </div>
   )
 }

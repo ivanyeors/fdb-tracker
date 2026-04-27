@@ -129,7 +129,7 @@ export const ilpScene = new Scenes.WizardScene<MyContext>(
     }
 
     const buttons = products.map((p) => [
-      { text: p.name, callback_data: `ilp_${p.id}_${p.name}` },
+      { text: p.name, callback_data: `ilp_${p.id}` },
     ])
 
     const header = progressHeader(1, TOTAL_STEPS, "Updating ILP fund value")
@@ -144,11 +144,15 @@ export const ilpScene = new Scenes.WizardScene<MyContext>(
     if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
       const data = ctx.callbackQuery.data
       if (data.startsWith("ilp_")) {
-        const rest = data.replace("ilp_", "")
-        const idx = rest.indexOf("_")
-        ctx.scene.session.productId = idx > -1 ? rest.slice(0, idx) : rest
-        ctx.scene.session.productName =
-          idx > -1 ? rest.slice(idx + 1) : "ILP Product"
+        const productId = data.replace("ilp_", "")
+        const supabase = createSupabaseAdmin()
+        const { data: product } = await supabase
+          .from("ilp_products")
+          .select("name")
+          .eq("id", productId)
+          .single()
+        ctx.scene.session.productId = productId
+        ctx.scene.session.productName = product?.name ?? "ILP Product"
         await ctx.answerCbQuery()
 
         const header = progressHeader(

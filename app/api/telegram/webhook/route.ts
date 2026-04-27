@@ -182,9 +182,16 @@ function ensureHandlers() {
   })
 
   // Cross-prompt handlers: after /in completes, offer /out (and vice versa)
-  bot.action(/^cross_(in|out)_(.+)_(\d{4}-\d{2}-\d{2})_(.+)$/, async (ctx) => {
+  bot.action(/^cross_(in|out)_(.+)_(\d{4}-\d{2}-\d{2})$/, async (ctx) => {
     await ctx.answerCbQuery()
-    const [, direction, profileId, month, profileName] = ctx.match
+    const [, direction, profileId, month] = ctx.match
+    const supabase = createSupabaseAdmin()
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("name")
+      .eq("id", profileId)
+      .single()
+    const profileName = profile?.name ?? ""
     const st = botState(ctx)
     st.profileId = profileId
     st.familyId = undefined

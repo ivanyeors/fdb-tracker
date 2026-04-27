@@ -929,13 +929,15 @@ export async function fetchMoneyFlowData(
     period: "total",
   }
 
+  let savingsGoalsBreakdown: string | undefined
+  if (totalSavingsGoalMonthly > 0) {
+    savingsGoalsBreakdown = `${fmt(totalSavingsGoalMonthly)}/mth auto + ${fmt(totalGoalContributions)} manual`
+  } else if (totalGoalContributions > 0) {
+    savingsGoalsBreakdown = `${fmt(totalGoalContributions)} manual this month`
+  }
   nodes["savings_goals"] = {
     amount: totalSavingsTarget > 0 ? fmt(totalSavingsTarget) : "$0",
-    breakdown: totalSavingsGoalMonthly > 0
-      ? `${fmt(totalSavingsGoalMonthly)}/mth auto + ${fmt(totalGoalContributions)} manual`
-      : totalGoalContributions > 0
-        ? `${fmt(totalGoalContributions)} manual this month`
-        : undefined,
+    breakdown: savingsGoalsBreakdown,
     rawAmount: totalSavingsTarget,
     period: "total",
   }
@@ -1040,14 +1042,23 @@ export async function fetchMoneyFlowData(
 
   // Family dependents
   const depTotal = dependentChildCount + dependentParentCount
+  const childPart =
+    dependentChildCount > 0
+      ? `${dependentChildCount} child${dependentChildCount !== 1 ? "ren" : ""}`
+      : ""
+  const parentPart =
+    dependentParentCount > 0
+      ? `${dependentParentCount} parent${dependentParentCount !== 1 ? "s" : ""}`
+      : ""
+  const reliefSuffix =
+    totalDependentReliefs > 0 ? ` · ${fmt(totalDependentReliefs)}/yr relief` : ""
+  const depBreakdown =
+    depTotal > 0
+      ? [childPart, parentPart].filter(Boolean).join(", ") + reliefSuffix
+      : undefined
   nodes["dependents"] = {
     amount: depTotal > 0 ? `${depTotal} dependent${depTotal !== 1 ? "s" : ""}` : "None",
-    breakdown: depTotal > 0
-      ? [
-          dependentChildCount > 0 ? `${dependentChildCount} child${dependentChildCount !== 1 ? "ren" : ""}` : "",
-          dependentParentCount > 0 ? `${dependentParentCount} parent${dependentParentCount !== 1 ? "s" : ""}` : "",
-        ].filter(Boolean).join(", ") + (totalDependentReliefs > 0 ? ` · ${fmt(totalDependentReliefs)}/yr relief` : "")
-      : undefined,
+    breakdown: depBreakdown,
     rawAmount: totalDependentReliefs,
     period: "annual",
   }
@@ -1321,13 +1332,24 @@ function generateEdgeFormula(
           : "No GIRO schedule",
         rawAmount: ctx.giroMonthlyBase,
       }
-    case "dependents->tax_reliefs":
+    case "dependents->tax_reliefs": {
+      const childPart =
+        ctx.childCount > 0
+          ? `${ctx.childCount} child${ctx.childCount !== 1 ? "ren" : ""}`
+          : ""
+      const parentPart =
+        ctx.parentCount > 0
+          ? `${ctx.parentCount} parent${ctx.parentCount !== 1 ? "s" : ""}`
+          : ""
+      const sources = [childPart, parentPart].filter(Boolean).join(" + ")
       return {
-        flowFormula: ctx.dependentReliefs > 0
-          ? `${fmt(ctx.dependentReliefs)}/yr from ${[ctx.childCount > 0 ? `${ctx.childCount} child${ctx.childCount !== 1 ? "ren" : ""}` : "", ctx.parentCount > 0 ? `${ctx.parentCount} parent${ctx.parentCount !== 1 ? "s" : ""}` : ""].filter(Boolean).join(" + ")}`
-          : "No dependent reliefs",
+        flowFormula:
+          ctx.dependentReliefs > 0
+            ? `${fmt(ctx.dependentReliefs)}/yr from ${sources}`
+            : "No dependent reliefs",
         rawAmount: ctx.dependentReliefs,
       }
+    }
     case "income->tax_reliefs":
       return {
         flowFormula: `Spouse relief: $2,000 (if eligible)`,

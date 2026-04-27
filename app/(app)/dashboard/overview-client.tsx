@@ -596,46 +596,50 @@ export function OverviewClient({
             <CardTitle className="text-base">Savings Goals</CardTitle>
           </CardHeader>
           <CardContent>
-            {isGoalsLoading ? (
-              <Skeleton className="h-24 w-full" />
-            ) : goals.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No savings goals. Add them in Settings &rarr; User Settings.
-              </p>
-            ) : (
-              <>
-                <div className="space-y-3">
-                  {goals.map((goal) => {
-                    const progressPct =
-                      goal.target_amount > 0
-                        ? Math.min(
-                            (goal.current_amount / goal.target_amount) * 100,
-                            100
-                          )
-                        : 100
-                    return (
-                      <div key={goal.id} className="min-w-0 space-y-1.5">
-                        <div className="flex min-w-0 items-baseline justify-between gap-2">
-                          <span className="truncate text-sm font-medium">
-                            {goal.name}
-                          </span>
-                          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                            {progressPct.toFixed(1)}%
-                          </span>
+            {(() => {
+              if (isGoalsLoading) return <Skeleton className="h-24 w-full" />
+              if (goals.length === 0) {
+                return (
+                  <p className="text-sm text-muted-foreground">
+                    No savings goals. Add them in Settings &rarr; User Settings.
+                  </p>
+                )
+              }
+              return (
+                <>
+                  <div className="space-y-3">
+                    {goals.map((goal) => {
+                      const progressPct =
+                        goal.target_amount > 0
+                          ? Math.min(
+                              (goal.current_amount / goal.target_amount) * 100,
+                              100
+                            )
+                          : 100
+                      return (
+                        <div key={goal.id} className="min-w-0 space-y-1.5">
+                          <div className="flex min-w-0 items-baseline justify-between gap-2">
+                            <span className="truncate text-sm font-medium">
+                              {goal.name}
+                            </span>
+                            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                              {progressPct.toFixed(1)}%
+                            </span>
+                          </div>
+                          <Progress
+                            value={progressPct}
+                            className={goals.length === 1 ? "h-2" : "h-0.5"}
+                          />
                         </div>
-                        <Progress
-                          value={progressPct}
-                          className={goals.length === 1 ? "h-2" : "h-0.5"}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
-                <CardCTA href="/dashboard/banks#savings-goals">
-                  View goals
-                </CardCTA>
-              </>
-            )}
+                      )
+                    })}
+                  </div>
+                  <CardCTA href="/dashboard/banks#savings-goals">
+                    View goals
+                  </CardCTA>
+                </>
+              )
+            })()}
           </CardContent>
         </Card>
 
@@ -681,22 +685,26 @@ export function OverviewClient({
             <CardTitle className="text-base">Insurance Coverage</CardTitle>
           </CardHeader>
           <CardContent>
-            {isInsuranceLoading ? (
-              <Skeleton className="h-16 w-full" />
-            ) : policies.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No insurance policies. Add in Insurance.
-              </p>
-            ) : (
-              <>
-                <div className="flex flex-1 flex-col">
-                  <p className="text-2xl font-bold tracking-tight">
-                    ${formatCurrency(totalInsuranceCoverage)}
+            {(() => {
+              if (isInsuranceLoading) return <Skeleton className="h-16 w-full" />
+              if (policies.length === 0) {
+                return (
+                  <p className="text-sm text-muted-foreground">
+                    No insurance policies. Add in Insurance.
                   </p>
-                </div>
-                <CardCTA href="/dashboard/insurance">View policies</CardCTA>
-              </>
-            )}
+                )
+              }
+              return (
+                <>
+                  <div className="flex flex-1 flex-col">
+                    <p className="text-2xl font-bold tracking-tight">
+                      ${formatCurrency(totalInsuranceCoverage)}
+                    </p>
+                  </div>
+                  <CardCTA href="/dashboard/insurance">View policies</CardCTA>
+                </>
+              )
+            })()}
           </CardContent>
         </Card>
       </div>
@@ -743,19 +751,23 @@ export function OverviewClient({
                       ${formatCurrency(data?.loanMonthlyTotal ?? 0)}/mo
                     </p>
                   )}
-                  {(data?.loanTotal ?? 0) > 0 &&
-                  (data?.loanRemainingMonths ?? 0) > 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      {(() => {
-                        const months = data?.loanRemainingMonths ?? 0
-                        const years = Math.floor(months / 12)
-                        const m = months % 12
-                        return years > 0 ? `${years}y ${m}m left` : `${m}m left`
-                      })()}
-                    </p>
-                  ) : (data?.loanTotal ?? 0) === 0 ? null : (
-                    <p className="text-sm text-muted-foreground">Paid off</p>
-                  )}
+                  {(() => {
+                    const loanTotal = data?.loanTotal ?? 0
+                    const remainingMonths = data?.loanRemainingMonths ?? 0
+                    if (loanTotal > 0 && remainingMonths > 0) {
+                      const years = Math.floor(remainingMonths / 12)
+                      const m = remainingMonths % 12
+                      const label =
+                        years > 0 ? `${years}y ${m}m left` : `${m}m left`
+                      return (
+                        <p className="text-sm text-muted-foreground">{label}</p>
+                      )
+                    }
+                    if (loanTotal === 0) return null
+                    return (
+                      <p className="text-sm text-muted-foreground">Paid off</p>
+                    )
+                  })()}
                 </div>
                 <CardCTA href="/dashboard/loans">View all</CardCTA>
               </>
@@ -764,14 +776,35 @@ export function OverviewClient({
         </Card>
       </div>
 
-      {isIlpLoading ? (
-        <Card>
-          <CardContent>
-            <Skeleton className="mb-3 h-4 w-24" />
-            <Skeleton className="h-8 w-32" />
-          </CardContent>
-        </Card>
-      ) : ilpCardsData.length > 0 ? (
+      {(() => {
+        if (isIlpLoading) {
+          return (
+            <Card>
+              <CardContent>
+                <Skeleton className="mb-3 h-4 w-24" />
+                <Skeleton className="h-8 w-32" />
+              </CardContent>
+            </Card>
+          )
+        }
+        if (ilpCardsData.length === 0) {
+          if (activeProfileId || activeFamilyId) {
+            return (
+              <div className="rounded-lg border bg-card p-4 text-center text-sm text-muted-foreground">
+                No ILP plans. Add one in{" "}
+                <Link
+                  href="/dashboard/investments"
+                  className="text-primary hover:underline"
+                >
+                  Investments
+                </Link>
+                .
+              </div>
+            )
+          }
+          return null
+        }
+        return (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">ILP Performance</h3>
           {showIlpGrouped ? (
@@ -842,18 +875,8 @@ export function OverviewClient({
             </div>
           )}
         </div>
-      ) : activeProfileId || activeFamilyId ? (
-        <div className="rounded-lg border bg-card p-4 text-center text-sm text-muted-foreground">
-          No ILP plans. Add one in{" "}
-          <Link
-            href="/dashboard/investments"
-            className="text-primary hover:underline"
-          >
-            Investments
-          </Link>
-          .
-        </div>
-      ) : null}
+        )
+      })()}
 
       <div className="space-y-6">
         <Card
@@ -873,19 +896,22 @@ export function OverviewClient({
           </CardHeader>
           <CardContent>
             <div className="flex flex-1 flex-col">
-              {!hasMonthData && !isCashflowLoading ? (
-                <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
-                  No cashflow data for this month
-                </div>
-              ) : waterfallData ? (
-                <SectionedWaterfall data={waterfallData} />
-              ) : effectiveMonth ? (
-                <ChartSkeleton height={300} />
-              ) : (
-                <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
-                  Select a month
-                </div>
-              )}
+              {(() => {
+                if (!hasMonthData && !isCashflowLoading) {
+                  return (
+                    <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
+                      No cashflow data for this month
+                    </div>
+                  )
+                }
+                if (waterfallData) return <SectionedWaterfall data={waterfallData} />
+                if (effectiveMonth) return <ChartSkeleton height={300} />
+                return (
+                  <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
+                    Select a month
+                  </div>
+                )
+              })()}
             </div>
             <CardCTA href="/dashboard/cashflow">View cashflow</CardCTA>
           </CardContent>
@@ -909,19 +935,22 @@ export function OverviewClient({
           </CardHeader>
           <CardContent className="overflow-visible">
             <div className="flex flex-1 flex-col">
-              {!hasMonthData && !isCashflowLoading ? (
-                <div className="flex h-[340px] items-center justify-center text-sm text-muted-foreground">
-                  No cashflow data for this month
-                </div>
-              ) : waterfallData ? (
-                <CashflowSankey data={waterfallData} />
-              ) : effectiveMonth ? (
-                <ChartSkeleton height={340} />
-              ) : (
-                <div className="flex h-[340px] items-center justify-center text-sm text-muted-foreground">
-                  Select a month above
-                </div>
-              )}
+              {(() => {
+                if (!hasMonthData && !isCashflowLoading) {
+                  return (
+                    <div className="flex h-[340px] items-center justify-center text-sm text-muted-foreground">
+                      No cashflow data for this month
+                    </div>
+                  )
+                }
+                if (waterfallData) return <CashflowSankey data={waterfallData} />
+                if (effectiveMonth) return <ChartSkeleton height={340} />
+                return (
+                  <div className="flex h-[340px] items-center justify-center text-sm text-muted-foreground">
+                    Select a month above
+                  </div>
+                )
+              })()}
             </div>
             <CardCTA href="/dashboard/cashflow">View cashflow</CardCTA>
           </CardContent>

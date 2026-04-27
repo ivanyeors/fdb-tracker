@@ -65,7 +65,7 @@ async function promptAccountStep(ctx: MyContext): Promise<boolean> {
   const buttons = accounts.map((a) => [
     {
       text: `${a.account_name} ($${Number(a.cash_balance).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`,
-      callback_data: `acct_${a.id}_${a.account_name.slice(0, 30)}`,
+      callback_data: `acct_${a.id}`,
     },
   ])
 
@@ -309,7 +309,7 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     }
 
     const buttons = profiles.map((p) => [
-      { text: p.name, callback_data: `profile_${p.id}_${p.name}` },
+      { text: p.name, callback_data: `profile_${p.id}` },
     ])
 
     const header = progressHeader(
@@ -328,9 +328,15 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
       const data = ctx.callbackQuery.data
       if (data.startsWith("profile_")) {
-        const parts = data.replace("profile_", "").split("_")
-        ctx.scene.session.profileId = parts[0]
-        ctx.scene.session.profileName = parts.slice(1).join("_")
+        const profileId = data.replace("profile_", "")
+        const supabase = createSupabaseAdmin()
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", profileId)
+          .single()
+        ctx.scene.session.profileId = profileId
+        ctx.scene.session.profileName = profile?.name ?? ""
         await ctx.answerCbQuery()
 
         // Try account selection
@@ -359,9 +365,15 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
     if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
       const data = ctx.callbackQuery.data
       if (data.startsWith("acct_")) {
-        const parts = data.replace("acct_", "").split("_")
-        ctx.scene.session.accountId = parts[0]
-        ctx.scene.session.accountName = parts.slice(1).join("_")
+        const accountId = data.replace("acct_", "")
+        const supabase = createSupabaseAdmin()
+        const { data: account } = await supabase
+          .from("investment_accounts")
+          .select("account_name")
+          .eq("id", accountId)
+          .single()
+        ctx.scene.session.accountId = accountId
+        ctx.scene.session.accountName = account?.account_name ?? ""
         await ctx.answerCbQuery()
 
         ctx.wizard.selectStep(STEP_SYMBOL)
