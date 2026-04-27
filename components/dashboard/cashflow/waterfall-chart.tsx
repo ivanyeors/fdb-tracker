@@ -217,9 +217,9 @@ function SubBreakdownList({ subItems }: { readonly subItems?: SubBreakdownItem[]
   const restTotal = rest.reduce((s, i) => s + i.amount, 0)
   return (
     <div className="mt-1.5 space-y-0.5 border-t border-border pt-1.5">
-      {display.map((item, i) => (
+      {display.map((item) => (
         <div
-          key={i}
+          key={`sub-${item.label}-${item.amount}`}
           className="flex justify-between gap-3 text-muted-foreground"
         >
           <span className="truncate">{item.label}</span>
@@ -470,9 +470,9 @@ function WaterfallChartInner({
               </g>
             )
           })}
-          {connectors.map((c, idx) => (
+          {connectors.map((c) => (
             <line
-              key={idx}
+              key={`conn-${c.x}-${c.yTop}-${c.yBottom}`}
               x1={c.x}
               y1={c.yTop}
               x2={c.x}

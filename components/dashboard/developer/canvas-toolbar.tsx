@@ -116,8 +116,10 @@ export function CanvasToolbar({
         <div className="mx-0.5 h-5 w-px bg-border" />
         {tools.map((tool, i) => {
           if ("divider" in tool) {
+            const prev = tools[i - 1]
+            const prevLabel = prev && "label" in prev ? prev.label : `idx-${i}`
             return (
-              <div key={`div-${i}`} className="mx-0.5 h-5 w-px bg-border" />
+              <div key={`div-after-${prevLabel}`} className="mx-0.5 h-5 w-px bg-border" />
             )
           }
           return (

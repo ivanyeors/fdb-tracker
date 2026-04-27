@@ -20,17 +20,20 @@ function LogicBlock({ text }: { readonly text: string }) {
     <div className="space-y-0.5">
       {lines.map((line, i) => {
         const trimmed = line.trimStart()
+        // Lines come from parsing a static text prop; the list is rebuilt
+        // wholesale on each render and never reordered, so index is stable.
+        const lineKey = `line-${i}-${trimmed.slice(0, 16)}`
 
         // Empty line = spacer
         if (trimmed === "") {
-          return <div key={i} className="h-1.5" />
+          return <div key={lineKey} className="h-1.5" />
         }
 
         // Bold header: **text**
         if (trimmed.startsWith("**") && trimmed.endsWith("**")) {
           return (
             <div
-              key={i}
+              key={lineKey}
               className="mt-1 text-[11px] font-semibold text-foreground"
             >
               {trimmed.slice(2, -2)}
@@ -42,7 +45,7 @@ function LogicBlock({ text }: { readonly text: string }) {
         const boldMatch = /^\*\*(.+?)\*\*\s*(.*)$/.exec(trimmed)
         if (boldMatch) {
           return (
-            <div key={i} className="text-[11px] text-muted-foreground">
+            <div key={lineKey} className="text-[11px] text-muted-foreground">
               <span className="font-semibold text-foreground">
                 {boldMatch[1]}
               </span>{" "}
@@ -59,12 +62,12 @@ function LogicBlock({ text }: { readonly text: string }) {
             .filter(Boolean)
           return (
             <div
-              key={i}
+              key={lineKey}
               className="flex gap-2 font-mono text-[10px] text-muted-foreground"
             >
               {cells.map((cell, j) => (
                 <span
-                  key={j}
+                  key={`${lineKey}-cell-${j}-${cell.slice(0, 8)}`}
                   className={j === 0 ? "min-w-[70px] text-foreground/80" : ""}
                 >
                   {cell}
@@ -83,7 +86,7 @@ function LogicBlock({ text }: { readonly text: string }) {
         if (isFormula) {
           return (
             <div
-              key={i}
+              key={lineKey}
               className="rounded bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] text-foreground/90"
             >
               {trimmed}
@@ -94,7 +97,7 @@ function LogicBlock({ text }: { readonly text: string }) {
         // Regular text line
         return (
           <div
-            key={i}
+            key={lineKey}
             className="text-[11px] leading-relaxed text-muted-foreground"
           >
             {trimmed}

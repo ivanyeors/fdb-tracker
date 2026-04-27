@@ -22,7 +22,7 @@ function ColorBar({ palette }: { readonly palette: ChartPalette }) {
   return (
     <div className="flex h-8 w-full overflow-hidden rounded-md">
       {palette.colors.map((c, i) => (
-        <div key={i} className="flex-1" style={{ backgroundColor: c }} />
+        <div key={`${c}-${i}`} className="flex-1" style={{ backgroundColor: c }} />
       ))}
     </div>
   )

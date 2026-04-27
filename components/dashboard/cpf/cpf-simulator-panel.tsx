@@ -109,7 +109,7 @@ export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {
 
                 {state.loanOverrides.map((loan, i) => (
                   <div
-                    key={i}
+                    key={`loan-override-${loan.name}-${i}`}
                     className="space-y-2 rounded-md border p-3"
                   >
                     <div className="flex items-center justify-between">

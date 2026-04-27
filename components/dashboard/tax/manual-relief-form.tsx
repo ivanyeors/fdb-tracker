@@ -130,7 +130,7 @@ export function ManualReliefForm({
         <div className="space-y-3">
           {items.map((item, i) => (
             <div
-              key={i}
+              key={`relief-${item.id ?? i}`}
               className="flex flex-wrap items-end gap-3 rounded-lg border p-3"
             >
               {profiles.length > 1 && (

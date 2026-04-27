@@ -245,7 +245,7 @@ export function TransactionsClient({
                   {previewData?.extracted?.transactions?.map(
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     (txn: any, i: number) => (
-                      <tr key={i} className="border-t">
+                      <tr key={`preview-${txn.date ?? ""}-${txn.description ?? ""}-${i}`} className="border-t">
                         <td className="p-2 whitespace-nowrap">{txn.date}</td>
                         <td className="p-2">{txn.description}</td>
                         <td className="p-2">

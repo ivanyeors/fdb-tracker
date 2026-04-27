@@ -68,8 +68,8 @@ export function CategoryBreakdownChart({
                     padAngle={0.02}
                   >
                     {(pie) =>
-                      pie.arcs.map((arc, i) => (
-                        <g key={i}>
+                      pie.arcs.map((arc) => (
+                        <g key={`arc-${arc.data.name}`}>
                           <path
                             d={pie.path(arc) ?? undefined}
                             fill={colorScale(arc.data.name)}

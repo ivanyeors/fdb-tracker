@@ -152,7 +152,7 @@ export default function LoansPage() {
       </CardHeader>
       <CardContent className="space-y-6">
         {items.map((item, i) => (
-          <div key={i} className="space-y-3 rounded-lg border p-4">
+          <div key={`loan-${i}`} className="space-y-3 rounded-lg border p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Loan {i + 1}</p>
               <Button variant="ghost" size="icon-xs" onClick={() => removeItem(i)}>
@@ -171,7 +171,7 @@ export default function LoansPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {profiles.slice(0, userCount).map((p, idx) => (
-                      <SelectItem key={idx} value={String(idx)}>
+                      <SelectItem key={`profile-opt-${p.name || idx}`} value={String(idx)}>
                         {p.name || `Person ${idx + 1}`}
                       </SelectItem>
                     ))}

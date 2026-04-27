@@ -224,9 +224,9 @@ export function StatementUploadZone({
       {/* Processing queue */}
       {queue.length > 0 && (
         <div className="space-y-1">
-          {queue.map((item, i) => (
+          {queue.map((item) => (
             <div
-              key={i}
+              key={`queue-${item.file?.name ?? item.status}`}
               className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
             >
               {item.status === "parsing" ? (

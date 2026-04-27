@@ -215,7 +215,7 @@ export function BanksClient({
               <CardContent>
                 <div className="space-y-3">
                   {Array.from({ length: 8 }).map((_, i) => (
-                    <Skeleton key={i} className="h-10 w-full" />
+                    <Skeleton key={`bank-skeleton-${i}`} className="h-10 w-full" />
                   ))}
                 </div>
               </CardContent>

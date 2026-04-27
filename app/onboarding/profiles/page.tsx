@@ -97,7 +97,7 @@ export default function ProfilesPage() {
       </CardHeader>
       <CardContent className="space-y-6">
         {profiles.slice(0, userCount).map((profile, i) => (
-          <div key={i} className="space-y-3 rounded-lg border p-4">
+          <div key={`profile-row-${i}`} className="space-y-3 rounded-lg border p-4">
             <p className="text-sm font-medium">Person {i + 1}</p>
 
             <div className="space-y-1.5">

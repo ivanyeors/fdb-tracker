@@ -75,7 +75,7 @@ export function SavingsGoalsSection() {
           </div>
           <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i} className="flex flex-col">
+              <Card key={`goal-skeleton-${i}`} className="flex flex-col">
                 <CardHeader className="pb-3">
                   <Skeleton className="h-6 w-32" />
                   <Skeleton className="mt-2 h-4 w-24" />

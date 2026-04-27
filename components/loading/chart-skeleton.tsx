@@ -17,7 +17,7 @@ export function ChartSkeleton({ height = 300, className }: ChartSkeletonProps) {
       {/* Bar-like shapes to suggest a chart */}
       {BAR_HEIGHTS.map((pct, i) => (
         <Skeleton
-          key={i}
+          key={`bar-${i}-${pct}`}
           className="min-w-2 flex-1"
           style={{
             height: `${pct}%`,

@@ -107,7 +107,7 @@ function FilePreview({
             {file.result?.extracted?.transactions?.map(
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               (txn: any, i: number) => (
-                <tr key={i} className="border-t">
+                <tr key={`txn-${txn.date ?? ""}-${txn.description ?? ""}-${i}`} className="border-t">
                   <td className="p-2 whitespace-nowrap">{txn.date}</td>
                   <td className="p-2">{txn.description}</td>
                   <td className="p-2">
@@ -231,7 +231,7 @@ export function ImportPreviewDialog({
         <div className="max-h-[60vh] space-y-4 overflow-y-auto">
           {parsedFiles.map((file, i) => (
             <FilePreview
-              key={i}
+              key={`file-${file.fileName}`}
               file={file}
               fileIndex={i}
               categories={categories}

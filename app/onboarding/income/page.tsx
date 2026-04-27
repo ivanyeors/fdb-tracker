@@ -170,7 +170,7 @@ export default function IncomePage() {
       </CardHeader>
       <CardContent className="space-y-6">
         {incomeConfigs.slice(0, userCount).map((config, i) => (
-          <div key={i} className="space-y-3 rounded-lg border p-4">
+          <div key={`income-config-${profiles[i]?.name ?? i}`} className="space-y-3 rounded-lg border p-4">
             <p className="text-sm font-medium">
               {profiles[i]?.name || `Person ${i + 1}`}
             </p>

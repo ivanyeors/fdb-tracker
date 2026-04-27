@@ -604,9 +604,9 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
                             <h4 className="text-sm font-medium">
                               Suggested Reliefs
                             </h4>
-                            {(data.suggestedReliefs ?? []).map((s, i) => (
+                            {(data.suggestedReliefs ?? []).map((s) => (
                               <div
-                                key={i}
+                                key={`relief-${s.relief_type}-${s.label}`}
                                 className="flex items-center justify-between rounded-md border bg-blue-50/50 px-3 py-2 dark:bg-blue-950/20"
                               >
                                 <div className="min-w-0 flex-1 text-sm">
@@ -680,9 +680,9 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
                 {(data.suggestedReliefs ?? []).length > 0 && (
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium">Suggested Reliefs</h4>
-                    {(data.suggestedReliefs ?? []).map((s, i) => (
+                    {(data.suggestedReliefs ?? []).map((s) => (
                       <div
-                        key={i}
+                        key={`mobile-relief-${s.relief_type}-${s.label}`}
                         className="flex items-center justify-between rounded-md border bg-blue-50/50 px-3 py-2 dark:bg-blue-950/20"
                       >
                         <div className="min-w-0 flex-1 text-sm">

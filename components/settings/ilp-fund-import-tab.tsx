@@ -2006,7 +2006,7 @@ export function IlpFundImportTab({
                       )
                     })}
                     {parsedBundles.map((b, fi) => (
-                      <div key={`n-${fi}`} className="flex items-center gap-2">
+                      <div key={`new-bundle-${b.file.name}`} className="flex items-center gap-2">
                         <span className="flex-1 truncate text-sm text-muted-foreground">
                           New ({b.file.name})
                         </span>

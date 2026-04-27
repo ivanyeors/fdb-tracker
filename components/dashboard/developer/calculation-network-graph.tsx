@@ -631,7 +631,7 @@ function NetworkGraphInner({
               const dimmed = hoveredNode != null && !isHighlighted
 
               return (
-                <g key={`link-${i}`}>
+                <g key={`link-${link.calculationName}-${source.id}-${target.id}`}>
                   <path
                     d={bezierPath(source.x, source.y, target.x, target.y)}
                     fill="none"

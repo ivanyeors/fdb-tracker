@@ -118,8 +118,8 @@ export function NodeDetailPanel({ node, onClose }: NodeDetailPanelProps) {
               Inputs ({incoming.length})
             </div>
             <div className="mt-1 space-y-1">
-              {incoming.map((link, i) => (
-                <div key={i} className="flex items-center gap-1.5 text-xs">
+              {incoming.map((link) => (
+                <div key={`in-${link.source}-${link.calculationName}`} className="flex items-center gap-1.5 text-xs">
                   <div
                     className="h-2 w-2 rounded-full"
                     style={{
@@ -146,8 +146,8 @@ export function NodeDetailPanel({ node, onClose }: NodeDetailPanelProps) {
               Outputs ({outgoing.length})
             </div>
             <div className="mt-1 space-y-1">
-              {outgoing.map((link, i) => (
-                <div key={i} className="flex items-center gap-1.5 text-xs">
+              {outgoing.map((link) => (
+                <div key={`out-${link.target}-${link.calculationName}`} className="flex items-center gap-1.5 text-xs">
                   <div
                     className="h-2 w-2 rounded-full"
                     style={{

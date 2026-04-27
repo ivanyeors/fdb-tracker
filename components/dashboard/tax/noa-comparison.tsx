@@ -212,7 +212,7 @@ export function NoaComparison({
                 )
                 return (
                   <ComparisonRow
-                    key={i}
+                    key={`comp-${r.type}-${r.label}`}
                     label={r.label}
                     ours={ourMatch?.amount ?? 0}
                     iras={r.amount}
@@ -261,9 +261,9 @@ export function NoaComparison({
             <p className="mb-1.5 text-xs font-medium text-muted-foreground">
               IRAS Tax Computation
             </p>
-            {noaData.bracket_summary_json.map((line, i) => (
+            {noaData.bracket_summary_json.map((line) => (
               <div
-                key={i}
+                key={`bracket-${line.label}`}
                 className="flex justify-between text-sm tabular-nums"
               >
                 <span>{line.label}</span>

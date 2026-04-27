@@ -88,7 +88,7 @@ function TaxReliefDonutInner({
               padAngle={0.005}
             >
               {(pie) =>
-                pie.arcs.map((arc, index) => {
+                pie.arcs.map((arc) => {
                   const { startAngle, endAngle } = arc
                   const midAngle = (startAngle + endAngle) / 2
                   const RADIAN = Math.PI / 180
@@ -99,7 +99,7 @@ function TaxReliefDonutInner({
                   const fill = colorScale(arc.data.name)
 
                   return (
-                    <g key={index}>
+                    <g key={`relief-arc-${arc.data.name}`}>
                       <title>
                         {arc.data.name}: {pct}% (${formatCurrency(arc.data.value)})
                       </title>

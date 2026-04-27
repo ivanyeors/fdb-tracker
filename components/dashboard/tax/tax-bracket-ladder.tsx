@@ -214,7 +214,7 @@ export function TaxBracketLadder({
       </div>
       <div className="relative h-10 w-full rounded-lg ring-1 ring-border">
         <div className="flex h-full w-full overflow-hidden rounded-[inherit]">
-          {layers.map((layer, i) => {
+          {layers.map((layer) => {
             const bandPct = (layer.widthDollars / axisMax) * 100
             const used = chargeableIncomeInLayer(ci, layer.bandFrom, layer.bandTo)
             const fillPct =
@@ -235,7 +235,7 @@ export function TaxBracketLadder({
                 ? Math.round(previewUsed * layer.rate * 100) / 100
                 : 0
             return (
-              <Tooltip key={i}>
+              <Tooltip key={`bracket-${layer.bandFrom}-${layer.rate}`}>
                 <TooltipTrigger asChild>
                   <div
                     className="relative h-full min-w-px cursor-default overflow-hidden transition-opacity hover:opacity-95"

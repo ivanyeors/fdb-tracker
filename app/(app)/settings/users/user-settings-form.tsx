@@ -2001,7 +2001,7 @@ function MonthlyLogSection({
           const expandedInRow = expandedMonth != null && rowMonths.includes(expandedMonth)
 
           return (
-            <Fragment key={rowIdx}>
+            <Fragment key={`row-${rowMonths[0] ?? rowIdx}`}>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
                 {rowMonths.map((mk) => {
                   const ym = mk.slice(0, 7)
@@ -3826,7 +3826,7 @@ function InsuranceSection({
                 </p>
               )}
               {newPolicy.customBenefits.map((b, idx) => (
-                <div key={idx} className="flex flex-wrap items-center gap-2 rounded-md border p-2">
+                <div key={`new-benefit-${idx}`} className="flex flex-wrap items-center gap-2 rounded-md border p-2">
                   <Input
                     placeholder="Benefit name"
                     value={b.benefit_name ?? ""}
@@ -4296,7 +4296,7 @@ function InsuranceSection({
                           })
                         )}
                         {e.coverages.filter((c) => !c.coverage_type).map((cb, idx) => (
-                          <div key={`custom-${idx}`} className="flex items-center gap-2 rounded-md border border-dashed p-2">
+                          <div key={`${p.id}-custom-${cb.benefit_name ?? idx}`} className="flex items-center gap-2 rounded-md border border-dashed p-2">
                             <Input
                               value={cb.benefit_name ?? ""}
                               onChange={(ev) => {

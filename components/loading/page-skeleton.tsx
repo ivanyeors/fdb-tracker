@@ -38,7 +38,7 @@ export function PageSkeleton({
       {/* Primary metrics grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {Array.from({ length: metricCount }).map((_, i) => (
-          <MetricCard key={i} label="" value={0} loading />
+          <MetricCard key={`primary-skeleton-${i}`} label="" value={0} loading />
         ))}
       </div>
 
@@ -46,7 +46,7 @@ export function PageSkeleton({
       {metricCountSecondary > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: metricCountSecondary }).map((_, i) => (
-            <MetricCard key={i} label="" value={0} loading />
+            <MetricCard key={`secondary-skeleton-${i}`} label="" value={0} loading />
           ))}
         </div>
       )}
@@ -60,7 +60,7 @@ export function PageSkeleton({
           <Skeleton className="mb-4 h-6 w-48" />
           <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
+              <Skeleton key={`row-skeleton-${i}`} className="h-10 w-full" />
             ))}
           </div>
         </div>

@@ -321,7 +321,7 @@ export function InsuranceClient({
           </div>
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full" />
+              <Skeleton key={`policy-skeleton-${i}`} className="h-16 w-full" />
             ))}
           </div>
         </>

@@ -119,11 +119,11 @@ function RadarChartInner({
           ))}
 
           {/* Axis spokes */}
-          {[...Array(numAxes)].map((_, i) => {
+          {axes.map((axis, i) => {
             const endPoint = genPoint(numAxes, i, radius)
             return (
               <Line
-                key={`spoke-${i}`}
+                key={`spoke-${axis}`}
                 from={new Point({ x: 0, y: 0 })}
                 to={endPoint}
                 stroke="var(--color-border)"
@@ -152,7 +152,7 @@ function RadarChartInner({
                 />
                 {points.map((p, i) => (
                   <circle
-                    key={i}
+                    key={`${s.profileName}-${axes[i]}`}
                     cx={p.x}
                     cy={p.y}
                     r={4}
@@ -208,7 +208,7 @@ function RadarChartInner({
                 ) : (
                   lines.map((line, li) => (
                     <tspan
-                      key={li}
+                      key={`${axis}-${line}`}
                       x={point.x}
                       dy={li === 0 ? (isTop ? `-${(lines.length - 1) * 0.6}em` : "0") : "1.2em"}
                     >
@@ -221,11 +221,11 @@ function RadarChartInner({
           })}
 
           {/* Invisible hover zones for spokes */}
-          {[...Array(numAxes)].map((_, i) => {
+          {axes.map((axis, i) => {
             const endPoint = genPoint(numAxes, i, radius)
             return (
               <line
-                key={`hover-${i}`}
+                key={`hover-${axis}`}
                 x1={0}
                 y1={0}
                 x2={endPoint.x}

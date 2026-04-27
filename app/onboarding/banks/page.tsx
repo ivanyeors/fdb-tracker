@@ -236,7 +236,7 @@ export default function BanksPage() {
       </CardHeader>
       <CardContent className="space-y-6">
         {accounts.map((account, i) => (
-          <div key={i} className="space-y-3 rounded-lg border p-4">
+          <div key={`account-${i}`} className="space-y-3 rounded-lg border p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Account {i + 1}</p>
               {accounts.length > 1 && (
@@ -262,7 +262,7 @@ export default function BanksPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {profiles.slice(0, userCount).map((p, idx) => (
-                      <SelectItem key={idx} value={String(idx)}>
+                      <SelectItem key={`${p.name || `person-${idx}`}`} value={String(idx)}>
                         {p.name || `Person ${idx + 1}`}
                       </SelectItem>
                     ))}
@@ -339,7 +339,7 @@ export default function BanksPage() {
                 {(showGoals[i] ?? account.savings_goals.length > 0) &&
                   account.savings_goals.map((goal, gi) => (
                     <div
-                      key={gi}
+                      key={`account-${i}-goal-${gi}`}
                       className="grid gap-2 rounded-md border bg-background p-3 sm:grid-cols-2 lg:grid-cols-4"
                     >
                       <div className="space-y-1">

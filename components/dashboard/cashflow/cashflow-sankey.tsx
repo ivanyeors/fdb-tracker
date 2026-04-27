@@ -126,13 +126,13 @@ function CashflowSankeyInner({
         >
           {({ graph, createPath }) => (
             <Group top={40} left={100}>
-              {graph.links.map((link, i) => {
+              {graph.links.map((link) => {
                 const sourceNode = link.source as SankeyNode<SankeyNodeDatum, SankeyLinkDatum>
                 const targetNode = link.target as SankeyNode<SankeyNodeDatum, SankeyLinkDatum>
                 const fill = NODE_COLORS[sourceNode.name] ?? "var(--color-muted-foreground)"
                 return (
                   <LinkHorizontal
-                    key={i}
+                    key={`link-${sourceNode.name}-${targetNode.name}`}
                     data={link}
                     path={createPath}
                     fill="transparent"
@@ -157,7 +157,7 @@ function CashflowSankeyInner({
                   />
                 )
               })}
-              {graph.nodes.map((node, i) => {
+              {graph.nodes.map((node) => {
                 const fill = NODE_COLORS[node.name] ?? "var(--color-muted-foreground)"
                 const nodeValue = node.value ?? 0
                 const isSourceNode = node.name === "Inflow"
@@ -168,7 +168,7 @@ function CashflowSankeyInner({
                 const y1 = node.y1 ?? 0
 
                 return (
-                  <Group key={i}>
+                  <Group key={`node-${node.name}`}>
                     <BarRounded
                       x={x0}
                       y={y0}

@@ -102,9 +102,9 @@ export function CanvasContextMenu({
       className="fixed z-50 min-w-[160px] rounded-lg border bg-popover p-1 shadow-md"
       style={{ left: menu.x, top: menu.y }}
     >
-      {items.map((item, i) => (
+      {items.map((item) => (
         <button
-          key={i}
+          key={`menu-${item.label}`}
           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-popover-foreground hover:bg-accent"
           onClick={item.onClick}
         >

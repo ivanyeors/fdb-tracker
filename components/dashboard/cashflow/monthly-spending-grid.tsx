@@ -197,14 +197,14 @@ function MiniDonut({
           padAngle={0.02}
         >
           {(pie) =>
-            pie.arcs.map((arc, i) => {
+            pie.arcs.map((arc) => {
               const pct =
                 total > 0
                   ? Math.round((arc.data.total / total) * 1000) / 10
                   : 0
               return (
                 <path
-                  key={i}
+                  key={`arc-${arc.data.name}`}
                   d={pie.path(arc) ?? ""}
                   fill={colorScale(arc.data.name)}
                   className="cursor-pointer transition-opacity hover:opacity-80"

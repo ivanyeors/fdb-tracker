@@ -174,7 +174,7 @@ export function InviteCodesSection({
           {loading ? (
             <div className="space-y-2">
               {Array.from({ length: 2 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
+                <Skeleton key={`invite-skeleton-${i}`} className="h-10 w-full" />
               ))}
             </div>
           ) : codes.length === 0 ? (

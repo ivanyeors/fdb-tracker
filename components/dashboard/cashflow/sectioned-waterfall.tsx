@@ -299,9 +299,9 @@ function WaterfallMiniChart({ bars, width }: { readonly bars: WaterfallBarItem[]
               </g>
             )
           })}
-          {connectors.map((c, idx) => (
+          {connectors.map((c) => (
             <line
-              key={idx}
+              key={`conn-${c.x}-${c.yTop}-${c.yBottom}`}
               x1={c.x}
               y1={c.yTop}
               x2={c.x}
@@ -327,9 +327,9 @@ function WaterfallMiniChart({ bars, width }: { readonly bars: WaterfallBarItem[]
             <div>{fmtValue(tooltipData.value, tooltipData.type === "anchor")}</div>
             {tooltipData.subItems && tooltipData.subItems.length > 0 && (
               <div className="mt-1.5 space-y-0.5 border-t border-border pt-1.5">
-                {tooltipData.subItems.slice(0, 6).map((item, i) => (
+                {tooltipData.subItems.slice(0, 6).map((item) => (
                   <div
-                    key={i}
+                    key={`tooltip-sub-${item.label}-${item.amount}`}
                     className="flex justify-between gap-3 text-muted-foreground"
                   >
                     <span className="truncate">{item.label}</span>
