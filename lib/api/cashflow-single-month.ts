@@ -837,7 +837,7 @@ export async function fetchSingleMonthCashflow(
     const investmentSub: SubItem[] = []
     const hasMultipleAccounts = investmentsByAccountAndSymbol.size > 1
     for (const [accId, symbolMap] of investmentsByAccountAndSymbol) {
-      const accName = accountNameMap.get(accId) ?? (accId === "unknown" ? "" : "")
+      const accName = accountNameMap.get(accId) ?? ""
       for (const [symbol, net] of symbolMap) {
         if (net === 0) continue
         const label = hasMultipleAccounts && accName ? `${accName}: ${symbol}` : symbol

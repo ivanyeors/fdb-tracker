@@ -58,7 +58,9 @@ async function main() {
       "utf8",
     )
 
-    const keys = Object.keys(snapshot.header).sort()
+    const keys = Object.keys(snapshot.header).sort((a, b) =>
+      a.localeCompare(b)
+    )
     allKeySets.push(keys)
     summaries.push({
       file: name,
@@ -74,8 +76,12 @@ async function main() {
   const intersection =
     allKeySets.length === 0
       ? []
-      : allKeySets.reduce((acc, k) => acc.filter((x) => k.includes(x)))
-  const union = [...new Set(allKeySets.flat())].sort()
+      : allKeySets
+          .slice(1)
+          .reduce((acc, k) => acc.filter((x) => k.includes(x)), allKeySets[0]!)
+  const union = [...new Set(allKeySets.flat())].sort((a, b) =>
+    a.localeCompare(b)
+  )
 
   const summaryPath = join(outDir, "summary.json")
   await writeFile(

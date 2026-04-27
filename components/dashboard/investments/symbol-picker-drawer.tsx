@@ -172,33 +172,39 @@ export function SymbolPickerDrawer({
             </p>
           ) : (
             <div className="space-y-0.5 pr-2">
-              {results.map((r) => (
+              {results.map((r) => {
+                const handleSelect = () =>
+                  multiSelect
+                    ? handleMultiToggle(r.ticker)
+                    : handleSingleSelect(r.ticker)
+                return (
                 <div
                   key={r.ticker}
+                  role="button"
+                  tabIndex={0}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 cursor-pointer transition-colors",
                     multiSelect
                       ? "hover:bg-accent"
                       : "hover:bg-accent hover:text-accent-foreground",
                   )}
-                  onClick={() =>
-                    multiSelect
-                      ? handleMultiToggle(r.ticker)
-                      : handleSingleSelect(r.ticker)
-                  }
+                  onClick={handleSelect}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault()
+                      handleSelect()
+                    }
+                  }}
                 >
                   {multiSelect && (
                     <div
+                      aria-hidden="true"
                       className={cn(
                         "flex size-5 shrink-0 items-center justify-center rounded border",
                         selected.has(r.ticker)
                           ? "bg-primary border-primary text-primary-foreground"
                           : "border-input",
                       )}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleMultiToggle(r.ticker)
-                      }}
                     >
                       {selected.has(r.ticker) ? (
                         <Check className="size-3" />
@@ -219,7 +225,8 @@ export function SymbolPickerDrawer({
                     )}
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </ScrollArea>

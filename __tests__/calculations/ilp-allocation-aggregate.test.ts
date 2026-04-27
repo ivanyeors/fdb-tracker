@@ -93,10 +93,9 @@ describe("allocationByIlpGroupOrStandalone", () => {
       },
     ])
     expect(rows).toHaveLength(2)
-    expect(rows.map((r) => r.name).sort()).toEqual([
-      "AIA PRE · Fund A",
-      "AIA PRE · Fund B",
-    ])
+    expect(
+      rows.map((r) => r.name).sort((a, b) => a.localeCompare(b))
+    ).toEqual(["AIA PRE · Fund A", "AIA PRE · Fund B"])
     expect(rows.find((r) => r.name === "AIA PRE · Fund B")?.percentage).toBeCloseTo(
       60,
       5,
@@ -117,7 +116,7 @@ describe("allocationByIlpGroupOrStandalone", () => {
       },
     ])
     expect(rows).toHaveLength(2)
-    const names = rows.map((r) => r.name).sort()
+    const names = rows.map((r) => r.name).sort((a, b) => a.localeCompare(b))
     expect(names).toEqual(["Same", "Same (2)"])
   })
 })

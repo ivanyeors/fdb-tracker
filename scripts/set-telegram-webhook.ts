@@ -9,6 +9,12 @@
 import { readFileSync, existsSync } from "node:fs"
 import { resolve } from "node:path"
 
+// Strip control characters from externally-sourced strings before logging
+// to prevent log forging via injected newlines/CRs.
+function safe(value: unknown): string {
+  return String(value ?? "").replace(/[\r\n\u0000-\u001F\u007F]/g, "")
+}
+
 function loadEnvLocal() {
   const path = resolve(process.cwd(), ".env.local")
   if (!existsSync(path)) return
@@ -51,7 +57,7 @@ const res = await fetch(apiUrl)
 const data = (await res.json()) as { ok?: boolean; description?: string }
 
 if (!data.ok) {
-  console.error("❌ Failed to register webhook:", data.description ?? res.statusText)
+  console.error("❌ Failed to register webhook:", safe(data.description ?? res.statusText))
   process.exit(1)
 }
 

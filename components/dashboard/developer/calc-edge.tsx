@@ -59,7 +59,7 @@ function CalcEdgeComponent({
         style={{
           ...style,
           // Override CSS variables so React Flow's .selected CSS doesn't override
-          "--xy-edge-stroke": selected ? edgeColor : edgeColor,
+          "--xy-edge-stroke": edgeColor,
           "--xy-edge-stroke-selected": edgeColor,
           stroke: edgeColor,
           strokeWidth: selected ? 3 : isMoneyFlow ? 2 : 1.5,

@@ -354,7 +354,9 @@ export function OverviewClient({
       netLv != null && Number.isFinite(netLv)
         ? netLv
         : Math.max(0, investmentTotal - ilpForSplit)
-    const allMonths = Array.from(ilpTotalByMonth.keys()).sort()
+    const allMonths = Array.from(ilpTotalByMonth.keys()).sort((a, b) =>
+      a.localeCompare(b)
+    )
     if (allMonths.length === 0 && investmentTotal > 0) {
       const now = new Date()
       const m = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`

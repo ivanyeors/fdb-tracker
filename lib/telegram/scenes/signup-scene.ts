@@ -51,9 +51,8 @@ export const signupScene = new Scenes.WizardScene<MyContext>(
     const deepLinkCode = botState(ctx).signupCode
     if (deepLinkCode) {
       // Deep link: validate and create account immediately
-      const result = await processSignupCode(ctx, deepLinkCode)
-      if (result === "leave") return ctx.scene.leave()
-      return ctx.scene.leave() // always leave after processing
+      await processSignupCode(ctx, deepLinkCode)
+      return ctx.scene.leave()
     }
 
     const header = progressHeader(1, TOTAL_STEPS, "Sign up")
@@ -80,12 +79,12 @@ export const signupScene = new Scenes.WizardScene<MyContext>(
 
 /**
  * Shared logic: validate signup code, create account, send OTP.
- * Returns "leave" on error/success (caller should always leave scene after).
+ * Caller is always expected to leave the scene after this returns.
  */
 async function processSignupCode(
   ctx: MyContext,
   code: string
-): Promise<"leave"> {
+): Promise<void> {
   console.log("[signup-scene] processSignupCode", {
     chatId: ctx.chat?.id,
     fromUserId: ctx.from?.id,
@@ -100,21 +99,21 @@ async function processSignupCode(
         ? `This code has expired. Please generate a new one at ${APP_URL}/login.`
         : result.error
     await ctx.reply(errorMsg(hint))
-    return "leave"
+    return
   }
 
   if (result.type !== "signup") {
     await ctx.reply(
       "This looks like an invite code. Use /join to join an existing household."
     )
-    return "leave"
+    return
   }
 
   const chatId = ctx.chat?.id
   const from = ctx.from
   if (!chatId || !from) {
     await ctx.reply(errorMsg("Could not resolve your Telegram account."))
-    return "leave"
+    return
   }
 
   const usernameCheck = checkSignupUsernameMatch(
@@ -129,7 +128,7 @@ async function processSignupCode(
           `Generate a new code from your current Telegram account at ${APP_URL}/login.`
       )
     )
-    return "leave"
+    return
   }
 
   const fromUserId = String(from.id)
@@ -163,7 +162,7 @@ async function processSignupCode(
         await ctx.reply(
           "You already have an account. Use /otp to get a login code."
         )
-        return "leave"
+        return
       }
 
       // Convert public account to owner
@@ -178,13 +177,13 @@ async function processSignupCode(
       const marked = await markCodeUsed(result.id, fromUserId)
       if (!marked) {
         await ctx.reply(errorMsg("This code has already been used."))
-        return "leave"
+        return
       }
 
       const otpResult = await generateAndStoreOtp(family.household_id)
       if (!otpResult.ok) {
         await ctx.reply(errorMsg(otpResult.error))
-        return "leave"
+        return
       }
 
       await ctx.reply(
@@ -192,7 +191,7 @@ async function processSignupCode(
           `Your login code: ${otpResult.otp}\n\n` +
           `Enter this code at ${APP_URL}/login to complete onboarding.`
       )
-      return "leave"
+      return
     }
   }
 
@@ -211,7 +210,7 @@ async function processSignupCode(
   if (householdError || !household) {
     console.error("[signup-scene] Household creation failed:", householdError)
     await ctx.reply(errorMsg("Failed to create account. Please try again."))
-    return "leave"
+    return
   }
 
   const { data: family, error: familyError } = await supabase
@@ -228,7 +227,7 @@ async function processSignupCode(
   if (familyError || !family) {
     console.error("[signup-scene] Family creation failed:", familyError)
     await ctx.reply(errorMsg("Failed to create account. Please try again."))
-    return "leave"
+    return
   }
 
   const displayName = from.first_name || from.username || "User"
@@ -255,19 +254,19 @@ async function processSignupCode(
   if (profileError) {
     console.error("[signup-scene] Profile creation failed:", profileError)
     await ctx.reply(errorMsg("Failed to create profile. Please try again."))
-    return "leave"
+    return
   }
 
   const marked = await markCodeUsed(result.id, fromUserId)
   if (!marked) {
     await ctx.reply(errorMsg("This code has already been used."))
-    return "leave"
+    return
   }
 
   const otpResult = await generateAndStoreOtp(household.id)
   if (!otpResult.ok) {
     await ctx.reply(errorMsg(otpResult.error))
-    return "leave"
+    return
   }
 
   await ctx.reply(
@@ -276,5 +275,4 @@ async function processSignupCode(
       `Enter this code at ${APP_URL}/login to complete onboarding.\n` +
       `The code expires in 5 minutes.`
   )
-  return "leave"
 }

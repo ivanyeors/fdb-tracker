@@ -421,9 +421,10 @@ function extractBenefits(text: string): InsuranceBenefitEntry[] {
     }
 
     // Expiry date: latest date in block (start date is earliest)
-    const expiryDate = dates.length > 0
-      ? dates.sort().reverse()[0]
-      : null
+    const expiryDate =
+      dates.length > 0
+        ? [...dates].sort((a, b) => b.localeCompare(a))[0]
+        : null
 
     benefits.push({
       benefitName: cleanBenefitName(headers[i].name),

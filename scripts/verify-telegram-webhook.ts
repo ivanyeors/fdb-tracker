@@ -9,6 +9,12 @@
 import { readFileSync, existsSync } from "node:fs"
 import { resolve } from "node:path"
 
+// Strip control characters from externally-sourced strings before logging
+// to prevent log forging via injected newlines/CRs.
+function safe(value: unknown): string {
+  return String(value ?? "").replace(/[\r\n\u0000-\u001F\u007F]/g, "")
+}
+
 function loadEnvLocal() {
   const path = resolve(process.cwd(), ".env.local")
   if (!existsSync(path)) return
@@ -46,7 +52,7 @@ const data = (await res.json()) as {
 }
 
 if (!data.ok) {
-  console.error("❌ Failed to fetch webhook info:", data.description)
+  console.error("❌ Failed to fetch webhook info:", safe(data.description))
   process.exit(1)
 }
 
@@ -71,7 +77,7 @@ if (!currentUrl) {
 
 if (currentUrl.includes("localhost")) {
   console.log("❌ Webhook points to localhost. Telegram cannot reach it.")
-  console.log(`   Current: ${currentUrl}`)
+  console.log(`   Current: ${safe(currentUrl)}`)
   console.log("\nFix: Deploy to Vercel, set NEXT_PUBLIC_APP_URL to your production URL,")
   console.log("   then run: npx tsx scripts/set-telegram-webhook.ts")
   process.exit(1)
@@ -85,11 +91,11 @@ if (
 ) {
   console.log("⚠️  Webhook URL mismatch:")
   console.log(`   Expected: ${expectedWebhook}`)
-  console.log(`   Current:  ${currentUrl}`)
+  console.log(`   Current:  ${safe(currentUrl)}`)
   console.log("\nTo fix: npx tsx scripts/set-telegram-webhook.ts")
   process.exit(1)
 }
 
 console.log("✅ Webhook is correctly configured")
-console.log(`   ${currentUrl}`)
+console.log(`   ${safe(currentUrl)}`)
 console.log("\nSend /otp in a private chat with your bot to get the code.\n")

@@ -346,8 +346,12 @@ export function IlpFundImportTab({
     })
     next.new = split[split.length - 1]!
     setSingleAllocPct((prev) => {
-      const keys = Object.keys(next).sort().join(",")
-      const prevKeys = Object.keys(prev).sort().join(",")
+      const keys = Object.keys(next)
+        .sort((a, b) => a.localeCompare(b))
+        .join(",")
+      const prevKeys = Object.keys(prev)
+        .sort((a, b) => a.localeCompare(b))
+        .join(",")
       if (keys === prevKeys && Object.keys(prev).length > 0) return prev
       return next
     })
@@ -1228,10 +1232,18 @@ export function IlpFundImportTab({
         {step !== "success" ? (
           <>
             <div
+              role="button"
+              tabIndex={0}
               className="flex min-h-[140px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30 px-4 py-6 text-center transition-colors hover:bg-muted/50"
               onDragOver={(e) => e.preventDefault()}
               onDrop={onDrop}
               onClick={() => document.getElementById("ilp-mhtml-input")?.click()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault()
+                  document.getElementById("ilp-mhtml-input")?.click()
+                }
+              }}
             >
               <Upload className="size-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
