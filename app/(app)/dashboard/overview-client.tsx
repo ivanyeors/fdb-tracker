@@ -228,19 +228,20 @@ export function OverviewClient({
     !isCashflowLoading && cashflowMonths.includes(effectiveMonth)
 
   // Overview data
+  const overviewQs = qs ? `${qs}&` : ""
+  const overviewBaseUrl = qs ? `/api/overview?${qs}` : "/api/overview"
   const overviewUrl = effectiveMonth
-    ? `/api/overview?${qs ? `${qs}&` : ""}month=${effectiveMonth}`
-    : qs
-      ? `/api/overview?${qs}`
-      : "/api/overview"
+    ? `/api/overview?${overviewQs}month=${effectiveMonth}`
+    : overviewBaseUrl
   const { data, isLoading: isOverviewLoading } = useApi<OverviewData>(
     overviewUrl,
     { fallbackData: initialData.overview ?? undefined }
   )
 
   // Waterfall data for selected month
+  const waterfallQsTail = qs ? `&${qs}` : ""
   const waterfallUrl = effectiveMonth
-    ? `/api/cashflow?month=${effectiveMonth}${qs ? `&${qs}` : ""}`
+    ? `/api/cashflow?month=${effectiveMonth}${waterfallQsTail}`
     : null
   const { data: waterfallData } = useApi<WaterfallDataV2>(waterfallUrl, {
     fallbackData: initialData.waterfall ?? undefined,
@@ -501,12 +502,9 @@ export function OverviewClient({
       investmentHistory.length >= 2
         ? aggregateDailyInvestmentToMonthly(investmentHistory)
         : []
-    const series =
-      fromDaily.length >= 2
-        ? fromDaily
-        : investmentMonthlyData.length >= 2
-          ? investmentMonthlyData
-          : []
+    const monthlyFallback =
+      investmentMonthlyData.length >= 2 ? investmentMonthlyData : []
+    const series = fromDaily.length >= 2 ? fromDaily : monthlyFallback
     if (series.length < 2) return 0
     const current = series.at(-1)!.value ?? 0
     const previous = series.at(-2)!.value ?? 0
@@ -541,48 +539,55 @@ export function OverviewClient({
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Cashflow</CardTitle>
             <p className="text-xs text-muted-foreground">
-              {isOverviewLoading
-                ? ""
-                : (effectiveMonth ?? data?.latestMonth)
-                  ? formatTrendMonth(
-                      effectiveMonth ?? data?.latestMonth ?? ""
-                    )
-                  : "Latest month"}
+              {(() => {
+                if (isOverviewLoading) return ""
+                const monthForLabel = effectiveMonth ?? data?.latestMonth
+                if (monthForLabel) return formatTrendMonth(monthForLabel)
+                return "Latest month"
+              })()}
             </p>
           </CardHeader>
           <CardContent>
-            {isOverviewLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-5 w-full" />
-                <Skeleton className="h-5 w-full" />
-              </div>
-            ) : !hasMonthData ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                No cashflow data for this month
-              </p>
-            ) : (
-              <>
-                <div className="flex flex-1 flex-col gap-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Inflow
-                    </span>
-                    <span className="font-medium text-emerald-500">
-                      ${formatCurrency(data?.latestInflow ?? 0)}
-                    </span>
+            {(() => {
+              if (isOverviewLoading) {
+                return (
+                  <div className="space-y-2">
+                    <Skeleton className="h-5 w-full" />
+                    <Skeleton className="h-5 w-full" />
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Outflow
-                    </span>
-                    <span className="font-medium text-red-500">
-                      ${formatCurrency(data?.latestOutflow ?? 0)}
-                    </span>
+                )
+              }
+              if (!hasMonthData) {
+                return (
+                  <p className="py-4 text-center text-sm text-muted-foreground">
+                    No cashflow data for this month
+                  </p>
+                )
+              }
+              return (
+                <>
+                  <div className="flex flex-1 flex-col gap-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        Inflow
+                      </span>
+                      <span className="font-medium text-emerald-500">
+                        ${formatCurrency(data?.latestInflow ?? 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        Outflow
+                      </span>
+                      <span className="font-medium text-red-500">
+                        ${formatCurrency(data?.latestOutflow ?? 0)}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <CardCTA href="/dashboard/cashflow">View cashflow</CardCTA>
-              </>
-            )}
+                  <CardCTA href="/dashboard/cashflow">View cashflow</CardCTA>
+                </>
+              )
+            })()}
           </CardContent>
         </Card>
 
