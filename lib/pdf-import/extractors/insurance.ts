@@ -149,7 +149,7 @@ function extractDate(text: string, pattern: RegExp): string | null {
 
   // DD Mon YYYY (e.g., "27 Dec 2025")
   const longDate = dateArea.match(
-    new RegExp(`(\\d{1,2})\\s+(${MONTH_NAMES_RE})\\s+(\\d{4})`, "i")
+    new RegExp(String.raw`(\d{1,2})\s+(${MONTH_NAMES_RE})\s+(\d{4})`, "i")
   )
   if (longDate) {
     const mm = MONTH_MAP[longDate[2].toLowerCase()]
@@ -158,7 +158,7 @@ function extractDate(text: string, pattern: RegExp): string | null {
 
   // Mon DD, YYYY (e.g., "Dec 27, 2025")
   const monthFirstDate = dateArea.match(
-    new RegExp(`(${MONTH_NAMES_RE})\\s+(\\d{1,2}),?\\s+(\\d{4})`, "i")
+    new RegExp(String.raw`(${MONTH_NAMES_RE})\s+(\d{1,2}),?\s+(\d{4})`, "i")
   )
   if (monthFirstDate) {
     const mm = MONTH_MAP[monthFirstDate[1].toLowerCase()]
@@ -174,7 +174,7 @@ function findLatestDate(text: string, minDate: string): string | null {
 
   // Match Mon DD, YYYY
   const monthFirstRe = new RegExp(
-    `(${MONTH_NAMES_RE})\\s+(\\d{1,2}),?\\s+(\\d{4})`,
+    String.raw`(${MONTH_NAMES_RE})\s+(\d{1,2}),?\s+(\d{4})`,
     "gi"
   )
   let m
@@ -188,7 +188,7 @@ function findLatestDate(text: string, minDate: string): string | null {
 
   // Match DD Mon YYYY
   const dayFirstRe = new RegExp(
-    `(\\d{1,2})\\s+(${MONTH_NAMES_RE})\\s+(\\d{4})`,
+    String.raw`(\d{1,2})\s+(${MONTH_NAMES_RE})\s+(\d{4})`,
     "gi"
   )
   while ((m = dayFirstRe.exec(text)) !== null) {
@@ -299,24 +299,24 @@ function cleanBenefitName(header: string): string {
 /** Known benefit section header patterns (uppercase in SG insurance docs). */
 const BENEFIT_HEADER_RE = new RegExp(
   [
-    "ACCIDENTAL\\s+DEATH\\s+BENEFIT",
-    "ACC(?:IDENTAL)?\\s+DISMEMBERMENT(?:\\s+AND\\s+BURNS)?",
-    "PERMANENT\\s+TOTAL\\s+DISABLEMENT",
-    "DOUBLE\\s+INDEMNITY(?:\\s+ON\\s+ACC(?:IDENTAL)?\\s+DEATH)?",
-    "ACC(?:IDENTAL)?\\s+MEDICAL\\s+REIMBURSEMENT",
-    "TCM[/\\s]CHIROPRACTIC\\s+REIMBURSEMENT",
-    "WEEKLY\\s+INCOME\\s+BENEFIT",
-    "MOBILITY\\s+AIDS\\s+REIMBURSEMENT",
-    "HOME\\s+MODIFICATION\\s+REIMB(?:URSEMENT)?",
-    "FAMILY\\s+SUPPORT\\s+FUND\\s+BENEFIT",
-    "CRITICAL\\s+ILLNESS\\s+(?:BENEFIT|COVER(?:AGE)?)",
-    "EARLY\\s+CRITICAL\\s+ILLNESS",
-    "DEATH\\s+(?:AND\\s+TPD\\s+)?BENEFIT",
-    "TPD\\s+BENEFIT",
-    "DISABILITY\\s+INCOME\\s+BENEFIT",
-    "LONG[- ]?TERM\\s+CARE\\s+BENEFIT",
-    "HOSPITALI[SZ]ATION\\s+BENEFIT",
-    "TOTAL\\s+(?:AND\\s+)?PERMANENT\\s+DISABILITY",
+    String.raw`ACCIDENTAL\s+DEATH\s+BENEFIT`,
+    String.raw`ACC(?:IDENTAL)?\s+DISMEMBERMENT(?:\s+AND\s+BURNS)?`,
+    String.raw`PERMANENT\s+TOTAL\s+DISABLEMENT`,
+    String.raw`DOUBLE\s+INDEMNITY(?:\s+ON\s+ACC(?:IDENTAL)?\s+DEATH)?`,
+    String.raw`ACC(?:IDENTAL)?\s+MEDICAL\s+REIMBURSEMENT`,
+    String.raw`TCM[/\s]CHIROPRACTIC\s+REIMBURSEMENT`,
+    String.raw`WEEKLY\s+INCOME\s+BENEFIT`,
+    String.raw`MOBILITY\s+AIDS\s+REIMBURSEMENT`,
+    String.raw`HOME\s+MODIFICATION\s+REIMB(?:URSEMENT)?`,
+    String.raw`FAMILY\s+SUPPORT\s+FUND\s+BENEFIT`,
+    String.raw`CRITICAL\s+ILLNESS\s+(?:BENEFIT|COVER(?:AGE)?)`,
+    String.raw`EARLY\s+CRITICAL\s+ILLNESS`,
+    String.raw`DEATH\s+(?:AND\s+TPD\s+)?BENEFIT`,
+    String.raw`TPD\s+BENEFIT`,
+    String.raw`DISABILITY\s+INCOME\s+BENEFIT`,
+    String.raw`LONG[- ]?TERM\s+CARE\s+BENEFIT`,
+    String.raw`HOSPITALI[SZ]ATION\s+BENEFIT`,
+    String.raw`TOTAL\s+(?:AND\s+)?PERMANENT\s+DISABILITY`,
   ].join("|"),
   "gi"
 )
@@ -325,7 +325,7 @@ const BENEFIT_HEADER_RE = new RegExp(
 function parseDateFromFragment(fragment: string): string | null {
   // Mon DD, YYYY
   const mf = fragment.match(
-    new RegExp(`(${MONTH_NAMES_RE})\\s+(\\d{1,2}),?\\s+(\\d{4})`, "i")
+    new RegExp(String.raw`(${MONTH_NAMES_RE})\s+(\d{1,2}),?\s+(\d{4})`, "i")
   )
   if (mf) {
     const mm = MONTH_MAP[mf[1].toLowerCase()]
@@ -333,7 +333,7 @@ function parseDateFromFragment(fragment: string): string | null {
   }
   // DD Mon YYYY
   const df = fragment.match(
-    new RegExp(`(\\d{1,2})\\s+(${MONTH_NAMES_RE})\\s+(\\d{4})`, "i")
+    new RegExp(String.raw`(\d{1,2})\s+(${MONTH_NAMES_RE})\s+(\d{4})`, "i")
   )
   if (df) {
     const mm = MONTH_MAP[df[2].toLowerCase()]
@@ -382,7 +382,7 @@ function extractBenefits(text: string): InsuranceBenefitEntry[] {
     const dates: string[] = []
     // Mon DD, YYYY
     const dateRe1 = new RegExp(
-      `(${MONTH_NAMES_RE})\\s+(\\d{1,2}),?\\s+(\\d{4})`,
+      String.raw`(${MONTH_NAMES_RE})\s+(\d{1,2}),?\s+(\d{4})`,
       "gi"
     )
     let dMatch
@@ -392,7 +392,7 @@ function extractBenefits(text: string): InsuranceBenefitEntry[] {
     }
     // DD Mon YYYY
     const dateRe2 = new RegExp(
-      `(\\d{1,2})\\s+(${MONTH_NAMES_RE})\\s+(\\d{4})`,
+      String.raw`(\d{1,2})\s+(${MONTH_NAMES_RE})\s+(\d{4})`,
       "gi"
     )
     while ((dMatch = dateRe2.exec(block)) !== null) {
@@ -527,10 +527,10 @@ export function extractInsurance(text: string): InsuranceExtractionResult {
   const coverageType = detectCoverageType(text)
 
   const DATE_PART = String.raw`\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{1,2}\s+\w+\s+\d{4}|\w+\s+\d{1,2},?\s+\d{4}`
-  const inceptionDate = extractDate(text, new RegExp(`(?:inception|commencement|effective|start|renewal)\\s+date\\s*:?[^]*?(?:${DATE_PART})`, "i"))
+  const inceptionDate = extractDate(text, new RegExp(String.raw`(?:inception|commencement|effective|start|renewal)\s+date\s*:?[^]*?(?:${DATE_PART})`, "i"))
 
   // For end date, try label-based extraction first
-  let endDate = extractDate(text, new RegExp(`(?:expiry|end|maturity|termination|coverage\\s+expiry)\\s+date\\s*:?[^]*?(?:${DATE_PART})`, "i"))
+  let endDate = extractDate(text, new RegExp(String.raw`(?:expiry|end|maturity|termination|coverage\s+expiry)\s+date\s*:?[^]*?(?:${DATE_PART})`, "i"))
 
   // If end date is missing or earlier than inception (table header grabbed wrong date),
   // scan for the latest date in the document — far-future dates are typically coverage expiry
