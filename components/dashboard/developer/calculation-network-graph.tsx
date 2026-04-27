@@ -478,8 +478,8 @@ function NetworkGraphInner({
 
   useEffect(() => {
     const handler = () => setIsPanning(false)
-    window.addEventListener("mouseup", handler)
-    return () => window.removeEventListener("mouseup", handler)
+    globalThis.addEventListener("mouseup", handler)
+    return () => globalThis.removeEventListener("mouseup", handler)
   }, [])
 
   const resetView = useCallback(() => {

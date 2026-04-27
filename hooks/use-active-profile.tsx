@@ -43,7 +43,7 @@ export function ActiveProfileProvider({
 }) {
   const [activeFamilyId, setActiveFamilyIdState] = React.useState<string | null>(() => {
     if (initialFamilyId) return initialFamilyId
-    if (typeof window !== "undefined") {
+    if (typeof globalThis.window !== "undefined") {
       try {
         const stored = localStorage.getItem(ACTIVE_FAMILY_KEY)
         if (stored) return stored
@@ -55,7 +55,7 @@ export function ActiveProfileProvider({
   })
 
   React.useEffect(() => {
-    if (initialFamilyId && typeof window !== "undefined") {
+    if (initialFamilyId && typeof globalThis.window !== "undefined") {
       try {
         const stored = localStorage.getItem(ACTIVE_FAMILY_KEY)
         if (stored !== initialFamilyId) {
@@ -70,7 +70,7 @@ export function ActiveProfileProvider({
 
   const setActiveProfileId = React.useCallback((id: string | null) => {
     setActiveProfileIdState(id)
-    if (typeof window !== "undefined") {
+    if (typeof globalThis.window !== "undefined") {
       try {
         if (id) {
           localStorage.setItem(ACTIVE_PROFILE_KEY, id)
@@ -167,8 +167,8 @@ export function ActiveProfileProvider({
         setActiveProfileIdState(e.newValue)
       }
     }
-    window.addEventListener("storage", handleStorage)
-    return () => window.removeEventListener("storage", handleStorage)
+    globalThis.addEventListener("storage", handleStorage)
+    return () => globalThis.removeEventListener("storage", handleStorage)
   }, [])
 
   const value = React.useMemo<ActiveProfileContextValue>(
@@ -199,7 +199,7 @@ export function useActiveProfile() {
 }
 
 export function getStoredActiveFamilyId(): string | null {
-  if (typeof window === "undefined") return null
+  if (typeof globalThis.window === "undefined") return null
   try {
     return localStorage.getItem(ACTIVE_FAMILY_KEY)
   } catch {
@@ -208,7 +208,7 @@ export function getStoredActiveFamilyId(): string | null {
 }
 
 export function getStoredActiveProfileId(): string | null {
-  if (typeof window === "undefined") return null
+  if (typeof globalThis.window === "undefined") return null
   try {
     return localStorage.getItem(ACTIVE_PROFILE_KEY)
   } catch {

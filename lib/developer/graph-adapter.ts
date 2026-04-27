@@ -103,7 +103,7 @@ function computeInitialPositions(): Map<string, { x: number; y: number }> {
 const STORAGE_KEY = "fdb-dev-graph-positions"
 
 function loadSavedPositions(): Map<string, { x: number; y: number }> | null {
-  if (typeof window === "undefined") return null
+  if (typeof globalThis.window === "undefined") return null
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (!saved) return null
@@ -115,7 +115,7 @@ function loadSavedPositions(): Map<string, { x: number; y: number }> | null {
 }
 
 export function saveNodePositions(nodes: Node<CalcNodeData>[]): void {
-  if (typeof window === "undefined") return
+  if (typeof globalThis.window === "undefined") return
   const positions: Record<string, { x: number; y: number }> = {}
   for (const node of nodes) {
     positions[node.id] = { x: node.position.x, y: node.position.y }

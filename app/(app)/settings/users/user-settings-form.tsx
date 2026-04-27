@@ -5195,8 +5195,8 @@ export function FamilyMembersTable({
       e.preventDefault()
       e.returnValue = ""
     }
-    window.addEventListener("beforeunload", onBeforeUnload)
-    return () => window.removeEventListener("beforeunload", onBeforeUnload)
+    globalThis.addEventListener("beforeunload", onBeforeUnload)
+    return () => globalThis.removeEventListener("beforeunload", onBeforeUnload)
   }, [hasUnsavedChanges])
 
   useEffect(() => {
@@ -5214,13 +5214,13 @@ export function FamilyMembersTable({
       if (href.startsWith("mailto:") || href.startsWith("tel:")) return
       let url: URL
       try {
-        url = new URL(href, window.location.origin)
+        url = new URL(href, globalThis.location.origin)
       } catch {
         return
       }
-      if (url.origin !== window.location.origin) return
+      if (url.origin !== globalThis.location.origin) return
       const nextPath = `${url.pathname}${url.search}${url.hash}`
-      const here = `${window.location.pathname}${window.location.search}${window.location.hash}`
+      const here = `${globalThis.location.pathname}${globalThis.location.search}${globalThis.location.hash}`
       if (nextPath === here) return
 
       e.preventDefault()

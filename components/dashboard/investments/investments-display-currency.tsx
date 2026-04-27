@@ -49,7 +49,7 @@ export function InvestmentsDisplayCurrencyProvider({
   // Hydration-safe: server and first client paint match; then restore preference.
   useEffect(() => {
     try {
-      const v = window.localStorage.getItem(STORAGE_KEY)
+      const v = globalThis.localStorage.getItem(STORAGE_KEY)
       if (v === "USD") {
         queueMicrotask(() => setDisplayCurrencyState("USD"))
       }
@@ -61,7 +61,7 @@ export function InvestmentsDisplayCurrencyProvider({
   const setDisplayCurrency = useCallback((c: DisplayCurrency) => {
     setDisplayCurrencyState(c)
     try {
-      window.localStorage.setItem(STORAGE_KEY, c)
+      globalThis.localStorage.setItem(STORAGE_KEY, c)
     } catch {
       /* ignore */
     }

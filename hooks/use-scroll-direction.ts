@@ -19,7 +19,7 @@ export function useScrollDirection(
     const target = isContainerScrollable ? el : null
 
     function getScrollTop() {
-      return target ? target.scrollTop : window.scrollY
+      return target ? target.scrollTop : globalThis.scrollY
     }
 
     lastY.current = getScrollTop()

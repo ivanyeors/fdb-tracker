@@ -590,7 +590,7 @@ function BalanceForecastSection({
     async function load() {
       setIsLoading(true)
       try {
-        const url = new URL("/api/cashflow/effective", window.location.origin)
+        const url = new URL("/api/cashflow/effective", globalThis.location.origin)
         url.searchParams.set("profileId", profileId)
         const res = await fetch(url)
         if (!res.ok) {
