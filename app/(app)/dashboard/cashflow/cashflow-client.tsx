@@ -263,7 +263,9 @@ export function CashflowClient({
 
         <TabsContent value="overview">
           <div className="space-y-6">
-            {isLoading && data.length === 0 ? (
+            {(() => {
+              if (isLoading && data.length === 0) {
+                return (
               <>
                 <Card>
                   <CardHeader>
@@ -275,11 +277,16 @@ export function CashflowClient({
                 </Card>
                 <ChartSkeleton height={300} />
               </>
-            ) : data.length === 0 ? (
+                )
+              }
+              if (data.length === 0) {
+                return (
               <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
                 No cashflow data found for this profile.
               </div>
-            ) : (
+                )
+              }
+              return (
               <>
                 <Card>
                   <CardHeader>
@@ -319,7 +326,8 @@ export function CashflowClient({
                   </CardContent>
                 </Card>
               </>
-            )}
+              )
+            })()}
           </div>
         </TabsContent>
 

@@ -229,7 +229,9 @@ export function LoansClient({
         </div>
       </div>
 
-      {isLoading ? (
+      {(() => {
+        if (isLoading) {
+          return (
         <>
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard label="" value={0} loading />
@@ -244,7 +246,10 @@ export function LoansClient({
             </div>
           </div>
         </>
-      ) : loans.length === 0 ? (
+            )
+          }
+          if (loans.length === 0) {
+            return (
         <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border bg-card text-sm text-muted-foreground">
           <p>No loans found for this profile.</p>
           <Button size="sm" variant="outline" onClick={openAdd}>
@@ -252,7 +257,9 @@ export function LoansClient({
             Add your first loan
           </Button>
         </div>
-      ) : (
+            )
+          }
+          return (
         <>
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard
@@ -422,18 +429,20 @@ export function LoansClient({
                             ${formatCurrency(outstanding)}
                           </div>
                           <div className="mt-0.5 text-xs text-muted-foreground">
-                            {outstanding <= 0 ? (
+                            {(() => {
+                              if (outstanding <= 0) {
+                                return (
                               <Badge
                                 variant="default"
                                 className="bg-green-600/20 text-green-700 hover:bg-green-600/30 dark:text-green-400"
                               >
                                 Paid off
                               </Badge>
-                            ) : remaining === 0 ? (
-                              "Past scheduled end"
-                            ) : (
-                              `${years > 0 ? `${years}y ` : ""}${months}m left on tenure`
-                            )}
+                                )
+                              }
+                              if (remaining === 0) return "Past scheduled end"
+                              return `${years > 0 ? `${years}y ` : ""}${months}m left on tenure`
+                            })()}
                           </div>
                           {outstanding > 0 && (
                             <button
@@ -669,7 +678,8 @@ export function LoansClient({
             )
           })()}
         </>
-      )}
+          )
+        })()}
 
       {/* Loan Add/Edit Sheet */}
       <LoanFormSheet

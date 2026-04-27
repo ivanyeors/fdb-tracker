@@ -138,6 +138,19 @@ const YEAR_OPTIONS = [
   currentYear - 3,
 ]
 
+function daysLeftColor(daysLeft: number): string {
+  if (daysLeft > 30) return "text-green-600 dark:text-green-400"
+  if (daysLeft > 0) return "text-amber-600 dark:text-amber-400"
+  return "text-red-600 dark:text-red-400"
+}
+
+function diffColor(diff: number | null | undefined): string {
+  if (diff == null) return "text-muted-foreground"
+  if (diff < 0) return "text-green-600 dark:text-green-400"
+  if (diff > 0) return "text-red-600 dark:text-red-400"
+  return "text-muted-foreground"
+}
+
 function buildTaxUrl(
   profileId: string | null,
   familyId: string | null,
@@ -374,7 +387,9 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
         </Select>
       </SectionHeader>
 
-      {isLoading && !taxData ? (
+      {(() => {
+        if (isLoading && !taxData) {
+          return (
         <div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Card className="min-w-0">
@@ -411,7 +426,10 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
             </Card>
           </div>
         </div>
-      ) : !hasData ? (
+          )
+        }
+        if (!hasData) {
+          return (
         <div className="space-y-4">
           <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
             No tax data found for this profile.
@@ -424,7 +442,9 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
             />
           )}
         </div>
-      ) : (
+          )
+        }
+        return (
         <>
           <div>
             <div
@@ -470,11 +490,7 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
                           variant="outline"
                           className={cn(
                             "mt-2 text-xs",
-                            daysLeft > 30
-                              ? "text-green-600 dark:text-green-400"
-                              : daysLeft > 0
-                                ? "text-amber-600 dark:text-amber-400"
-                                : "text-red-600 dark:text-red-400"
+                            daysLeftColor(daysLeft)
                           )}
                         >
                           {daysLeft > 0
@@ -842,11 +858,7 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
                           </td>
                           <td
                             className={`px-4 py-3 text-right tabular-nums ${
-                              diff != null && diff < 0
-                                ? "text-green-600 dark:text-green-400"
-                                : diff != null && diff > 0
-                                  ? "text-red-600 dark:text-red-400"
-                                  : "text-muted-foreground"
+                              diffColor(diff)
                             }`}
                           >
                             {diff != null
@@ -862,7 +874,8 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
             </div>
           )}
         </>
-      )}
+        )
+      })()}
     </div>
   )
 }

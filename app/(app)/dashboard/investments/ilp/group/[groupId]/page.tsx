@@ -433,16 +433,23 @@ export default function IlpFundGroupDetailPage() {
           </div>
         ) : null}
 
-        {isLoading ? (
+        {(() => {
+          if (isLoading) {
+            return (
           <div className="grid gap-4 md:grid-cols-2">
             <ChartSkeleton height={240} className="rounded-xl" />
             <ChartSkeleton height={240} className="rounded-xl" />
           </div>
-        ) : groupCards.length === 0 ? (
+            )
+          }
+          if (groupCards.length === 0) {
+            return (
           <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
             No funds in this group, or the group was removed.
           </div>
-        ) : (
+            )
+          }
+          return (
           <div className="grid gap-4 md:grid-cols-2">
             {groupCards.map((card) => (
               <IlpCard
@@ -471,7 +478,8 @@ export default function IlpFundGroupDetailPage() {
               />
             ))}
           </div>
-        )}
+          )
+        })()}
       </div>
     </InvestmentsDisplayCurrencyProvider>
   )

@@ -123,6 +123,12 @@ export type CpfInitialData = {
   housing: CpfHousingApiResponse | null
 }
 
+function cpfBarColor(onTrack: boolean, pct: number): string {
+  if (onTrack) return "bg-green-500"
+  if (pct >= 70) return "bg-yellow-500"
+  return "bg-red-500"
+}
+
 function buildApiUrl(
   path: string,
   profileId: string | null,
@@ -498,13 +504,10 @@ function RetirementReadinessCard({
                 </div>
                 <div className="h-2 rounded-full bg-muted overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all ${
-                      t.gap.onTrack
-                        ? "bg-green-500"
-                        : pct >= 70
-                          ? "bg-yellow-500"
-                          : "bg-red-500"
-                    }`}
+                    className={`h-full rounded-full transition-all ${cpfBarColor(
+                      t.gap.onTrack,
+                      pct
+                    )}`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
