@@ -16,9 +16,9 @@ import { Loader2, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 interface DeleteIlpDialogProps {
-  productId: string
-  productName: string
-  onSuccess?: () => void
+  readonly productId: string
+  readonly productName: string
+  readonly onSuccess?: () => void
 }
 
 export function DeleteIlpDialog({

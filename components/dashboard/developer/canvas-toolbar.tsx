@@ -25,11 +25,11 @@ import {
 } from "@/components/dashboard/developer/developer-view-context"
 
 interface CanvasToolbarProps {
-  onResetLayout: () => void
-  onExportJSON: () => void
-  snapToGrid: boolean
-  onToggleSnap: () => void
-  moneyFlowLoading?: boolean
+  readonly onResetLayout: () => void
+  readonly onExportJSON: () => void
+  readonly snapToGrid: boolean
+  readonly onToggleSnap: () => void
+  readonly moneyFlowLoading?: boolean
 }
 
 export function CanvasToolbar({

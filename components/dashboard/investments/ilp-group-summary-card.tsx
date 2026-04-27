@@ -23,12 +23,12 @@ export function IlpGroupSummaryCard({
   chartHeight = 380,
   onDeleted,
 }: {
-  groupId: string
-  title: string
-  cards: CardLike[]
-  fullPortfolioTotal: number
-  chartHeight?: number
-  onDeleted?: () => void
+  readonly groupId: string
+  readonly title: string
+  readonly cards: CardLike[]
+  readonly fullPortfolioTotal: number
+  readonly chartHeight?: number
+  readonly onDeleted?: () => void
 }) {
   const members: IlpGroupMemberForDonut[] = cards.map((c) => ({
     name: c.name,

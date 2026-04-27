@@ -36,8 +36,8 @@ export interface EditHoldingInitial {
 }
 
 interface EditHoldingDialogProps {
-  initial: EditHoldingInitial
-  onSuccess?: () => void
+  readonly initial: EditHoldingInitial
+  readonly onSuccess?: () => void
 }
 
 export function EditHoldingDialog({ initial, onSuccess }: EditHoldingDialogProps) {

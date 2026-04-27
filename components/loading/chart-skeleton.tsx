@@ -2,8 +2,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 interface ChartSkeletonProps {
   /** Height of the chart placeholder (default: 300) */
-  height?: number
-  className?: string
+  readonly height?: number
+  readonly className?: string
 }
 
 const BAR_HEIGHTS = [45, 62, 38, 55, 70, 48, 58, 42, 65, 52, 60, 35]

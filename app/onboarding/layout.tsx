@@ -27,7 +27,7 @@ const REQUIRED_STEPS = 8
 const OPTIONAL_STEPS = 4
 const TOTAL_STEPS = 13
 
-function OnboardingLayoutInner({ children }: { children: React.ReactNode }) {
+function OnboardingLayoutInner({ children }: { readonly children: React.ReactNode }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const currentStep = STEP_MAP[pathname] ?? 1
@@ -68,7 +68,7 @@ function OnboardingLayoutInner({ children }: { children: React.ReactNode }) {
 export default function OnboardingLayout({
   children,
 }: {
-  children: React.ReactNode
+  readonly children: React.ReactNode
 }) {
   return (
     <Suspense

@@ -14,11 +14,11 @@ import { CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface DateRangePickerProps {
-  value?: DateRange
-  onChange?: (range: DateRange | undefined) => void
-  placeholder?: string
-  disabled?: boolean
-  className?: string
+  readonly value?: DateRange
+  readonly onChange?: (range: DateRange | undefined) => void
+  readonly placeholder?: string
+  readonly disabled?: boolean
+  readonly className?: string
 }
 
 export function DateRangePicker({

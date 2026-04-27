@@ -27,9 +27,9 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
 interface MethodSectionProps {
-  title: string
-  children: React.ReactNode
-  defaultOpen?: boolean
+  readonly title: string
+  readonly children: React.ReactNode
+  readonly defaultOpen?: boolean
 }
 
 function MethodSection({ title, children, defaultOpen }: MethodSectionProps) {

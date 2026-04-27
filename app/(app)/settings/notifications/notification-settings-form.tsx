@@ -15,7 +15,7 @@ type HouseholdNotifications = {
   telegram_chat_id: string | null
 }
 
-export function NotificationSettingsForm({ data }: { data: HouseholdNotifications }) {
+export function NotificationSettingsForm({ data }: { readonly data: HouseholdNotifications }) {
   const [state, action, isPending] = useActionState(updateHouseholdNotifications, {
     success: false,
     error: undefined,

@@ -17,20 +17,20 @@ interface AllocationData {
 }
 
 interface AllocationChartProps {
-  data: AllocationData[]
-  title?: string
+  readonly data: AllocationData[]
+  readonly title?: string
   /** If set, only this many rows are shown in the legend (data should be pre-sorted by value). */
-  legendMaxItems?: number
+  readonly legendMaxItems?: number
   /** Outer container height for ParentSize (default 280). */
-  height?: number
+  readonly height?: number
   /** Label above center amount (default "Total"). */
-  centerLabel?: string
+  readonly centerLabel?: string
   /** Muted line below center amount (e.g. portfolio context). */
-  centerSubtitle?: string
+  readonly centerSubtitle?: string
   /** `beside`: donut and legend side by side when container width &gt;= `legendBesideMinWidth`. */
-  legendLayout?: "below" | "beside"
+  readonly legendLayout?: "below" | "beside"
   /** Min width (px) to use beside layout and sizing (default 320; use ~260 for narrow cards). */
-  legendBesideMinWidth?: number
+  readonly legendBesideMinWidth?: number
 }
 
 function AllocationChartInner({
@@ -44,7 +44,7 @@ function AllocationChartInner({
   width,
   height,
   mobileStacked,
-}: AllocationChartProps & { width: number; height: number; mobileStacked?: boolean }) {
+}: AllocationChartProps & { readonly width: number; readonly height: number; readonly mobileStacked?: boolean }) {
   const { formatMoney } = useInvestmentsDisplayCurrency()
   const total = data.reduce((sum, d) => sum + d.value, 0)
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
@@ -311,8 +311,8 @@ function BesideAllocationChart({
   legendBesideMinWidth,
   mobileStacked,
 }: Omit<AllocationChartProps, "legendLayout" | "height"> & {
-  containerHeight: number
-  mobileStacked?: boolean
+  readonly containerHeight: number
+  readonly mobileStacked?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)

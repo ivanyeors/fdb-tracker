@@ -44,11 +44,11 @@ function fmt(n: number): string {
 }
 
 interface HoldingsTableProps {
-  groups: HoldingGroup[]
-  onRowClick?: (group: HoldingGroup) => void
-  onChanged?: () => void
+  readonly groups: HoldingGroup[]
+  readonly onRowClick?: (group: HoldingGroup) => void
+  readonly onChanged?: () => void
   /** When set, % of Portfolio uses this denominator (full portfolio incl. cash + ILP). */
-  portfolioDenominator?: number
+  readonly portfolioDenominator?: number
 }
 
 export function HoldingsTable({

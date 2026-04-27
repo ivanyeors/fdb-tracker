@@ -17,9 +17,9 @@ import {
 import { cn } from "@/lib/utils"
 
 interface InfoTooltipProps {
-  id: keyof typeof TOOLTIPS
-  side?: "top" | "right" | "bottom" | "left"
-  className?: string
+  readonly id: keyof typeof TOOLTIPS
+  readonly side?: "top" | "right" | "bottom" | "left"
+  readonly className?: string
 }
 
 const DETAILS_LENGTH_THRESHOLD = 100

@@ -32,14 +32,14 @@ function normalizeStatementMonth(month: string | null | undefined): string {
 }
 
 interface UpdateFundValueDialogProps {
-  productId: string
-  productName: string
+  readonly productId: string
+  readonly productName: string
   /** Latest snapshot we've seen — used to pre-fill and to render variance vs entered value. */
-  latestEntryMonth: string | null
-  latestEntryFundValue: number
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSuccess?: () => void
+  readonly latestEntryMonth: string | null
+  readonly latestEntryFundValue: number
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly onSuccess?: () => void
 }
 
 export function UpdateFundValueDialog({

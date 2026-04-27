@@ -14,7 +14,7 @@ interface CategoryData {
 }
 
 interface CategoryBreakdownChartProps {
-  data: CategoryData[]
+  readonly data: CategoryData[]
 }
 
 const COLORS = [

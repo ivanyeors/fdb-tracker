@@ -25,15 +25,15 @@ export function IlpGroupAllocationPanel({
   percentOfWhat = "portfolio",
   variant = "default",
 }: {
-  members: readonly IlpGroupMemberForDonut[]
-  fullPortfolioTotal: number
-  chartHeight?: number
-  legendMaxItems?: number
-  className?: string
+  readonly members: readonly IlpGroupMemberForDonut[]
+  readonly fullPortfolioTotal: number
+  readonly chartHeight?: number
+  readonly legendMaxItems?: number
+  readonly className?: string
   /** Shown as “{pct}% of {percentOfWhat}” under the donut center. */
-  percentOfWhat?: string
+  readonly percentOfWhat?: string
   /** `summary`: merged holdings donut only (no mode tabs), for ILP tab group cards. */
-  variant?: "default" | "summary"
+  readonly variant?: "default" | "summary"
 }) {
   const modes = useMemo(() => availableIlpGroupAllocationModes(members), [members])
   const [mode, setMode] = useState<IlpGroupAllocationMode | null>(null)

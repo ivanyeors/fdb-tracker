@@ -11,7 +11,7 @@ import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 interface AddMetalFormProps {
-  onSuccess?: () => void
+  readonly onSuccess?: () => void
 }
 
 export function AddMetalForm({ onSuccess }: AddMetalFormProps) {

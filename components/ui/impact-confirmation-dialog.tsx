@@ -21,12 +21,12 @@ import {
 } from "@/lib/impact-graph"
 
 interface ImpactConfirmationDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  sourceNodeId: ImpactNodeId
-  onConfirm: () => void
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly sourceNodeId: ImpactNodeId
+  readonly onConfirm: () => void
   /** Show extra notice when overriding an auto-calculated value */
-  overridingAutoValue?: boolean
+  readonly overridingAutoValue?: boolean
 }
 
 const PAGE_ORDER: DashboardPage[] = [

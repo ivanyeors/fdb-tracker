@@ -70,9 +70,9 @@ export function SpendingBreakdownTab({
   parsedResults,
   onImportComplete,
 }: {
-  initialData: SpendingBreakdownInitialData
-  parsedResults: ParsedResult[]
-  onImportComplete: () => void
+  readonly initialData: SpendingBreakdownInitialData
+  readonly parsedResults: ParsedResult[]
+  readonly onImportComplete: () => void
 }) {
   const { activeProfileId, activeFamilyId, profiles } = useActiveProfile()
   const { triggerRefresh } = useDataRefresh()

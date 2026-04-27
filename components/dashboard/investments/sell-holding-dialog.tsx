@@ -36,9 +36,9 @@ export interface SellHoldingInitial {
 }
 
 interface SellHoldingDialogProps {
-  initial: SellHoldingInitial
-  defaultPrice?: number | null
-  onSuccess?: () => void
+  readonly initial: SellHoldingInitial
+  readonly defaultPrice?: number | null
+  readonly onSuccess?: () => void
 }
 
 export function SellHoldingDialog({ initial, defaultPrice, onSuccess }: SellHoldingDialogProps) {

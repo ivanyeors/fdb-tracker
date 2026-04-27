@@ -254,7 +254,7 @@ export type FinancialDataByFamily = {
   }>
 }
 
-function SectionGroupLabel({ children }: { children: React.ReactNode }) {
+function SectionGroupLabel({ children }: { readonly children: React.ReactNode }) {
   return (
     <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mt-8 mb-3 first:mt-0">
       {children}
@@ -268,10 +268,10 @@ function CollapsibleSection({
   defaultOpen = false,
   children,
 }: {
-  title: string
-  badge?: string
-  defaultOpen?: boolean
-  children: React.ReactNode
+  readonly title: string
+  readonly badge?: string
+  readonly defaultOpen?: boolean
+  readonly children: React.ReactNode
 }) {
   return (
     <Collapsible defaultOpen={defaultOpen} className="group/section">
@@ -297,8 +297,8 @@ function ScrollableTableWrapper({
   minWidth,
   children,
 }: {
-  minWidth: string
-  children: React.ReactNode
+  readonly minWidth: string
+  readonly children: React.ReactNode
 }) {
   return (
     <div className="overflow-x-auto -mx-1 px-1">
@@ -307,7 +307,7 @@ function ScrollableTableWrapper({
   )
 }
 
-function EmptyState({ noun, onAdd }: { noun: string; onAdd?: () => void }) {
+function EmptyState({ noun, onAdd }: { readonly noun: string; readonly onAdd?: () => void }) {
   return (
     <div className="flex items-center justify-between rounded-lg border border-dashed p-4">
       <p className="text-sm text-muted-foreground">No {noun} yet.</p>
@@ -445,10 +445,10 @@ function ProfileSection({
   allProfiles,
   onDirtyChange,
 }: {
-  profile: ProfileWithIncome
-  profileCount: number
-  allProfiles?: ProfileWithIncome[]
-  onDirtyChange?: (dirty: boolean) => void
+  readonly profile: ProfileWithIncome
+  readonly profileCount: number
+  readonly allProfiles?: ProfileWithIncome[]
+  readonly onDirtyChange?: (dirty: boolean) => void
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteState, deleteAction, isDeletePending] = useActionState(deleteUserProfile, {
@@ -807,7 +807,7 @@ function ProfileSection({
   )
 }
 
-function TelegramSection({ profile }: { profile: ProfileWithIncome }) {
+function TelegramSection({ profile }: { readonly profile: ProfileWithIncome }) {
   const router = useRouter()
   const [token, setToken] = useState<string | null>(profile.telegram_link_token ?? null)
   const [generating, setGenerating] = useState(false)
@@ -874,11 +874,11 @@ function BanksSection({
   primaryBankAccountId,
   onMutate,
 }: {
-  banks: FinancialDataByFamily["bankAccounts"]
-  profileId: string
-  familyId: string
-  primaryBankAccountId: string | null
-  onMutate: () => void
+  readonly banks: FinancialDataByFamily["bankAccounts"]
+  readonly profileId: string
+  readonly familyId: string
+  readonly primaryBankAccountId: string | null
+  readonly onMutate: () => void
 }) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
@@ -1229,11 +1229,11 @@ function SavingsGoalsSection({
   bankAccounts,
   onMutate,
 }: {
-  goals: FinancialDataByFamily["savingsGoals"]
-  profileId: string
-  familyId: string
-  bankAccounts: FinancialDataByFamily["bankAccounts"]
-  onMutate: () => void
+  readonly goals: FinancialDataByFamily["savingsGoals"]
+  readonly profileId: string
+  readonly familyId: string
+  readonly bankAccounts: FinancialDataByFamily["bankAccounts"]
+  readonly onMutate: () => void
 }) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
@@ -1643,9 +1643,9 @@ function CPFSection({
   cpfData,
   familyId,
 }: {
-  profileId: string
-  cpfData: FinancialDataByFamily["cpfBalances"][0] | undefined
-  familyId: string
+  readonly profileId: string
+  readonly cpfData: FinancialDataByFamily["cpfBalances"][0] | undefined
+  readonly familyId: string
 }) {
   const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`
   const [oa, setOa] = useState(cpfData?.oa ?? 0)
@@ -1721,7 +1721,7 @@ function CPFSection({
   )
 }
 
-function CpfHealthcareSection({ profileId }: { profileId: string }) {
+function CpfHealthcareSection({ profileId }: { readonly profileId: string }) {
   const [mslOverride, setMslOverride] = useState<number | null>(null)
   const [cslAnnual, setCslAnnual] = useState(0)
   const [cslSupplementAnnual, setCslSupplementAnnual] = useState(0)
@@ -1867,11 +1867,11 @@ function MonthlyLogSection({
   familyId,
   onMutate,
 }: {
-  profileId: string
-  profileName: string
-  logs: FinancialDataByFamily["monthlyCashflow"]
-  familyId: string
-  onMutate: () => void
+  readonly profileId: string
+  readonly profileName: string
+  readonly logs: FinancialDataByFamily["monthlyCashflow"]
+  readonly familyId: string
+  readonly onMutate: () => void
 }) {
   const now = new Date()
   const [selectedYear, setSelectedYear] = useState(now.getFullYear())
@@ -2117,9 +2117,9 @@ function InvestmentCashBalanceSettings({
   familyId,
   onMutate,
 }: {
-  profileId: string
-  familyId: string
-  onMutate: () => void
+  readonly profileId: string
+  readonly familyId: string
+  readonly onMutate: () => void
 }) {
   const router = useRouter()
   const [cashUsd, setCashUsd] = useState<number | null>(null)
@@ -2248,10 +2248,10 @@ function InvestmentsSection({
   familyId,
   onMutate,
 }: {
-  investments: FinancialDataByFamily["investments"]
-  profileId: string
-  familyId: string
-  onMutate: () => void
+  readonly investments: FinancialDataByFamily["investments"]
+  readonly profileId: string
+  readonly familyId: string
+  readonly onMutate: () => void
 }) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
@@ -2717,9 +2717,9 @@ function LoansSection({
   profileId,
   onMutate,
 }: {
-  loans: FinancialDataByFamily["loans"]
-  profileId: string
-  onMutate: () => void
+  readonly loans: FinancialDataByFamily["loans"]
+  readonly profileId: string
+  readonly onMutate: () => void
 }) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
@@ -3129,9 +3129,9 @@ function LoanRepaymentsSection({
   profileId,
   onMutate,
 }: {
-  loans: FinancialDataByFamily["loans"]
-  profileId: string
-  onMutate: () => void
+  readonly loans: FinancialDataByFamily["loans"]
+  readonly profileId: string
+  readonly onMutate: () => void
 }) {
   const router = useRouter()
   const loanNameById = useMemo(() => {
@@ -3359,9 +3359,9 @@ function InsuranceSection({
   profileId,
   onMutate,
 }: {
-  policies: FinancialDataByFamily["insurancePolicies"]
-  profileId: string
-  onMutate: () => void
+  readonly policies: FinancialDataByFamily["insurancePolicies"]
+  readonly profileId: string
+  readonly onMutate: () => void
 }) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
@@ -4737,11 +4737,11 @@ function AddFamilyMemberDialog({
   onOpenChange,
   onSuccess,
 }: {
-  familyId: string
-  familyName: string
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSuccess: () => void
+  readonly familyId: string
+  readonly familyName: string
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly onSuccess: () => void
 }) {
   const [createState, createAction, isCreatePending] = useActionState(createProfile, {
     success: false,
@@ -4817,11 +4817,11 @@ function EditFamilyNameDialog({
   onOpenChange,
   onSuccess,
 }: {
-  familyId: string
-  familyName: string
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSuccess: () => void
+  readonly familyId: string
+  readonly familyName: string
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly onSuccess: () => void
 }) {
   const [name, setName] = useState(familyName)
   const [updateState, updateAction, isUpdatePending] = useActionState(updateFamilyName, {
@@ -4921,8 +4921,8 @@ function DependentsSectionWrapper({
   familyId,
   profiles,
 }: {
-  familyId: string
-  profiles: ProfileWithIncome[]
+  readonly familyId: string
+  readonly profiles: ProfileWithIncome[]
 }) {
   const [dependents, setDependents] = useState<
     Array<{
@@ -4970,13 +4970,13 @@ function FamilyMemberSettingsPanels({
   notificationPreferences,
   defaultSchedules,
 }: {
-  p: ProfileWithIncome
-  family: { id: string; name: string }
-  financialData: FinancialDataByFamily
-  profiles: ProfileWithIncome[]
-  handleMutate: () => void
-  notificationPreferences: NotificationPref[]
-  defaultSchedules: DefaultSchedule[]
+  readonly p: ProfileWithIncome
+  readonly family: { id: string; name: string }
+  readonly financialData: FinancialDataByFamily
+  readonly profiles: ProfileWithIncome[]
+  readonly handleMutate: () => void
+  readonly notificationPreferences: NotificationPref[]
+  readonly defaultSchedules: DefaultSchedule[]
 }) {
   const profileBanks = useMemo(() => filterByProfile(financialData.bankAccounts, p.id), [financialData.bankAccounts, p.id])
   const profileGoals = useMemo(() => filterByProfile(financialData.savingsGoals, p.id), [financialData.savingsGoals, p.id])
@@ -5116,12 +5116,12 @@ export function FamilyMembersTable({
   notificationPreferencesByProfile,
   defaultSchedules,
 }: {
-  family: { id: string; name: string }
-  profiles: ProfileWithIncome[]
-  financialData: FinancialDataByFamily
-  familyCount: number
-  notificationPreferencesByProfile: Record<string, NotificationPref[]>
-  defaultSchedules: DefaultSchedule[]
+  readonly family: { id: string; name: string }
+  readonly profiles: ProfileWithIncome[]
+  readonly financialData: FinancialDataByFamily
+  readonly familyCount: number
+  readonly notificationPreferencesByProfile: Record<string, NotificationPref[]>
+  readonly defaultSchedules: DefaultSchedule[]
 }) {
   const router = useRouter()
   const pathname = usePathname()

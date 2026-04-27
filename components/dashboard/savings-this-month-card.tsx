@@ -17,12 +17,12 @@ interface MonthlyData {
 }
 
 interface SavingsThisMonthCardProps {
-  savingsThisMonth: number
-  trend: number
-  savingsHistory: MonthlyData[]
-  latestMonth?: string | null
-  loading?: boolean
-  noData?: boolean
+  readonly savingsThisMonth: number
+  readonly trend: number
+  readonly savingsHistory: MonthlyData[]
+  readonly latestMonth?: string | null
+  readonly loading?: boolean
+  readonly noData?: boolean
 }
 
 const monthLabels: Record<string, string> = {
@@ -52,9 +52,9 @@ function SavingsLineChart({
   width,
   height,
 }: {
-  data: MonthlyData[]
-  width: number
-  height: number
+  readonly data: MonthlyData[]
+  readonly width: number
+  readonly height: number
 }) {
   const xScale = useMemo(
     () =>

@@ -13,13 +13,13 @@ import { CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ScheduleDatePickerProps {
-  dayOfMonth: number
-  monthOfYear: number | null
-  onChange: (day: number, month: number | null) => void
-  showMonth: boolean
-  id?: string
-  label?: string
-  className?: string
+  readonly dayOfMonth: number
+  readonly monthOfYear: number | null
+  readonly onChange: (day: number, month: number | null) => void
+  readonly showMonth: boolean
+  readonly id?: string
+  readonly label?: string
+  readonly className?: string
 }
 
 function getLastDayOfMonth(year: number, month: number): number {

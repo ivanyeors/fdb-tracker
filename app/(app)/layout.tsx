@@ -12,7 +12,7 @@ import { decodeFamilyName } from "@/lib/repos/families"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { readonly children: React.ReactNode }) {
   const cookieStore = await cookies()
   const session = await getSessionDetails(cookieStore)
 

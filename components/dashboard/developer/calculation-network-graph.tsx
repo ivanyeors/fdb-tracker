@@ -397,8 +397,8 @@ function NetworkGraphInner({
   width,
   height,
 }: {
-  width: number
-  height: number
+  readonly width: number
+  readonly height: number
 }) {
   const [selectedLink, setSelectedLink] = useState<CalcGraphLink | null>(null)
   const [hoveredLink, setHoveredLink] = useState<number | null>(null)

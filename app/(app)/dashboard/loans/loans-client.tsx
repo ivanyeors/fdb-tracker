@@ -108,7 +108,7 @@ function buildUrl(
 export function LoansClient({
   initialData,
 }: {
-  initialData: LoansInitialData
+  readonly initialData: LoansInitialData
 }) {
   const { activeProfileId, activeFamilyId, profiles } = useActiveProfile()
   const { triggerRefresh } = useDataRefresh()

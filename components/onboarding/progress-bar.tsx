@@ -3,10 +3,10 @@
 import { Progress } from "@/components/ui/progress"
 
 interface ProgressBarProps {
-  currentStep: number
-  totalSteps?: number
-  requiredSteps?: number
-  optionalSteps?: number
+  readonly currentStep: number
+  readonly totalSteps?: number
+  readonly requiredSteps?: number
+  readonly optionalSteps?: number
 }
 
 export function ProgressBar({

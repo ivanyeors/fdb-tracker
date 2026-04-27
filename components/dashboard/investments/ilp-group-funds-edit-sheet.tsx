@@ -53,16 +53,16 @@ export type IlpGroupProductForEdit = {
 }
 
 interface IlpGroupFundsEditSheetProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  groupId: string
-  groupName: string
-  groupPremiumAmount: number | null
-  premiumPaymentMode: "monthly" | "one_time"
-  products: IlpGroupProductForEdit[]
-  onSuccess: () => void
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly groupId: string
+  readonly groupName: string
+  readonly groupPremiumAmount: number | null
+  readonly premiumPaymentMode: "monthly" | "one_time"
+  readonly products: IlpGroupProductForEdit[]
+  readonly onSuccess: () => void
   /** Current profile_id assigned to this group (null = unassigned). */
-  groupProfileId?: string | null
+  readonly groupProfileId?: string | null
 }
 
 type Row = {

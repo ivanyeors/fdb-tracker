@@ -15,9 +15,9 @@ import { Loader2, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 interface DeleteHoldingDialogProps {
-  investmentId: string
-  symbol: string
-  onSuccess?: () => void
+  readonly investmentId: string
+  readonly symbol: string
+  readonly onSuccess?: () => void
 }
 
 export function DeleteHoldingDialog({

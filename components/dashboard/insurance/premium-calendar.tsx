@@ -6,7 +6,7 @@ import type { MonthPremiumEntry } from "@/lib/calculations/insurance-premium"
 import { getUpcomingPremiums } from "@/lib/calculations/insurance-premium"
 
 type PremiumCalendarProps = {
-  policies: Array<{
+  readonly policies: Array<{
     name: string
     type: string
     premium_amount: number
@@ -57,9 +57,9 @@ function MonthCard({
   isCurrent,
   maxTotal,
 }: {
-  entry: MonthPremiumEntry
-  isCurrent: boolean
-  maxTotal: number
+  readonly entry: MonthPremiumEntry
+  readonly isCurrent: boolean
+  readonly maxTotal: number
 }) {
   const hasYearly = entry.premiums.some((p) => !p.isRecurring)
   const intensity = entry.total / maxTotal

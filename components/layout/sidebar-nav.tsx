@@ -64,7 +64,7 @@ const adminItem = {
 }
 
 interface SidebarNavProps {
-  isSuperAdmin?: boolean
+  readonly isSuperAdmin?: boolean
 }
 
 export function SidebarNav({ isSuperAdmin = false }: SidebarNavProps) {

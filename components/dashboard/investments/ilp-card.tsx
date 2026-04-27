@@ -28,38 +28,38 @@ interface MonthlyData {
 }
 
 interface IlpCardProps {
-  productId?: string
-  name: string
-  fundValue: number
-  totalPremiumsPaid: number
+  readonly productId?: string
+  readonly name: string
+  readonly fundValue: number
+  readonly totalPremiumsPaid: number
   /** Whether premiums total came from the latest monthly entry vs estimated. */
-  premiumsSource: "entry" | "estimated"
-  returnPct: number
-  monthlyPremium: number
-  premiumPaymentMode?: "monthly" | "one_time"
+  readonly premiumsSource: "entry" | "estimated"
+  readonly returnPct: number
+  readonly monthlyPremium: number
+  readonly premiumPaymentMode?: "monthly" | "one_time"
   /** Group lump budget when mode is one-time and product is grouped (optional display). */
-  groupPremiumAmount?: number | null
-  endDate?: string
+  readonly groupPremiumAmount?: number | null
+  readonly endDate?: string
   /** Latest entry fields for edit dialog (fund / premiums / statement month). */
-  latestEntryMonth: string | null
-  latestEntryFundValue: number
-  latestEntryPremiumsPaid: number | null
-  profileId?: string | null
-  monthlyData: MonthlyData[]
-  onAddEntry?: () => void
-  onEditSuccess?: () => void
+  readonly latestEntryMonth: string | null
+  readonly latestEntryFundValue: number
+  readonly latestEntryPremiumsPaid: number | null
+  readonly profileId?: string | null
+  readonly monthlyData: MonthlyData[]
+  readonly onAddEntry?: () => void
+  readonly onEditSuccess?: () => void
   /** Overview: match `InvestmentCard` layout; hide edit/add/delete (use Investments → ILP tab). */
-  variant?: "default" | "summary"
+  readonly variant?: "default" | "summary"
   /** Latest imported fund report snapshot (jsonb), if any. */
-  fundReportSnapshot?: Record<string, unknown> | null
+  readonly fundReportSnapshot?: Record<string, unknown> | null
   /** Share of fund group portfolio (read-only; configured in Setup). */
-  groupAllocationPct?: number | null
+  readonly groupAllocationPct?: number | null
   /** When false, hide “Add monthly value” (e.g. grouped funds use group editor). */
-  showAddMonthlyEntry?: boolean
+  readonly showAddMonthlyEntry?: boolean
   /** When false, hide delete (e.g. delete only from group editor). */
-  showDeleteProduct?: boolean
+  readonly showDeleteProduct?: boolean
   /** Multi-select on Investments → ILP tab (bulk delete). */
-  selection?: { selected: boolean; onToggle: () => void }
+  readonly selection?: { selected: boolean; onToggle: () => void }
 }
 
 function fmt(n: number): string {
@@ -97,9 +97,9 @@ function IlpInvestmentStyleSparkline({
   width,
   height,
 }: {
-  data: MonthlyData[]
-  width: number
-  height: number
+  readonly data: MonthlyData[]
+  readonly width: number
+  readonly height: number
 }) {
   const { effectiveDisplayCurrency, sgdPerUsd } = useInvestmentsDisplayCurrency()
   const chartData = useMemo(
@@ -162,9 +162,9 @@ function IlpDetailedLineChart({
   width,
   height,
 }: {
-  data: MonthlyData[]
-  width: number
-  height: number
+  readonly data: MonthlyData[]
+  readonly width: number
+  readonly height: number
 }) {
   const { effectiveDisplayCurrency, sgdPerUsd, formatMoney } =
     useInvestmentsDisplayCurrency()
@@ -344,11 +344,11 @@ function IlpLineChart({
   height,
   style = "area",
 }: {
-  data: MonthlyData[]
-  width: number
-  height: number
+  readonly data: MonthlyData[]
+  readonly width: number
+  readonly height: number
   /** `investment` matches `InvestmentCard` sparkline (line only, no fill/grid/axis). */
-  style?: "area" | "investment"
+  readonly style?: "area" | "investment"
 }) {
   if (style === "investment") {
     return <IlpInvestmentStyleSparkline data={data} width={width} height={height} />
@@ -367,11 +367,11 @@ function IlpInvestedVsValueBar({
   width,
   height,
 }: {
-  invested: number
-  currentValue: number
-  formatMoney: (v: number) => string
-  width: number
-  height: number
+  readonly invested: number
+  readonly currentValue: number
+  readonly formatMoney: (v: number) => string
+  readonly width: number
+  readonly height: number
 }) {
   const innerWidth = width - HBAR_MARGIN.left - HBAR_MARGIN.right
   const innerHeight = height - HBAR_MARGIN.top - HBAR_MARGIN.bottom

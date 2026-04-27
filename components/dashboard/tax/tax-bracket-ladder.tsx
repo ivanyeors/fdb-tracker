@@ -56,20 +56,20 @@ export type ReliefPreviewModel = {
 }
 
 interface TaxBracketLadderProps {
-  chargeableIncome: number
+  readonly chargeableIncome: number
   /** Retained for API compatibility; widths use full IRAS ladder on a dollar axis */
-  bracketAllocation: ProgressiveBracketBand[]
-  marginalRate: number
-  marginalBandFrom: number
-  marginalBandTo: number | null
-  showMarginalPositionMarker?: boolean
-  marginalMarkerSubjectLabel?: string
-  householdChargeableMarkers?: HouseholdChargeableMarker[]
+  readonly bracketAllocation: ProgressiveBracketBand[]
+  readonly marginalRate: number
+  readonly marginalBandFrom: number
+  readonly marginalBandTo: number | null
+  readonly showMarginalPositionMarker?: boolean
+  readonly marginalMarkerSubjectLabel?: string
+  readonly householdChargeableMarkers?: HouseholdChargeableMarker[]
   /** This profile’s id — for horizontal connector from household chargeable dot when marginal dot is hidden */
-  reliefPreviewSubjectMarkerId?: string
-  reliefPreview?: ReliefPreviewModel | null
-  barScaleProfileLabel?: string
-  className?: string
+  readonly reliefPreviewSubjectMarkerId?: string
+  readonly reliefPreview?: ReliefPreviewModel | null
+  readonly barScaleProfileLabel?: string
+  readonly className?: string
 }
 
 export function TaxBracketLadder({

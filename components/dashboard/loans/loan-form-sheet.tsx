@@ -51,12 +51,12 @@ export type LoanFormData = {
 }
 
 interface LoanFormSheetProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSuccess: () => void
-  profiles: Profile[]
-  defaultProfileId?: string | null
-  loan?: LoanFormData | null
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly onSuccess: () => void
+  readonly profiles: Profile[]
+  readonly defaultProfileId?: string | null
+  readonly loan?: LoanFormData | null
 }
 
 export function LoanFormSheet({

@@ -15,13 +15,13 @@ const BIRTH_YEARS = Array.from({ length: 71 }, (_, i) => 2010 - i)
 const PLACEHOLDER_VALUE = "__none__"
 
 interface BirthDatePickerProps {
-  value: number | null
-  onChange: (year: number | null) => void
-  id?: string
-  placeholder?: string
-  disabled?: boolean
-  "aria-invalid"?: boolean
-  className?: string
+  readonly value: number | null
+  readonly onChange: (year: number | null) => void
+  readonly id?: string
+  readonly placeholder?: string
+  readonly disabled?: boolean
+  readonly "aria-invalid"?: boolean
+  readonly className?: string
 }
 
 export function BirthDatePicker({

@@ -30,12 +30,12 @@ type ReferenceLine = {
 }
 
 type CpfRetirementChartProps = {
-  data: ProjectionPoint[]
-  referenceLines: ReferenceLine[]
-  comparisonData?: ProjectionPoint[] | null
-  simulatedData?: ProjectionPoint[] | null
-  isSimulating?: boolean
-  currentAge?: number
+  readonly data: ProjectionPoint[]
+  readonly referenceLines: ReferenceLine[]
+  readonly comparisonData?: ProjectionPoint[] | null
+  readonly simulatedData?: ProjectionPoint[] | null
+  readonly isSimulating?: boolean
+  readonly currentAge?: number
 }
 
 const MARGIN = { top: 16, right: 72, bottom: 48, left: 56 }
@@ -55,13 +55,13 @@ function ChartInner({
   simulatedData,
   isSimulating,
 }: {
-  data: ProjectionPoint[]
-  width: number
-  height: number
-  referenceLines: ReferenceLine[]
-  comparisonData?: ProjectionPoint[] | null
-  simulatedData?: ProjectionPoint[] | null
-  isSimulating?: boolean
+  readonly data: ProjectionPoint[]
+  readonly width: number
+  readonly height: number
+  readonly referenceLines: ReferenceLine[]
+  readonly comparisonData?: ProjectionPoint[] | null
+  readonly simulatedData?: ProjectionPoint[] | null
+  readonly isSimulating?: boolean
 }) {
   const gradPrefix = useId().replaceAll(/:/g, "_")
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
@@ -525,9 +525,9 @@ function ChartLegend({
   isSimulating,
   referenceLines,
 }: {
-  hasComparison: boolean
-  isSimulating?: boolean
-  referenceLines?: ReferenceLine[]
+  readonly hasComparison: boolean
+  readonly isSimulating?: boolean
+  readonly referenceLines?: ReferenceLine[]
 }) {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">

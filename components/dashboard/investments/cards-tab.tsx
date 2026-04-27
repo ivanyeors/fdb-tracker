@@ -81,12 +81,12 @@ function pnlPct(item: CollectibleCard) {
 }
 
 type CardsTabProps = {
-  tabId: string
-  items: CollectibleCard[]
-  isLoading: boolean
-  profileId: string | null
-  familyId: string | null
-  onMutation: () => void
+  readonly tabId: string
+  readonly items: CollectibleCard[]
+  readonly isLoading: boolean
+  readonly profileId: string | null
+  readonly familyId: string | null
+  readonly onMutation: () => void
 }
 
 export function CardsTab({

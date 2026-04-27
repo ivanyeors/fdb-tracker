@@ -8,7 +8,7 @@ import { PageLoadingBar } from "@/components/layout/page-loading-bar"
 import { PageLoadingProvider } from "@/hooks/use-page-loading"
 import { UserSettingsSaveProvider } from "@/components/layout/user-settings-save-context"
 
-export function AppMainChrome({ children }: { children: ReactNode }) {
+export function AppMainChrome({ children }: { readonly children: ReactNode }) {
   return (
     <UserSettingsSaveProvider>
       <PageLoadingProvider>

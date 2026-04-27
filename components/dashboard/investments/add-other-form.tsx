@@ -23,11 +23,11 @@ import {
 const CONDITIONS = ["New/Sealed", "Like New", "Used"] as const
 
 type AddOtherFormProps = {
-  tabId: string
-  profileId: string | null
-  familyId: string | null
-  editItem?: CollectibleOther
-  onSuccess: () => void
+  readonly tabId: string
+  readonly profileId: string | null
+  readonly familyId: string | null
+  readonly editItem?: CollectibleOther
+  readonly onSuccess: () => void
 }
 
 export function AddOtherForm({

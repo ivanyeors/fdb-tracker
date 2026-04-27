@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 
 interface StatementUploadProps {
-  onParsed: (result: {
+  readonly onParsed: (result: {
     classification: {
       type: string
       confidence: string

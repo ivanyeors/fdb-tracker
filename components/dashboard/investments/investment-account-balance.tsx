@@ -17,17 +17,17 @@ interface AccountInfo {
 }
 
 interface InvestmentAccountBalanceProps {
-  onSuccess?: () => void
+  readonly onSuccess?: () => void
   /** Loaded with the rest of the investments page (SGD in DB). */
-  cashBalance: number
-  accountId: string | null
-  isLoading: boolean
+  readonly cashBalance: number
+  readonly accountId: string | null
+  readonly isLoading: boolean
   /** List of named investment accounts (multi-account support). */
-  accounts?: AccountInfo[]
+  readonly accounts?: AccountInfo[]
   /** When set, uses this FX state instead of fetching `/api/fx/usd-sgd` (investments page dedupe). */
-  parentFx?: { sgdPerUsd: number | null; fxLoading: boolean }
+  readonly parentFx?: { sgdPerUsd: number | null; fxLoading: boolean }
   /** When true, omit bordered card and section heading (e.g. inside Sheet with SheetHeader). */
-  embedded?: boolean
+  readonly embedded?: boolean
 }
 
 export function InvestmentAccountBalance({

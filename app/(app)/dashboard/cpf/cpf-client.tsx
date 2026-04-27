@@ -141,10 +141,10 @@ function OverviewTab({
   healthcare,
   interest,
 }: {
-  data: CpfBalanceRow[]
-  dps?: RetirementData["dps"]
-  healthcare?: RetirementData["healthcare"]
-  interest?: RetirementData["interest"]
+  readonly data: CpfBalanceRow[]
+  readonly dps?: RetirementData["dps"]
+  readonly healthcare?: RetirementData["healthcare"]
+  readonly interest?: RetirementData["interest"]
 }) {
   const latest = data.at(-1)! || { oa: 0, sa: 0, ma: 0 }
 
@@ -388,9 +388,9 @@ function RetirementReadinessCard({
   retirementSums,
   currentAge,
 }: {
-  projection: ProjectionPoint[]
-  retirementSums: { brs: number; frs: number; ers: number }
-  currentAge: number
+  readonly projection: ProjectionPoint[]
+  readonly retirementSums: { brs: number; frs: number; ers: number }
+  readonly currentAge: number
 }) {
   const analysis = useMemo(() => {
     const at55 = projection.find((p) => p.age === 55)
@@ -527,8 +527,8 @@ function RetirementTab({
   data,
   isFamilyView,
 }: {
-  data: RetirementData | null
-  isFamilyView: boolean
+  readonly data: RetirementData | null
+  readonly isFamilyView: boolean
 }) {
   const retirementSums = useMemo(
     () => data?.retirementSums ?? { brs: 0, frs: 0, ers: 0 },
@@ -748,7 +748,7 @@ const CPF_TAB_SET = new Set(["overview", "housing", "retirement"])
 export function CpfClient({
   initialData,
 }: {
-  initialData: CpfInitialData
+  readonly initialData: CpfInitialData
 }) {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")

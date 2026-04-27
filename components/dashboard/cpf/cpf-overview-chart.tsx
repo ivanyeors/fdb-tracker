@@ -28,9 +28,9 @@ function CpfOverviewChartInner({
   width,
   height,
 }: {
-  data: CpfRow[]
-  width: number
-  height: number
+  readonly data: CpfRow[]
+  readonly width: number
+  readonly height: number
 }) {
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<DonutData>()
@@ -182,7 +182,7 @@ function CpfOverviewChartInner({
   )
 }
 
-export function CpfOverviewChart({ data }: { data: CpfRow[] }) {
+export function CpfOverviewChart({ data }: { readonly data: CpfRow[] }) {
   const chartHeight = useChartHeight(280, 200)
   return (
     <div className="w-full" style={{ height: chartHeight }}>

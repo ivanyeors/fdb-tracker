@@ -24,7 +24,7 @@ export interface JournalEntry {
 }
 
 interface JournalListProps {
-  entries: JournalEntry[]
+  readonly entries: JournalEntry[]
 }
 
 function isInDateRange(

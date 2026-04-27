@@ -32,18 +32,18 @@ export interface ParsedFile {
 }
 
 interface ImportPreviewDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  parsedFiles: ParsedFile[]
-  categories: Category[]
-  onCategoryOverride: (
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly parsedFiles: ParsedFile[]
+  readonly categories: Category[]
+  readonly onCategoryOverride: (
     fileIndex: number,
     txnIndex: number,
     categoryId: string | null
   ) => void
-  onConfirm: () => void
-  onRemoveFile: (fileIndex: number) => void
-  targetProfileName?: string | null
+  readonly onConfirm: () => void
+  readonly onRemoveFile: (fileIndex: number) => void
+  readonly targetProfileName?: string | null
 }
 
 function FilePreview({
@@ -54,16 +54,16 @@ function FilePreview({
   onRemove,
   showHeader,
 }: {
-  file: ParsedFile
-  fileIndex: number
-  categories: Category[]
-  onCategoryOverride: (
+  readonly file: ParsedFile
+  readonly fileIndex: number
+  readonly categories: Category[]
+  readonly onCategoryOverride: (
     fileIndex: number,
     txnIndex: number,
     categoryId: string | null
   ) => void
-  onRemove: (fileIndex: number) => void
-  showHeader: boolean
+  readonly onRemove: (fileIndex: number) => void
+  readonly showHeader: boolean
 }) {
   const txnCount = file.result?.extracted?.transactions?.length ?? 0
   const type =

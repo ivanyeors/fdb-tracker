@@ -20,7 +20,7 @@ type GlobalMonthContextValue = {
 
 const GlobalMonthContext = React.createContext<GlobalMonthContextValue | null>(null)
 
-export function GlobalMonthProvider({ children }: { children: React.ReactNode }) {
+export function GlobalMonthProvider({ children }: { readonly children: React.ReactNode }) {
   const { activeFamilyId } = useActiveProfile()
 
   const [selectedMonth, setSelectedMonthState] = React.useState<string | null>(null)

@@ -52,7 +52,7 @@ type BankAccount = {
   profile_id: string | null
 }
 
-export function GiroRulesForm({ familyId }: { familyId: string | null }) {
+export function GiroRulesForm({ familyId }: { readonly familyId: string | null }) {
   const router = useRouter()
   const [rules, setRules] = useState<GiroRule[]>([])
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])

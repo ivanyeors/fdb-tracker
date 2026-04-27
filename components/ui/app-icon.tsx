@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 
-export function AppIcon({ className }: { className?: string }) {
+export function AppIcon({ className }: { readonly className?: string }) {
   return (
     <svg
       viewBox="0 0 100 100"

@@ -9,12 +9,12 @@ import { Button } from "@/components/ui/button"
 import { useDeveloperView } from "@/components/dashboard/developer/developer-view-context"
 
 interface EdgeDetailPanelProps {
-  edge: Edge<CalcEdgeData>
-  onClose: () => void
+  readonly edge: Edge<CalcEdgeData>
+  readonly onClose: () => void
 }
 
 /** Renders calculationLogic text with simple markdown-like formatting */
-function LogicBlock({ text }: { text: string }) {
+function LogicBlock({ text }: { readonly text: string }) {
   const lines = text.split("\n")
   return (
     <div className="space-y-0.5">

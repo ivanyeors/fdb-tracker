@@ -15,8 +15,8 @@ export function GlobalToolbarChat({
   open,
   onOpenChange,
 }: {
-  open: boolean
-  onOpenChange: (next: boolean) => void
+  readonly open: boolean
+  readonly onOpenChange: (next: boolean) => void
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

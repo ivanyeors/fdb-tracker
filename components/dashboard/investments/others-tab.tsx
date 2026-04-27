@@ -72,12 +72,12 @@ function pnlPct(item: CollectibleOther) {
 }
 
 type OthersTabProps = {
-  tabId: string
-  items: CollectibleOther[]
-  isLoading: boolean
-  profileId: string | null
-  familyId: string | null
-  onMutation: () => void
+  readonly tabId: string
+  readonly items: CollectibleOther[]
+  readonly isLoading: boolean
+  readonly profileId: string | null
+  readonly familyId: string | null
+  readonly onMutation: () => void
 }
 
 export function OthersTab({

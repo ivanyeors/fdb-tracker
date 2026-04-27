@@ -17,7 +17,7 @@ const DataRefreshContext = React.createContext<DataRefreshContextValue | null>(
 export function DataRefreshProvider({
   children,
 }: {
-  children: React.ReactNode
+  readonly children: React.ReactNode
 }) {
   const { mutate } = useSWRConfig()
 

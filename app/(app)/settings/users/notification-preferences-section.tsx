@@ -24,9 +24,9 @@ import { toast } from "sonner"
 import { Clock, ChevronDown, ChevronUp } from "lucide-react"
 
 type Props = {
-  profileId: string
-  preferences: NotificationPref[]
-  defaultSchedules: DefaultSchedule[]
+  readonly profileId: string
+  readonly preferences: NotificationPref[]
+  readonly defaultSchedules: DefaultSchedule[]
 }
 
 const NOTIFICATION_CONFIG: {

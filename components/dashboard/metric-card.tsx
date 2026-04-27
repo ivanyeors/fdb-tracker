@@ -8,20 +8,20 @@ import type { ImpactNodeId } from "@/lib/impact-graph"
 import { cn, formatCurrency } from "@/lib/utils"
 
 interface MetricCardProps {
-  label: string
-  value: string | number
-  prefix?: string
-  suffix?: string
-  subtitle?: string
-  trend?: number
-  trendLabel?: string
-  tooltipId?: keyof typeof TOOLTIPS
+  readonly label: string
+  readonly value: string | number
+  readonly prefix?: string
+  readonly suffix?: string
+  readonly subtitle?: string
+  readonly trend?: number
+  readonly trendLabel?: string
+  readonly tooltipId?: keyof typeof TOOLTIPS
   /** Show an "Auto" or "Manual" source badge next to the label */
-  source?: "auto" | "manual"
+  readonly source?: "auto" | "manual"
   /** Impact graph node for tooltip lookup on the source badge */
-  sourceNodeId?: ImpactNodeId
-  className?: string
-  loading?: boolean
+  readonly sourceNodeId?: ImpactNodeId
+  readonly className?: string
+  readonly loading?: boolean
 }
 
 export function MetricCard({

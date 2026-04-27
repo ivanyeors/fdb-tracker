@@ -16,12 +16,12 @@ import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 interface ActualTaxDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  profileId: string
-  year: number
-  initialAmount?: number | null
-  onSuccess: () => void
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly profileId: string
+  readonly year: number
+  readonly initialAmount?: number | null
+  readonly onSuccess: () => void
 }
 
 export function ActualTaxDialog({

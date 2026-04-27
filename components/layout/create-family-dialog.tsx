@@ -23,9 +23,9 @@ import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 interface CreateFamilyDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onCreated: (family: { id: string; name: string }) => void
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly onCreated: (family: { id: string; name: string }) => void
 }
 
 export function CreateFamilyDialog({

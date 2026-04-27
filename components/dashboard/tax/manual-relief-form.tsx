@@ -44,10 +44,10 @@ interface ProfileOption {
 }
 
 interface ManualReliefFormProps {
-  year: number
-  profiles: ProfileOption[]
-  reliefs: ManualReliefItem[]
-  onSave: (reliefs: ManualReliefItem[]) => Promise<void>
+  readonly year: number
+  readonly profiles: ProfileOption[]
+  readonly reliefs: ManualReliefItem[]
+  readonly onSave: (reliefs: ManualReliefItem[]) => Promise<void>
 }
 
 export function ManualReliefForm({

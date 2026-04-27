@@ -26,12 +26,12 @@ import type { Holding } from "@/lib/investments/holding"
 // ---------------------------------------------------------------------------
 
 interface AllocationTabProps {
-  holdings: readonly Holding[]
-  ilpProducts: readonly IlpProductForAllocation[]
-  cashBalance: number
-  ilpTotalSum: number
-  fullPortfolioTotal: number
-  isLoading: boolean
+  readonly holdings: readonly Holding[]
+  readonly ilpProducts: readonly IlpProductForAllocation[]
+  readonly cashBalance: number
+  readonly ilpTotalSum: number
+  readonly fullPortfolioTotal: number
+  readonly isLoading: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -43,9 +43,9 @@ function CollapsibleSection({
   defaultOpen = true,
   children,
 }: {
-  title: string
-  defaultOpen?: boolean
-  children: React.ReactNode
+  readonly title: string
+  readonly defaultOpen?: boolean
+  readonly children: React.ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (

@@ -23,8 +23,8 @@ type RadarSeriesData = {
 }
 
 type RadarChartProps = {
-  series: RadarSeriesData[]
-  axes: string[]
+  readonly series: RadarSeriesData[]
+  readonly axes: string[]
 }
 
 const RING_LEVELS = [25, 50, 75, 100]
@@ -62,7 +62,7 @@ function RadarChartInner({
   axes,
   width,
   height,
-}: RadarChartProps & { width: number; height: number }) {
+}: RadarChartProps & { readonly width: number; readonly height: number }) {
   const {
     tooltipData,
     tooltipLeft,

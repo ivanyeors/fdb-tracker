@@ -36,10 +36,10 @@ export function ActiveProfileProvider({
   profiles: allProfiles,
   initialFamilyId,
 }: {
-  children: React.ReactNode
-  families: Family[]
-  profiles: Profile[]
-  initialFamilyId?: string | null
+  readonly children: React.ReactNode
+  readonly families: Family[]
+  readonly profiles: Profile[]
+  readonly initialFamilyId?: string | null
 }) {
   const [activeFamilyId, setActiveFamilyIdState] = React.useState<string | null>(() => {
     if (initialFamilyId) return initialFamilyId

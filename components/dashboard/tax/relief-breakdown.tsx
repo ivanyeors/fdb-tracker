@@ -40,11 +40,11 @@ export interface ReliefRow {
 }
 
 interface ReliefBreakdownProps {
-  reliefs: ReliefRow[]
-  profileName?: string
-  taxPayable: number
+  readonly reliefs: ReliefRow[]
+  readonly profileName?: string
+  readonly taxPayable: number
   /** Employment income (for tax-saved estimate) */
-  employmentIncome?: number
+  readonly employmentIncome?: number
 }
 
 export function ReliefBreakdown({

@@ -31,7 +31,7 @@ const INITIAL_PROGRESS = 10
 /** If no useApi calls register within this window, assume the page has none */
 const NAVIGATING_TIMEOUT = 1000
 
-export function PageLoadingProvider({ children }: { children: ReactNode }) {
+export function PageLoadingProvider({ children }: { readonly children: ReactNode }) {
   const pathname = usePathname()
   const [entries, setEntries] = useState<Map<string, boolean>>(new Map())
   const [navigating, setNavigating] = useState(false)

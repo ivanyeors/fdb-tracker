@@ -35,7 +35,7 @@ type LookupState =
   | { kind: "error"; message: string }
 
 interface AdminLookupProps {
-  currentAccountId: string
+  readonly currentAccountId: string
 }
 
 export function AdminLookup({ currentAccountId }: AdminLookupProps) {
@@ -155,10 +155,10 @@ export function AdminLookup({ currentAccountId }: AdminLookupProps) {
 }
 
 interface ResultCardProps {
-  data: AdminHouseholdView
-  currentAccountId: string
-  mutating: boolean
-  onToggle: (data: AdminHouseholdView) => void
+  readonly data: AdminHouseholdView
+  readonly currentAccountId: string
+  readonly mutating: boolean
+  readonly onToggle: (data: AdminHouseholdView) => void
 }
 
 function ResultCard({

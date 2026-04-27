@@ -17,8 +17,8 @@ export function GlobalToolbarSearch({
   open,
   onOpenChange,
 }: {
-  open: boolean
-  onOpenChange: (next: boolean) => void
+  readonly open: boolean
+  readonly onOpenChange: (next: boolean) => void
 }) {
   const router = useRouter()
 

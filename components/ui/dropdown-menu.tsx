@@ -64,8 +64,8 @@ function DropdownMenuItem({
   variant = "default",
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & {
-  inset?: boolean
-  variant?: "default" | "destructive"
+  readonly inset?: boolean
+  readonly variant?: "default" | "destructive"
 }) {
   return (
     <DropdownMenuPrimitive.Item
@@ -88,7 +88,7 @@ function DropdownMenuCheckboxItem({
   inset,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem> & {
-  inset?: boolean
+  readonly inset?: boolean
 }) {
   return (
     <DropdownMenuPrimitive.CheckboxItem
@@ -132,7 +132,7 @@ function DropdownMenuRadioItem({
   inset,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem> & {
-  inset?: boolean
+  readonly inset?: boolean
 }) {
   return (
     <DropdownMenuPrimitive.RadioItem
@@ -163,7 +163,7 @@ function DropdownMenuLabel({
   inset,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Label> & {
-  inset?: boolean
+  readonly inset?: boolean
 }) {
   return (
     <DropdownMenuPrimitive.Label
@@ -219,7 +219,7 @@ function DropdownMenuSubTrigger({
   children,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger> & {
-  inset?: boolean
+  readonly inset?: boolean
 }) {
   return (
     <DropdownMenuPrimitive.SubTrigger

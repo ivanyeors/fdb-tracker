@@ -45,11 +45,11 @@ interface LoanOption {
 }
 
 interface RepaymentFormSheetProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSuccess: () => void
-  loans: LoanOption[]
-  defaultLoanId?: string | null
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly onSuccess: () => void
+  readonly loans: LoanOption[]
+  readonly defaultLoanId?: string | null
 }
 
 export function RepaymentFormSheet({

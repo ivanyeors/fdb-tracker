@@ -18,7 +18,7 @@ import {
 import { useChartPalette } from "@/hooks/use-chart-palette"
 import { cn } from "@/lib/utils"
 
-function ColorBar({ palette }: { palette: ChartPalette }) {
+function ColorBar({ palette }: { readonly palette: ChartPalette }) {
   return (
     <div className="flex h-8 w-full overflow-hidden rounded-md">
       {palette.colors.map((c, i) => (
@@ -28,7 +28,7 @@ function ColorBar({ palette }: { palette: ChartPalette }) {
   )
 }
 
-function SemanticDots({ palette }: { palette: ChartPalette }) {
+function SemanticDots({ palette }: { readonly palette: ChartPalette }) {
   return (
     <div className="flex items-center gap-3 text-xs text-muted-foreground">
       <span className="flex items-center gap-1.5">
@@ -62,10 +62,10 @@ function PaletteCard({
   onClick,
   children,
 }: {
-  palette: ChartPalette | null
-  selected: boolean
-  onClick: () => void
-  children: React.ReactNode
+  readonly palette: ChartPalette | null
+  readonly selected: boolean
+  readonly onClick: () => void
+  readonly children: React.ReactNode
 }) {
   return (
     <button

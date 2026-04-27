@@ -209,8 +209,8 @@ export function OnboardingProvider({
   children,
   mode: initialMode = "first-time",
 }: {
-  children: ReactNode
-  mode?: OnboardingMode
+  readonly children: ReactNode
+  readonly mode?: OnboardingMode
 }) {
   const router = useRouter()
   const [mode] = useState<OnboardingMode>(initialMode)

@@ -21,11 +21,11 @@ import {
 } from "@/lib/impact-graph"
 
 interface CombinedImpactConfirmationDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
   /** Multiple source nodes that are being changed together */
-  sourceNodeIds: ImpactNodeId[]
-  onConfirm: () => void
+  readonly sourceNodeIds: ImpactNodeId[]
+  readonly onConfirm: () => void
 }
 
 const PAGE_ORDER: DashboardPage[] = [

@@ -17,9 +17,9 @@ import { Loader2, Plus } from "lucide-react"
 import { toast } from "sonner"
 
 interface AddIlpEntryDialogProps {
-  productId: string
-  productName: string
-  onSuccess?: () => void
+  readonly productId: string
+  readonly productName: string
+  readonly onSuccess?: () => void
 }
 
 export function AddIlpEntryDialog({

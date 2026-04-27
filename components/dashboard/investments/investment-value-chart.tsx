@@ -20,15 +20,15 @@ interface DailyData {
 }
 
 interface InvestmentValueChartProps {
-  profileId?: string | null
-  familyId?: string | null
-  className?: string
+  readonly profileId?: string | null
+  readonly familyId?: string | null
+  readonly className?: string
   /** Live portfolio total from SWR-managed data; used for the headline
    *  number so it reflects intra-day mutations without waiting for the
    *  next cron snapshot. */
-  liveTotal?: number
+  readonly liveTotal?: number
   /** Optional breakdown matching portfolio total (listed + cash + ILP). */
-  breakdown?: {
+  readonly breakdown?: {
     holdingsLive: number
     brokerageCash: number
     ilpTotal: number
@@ -80,9 +80,9 @@ function ChartInner({
   width,
   height,
 }: {
-  data: SeriesPoint[]
-  width: number
-  height: number
+  readonly data: SeriesPoint[]
+  readonly width: number
+  readonly height: number
 }) {
   const { formatMoney } = useInvestmentsDisplayCurrency()
   const gradId = useId().replaceAll(/:/g, "_")

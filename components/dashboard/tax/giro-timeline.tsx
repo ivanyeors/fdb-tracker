@@ -17,11 +17,11 @@ export interface GiroInstalment {
 }
 
 interface GiroTimelineProps {
-  schedule: GiroInstalment[]
-  totalPayable: number
-  outstandingBalance?: number
-  source?: "calculated" | "manual" | "pdf_import"
-  className?: string
+  readonly schedule: GiroInstalment[]
+  readonly totalPayable: number
+  readonly outstandingBalance?: number
+  readonly source?: "calculated" | "manual" | "pdf_import"
+  readonly className?: string
 }
 
 function formatMonth(monthStr: string): string {

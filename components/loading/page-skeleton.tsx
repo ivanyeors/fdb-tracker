@@ -4,17 +4,17 @@ import { ChartSkeleton } from "./chart-skeleton"
 
 interface PageSkeletonProps {
   /** Number of metric cards in the first row (default: 3) */
-  metricCount?: number
+  readonly metricCount?: number
   /** Number of metric cards in the second row (default: 0) */
-  metricCountSecondary?: number
+  readonly metricCountSecondary?: number
   /** Show a chart skeleton (default: false) */
-  showChart?: boolean
+  readonly showChart?: boolean
   /** Chart skeleton height (default: 300) */
-  chartHeight?: number
+  readonly chartHeight?: number
   /** Show a table skeleton (default: false) */
-  showTable?: boolean
+  readonly showTable?: boolean
   /** Variant: dashboard (default) or settings */
-  variant?: "dashboard" | "settings"
+  readonly variant?: "dashboard" | "settings"
 }
 
 export function PageSkeleton({

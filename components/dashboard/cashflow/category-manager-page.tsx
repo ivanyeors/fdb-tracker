@@ -58,9 +58,9 @@ interface CategoryRule {
 }
 
 interface CategoryManagerPageProps {
-  householdId: string
-  initialCategories: Category[]
-  initialRules: CategoryRule[]
+  readonly householdId: string
+  readonly initialCategories: Category[]
+  readonly initialRules: CategoryRule[]
 }
 
 export function CategoryManagerPage({

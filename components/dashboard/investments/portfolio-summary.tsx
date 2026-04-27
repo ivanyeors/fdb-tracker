@@ -5,9 +5,9 @@ import { useInvestmentsDisplayCurrency } from "@/components/dashboard/investment
 import { cn } from "@/lib/utils"
 
 interface PortfolioSummaryProps {
-  totalInvested: number
-  currentValue: number
-  cashBalance: number
+  readonly totalInvested: number
+  readonly currentValue: number
+  readonly cashBalance: number
 }
 
 export function PortfolioSummary({
@@ -58,8 +58,8 @@ function StatBox({
   label,
   value,
 }: {
-  label: string
-  value: React.ReactNode
+  readonly label: string
+  readonly value: React.ReactNode
 }) {
   return (
     <div className="rounded-lg border bg-card p-3">

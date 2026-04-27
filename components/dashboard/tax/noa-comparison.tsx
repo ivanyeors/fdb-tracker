@@ -37,8 +37,8 @@ export interface NoaData {
 }
 
 interface NoaComparisonProps {
-  noaData: NoaData
-  estimate: {
+  readonly noaData: NoaData
+  readonly estimate: {
     employmentIncome: number
     totalReliefs: number
     chargeableIncome: number
@@ -49,15 +49,15 @@ interface NoaComparisonProps {
       source: "auto" | "manual"
     }>
   }
-  className?: string
+  readonly className?: string
 }
 
 function DeltaBadge({
   ours,
   iras,
 }: {
-  ours: number
-  iras: number | null
+  readonly ours: number
+  readonly iras: number | null
 }) {
   if (iras === null) return null
   const diff = ours - iras
@@ -93,10 +93,10 @@ function ComparisonRow({
   iras,
   bold,
 }: {
-  label: string
-  ours: number
-  iras: number | null
-  bold?: boolean
+  readonly label: string
+  readonly ours: number
+  readonly iras: number | null
+  readonly bold?: boolean
 }) {
   return (
     <div

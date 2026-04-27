@@ -9,8 +9,8 @@ import type {
 import { getCoverageRecommendation } from "@/lib/calculations/insurance"
 
 type CoverageTableProps = {
-  profiles: ProfileCoverageAnalysis[]
-  policies: Array<{
+  readonly profiles: ProfileCoverageAnalysis[]
+  readonly policies: Array<{
     id: string
     name: string
     type: string
@@ -22,7 +22,7 @@ type CoverageTableProps = {
   }>
 }
 
-function StatusBadge({ item }: { item: CoverageGapItem }) {
+function StatusBadge({ item }: { readonly item: CoverageGapItem }) {
   if (item.coverageType === "hospitalization") {
     return item.hasCoverage ? (
       <Badge className="bg-green-600/20 text-green-700 hover:bg-green-600/30 dark:text-green-400">

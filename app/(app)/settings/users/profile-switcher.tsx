@@ -51,10 +51,10 @@ export function AccountOverview({
   families,
   household,
 }: {
-  householdId: string
-  profiles: Profile[]
-  families: Family[]
-  household: Household
+  readonly householdId: string
+  readonly profiles: Profile[]
+  readonly families: Family[]
+  readonly household: Household
 }) {
   const handleCopyHouseholdId = async () => {
     try {

@@ -188,7 +188,7 @@ export type OverviewInitialData = {
 export function OverviewClient({
   initialData,
 }: {
-  initialData: OverviewInitialData
+  readonly initialData: OverviewInitialData
 }) {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const { effectiveMonth, setAvailableMonths } = useGlobalMonth()

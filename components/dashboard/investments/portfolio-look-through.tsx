@@ -11,9 +11,9 @@ import {
 import type { Holding } from "@/lib/investments/holding"
 
 interface PortfolioLookThroughProps {
-  holdings: readonly Holding[]
-  ilpProducts: readonly IlpProductForAllocation[]
-  cashBalance: number
+  readonly holdings: readonly Holding[]
+  readonly ilpProducts: readonly IlpProductForAllocation[]
+  readonly cashBalance: number
 }
 
 export function PortfolioLookThrough({

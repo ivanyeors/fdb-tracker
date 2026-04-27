@@ -13,12 +13,12 @@ import {
 import type { Holding } from "@/lib/investments/holding"
 
 interface AllocationInsightsProps {
-  holdings: readonly Holding[]
-  ilpProducts: readonly IlpProductForAllocation[]
-  cashBalance: number
-  ilpTotalSum: number
-  fullPortfolioTotal: number
-  loading?: boolean
+  readonly holdings: readonly Holding[]
+  readonly ilpProducts: readonly IlpProductForAllocation[]
+  readonly cashBalance: number
+  readonly ilpTotalSum: number
+  readonly fullPortfolioTotal: number
+  readonly loading?: boolean
 }
 
 function InsightCard({
@@ -26,9 +26,9 @@ function InsightCard({
   children,
   className,
 }: {
-  label: string
-  children: React.ReactNode
-  className?: string
+  readonly label: string
+  readonly children: React.ReactNode
+  readonly className?: string
 }) {
   return (
     <Card className={cn("min-w-0", className)}>

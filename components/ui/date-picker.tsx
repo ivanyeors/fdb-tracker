@@ -13,18 +13,18 @@ import { CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface DatePickerProps {
-  value: string | null
-  onChange: (date: string | null) => void
-  id?: string
-  placeholder?: string
-  disabled?: boolean
-  minDate?: Date
-  maxDate?: Date
+  readonly value: string | null
+  readonly onChange: (date: string | null) => void
+  readonly id?: string
+  readonly placeholder?: string
+  readonly disabled?: boolean
+  readonly minDate?: Date
+  readonly maxDate?: Date
   /** Calendar end month when `maxDate` is not set (default: Dec 31 of current year + 50). */
-  endYearOffset?: number
+  readonly endYearOffset?: number
   /** Show a typeable ISO field (YYYY-MM-DD) synced with the calendar on blur. */
-  showIsoInput?: boolean
-  className?: string
+  readonly showIsoInput?: boolean
+  readonly className?: string
 }
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/

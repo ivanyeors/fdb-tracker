@@ -91,9 +91,9 @@ function CashflowChartInner({
   width,
   height,
 }: {
-  data: CashflowRow[]
-  width: number
-  height: number
+  readonly data: CashflowRow[]
+  readonly width: number
+  readonly height: number
 }) {
   const gradPrefix = useId().replaceAll(/:/g, "_")
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
@@ -408,7 +408,7 @@ function CashflowChartInner({
   )
 }
 
-export function CashflowChart({ data }: { data: CashflowRow[] }) {
+export function CashflowChart({ data }: { readonly data: CashflowRow[] }) {
   const chartHeight = useChartHeight(350, 250)
   return (
     <div>

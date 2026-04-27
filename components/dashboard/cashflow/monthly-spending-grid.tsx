@@ -21,7 +21,7 @@ interface MonthData {
 }
 
 interface MonthlySpendingGridProps {
-  data: MonthData[]
+  readonly data: MonthData[]
 }
 
 interface TooltipData {
@@ -171,16 +171,16 @@ function MiniDonut({
   showTooltip,
   hideTooltip,
 }: {
-  categories: CategoryData[]
-  total: number
-  month: string
-  colorScale: ReturnType<typeof createCategoryColorScale>
-  showTooltip: (args: {
+  readonly categories: CategoryData[]
+  readonly total: number
+  readonly month: string
+  readonly colorScale: ReturnType<typeof createCategoryColorScale>
+  readonly showTooltip: (args: {
     tooltipData: TooltipData
     tooltipLeft: number
     tooltipTop: number
   }) => void
-  hideTooltip: () => void
+  readonly hideTooltip: () => void
 }) {
   const size = 100
   const radius = size / 2

@@ -43,20 +43,20 @@ function normalizeStatementMonth(month: string | null | undefined): string {
 }
 
 interface EditIlpDialogProps {
-  productId: string
-  productName: string
-  monthlyPremium: number
-  premiumPaymentMode?: "monthly" | "one_time"
-  endDate: string
+  readonly productId: string
+  readonly productName: string
+  readonly monthlyPremium: number
+  readonly premiumPaymentMode?: "monthly" | "one_time"
+  readonly endDate: string
   /** Latest snapshot row from API (edit fund / premiums / month). */
-  latestEntryMonth: string | null
-  latestEntryFundValue: number
-  latestEntryPremiumsPaid: number | null
-  profileId?: string | null
-  onSuccess?: () => void
+  readonly latestEntryMonth: string | null
+  readonly latestEntryFundValue: number
+  readonly latestEntryPremiumsPaid: number | null
+  readonly profileId?: string | null
+  readonly onSuccess?: () => void
   /** Controlled dialog (e.g. "Update fund value" on the card). */
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
+  readonly open?: boolean
+  readonly onOpenChange?: (open: boolean) => void
 }
 
 export function EditIlpDialog({

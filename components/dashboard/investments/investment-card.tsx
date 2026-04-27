@@ -22,17 +22,17 @@ interface DailyData {
 }
 
 interface InvestmentCardProps {
-  totalValue: number
+  readonly totalValue: number
   /** Total cost basis (SGD) — cash + holdings cost + ILP premiums paid. */
-  totalInvested?: number
-  trend: number
-  monthlyData: MonthlyData[]
-  dailyData?: DailyData[]
+  readonly totalInvested?: number
+  readonly trend: number
+  readonly monthlyData: MonthlyData[]
+  readonly dailyData?: DailyData[]
   /** Brokerage cash + live-priced holdings (SGD); excludes ILP fund values. */
-  netLiquidValue?: number
+  readonly netLiquidValue?: number
   /** Sum of latest ILP fund values (as stored). */
-  ilpFundTotal?: number
-  loading?: boolean
+  readonly ilpFundTotal?: number
+  readonly loading?: boolean
 }
 
 function formatDateLabel(dateStr: string): string {
@@ -45,9 +45,9 @@ function InvestmentLineChart({
   width,
   height,
 }: {
-  data: { label: string; value: number }[]
-  width: number
-  height: number
+  readonly data: { label: string; value: number }[]
+  readonly width: number
+  readonly height: number
 }) {
   const xScale = useMemo(
     () =>

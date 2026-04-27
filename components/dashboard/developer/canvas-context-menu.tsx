@@ -13,9 +13,9 @@ interface ContextMenuState {
 }
 
 interface CanvasContextMenuProps {
-  menu: ContextMenuState | null
-  onClose: () => void
-  onSelectNode: (node: Node<CalcNodeData>) => void
+  readonly menu: ContextMenuState | null
+  readonly onClose: () => void
+  readonly onSelectNode: (node: Node<CalcNodeData>) => void
 }
 
 export function CanvasContextMenu({

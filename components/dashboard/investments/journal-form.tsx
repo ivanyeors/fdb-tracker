@@ -13,7 +13,7 @@ import { Loader2, Plus, X } from "lucide-react"
 import { toast } from "sonner"
 
 interface JournalFormProps {
-  onSuccess?: () => void
+  readonly onSuccess?: () => void
 }
 
 export function JournalForm({ onSuccess }: JournalFormProps) {

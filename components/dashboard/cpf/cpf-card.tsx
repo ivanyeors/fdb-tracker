@@ -20,11 +20,11 @@ interface CpfBreakdown {
 }
 
 interface CpfCardProps {
-  total: number
-  breakdown: CpfBreakdown
+  readonly total: number
+  readonly breakdown: CpfBreakdown
   /** Dollar amount change vs last month (positive = increase, negative = decrease) */
-  delta?: number
-  loading?: boolean
+  readonly delta?: number
+  readonly loading?: boolean
 }
 
 interface DonutData {
@@ -38,9 +38,9 @@ function CpfDonutChart({
   width,
   height,
 }: {
-  data: DonutData[]
-  width: number
-  height: number
+  readonly data: DonutData[]
+  readonly width: number
+  readonly height: number
 }) {
   const total = data.reduce((s, d) => s + d.value, 0)
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =

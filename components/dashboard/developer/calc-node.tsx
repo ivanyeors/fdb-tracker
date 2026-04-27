@@ -33,7 +33,7 @@ const ICON_MAP: Record<
   Target,
 }
 
-function NodeIcon({ type, color }: { type: GraphNodeType; color: string }) {
+function NodeIcon({ type, color }: { readonly type: GraphNodeType; readonly color: string }) {
   const def = NODE_TYPE_REGISTRY[type]
   const Icon = ICON_MAP[def.icon] || FileCode
   return <Icon className="h-3.5 w-3.5" style={{ color }} />
@@ -42,7 +42,7 @@ function NodeIcon({ type, color }: { type: GraphNodeType; color: string }) {
 function CalcNodeComponent({
   data,
   selected,
-}: NodeProps & { data: CalcNodeData }) {
+}: NodeProps & { readonly data: CalcNodeData }) {
   const typeDef = NODE_TYPE_REGISTRY[data.nodeType]
   const { viewMode } = useDeveloperView()
   const isMoneyFlow = viewMode === "money-flow" && data.moneyAmount

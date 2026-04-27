@@ -23,7 +23,7 @@ export function useDeveloperView(): DeveloperViewContextValue {
   return ctx
 }
 
-export function DeveloperViewProvider({ children }: { children: ReactNode }) {
+export function DeveloperViewProvider({ children }: { readonly children: ReactNode }) {
   const [viewMode, setViewMode] = useState<DeveloperViewMode>("calculation")
   return (
     <DeveloperViewContext.Provider value={{ viewMode, setViewMode }}>

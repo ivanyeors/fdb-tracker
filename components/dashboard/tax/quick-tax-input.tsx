@@ -23,9 +23,9 @@ import { toast } from "sonner"
 import { formatCurrency } from "@/lib/utils"
 
 interface QuickTaxInputProps {
-  year: number
-  profiles: Array<{ id: string; name: string }>
-  onSuccess: () => void
+  readonly year: number
+  readonly profiles: Array<{ id: string; name: string }>
+  readonly onSuccess: () => void
 }
 
 export function QuickTaxInput({

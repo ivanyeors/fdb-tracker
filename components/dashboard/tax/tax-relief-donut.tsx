@@ -26,9 +26,9 @@ export interface ReliefChartItem {
 }
 
 interface TaxReliefDonutProps {
-  reliefs: Array<{ relief_type: string; amount: number }>
+  readonly reliefs: Array<{ relief_type: string; amount: number }>
   /** Tighter layout for narrow grid columns (e.g. top summary row). */
-  compact?: boolean
+  readonly compact?: boolean
 }
 
 function TaxReliefDonutInner({
@@ -36,7 +36,7 @@ function TaxReliefDonutInner({
   width,
   height,
   compact,
-}: TaxReliefDonutProps & { width: number; height: number }) {
+}: TaxReliefDonutProps & { readonly width: number; readonly height: number }) {
   const data = useMemo(() => {
     const byType = new Map<string, number>()
     for (const r of reliefs) {

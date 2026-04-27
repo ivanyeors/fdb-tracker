@@ -69,9 +69,9 @@ type ProfileOption = {
 }
 
 interface DependentsSectionProps {
-  familyId: string
-  profiles: ProfileOption[]
-  initialDependents: Dependent[]
+  readonly familyId: string
+  readonly profiles: ProfileOption[]
+  readonly initialDependents: Dependent[]
 }
 
 const RELATIONSHIP_LABELS: Record<string, string> = {

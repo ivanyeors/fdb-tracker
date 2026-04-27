@@ -135,9 +135,9 @@ export function IlpFundImportTab({
   onSuccess,
   variant = "card",
 }: {
-  familyId: string | null
-  onSuccess?: () => void
-  variant?: "card" | "inline"
+  readonly familyId: string | null
+  readonly onSuccess?: () => void
+  readonly variant?: "card" | "inline"
 }) {
   const { activeFamilyId, activeProfileId, profiles } = useActiveProfile()
   const ilpImpact = useImpactConfirmation("ilp.fund_value_manual")

@@ -20,7 +20,7 @@ import type {
 } from "@/hooks/use-cpf-simulator"
 
 type CpfSimulatorPanelProps = {
-  simulator: CpfSimulatorResult
+  readonly simulator: CpfSimulatorResult
 }
 
 export function CpfSimulatorPanel({ simulator }: CpfSimulatorPanelProps) {

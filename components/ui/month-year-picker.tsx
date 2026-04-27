@@ -32,18 +32,18 @@ function formatMonthYear(monthStr: string): string {
 
 
 interface MonthYearPickerProps {
-  id?: string
-  value: string | null
-  onChange: (value: string | null) => void
+  readonly id?: string
+  readonly value: string | null
+  readonly onChange: (value: string | null) => void
   /** When set, only these months are selectable (others disabled). Used by ILP dialogs. */
-  availableMonths?: string[]
+  readonly availableMonths?: string[]
   /** Months shown with a dot indicator (purely visual, does not disable). */
-  highlightedMonths?: string[]
+  readonly highlightedMonths?: string[]
   /** Maximum selectable month (format YYYY-MM-01). Months after this are disabled. */
-  maxMonth?: string
-  placeholder?: string
-  disabled?: boolean
-  className?: string
+  readonly maxMonth?: string
+  readonly placeholder?: string
+  readonly disabled?: boolean
+  readonly className?: string
 }
 
 export function MonthYearPicker({

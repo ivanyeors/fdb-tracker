@@ -210,7 +210,7 @@ function formatValue(value: number, isAnchor = false): string {
 
 const MAX_SUB_ITEMS = 6
 
-function SubBreakdownList({ subItems }: { subItems?: SubBreakdownItem[] }) {
+function SubBreakdownList({ subItems }: { readonly subItems?: SubBreakdownItem[] }) {
   if (!subItems || subItems.length === 0) return null
   const display = subItems.slice(0, MAX_SUB_ITEMS)
   const rest = subItems.slice(MAX_SUB_ITEMS)
@@ -250,8 +250,8 @@ function WaterfallTooltipContent({
   bar,
   data,
 }: {
-  bar: WaterfallBarItem
-  data: WaterfallData
+  readonly bar: WaterfallBarItem
+  readonly data: WaterfallData
 }) {
   const inflow = data.inflowTotal
 
@@ -302,9 +302,9 @@ function WaterfallChartInner({
   width,
   height,
 }: {
-  data: WaterfallData
-  width: number
-  height: number
+  readonly data: WaterfallData
+  readonly width: number
+  readonly height: number
 }) {
   const chartData = useMemo(() => buildWaterfallBars(data), [data])
   const {
@@ -512,7 +512,7 @@ function WaterfallChartInner({
   )
 }
 
-export function WaterfallChart({ data }: { data: WaterfallData }) {
+export function WaterfallChart({ data }: { readonly data: WaterfallData }) {
   // Dynamic height based on number of bars
   const barCount = useMemo(() => buildWaterfallBars(data).length, [data])
   const chartHeight = Math.max(300, barCount * 28)

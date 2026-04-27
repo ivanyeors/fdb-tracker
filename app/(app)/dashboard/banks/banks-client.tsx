@@ -86,7 +86,7 @@ function buildBankAccountsUrl(
 export function BanksClient({
   initialData,
 }: {
-  initialData: BankAccountRow[]
+  readonly initialData: BankAccountRow[]
 }) {
   const { activeProfileId, activeFamilyId, profiles } = useActiveProfile()
   const { triggerRefresh } = useDataRefresh()
@@ -580,8 +580,8 @@ function BalanceForecastSection({
   profileId,
   accounts,
 }: {
-  profileId: string
-  accounts: BankAccountRow[]
+  readonly profileId: string
+  readonly accounts: BankAccountRow[]
 }) {
   const [forecast, setForecast] = useState<ForecastMonth[] | null>(null)
   const [isLoading, setIsLoading] = useState(true)

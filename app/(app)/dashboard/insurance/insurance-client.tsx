@@ -168,7 +168,7 @@ function buildUrl(
 export function InsuranceClient({
   initialData,
 }: {
-  initialData: InsuranceInitialData
+  readonly initialData: InsuranceInitialData
 }) {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")

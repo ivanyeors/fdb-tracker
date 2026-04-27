@@ -17,8 +17,8 @@ import { cn, formatCurrency } from "@/lib/utils"
 import type { CoverageGapItem } from "@/lib/calculations/insurance"
 
 type GapBarsProps = {
-  items: CoverageGapItem[]
-  showDollars?: boolean
+  readonly items: CoverageGapItem[]
+  readonly showDollars?: boolean
 }
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -77,10 +77,10 @@ function GapBarRow({
   isExpanded,
   onToggle,
 }: {
-  item: CoverageGapItem
-  showDollars: boolean
-  isExpanded: boolean
-  onToggle: () => void
+  readonly item: CoverageGapItem
+  readonly showDollars: boolean
+  readonly isExpanded: boolean
+  readonly onToggle: () => void
 }) {
   const pct = getCoveredPct(item)
   const status = getStatusConfig(pct)

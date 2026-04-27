@@ -11,11 +11,11 @@ interface ButtonSelectOption {
 }
 
 interface ButtonSelectProps {
-  value: string
-  onValueChange: (value: string) => void
-  options: ButtonSelectOption[]
-  className?: string
-  disabled?: boolean
+  readonly value: string
+  readonly onValueChange: (value: string) => void
+  readonly options: ButtonSelectOption[]
+  readonly className?: string
+  readonly disabled?: boolean
 }
 
 function ButtonSelect({

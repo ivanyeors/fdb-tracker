@@ -115,9 +115,9 @@ function ToolbarIconButton({
   onClick,
   children,
 }: {
-  label: string
-  onClick: () => void
-  children: React.ReactNode
+  readonly label: string
+  readonly onClick: () => void
+  readonly children: React.ReactNode
 }) {
   return (
     <Button
@@ -140,10 +140,10 @@ function CtaButton({
   onOpenChange,
   isMobile,
 }: {
-  ctas: ReturnType<typeof getToolbarConfig>["ctas"]
-  open: boolean
-  onOpenChange: (next: boolean) => void
-  isMobile: boolean
+  readonly ctas: ReturnType<typeof getToolbarConfig>["ctas"]
+  readonly open: boolean
+  readonly onOpenChange: (next: boolean) => void
+  readonly isMobile: boolean
 }) {
   if (ctas.length === 0) {
     return null

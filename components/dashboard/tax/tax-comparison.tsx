@@ -65,21 +65,21 @@ function emptyReliefPreviewRows(): Record<string, ReliefRow> {
 }
 
 interface TaxComparisonProps {
-  year: number
-  calculatedAmount: number
-  actualAmount: number | null
-  onEnterActual: () => void
-  onFromMonthly: () => void
+  readonly year: number
+  readonly calculatedAmount: number
+  readonly actualAmount: number | null
+  readonly onEnterActual: () => void
+  readonly onFromMonthly: () => void
   /** Used to anchor the “current → preview” horizontal connector on household charts */
-  profileId?: string
-  profileName?: string
-  snapshot: TaxSnapshot | null | undefined
+  readonly profileId?: string
+  readonly profileName?: string
+  readonly snapshot: TaxSnapshot | null | undefined
   /** When false, marginal position dot is hidden (multi-profile household layout) */
-  showMarginalPositionMarker?: boolean
-  marginalMarkerSubjectLabel?: string
-  householdChargeableMarkers?: HouseholdChargeableMarker[]
+  readonly showMarginalPositionMarker?: boolean
+  readonly marginalMarkerSubjectLabel?: string
+  readonly householdChargeableMarkers?: HouseholdChargeableMarker[]
   /** Rendered at the bottom of the card (e.g. manual reliefs). */
-  cardFooter?: ReactNode
+  readonly cardFooter?: ReactNode
 }
 
 function BreakdownRow({
@@ -89,11 +89,11 @@ function BreakdownRow({
   muted,
   infoTooltipId,
 }: {
-  label: string
-  value: string
-  sign?: "" | "+" | "−" | "="
-  muted?: boolean
-  infoTooltipId?: keyof typeof TOOLTIPS
+  readonly label: string
+  readonly value: string
+  readonly sign?: "" | "+" | "−" | "="
+  readonly muted?: boolean
+  readonly infoTooltipId?: keyof typeof TOOLTIPS
 }) {
   return (
     <div

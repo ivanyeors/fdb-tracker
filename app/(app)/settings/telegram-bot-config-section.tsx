@@ -17,7 +17,7 @@ import { toast } from "sonner"
 import { CheckCircle2, CircleX, Loader2 } from "lucide-react"
 
 type Props = {
-  data: {
+  readonly data: {
     telegram_bot_token: string | null
     telegram_chat_id: string | null
   }

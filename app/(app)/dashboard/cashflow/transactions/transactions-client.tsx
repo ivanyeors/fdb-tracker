@@ -64,7 +64,7 @@ function buildTransactionsUrl(
 export function TransactionsClient({
   initialData,
 }: {
-  initialData: TransactionsInitialData
+  readonly initialData: TransactionsInitialData
 }) {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const { triggerRefresh } = useDataRefresh()

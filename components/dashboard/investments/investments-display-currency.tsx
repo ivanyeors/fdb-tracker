@@ -39,9 +39,9 @@ export function InvestmentsDisplayCurrencyProvider({
   sgdPerUsd,
   fxLoading,
 }: {
-  children: ReactNode
-  sgdPerUsd: number | null
-  fxLoading: boolean
+  readonly children: ReactNode
+  readonly sgdPerUsd: number | null
+  readonly fxLoading: boolean
 }) {
   const [displayCurrency, setDisplayCurrencyState] =
     useState<DisplayCurrency>("SGD")

@@ -187,7 +187,7 @@ function fmtValue(value: number, isAnchor = false): string {
   return `${value >= 0 ? "+" : ""}$${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 }
 
-function WaterfallMiniChart({ bars, width }: { bars: WaterfallBarItem[]; width: number }) {
+function WaterfallMiniChart({ bars, width }: { readonly bars: WaterfallBarItem[]; readonly width: number }) {
   const height = bars.length * 28
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<WaterfallBarItem>()
@@ -373,10 +373,10 @@ function SectionHeader({
   endValue,
   isOpen,
 }: {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  endValue: number
-  isOpen: boolean
+  readonly icon: React.ComponentType<{ className?: string }>
+  readonly label: string
+  readonly endValue: number
+  readonly isOpen: boolean
 }) {
   return (
     <div className="flex w-full items-center justify-between py-2 text-sm">
@@ -398,7 +398,7 @@ function SectionHeader({
 /*  Total bar                                                          */
 /* ------------------------------------------------------------------ */
 
-function TotalBar({ label, value }: { label: string; value: number }) {
+function TotalBar({ label, value }: { readonly label: string; readonly value: number }) {
   return (
     <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2 text-sm">
       <span className="font-semibold">{label}</span>
@@ -411,7 +411,7 @@ function TotalBar({ label, value }: { label: string; value: number }) {
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 
-export function SectionedWaterfall({ data }: { data: WaterfallDataV2 }) {
+export function SectionedWaterfall({ data }: { readonly data: WaterfallDataV2 }) {
   const [bankOpen, setBankOpen] = useState(true)
   const [investOpen, setInvestOpen] = useState(true)
   const [cpfOpen, setCpfOpen] = useState(true)

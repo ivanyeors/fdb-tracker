@@ -15,7 +15,7 @@ const CATEGORY_COLOR = "var(--color-chart-3)"
 export function TrailingReturnsChart({
   data,
 }: {
-  data: PerformanceSeriesPoint[]
+  readonly data: PerformanceSeriesPoint[]
 }) {
   const filtered = useMemo(
     () => data.filter((d) => d.fund != null),

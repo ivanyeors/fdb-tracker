@@ -9,15 +9,15 @@ import { formatCurrency } from "@/lib/utils"
 type ProfileRef = { id: string; name: string }
 
 interface ReliefsBracketSummaryCardProps {
-  className?: string
-  selectedYear: number
-  totalReliefs: number
-  manualReliefTotal: number
-  autoReliefTotal: number
-  profiles: ProfileRef[]
-  taxSnapshots: Record<string, TaxSnapshot> | undefined
-  taxSnapshotsNextYa: Record<string, TaxSnapshot> | undefined
-  activeProfileId?: string | null
+  readonly className?: string
+  readonly selectedYear: number
+  readonly totalReliefs: number
+  readonly manualReliefTotal: number
+  readonly autoReliefTotal: number
+  readonly profiles: ProfileRef[]
+  readonly taxSnapshots: Record<string, TaxSnapshot> | undefined
+  readonly taxSnapshotsNextYa: Record<string, TaxSnapshot> | undefined
+  readonly activeProfileId?: string | null
 }
 
 export function ReliefsBracketSummaryCard({

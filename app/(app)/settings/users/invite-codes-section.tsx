@@ -57,7 +57,7 @@ type UnlinkedProfile = {
 export function InviteCodesSection({
   unlinkedProfiles,
 }: {
-  unlinkedProfiles: UnlinkedProfile[]
+  readonly unlinkedProfiles: UnlinkedProfile[]
 }) {
   const [codes, setCodes] = useState<InviteCode[]>([])
   const [loading, setLoading] = useState(true)

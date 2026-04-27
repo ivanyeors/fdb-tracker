@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button"
 import { useDeveloperView } from "@/components/dashboard/developer/developer-view-context"
 
 interface NodeDetailPanelProps {
-  node: Node<CalcNodeData>
-  onClose: () => void
+  readonly node: Node<CalcNodeData>
+  readonly onClose: () => void
 }
 
 export function NodeDetailPanel({ node, onClose }: NodeDetailPanelProps) {

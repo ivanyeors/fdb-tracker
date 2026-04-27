@@ -17,11 +17,11 @@ import { Loader2, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 interface DeleteIlpGroupDialogProps {
-  groupId: string
-  groupName: string
-  fundCount: number
+  readonly groupId: string
+  readonly groupName: string
+  readonly fundCount: number
   /** When provided, called instead of navigating to /dashboard/investments */
-  onDeleted?: () => void
+  readonly onDeleted?: () => void
 }
 
 export function DeleteIlpGroupDialog({

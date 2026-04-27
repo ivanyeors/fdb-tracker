@@ -30,7 +30,7 @@ const IlpFundImportTab = dynamic(
 )
 
 interface AddIlpSheetContentProps {
-  onSuccess: () => void
+  readonly onSuccess: () => void
 }
 
 export function AddIlpSheetContent({ onSuccess }: AddIlpSheetContentProps) {

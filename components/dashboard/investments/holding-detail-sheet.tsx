@@ -57,13 +57,13 @@ function formatTxDate(iso: string): string {
 }
 
 interface HoldingDetailSheetProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  summary: Holding | null
-  lots: Holding[]
-  profileId: string | null
-  familyId: string | null
-  onChanged?: () => void
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly summary: Holding | null
+  readonly lots: Holding[]
+  readonly profileId: string | null
+  readonly familyId: string | null
+  readonly onChanged?: () => void
 }
 
 export function HoldingDetailSheet({
@@ -270,8 +270,8 @@ function TxTable({
   rows,
   formatMoney,
 }: {
-  rows: TxRow[]
-  formatMoney: (n: number) => string
+  readonly rows: TxRow[]
+  readonly formatMoney: (n: number) => string
 }) {
   return (
     <Table>

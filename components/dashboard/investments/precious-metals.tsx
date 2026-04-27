@@ -20,7 +20,7 @@ interface MetalHolding {
 }
 
 interface PreciousMetalsProps {
-  metals: MetalHolding[]
+  readonly metals: MetalHolding[]
 }
 
 function fmt(n: number): string {

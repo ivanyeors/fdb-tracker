@@ -6,7 +6,7 @@ import { STYLE_BOX_LABELS } from "@/lib/investments/ilp-snapshot-ui"
 const SIZE_LABELS = ["Large", "Mid", "Small"] as const
 const STYLE_LABELS = ["Value", "Blend", "Growth"] as const
 
-export function StockStyleGrid({ style }: { style: StockStyleBox }) {
+export function StockStyleGrid({ style }: { readonly style: StockStyleBox }) {
   const maxVal = Math.max(
     ...style.grid.map((v) => (v != null ? v : 0)),
     1,

@@ -35,7 +35,7 @@ type UserSettingsSaveContextValue = {
 
 const UserSettingsSaveContext = createContext<UserSettingsSaveContextValue | null>(null)
 
-export function UserSettingsSaveProvider({ children }: { children: ReactNode }) {
+export function UserSettingsSaveProvider({ children }: { readonly children: ReactNode }) {
   const router = useRouter()
   const registry = useRef(new Map<string, UserSettingsSaveEntry>())
   const [generation, setGeneration] = useState(0)

@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 import type { ParsedResult } from "@/components/dashboard/cashflow/import-preview-dialog"
 
 interface StatementUploadZoneProps {
-  onBatchParsed: (results: ParsedResult[]) => void
+  readonly onBatchParsed: (results: ParsedResult[]) => void
 }
 
 interface QueueItem {

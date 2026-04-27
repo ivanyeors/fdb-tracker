@@ -32,11 +32,11 @@ const CONDITIONS = [
 ] as const
 
 type AddCardFormProps = {
-  tabId: string
-  profileId: string | null
-  familyId: string | null
-  editItem?: CollectibleCard
-  onSuccess: () => void
+  readonly tabId: string
+  readonly profileId: string | null
+  readonly familyId: string | null
+  readonly editItem?: CollectibleCard
+  readonly onSuccess: () => void
 }
 
 export function AddCardForm({

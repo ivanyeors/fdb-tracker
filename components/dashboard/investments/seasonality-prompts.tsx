@@ -44,7 +44,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   entry_window: "Entry Window",
 }
 
-function EventCard({ event }: { event: SeasonalityEvent }) {
+function EventCard({ event }: { readonly event: SeasonalityEvent }) {
   const isRisk = event.type === "risk"
   return (
     <Alert
@@ -77,7 +77,7 @@ function EventCard({ event }: { event: SeasonalityEvent }) {
   )
 }
 
-function QuietCard({ next }: { next: SeasonalityEvent | null }) {
+function QuietCard({ next }: { readonly next: SeasonalityEvent | null }) {
   return (
     <Alert className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
       <Calendar className="size-4 text-blue-500 dark:text-blue-400" />
@@ -235,7 +235,7 @@ function CompactVariant() {
 export function SeasonalityPrompts({
   variant = "full",
 }: {
-  variant?: "full" | "compact"
+  readonly variant?: "full" | "compact"
 }) {
   if (variant === "compact") return <CompactVariant />
   return <FullVariant />

@@ -63,10 +63,10 @@ export interface CategoryRule {
 }
 
 interface TransactionTableProps {
-  transactions: Transaction[]
-  categories: Category[]
-  categoryRules?: CategoryRule[]
-  onSaved?: () => void
+  readonly transactions: Transaction[]
+  readonly categories: Category[]
+  readonly categoryRules?: CategoryRule[]
+  readonly onSaved?: () => void
 }
 
 /**
@@ -102,9 +102,9 @@ function QuickCategorizePopover({
   categories,
   onSaved,
 }: {
-  transaction: Transaction
-  categories: Category[]
-  onSaved?: () => void
+  readonly transaction: Transaction
+  readonly categories: Category[]
+  readonly onSaved?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(

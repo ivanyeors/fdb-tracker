@@ -14,11 +14,11 @@ import {
 } from "@/components/ui/alert-dialog"
 
 interface DeleteLoanDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSuccess: () => void
-  loanId: string
-  loanName: string
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly onSuccess: () => void
+  readonly loanId: string
+  readonly loanName: string
 }
 
 export function DeleteLoanDialog({

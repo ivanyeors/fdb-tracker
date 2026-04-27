@@ -85,12 +85,12 @@ export function CpfHousingTab({
   housingDeductions,
   totalMonthlyDeduction,
 }: {
-  data: CpfHousingApiResponse | null
-  isLoading: boolean
-  onRefresh: () => void
-  isFamilyView?: boolean
-  housingDeductions?: HousingLoanDeduction[] | null
-  totalMonthlyDeduction?: number | null
+  readonly data: CpfHousingApiResponse | null
+  readonly isLoading: boolean
+  readonly onRefresh: () => void
+  readonly isFamilyView?: boolean
+  readonly housingDeductions?: HousingLoanDeduction[] | null
+  readonly totalMonthlyDeduction?: number | null
 }) {
   const { profiles } = useActiveProfile()
   const [loanId, setLoanId] = useState<string>("")

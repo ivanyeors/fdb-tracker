@@ -21,11 +21,11 @@ export type StockSearchResult = {
 }
 
 interface SymbolPickerDrawerProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSelect: (symbol: string) => void
-  multiSelect?: boolean
-  onMultiSelect?: (symbols: string[]) => void
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly onSelect: (symbol: string) => void
+  readonly multiSelect?: boolean
+  readonly onMultiSelect?: (symbols: string[]) => void
 }
 
 export function SymbolPickerDrawer({

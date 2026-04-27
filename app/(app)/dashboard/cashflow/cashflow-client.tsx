@@ -106,9 +106,9 @@ export function CashflowClient({
   initialWaterfallData,
   initialTransactionsData,
 }: {
-  initialData: CashflowEntry[]
-  initialWaterfallData: WaterfallDataV2 | null
-  initialTransactionsData: SpendingBreakdownInitialData
+  readonly initialData: CashflowEntry[]
+  readonly initialWaterfallData: WaterfallDataV2 | null
+  readonly initialTransactionsData: SpendingBreakdownInitialData
 }) {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const { effectiveMonth, setAvailableMonths } = useGlobalMonth()

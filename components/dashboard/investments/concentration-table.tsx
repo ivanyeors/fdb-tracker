@@ -47,10 +47,10 @@ type SortKey = "value" | "percentage" | "cumulativePercentage" | "name"
 type SortDir = "asc" | "desc"
 
 interface ConcentrationTableProps {
-  holdings: readonly Holding[]
-  ilpProducts: readonly IlpProductForAllocation[]
-  cashBalance: number
-  fullPortfolioTotal: number
+  readonly holdings: readonly Holding[]
+  readonly ilpProducts: readonly IlpProductForAllocation[]
+  readonly cashBalance: number
+  readonly fullPortfolioTotal: number
 }
 
 export function ConcentrationTable({
@@ -175,9 +175,9 @@ function ConcentrationRow({
   maxPct,
   formatMoney,
 }: {
-  row: PositionRow
-  maxPct: number
-  formatMoney: (v: number) => string
+  readonly row: PositionRow
+  readonly maxPct: number
+  readonly formatMoney: (v: number) => string
 }) {
   const barWidth = maxPct > 0 ? (row.percentage / maxPct) * 100 : 0
   const isTail = row.cumulativePercentage > 80

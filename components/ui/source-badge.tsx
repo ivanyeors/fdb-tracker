@@ -11,12 +11,12 @@ import { type ImpactNodeId, IMPACT_NODES } from "@/lib/impact-graph"
 import { cn } from "@/lib/utils"
 
 interface SourceBadgeProps {
-  source: "auto" | "manual"
+  readonly source: "auto" | "manual"
   /** If provided, tooltip text is looked up from the impact graph registry */
-  nodeId?: ImpactNodeId
+  readonly nodeId?: ImpactNodeId
   /** Custom tooltip text (overrides nodeId lookup) */
-  tooltip?: string
-  className?: string
+  readonly tooltip?: string
+  readonly className?: string
 }
 
 export function SourceBadge({

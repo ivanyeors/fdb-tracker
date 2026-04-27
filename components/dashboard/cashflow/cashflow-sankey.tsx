@@ -79,9 +79,9 @@ function CashflowSankeyInner({
   width,
   height,
 }: {
-  data: WaterfallData
-  width: number
-  height: number
+  readonly data: WaterfallData
+  readonly width: number
+  readonly height: number
 }) {
   const sankeyData = useMemo(() => buildSankeyData(data), [data])
   const root = useMemo(
@@ -251,7 +251,7 @@ function CashflowSankeyInner({
   )
 }
 
-export function CashflowSankey({ data }: { data: WaterfallData }) {
+export function CashflowSankey({ data }: { readonly data: WaterfallData }) {
   const chartHeight = useChartHeight(340, 240)
   return (
     <div className="w-full overflow-visible" style={{ height: chartHeight }}>

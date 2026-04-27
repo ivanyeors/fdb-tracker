@@ -22,7 +22,7 @@ const HOLDING_TYPES = [
 ] as const
 
 interface AddHoldingFormProps {
-  onSuccess?: () => void
+  readonly onSuccess?: () => void
 }
 
 export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {

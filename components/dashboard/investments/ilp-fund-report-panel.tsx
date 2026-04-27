@@ -44,7 +44,7 @@ const ALLOCATION_CHART_PROPS = {
 function AssetAllocationGroupedBars({
   rows,
 }: {
-  rows: AssetAllocationBarRow[]
+  readonly rows: AssetAllocationBarRow[]
 }) {
   const filtered = useMemo(
     () => rows.filter((r) => r.fundPct != null || r.categoryPct != null),
@@ -161,7 +161,7 @@ function AssetAllocationGroupedBars({
 function AnnualPerformanceBars({
   points,
 }: {
-  points: { period: string; value: number }[]
+  readonly points: { period: string; value: number }[]
 }) {
   if (points.length === 0) return null
   return (
@@ -262,8 +262,8 @@ function KeyValueGrid({
   title,
   entries,
 }: {
-  title: string
-  entries: KeyValueEntry[]
+  readonly title: string
+  readonly entries: KeyValueEntry[]
 }) {
   if (entries.length === 0) return null
   return (
@@ -289,7 +289,7 @@ function KeyValueGrid({
 }
 
 export type IlpFundReportPanelProps = {
-  snapshot: Record<string, unknown> | null | undefined
+  readonly snapshot: Record<string, unknown> | null | undefined
 }
 
 export function IlpFundReportPanel({ snapshot }: IlpFundReportPanelProps) {

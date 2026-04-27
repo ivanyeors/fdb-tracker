@@ -157,7 +157,7 @@ const EMPTY_DATA: TaxData = {
   profiles: [],
 }
 
-export function TaxClient({ initialData }: { initialData: TaxData }) {
+export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
   const { triggerRefresh } = useDataRefresh()
   const [selectedYear, setSelectedYear] = useState(currentYear)

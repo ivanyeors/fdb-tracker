@@ -332,7 +332,7 @@ function processTransactionsPayload(
 export function InvestmentsClient({
   initialData,
 }: {
-  initialData: InvestmentsInitialData
+  readonly initialData: InvestmentsInitialData
 }) {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")

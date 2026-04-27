@@ -25,11 +25,11 @@ import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 interface MonthlyTaxDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  profileId: string
-  year: number
-  onSuccess: () => void
+  readonly open: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly profileId: string
+  readonly year: number
+  readonly onSuccess: () => void
 }
 
 export function MonthlyTaxDialog({

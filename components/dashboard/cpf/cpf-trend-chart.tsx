@@ -47,9 +47,9 @@ function CpfTrendChartInner({
   width,
   height,
 }: {
-  data: CpfTrendRow[]
-  width: number
-  height: number
+  readonly data: CpfTrendRow[]
+  readonly width: number
+  readonly height: number
 }) {
   const {
     tooltipData,
@@ -279,7 +279,7 @@ function CpfTrendChartInner({
   )
 }
 
-export function CpfTrendChart({ data }: { data: CpfTrendRow[] }) {
+export function CpfTrendChart({ data }: { readonly data: CpfTrendRow[] }) {
   const chartHeight = useChartHeight(280, 200)
   return (
     <div className="w-full" style={{ height: chartHeight }}>

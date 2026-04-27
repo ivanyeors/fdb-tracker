@@ -49,7 +49,7 @@ function AlertDialogContent({
   size = "default",
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
-  size?: "default" | "sm"
+  readonly size?: "default" | "sm"
 }) {
   return (
     <AlertDialogPortal>
