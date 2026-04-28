@@ -36,7 +36,6 @@ function premiumForAge(age: number): number | null {
  * Annual DPS premium for a given age and calendar year (table selection by year — extend when rates change).
  */
 export function getDpsAnnualPremium(age: number, _calendarYear: number = new Date().getFullYear()): number | null {
-  void _calendarYear
   return premiumForAge(age)
 }
 

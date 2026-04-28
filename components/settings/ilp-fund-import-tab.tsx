@@ -1677,7 +1677,7 @@ export function IlpFundImportTab({
               type="button"
               className="w-full sm:w-auto"
               disabled={confirmDisabled}
-              onClick={() => void handleCommit()}
+              onClick={handleCommit}
             >
               {step === "saving" ? (
                 <>
@@ -2207,7 +2207,7 @@ export function IlpFundImportTab({
               type="button"
               className="w-full sm:w-auto"
               disabled={confirmDisabled}
-              onClick={() => void handleCommit()}
+              onClick={handleCommit}
             >
               {step === "saving" ? (
                 <>

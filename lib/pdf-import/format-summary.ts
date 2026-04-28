@@ -1,5 +1,18 @@
-import type { ExtractionResult, BankTransaction } from "@/lib/pdf-import/types"
+import type {
+  BankStatementExtractionResult,
+  BankTransaction,
+  CcStatementExtractionResult,
+  CpfExtractionResult,
+  ExtractionResult,
+  IlpExtractionResult,
+  InsuranceExtractionResult,
+  InvestmentExtractionResult,
+  LoanExtractionResult,
+  TaxExtractionResult,
+} from "@/lib/pdf-import/types"
 import { DOCUMENT_TYPE_LABELS } from "@/lib/pdf-import/types"
+
+type Field = { label: string; value: string }
 
 function buildCategoryBreakdown(
   transactions: BankTransaction[],
@@ -28,129 +41,164 @@ function fmtAmt(n: number): string {
   )
 }
 
+function pushIfTruthy(fields: Field[], label: string, value: string | null | undefined) {
+  if (value) fields.push({ label, value })
+}
+
+function pushIfPresent(fields: Field[], label: string, value: number | null | undefined, format: (n: number) => string = fmtAmt) {
+  if (value !== null && value !== undefined) fields.push({ label, value: format(value) })
+}
+
+function cpfFields(r: CpfExtractionResult): Field[] {
+  const fields: Field[] = []
+  pushIfTruthy(fields, "Month", r.month)
+  pushIfPresent(fields, "OA", r.oa)
+  pushIfPresent(fields, "SA", r.sa)
+  pushIfPresent(fields, "MA", r.ma)
+  return fields
+}
+
+function insuranceFields(r: InsuranceExtractionResult): Field[] {
+  const fields: Field[] = []
+  pushIfTruthy(fields, "Insurer", r.insurer)
+  pushIfTruthy(fields, "Policy Name", r.name)
+  pushIfTruthy(fields, "Policy No.", r.policyNumber)
+  if (r.type) fields.push({ label: "Policy Type", value: r.type.replaceAll(/_/g, " ") })
+  pushIfPresent(fields, "Premium", r.premiumAmount)
+  pushIfTruthy(fields, "Frequency", r.frequency)
+  pushIfPresent(fields, "CPF Premium", r.cpfPremium)
+  pushIfPresent(fields, "Coverage", r.coverageAmount)
+  pushIfPresent(fields, "Coverage Till Age", r.coverageTillAge, String)
+  pushIfTruthy(fields, "Inception", r.inceptionDate)
+  pushIfTruthy(fields, "End Date", r.endDate)
+  if (r.premiumWaiver) fields.push({ label: "Premium Waiver", value: "Yes" })
+  pushIfPresent(fields, "Cash Value", r.cashValue)
+  pushIfPresent(fields, "Maturity Value", r.maturityValue)
+  if (r.benefits.length === 0) return fields
+
+  fields.push({ label: "Benefits", value: `${r.benefits.length} extracted` })
+  for (const b of r.benefits.slice(0, 5)) {
+    fields.push({ label: `  ${b.benefitName}`, value: fmtAmt(b.coverageAmount) })
+  }
+  if (r.benefits.length > 5) {
+    fields.push({ label: "", value: `... +${r.benefits.length - 5} more` })
+  }
+  return fields
+}
+
+function pushTransactionStats(
+  fields: Field[],
+  transactions: BankTransaction[],
+  totalDebit: number | null,
+  totalCredit: number | null,
+  debitLabel: string,
+  creditLabel: string,
+) {
+  if (transactions.length === 0) return
+  fields.push({ label: "Transactions", value: `${transactions.length} found` })
+  if (totalDebit !== null) fields.push({ label: debitLabel, value: fmtAmt(Math.abs(totalDebit)) })
+  if (totalCredit !== null) fields.push({ label: creditLabel, value: fmtAmt(totalCredit) })
+  for (const entry of buildCategoryBreakdown(transactions).slice(0, 6)) {
+    fields.push({ label: `  ${entry.name}`, value: `${entry.count} txns (${fmtAmt(entry.total)})` })
+  }
+}
+
+function bankFields(r: BankStatementExtractionResult): Field[] {
+  const fields: Field[] = []
+  pushIfTruthy(fields, "Bank", r.bankName)
+  pushIfTruthy(fields, "Month", r.month)
+  if (r.accountNumber) fields.push({ label: "Account", value: `...${r.accountNumber.slice(-4)}` })
+  pushIfPresent(fields, "Opening Bal.", r.openingBalance)
+  pushIfPresent(fields, "Closing Bal.", r.closingBalance)
+  pushTransactionStats(fields, r.transactions, r.totalDebit, r.totalCredit, "Total Withdrawals", "Total Deposits")
+  return fields
+}
+
+function ccFields(r: CcStatementExtractionResult): Field[] {
+  const fields: Field[] = []
+  pushIfTruthy(fields, "Bank", r.bankName)
+  pushIfTruthy(fields, "Month", r.month)
+  if (r.cardNumber) fields.push({ label: "Card", value: `...${r.cardNumber.slice(-4)}` })
+  pushIfPresent(fields, "Amount Due", r.totalAmountDue)
+  pushIfPresent(fields, "Min. Payment", r.minimumPayment)
+  pushTransactionStats(fields, r.transactions, r.totalDebit, r.totalCredit, "Total Charges", "Total Credits")
+  return fields
+}
+
+function taxFields(r: TaxExtractionResult): Field[] {
+  const fields: Field[] = []
+  pushIfPresent(fields, "Year of Assessment", r.year, String)
+  pushIfPresent(fields, "Tax Payable", r.taxPayable)
+  return fields
+}
+
+function loanFields(r: LoanExtractionResult): Field[] {
+  const fields: Field[] = []
+  pushIfTruthy(fields, "Lender", r.lender)
+  pushIfTruthy(fields, "Loan Name", r.name)
+  pushIfTruthy(fields, "Loan Type", r.type)
+  pushIfPresent(fields, "Principal", r.principal)
+  if (r.ratePct !== null) fields.push({ label: "Rate", value: `${r.ratePct}% p.a.` })
+  if (r.tenureMonths !== null) fields.push({ label: "Tenure", value: `${r.tenureMonths} months` })
+  pushIfTruthy(fields, "Start Date", r.startDate)
+  return fields
+}
+
+function ilpFields(r: IlpExtractionResult): Field[] {
+  const fields: Field[] = []
+  pushIfTruthy(fields, "Product", r.productName)
+  pushIfTruthy(fields, "Month", r.month)
+  pushIfPresent(fields, "Fund Value", r.fundValue)
+  pushIfPresent(fields, "Premiums Paid", r.premiumsPaid)
+  return fields
+}
+
+function investmentFields(r: InvestmentExtractionResult): Field[] {
+  const fields: Field[] = []
+  pushIfTruthy(fields, "Month", r.month)
+  pushIfPresent(fields, "Total Value", r.totalValue)
+  if (r.holdings.length > 0) {
+    fields.push({
+      label: "Holdings",
+      value: r.holdings.map((h) => `${h.symbol} × ${h.units}`).join(", "),
+    })
+  }
+  return fields
+}
+
+function fieldsForDocType(result: ExtractionResult): Field[] {
+  switch (result.docType) {
+    case "cpf_statement":
+      return cpfFields(result)
+    case "insurance_policy":
+      return insuranceFields(result)
+    case "bank_statement":
+      return bankFields(result)
+    case "cc_statement":
+      return ccFields(result)
+    case "tax_noa":
+      return taxFields(result)
+    case "loan_letter":
+      return loanFields(result)
+    case "ilp_statement":
+      return ilpFields(result)
+    case "investment_statement":
+      return investmentFields(result)
+  }
+}
+
 /**
  * Format extracted data as a human-readable summary for Telegram.
  * Returns an array of { label, value } fields for buildConfirmationMessage.
  */
-export function formatExtractionSummary(
-  result: ExtractionResult,
-): Array<{ label: string; value: string }> {
-  const fields: Array<{ label: string; value: string }> = []
-
-  fields.push({ label: "Type", value: DOCUMENT_TYPE_LABELS[result.docType] })
-
-  switch (result.docType) {
-    case "cpf_statement":
-      if (result.month) fields.push({ label: "Month", value: result.month })
-      if (result.oa !== null) fields.push({ label: "OA", value: fmtAmt(result.oa) })
-      if (result.sa !== null) fields.push({ label: "SA", value: fmtAmt(result.sa) })
-      if (result.ma !== null) fields.push({ label: "MA", value: fmtAmt(result.ma) })
-      break
-
-    case "insurance_policy":
-      if (result.insurer) fields.push({ label: "Insurer", value: result.insurer })
-      if (result.name) fields.push({ label: "Policy Name", value: result.name })
-      if (result.policyNumber) fields.push({ label: "Policy No.", value: result.policyNumber })
-      if (result.type) fields.push({ label: "Policy Type", value: result.type.replaceAll(/_/g, " ") })
-      if (result.premiumAmount !== null) fields.push({ label: "Premium", value: fmtAmt(result.premiumAmount) })
-      if (result.frequency) fields.push({ label: "Frequency", value: result.frequency })
-      if (result.cpfPremium !== null) fields.push({ label: "CPF Premium", value: fmtAmt(result.cpfPremium) })
-      if (result.coverageAmount !== null) fields.push({ label: "Coverage", value: fmtAmt(result.coverageAmount) })
-      if (result.coverageTillAge !== null) fields.push({ label: "Coverage Till Age", value: String(result.coverageTillAge) })
-      if (result.inceptionDate) fields.push({ label: "Inception", value: result.inceptionDate })
-      if (result.endDate) fields.push({ label: "End Date", value: result.endDate })
-      if (result.premiumWaiver) fields.push({ label: "Premium Waiver", value: "Yes" })
-      if (result.cashValue !== null) fields.push({ label: "Cash Value", value: fmtAmt(result.cashValue) })
-      if (result.maturityValue !== null) fields.push({ label: "Maturity Value", value: fmtAmt(result.maturityValue) })
-      if (result.benefits.length > 0) {
-        fields.push({ label: "Benefits", value: `${result.benefits.length} extracted` })
-        for (const b of result.benefits.slice(0, 5)) {
-          fields.push({ label: `  ${b.benefitName}`, value: fmtAmt(b.coverageAmount) })
-        }
-        if (result.benefits.length > 5) {
-          fields.push({ label: "", value: `... +${result.benefits.length - 5} more` })
-        }
-      }
-      break
-
-    case "bank_statement":
-      if (result.bankName) fields.push({ label: "Bank", value: result.bankName })
-      if (result.month) fields.push({ label: "Month", value: result.month })
-      if (result.accountNumber) fields.push({ label: "Account", value: `...${result.accountNumber.slice(-4)}` })
-      if (result.openingBalance !== null) fields.push({ label: "Opening Bal.", value: fmtAmt(result.openingBalance) })
-      if (result.closingBalance !== null) fields.push({ label: "Closing Bal.", value: fmtAmt(result.closingBalance) })
-      if (result.transactions.length > 0) {
-        fields.push({ label: "Transactions", value: `${result.transactions.length} found` })
-        if (result.totalDebit !== null) fields.push({ label: "Total Withdrawals", value: fmtAmt(Math.abs(result.totalDebit)) })
-        if (result.totalCredit !== null) fields.push({ label: "Total Deposits", value: fmtAmt(result.totalCredit) })
-        // Category breakdown
-        const bankCatBreakdown = buildCategoryBreakdown(result.transactions)
-        for (const entry of bankCatBreakdown.slice(0, 6)) {
-          fields.push({ label: `  ${entry.name}`, value: `${entry.count} txns (${fmtAmt(entry.total)})` })
-        }
-      }
-      break
-
-    case "cc_statement":
-      if (result.bankName) fields.push({ label: "Bank", value: result.bankName })
-      if (result.month) fields.push({ label: "Month", value: result.month })
-      if (result.cardNumber) fields.push({ label: "Card", value: `...${result.cardNumber.slice(-4)}` })
-      if (result.totalAmountDue !== null) fields.push({ label: "Amount Due", value: fmtAmt(result.totalAmountDue) })
-      if (result.minimumPayment !== null) fields.push({ label: "Min. Payment", value: fmtAmt(result.minimumPayment) })
-      if (result.transactions.length > 0) {
-        fields.push({ label: "Transactions", value: `${result.transactions.length} found` })
-        if (result.totalDebit !== null) fields.push({ label: "Total Charges", value: fmtAmt(Math.abs(result.totalDebit)) })
-        if (result.totalCredit !== null) fields.push({ label: "Total Credits", value: fmtAmt(result.totalCredit) })
-        // Category breakdown
-        const ccCatBreakdown = buildCategoryBreakdown(result.transactions)
-        for (const entry of ccCatBreakdown.slice(0, 6)) {
-          fields.push({ label: `  ${entry.name}`, value: `${entry.count} txns (${fmtAmt(entry.total)})` })
-        }
-      }
-      break
-
-    case "tax_noa":
-      if (result.year !== null) fields.push({ label: "Year of Assessment", value: String(result.year) })
-      if (result.taxPayable !== null) fields.push({ label: "Tax Payable", value: fmtAmt(result.taxPayable) })
-      break
-
-    case "loan_letter":
-      if (result.lender) fields.push({ label: "Lender", value: result.lender })
-      if (result.name) fields.push({ label: "Loan Name", value: result.name })
-      if (result.type) fields.push({ label: "Loan Type", value: result.type })
-      if (result.principal !== null) fields.push({ label: "Principal", value: fmtAmt(result.principal) })
-      if (result.ratePct !== null) fields.push({ label: "Rate", value: `${result.ratePct}% p.a.` })
-      if (result.tenureMonths !== null) fields.push({ label: "Tenure", value: `${result.tenureMonths} months` })
-      if (result.startDate) fields.push({ label: "Start Date", value: result.startDate })
-      break
-
-    case "ilp_statement":
-      if (result.productName) fields.push({ label: "Product", value: result.productName })
-      if (result.month) fields.push({ label: "Month", value: result.month })
-      if (result.fundValue !== null) fields.push({ label: "Fund Value", value: fmtAmt(result.fundValue) })
-      if (result.premiumsPaid !== null) fields.push({ label: "Premiums Paid", value: fmtAmt(result.premiumsPaid) })
-      break
-
-    case "investment_statement":
-      if (result.month) fields.push({ label: "Month", value: result.month })
-      if (result.totalValue !== null) fields.push({ label: "Total Value", value: fmtAmt(result.totalValue) })
-      if (result.holdings.length > 0) {
-        fields.push({
-          label: "Holdings",
-          value: result.holdings
-            .map((h) => `${h.symbol} × ${h.units}`)
-            .join(", "),
-        })
-      }
-      break
-  }
-
+export function formatExtractionSummary(result: ExtractionResult): Field[] {
+  const fields: Field[] = [{ label: "Type", value: DOCUMENT_TYPE_LABELS[result.docType] }]
+  fields.push(...fieldsForDocType(result))
   if (result.warnings.length > 0) {
     fields.push({
       label: "⚠️ Warnings",
       value: result.warnings.map((w) => w.message).join("; "),
     })
   }
-
   return fields
 }

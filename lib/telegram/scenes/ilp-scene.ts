@@ -99,8 +99,7 @@ async function loadGroupValueSnapshot(
   )
   const latestMonth = Array.from(latestPerProduct.values())
     .map((x) => x.month)
-    .sort()
-    .reverse()[0] ?? null
+    .sort((a, b) => b.localeCompare(a))[0] ?? null
 
   const hasMonth = list.some((e) => e.month === month)
   const hasLatest = latestPerProduct.size > 0

@@ -56,7 +56,7 @@ export function UserSettingsSaveProvider({ children }: { readonly children: Reac
   }, [])
 
   const aggregateDirty = useMemo(() => {
-    void generation
+    if (generation < 0) return false
     for (const e of registry.current.values()) {
       if (e.isDirty()) return true
     }
@@ -65,7 +65,7 @@ export function UserSettingsSaveProvider({ children }: { readonly children: Reac
 
   const isProfileDirty = useCallback(
     (profileId: string) => {
-      void generation
+      if (generation < 0) return false
       for (const [key, entry] of registry.current.entries()) {
         if (key.includes(profileId) && entry.isDirty()) return true
       }

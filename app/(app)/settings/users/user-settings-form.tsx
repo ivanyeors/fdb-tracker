@@ -2397,6 +2397,13 @@ function InvestmentsSection({
     })
   }
 
+  function updateInvestmentSymbol(inv: (typeof investments)[0], symbol: string) {
+    setEditing((prev) => ({
+      ...prev,
+      [inv.id]: { ...(prev[inv.id] ?? inv), symbol },
+    }))
+  }
+
   const addInvestmentDialog = (
     <>
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -2560,12 +2567,7 @@ function InvestmentsSection({
                       return (
                         <Input
                           value={e.symbol}
-                          onChange={(ev) =>
-                            setEditing((prev) => ({
-                              ...prev,
-                              [inv.id]: { ...(prev[inv.id] ?? inv), symbol: ev.target.value },
-                            }))
-                          }
+                          onChange={(ev) => updateInvestmentSymbol(inv, ev.target.value)}
                           placeholder="e.g. Prudential ILP"
                           className="h-8 w-32"
                         />
@@ -3498,6 +3500,38 @@ function InsuranceSection({
     }))
   }
 
+  function toggleNewPolicyCoverage(ct: CoverageType, checked: boolean) {
+    setNewPolicy((prev) => ({
+      ...prev,
+      coverages: checked
+        ? [...prev.coverages, makeStandardCoverage(ct, prev.coverages.length)]
+        : prev.coverages.filter((c) => c.coverage_type !== ct),
+    }))
+  }
+
+  function updateNewPolicyCoverageAmount(ct: CoverageType, amount: number | null) {
+    setNewPolicy((prev) => ({
+      ...prev,
+      coverages: prev.coverages.map((c) =>
+        c.coverage_type === ct ? { ...c, coverage_amount: amount } : c,
+      ),
+    }))
+  }
+
+  function updateNewPolicyBenefit(idx: number, patch: Partial<CoverageEntry>) {
+    setNewPolicy((prev) => ({
+      ...prev,
+      customBenefits: prev.customBenefits.map((cb, i) => (i === idx ? { ...cb, ...patch } : cb)),
+    }))
+  }
+
+  function removeNewPolicyBenefit(idx: number) {
+    setNewPolicy((prev) => ({
+      ...prev,
+      customBenefits: prev.customBenefits.filter((_, i) => i !== idx),
+    }))
+  }
+
   async function confirmDeletePolicy() {
     if (!policyToDelete) return
     setIsDeleting(true)
@@ -3700,6 +3734,127 @@ function InsuranceSection({
     () => (insuranceDirty ? (["insurance.policies"] as import("@/lib/impact-graph").ImpactNodeId[]) : undefined),
     [insuranceDirty],
   )
+
+  function toggleEditingCoverage(p: (typeof policies)[0], ct: CoverageType, checked: boolean) {
+    const prev_e = editing[p.id] ?? p
+    setEditing((prev) => ({
+      ...prev,
+      [p.id]: {
+        ...prev_e,
+        coverages: checked
+          ? [
+              ...prev_e.coverages,
+              {
+                id: "",
+                coverage_type: ct as string | null,
+                coverage_amount: 0,
+                benefit_name: COVERAGE_TYPE_LABELS[ct],
+                benefit_premium: null,
+                renewal_bonus: null,
+                benefit_expiry_date: null,
+                benefit_unit: null,
+                sort_order: prev_e.coverages.length,
+              },
+            ]
+          : prev_e.coverages.filter((c) => c.coverage_type !== ct),
+      },
+    }))
+  }
+
+  function updateEditingCoverageAmount(p: (typeof policies)[0], ct: CoverageType, amount: number | null) {
+    const prev_e = editing[p.id] ?? p
+    setEditing((prev) => ({
+      ...prev,
+      [p.id]: {
+        ...prev_e,
+        coverages: prev_e.coverages.map((c) =>
+          c.coverage_type === ct ? { ...c, coverage_amount: amount ?? 0 } : c,
+        ),
+      },
+    }))
+  }
+
+  type EditingCoverage = (typeof policies)[0]["coverages"][0]
+
+  function updateEditingCustomBenefit(
+    p: (typeof policies)[0],
+    cb: EditingCoverage,
+    patch: Partial<EditingCoverage>,
+  ) {
+    const prev_e = editing[p.id] ?? p
+    const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
+    let ci = 0
+    setEditing((prev) => ({
+      ...prev,
+      [p.id]: {
+        ...prev_e,
+        coverages: prev_e.coverages.map((c) => {
+          if (c.coverage_type) return c
+          if (ci++ === customIdx) return { ...c, ...patch }
+          return c
+        }),
+      },
+    }))
+  }
+
+  function changeEditingPolicyType(p: (typeof policies)[0], v: string) {
+    const e = editing[p.id] ?? p
+    const fields = getFieldsForInsurancePolicyRow(v, e.frequency as "monthly" | "yearly")
+    const prev_e = editing[p.id] ?? p
+    const newType = v as InsuranceType
+    const allowed = ALLOWED_COVERAGES_BY_POLICY[newType] ?? []
+    const customBenefits = prev_e.coverages.filter((c) => !c.coverage_type)
+    const keptCoverages = prev_e.coverages.filter(
+      (c) => c.coverage_type && allowed.includes(c.coverage_type as CoverageType),
+    )
+    const defaults = DEFAULT_COVERAGES_BY_POLICY[newType] ?? []
+    const keptCoverageTypes = new Set(keptCoverages.map((c) => c.coverage_type))
+    const missingDefaults = defaults
+      .filter((ct) => !keptCoverageTypes.has(ct))
+      .map((ct) => ({
+        id: "",
+        coverage_type: ct as string | null,
+        coverage_amount: 0,
+        benefit_name: COVERAGE_TYPE_LABELS[ct],
+        benefit_premium: null,
+        renewal_bonus: null,
+        benefit_expiry_date: null,
+        benefit_unit: null,
+        sort_order: 0,
+      }))
+    setEditing((prev) => ({
+      ...prev,
+      [p.id]: {
+        ...(prev[p.id] ?? p),
+        type: v,
+        coverages: [...keptCoverages, ...missingDefaults, ...customBenefits],
+        current_amount: fields.showCurrentAmount ? prev_e.current_amount : null,
+        end_date: fields.showEndDate ? prev_e.end_date : null,
+        sub_type: fields.showSubType ? prev_e.sub_type : null,
+        rider_name: fields.showRider ? prev_e.rider_name : null,
+        rider_premium: fields.showRider ? prev_e.rider_premium : null,
+        maturity_value: fields.showMaturityValue ? prev_e.maturity_value : null,
+        cash_value: fields.showCashValue ? prev_e.cash_value : null,
+        coverage_till_age: fields.showCoverageTillAge ? prev_e.coverage_till_age : null,
+      },
+    }))
+  }
+
+  function removeEditingCustomBenefit(p: (typeof policies)[0], cb: EditingCoverage) {
+    const prev_e = editing[p.id] ?? p
+    const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
+    let ci = 0
+    setEditing((prev) => ({
+      ...prev,
+      [p.id]: {
+        ...prev_e,
+        coverages: prev_e.coverages.filter((c) => {
+          if (c.coverage_type) return true
+          return ci++ !== customIdx
+        }),
+      },
+    }))
+  }
   useUserSettingsSaveRegistration(`user-settings-insurance-${profileId}`, insuranceDirty, persistInsurance, insuranceImpactNodes)
 
   const addInsuranceDialog = (
@@ -3785,28 +3940,14 @@ function InsuranceSection({
                       <div key={ct} className="flex items-center gap-2">
                         <Switch
                           checked={isChecked}
-                          onCheckedChange={(checked) => {
-                            setNewPolicy((prev) => ({
-                              ...prev,
-                              coverages: checked
-                                ? [...prev.coverages, makeStandardCoverage(ct, prev.coverages.length)]
-                                : prev.coverages.filter((c) => c.coverage_type !== ct),
-                            }))
-                          }}
+                          onCheckedChange={(checked) => toggleNewPolicyCoverage(ct, checked)}
                         />
                         <span className="text-sm whitespace-nowrap">{COVERAGE_TYPE_LABELS[ct]}</span>
                         {isChecked && (
                           <CurrencyInput
                             placeholder="0"
                             value={entry?.coverage_amount}
-                            onChange={(v) =>
-                              setNewPolicy((prev) => ({
-                                ...prev,
-                                coverages: prev.coverages.map((c) =>
-                                  c.coverage_type === ct ? { ...c, coverage_amount: v ?? null } : c,
-                                ),
-                              }))
-                            }
+                            onChange={(v) => updateNewPolicyCoverageAmount(ct, v ?? null)}
                             className="h-8 w-28"
                           />
                         )}
@@ -3855,14 +3996,7 @@ function InsuranceSection({
                   <Input
                     placeholder="Benefit name"
                     value={b.benefit_name ?? ""}
-                    onChange={(ev) =>
-                      setNewPolicy((prev) => ({
-                        ...prev,
-                        customBenefits: prev.customBenefits.map((cb, i) =>
-                          i === idx ? { ...cb, benefit_name: ev.target.value || null } : cb,
-                        ),
-                      }))
-                    }
+                    onChange={(ev) => updateNewPolicyBenefit(idx, { benefit_name: ev.target.value || null })}
                     className="h-8 w-48"
                     list={`benefit-suggestions-${idx}`}
                   />
@@ -3876,52 +4010,24 @@ function InsuranceSection({
                   <CurrencyInput
                     placeholder="Coverage"
                     value={b.coverage_amount}
-                    onChange={(v) =>
-                      setNewPolicy((prev) => ({
-                        ...prev,
-                        customBenefits: prev.customBenefits.map((cb, i) =>
-                          i === idx ? { ...cb, coverage_amount: v ?? null } : cb,
-                        ),
-                      }))
-                    }
+                    onChange={(v) => updateNewPolicyBenefit(idx, { coverage_amount: v ?? null })}
                     className="h-8 w-28"
                   />
                   <CurrencyInput
                     placeholder="Premium"
                     value={b.benefit_premium}
-                    onChange={(v) =>
-                      setNewPolicy((prev) => ({
-                        ...prev,
-                        customBenefits: prev.customBenefits.map((cb, i) =>
-                          i === idx ? { ...cb, benefit_premium: v ?? null } : cb,
-                        ),
-                      }))
-                    }
+                    onChange={(v) => updateNewPolicyBenefit(idx, { benefit_premium: v ?? null })}
                     className="h-8 w-24"
                   />
                   <CurrencyInput
                     placeholder="Bonus"
                     value={b.renewal_bonus}
-                    onChange={(v) =>
-                      setNewPolicy((prev) => ({
-                        ...prev,
-                        customBenefits: prev.customBenefits.map((cb, i) =>
-                          i === idx ? { ...cb, renewal_bonus: v ?? null } : cb,
-                        ),
-                      }))
-                    }
+                    onChange={(v) => updateNewPolicyBenefit(idx, { renewal_bonus: v ?? null })}
                     className="h-8 w-24"
                   />
                   <Select
                     value={b.benefit_unit ?? "lump_sum"}
-                    onValueChange={(v) =>
-                      setNewPolicy((prev) => ({
-                        ...prev,
-                        customBenefits: prev.customBenefits.map((cb, i) =>
-                          i === idx ? { ...cb, benefit_unit: v === "lump_sum" ? null : v } : cb,
-                        ),
-                      }))
-                    }
+                    onValueChange={(v) => updateNewPolicyBenefit(idx, { benefit_unit: v === "lump_sum" ? null : v })}
                   >
                     <SelectTrigger className="h-8 w-24">
                       <SelectValue />
@@ -3936,12 +4042,7 @@ function InsuranceSection({
                     type="button"
                     size="sm"
                     variant="ghost"
-                    onClick={() =>
-                      setNewPolicy((prev) => ({
-                        ...prev,
-                        customBenefits: prev.customBenefits.filter((_, i) => i !== idx),
-                      }))
-                    }
+                    onClick={() => removeNewPolicyBenefit(idx)}
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
@@ -4172,34 +4273,7 @@ function InsuranceSection({
                 <TableCell onClick={(ev) => ev.stopPropagation()}>
                   <Select
                     value={e.type}
-                    onValueChange={(v) => {
-                      const fields = getFieldsForInsurancePolicyRow(v, e.frequency as "monthly" | "yearly")
-                      const prev_e = editing[p.id] ?? p
-                      const newType = v as InsuranceType
-                      const allowed = ALLOWED_COVERAGES_BY_POLICY[newType] ?? []
-                      const customBenefits = prev_e.coverages.filter((c) => !c.coverage_type)
-                      const keptCoverages = prev_e.coverages.filter((c) => c.coverage_type && allowed.includes(c.coverage_type as CoverageType))
-                      const defaults = DEFAULT_COVERAGES_BY_POLICY[newType] ?? []
-                      const missingDefaults = defaults
-                        .filter((ct) => !keptCoverages.some((c) => c.coverage_type === ct))
-                        .map((ct) => ({ id: "", coverage_type: ct as string | null, coverage_amount: 0, benefit_name: COVERAGE_TYPE_LABELS[ct], benefit_premium: null, renewal_bonus: null, benefit_expiry_date: null, benefit_unit: null, sort_order: 0 }))
-                      setEditing((prev) => ({
-                        ...prev,
-                        [p.id]: {
-                          ...(prev[p.id] ?? p),
-                          type: v,
-                          coverages: [...keptCoverages, ...missingDefaults, ...customBenefits],
-                          current_amount: fields.showCurrentAmount ? prev_e.current_amount : null,
-                          end_date: fields.showEndDate ? prev_e.end_date : null,
-                          sub_type: fields.showSubType ? prev_e.sub_type : null,
-                          rider_name: fields.showRider ? prev_e.rider_name : null,
-                          rider_premium: fields.showRider ? prev_e.rider_premium : null,
-                          maturity_value: fields.showMaturityValue ? prev_e.maturity_value : null,
-                          cash_value: fields.showCashValue ? prev_e.cash_value : null,
-                          coverage_till_age: fields.showCoverageTillAge ? prev_e.coverage_till_age : null,
-                        },
-                      }))
-                    }}
+                    onValueChange={(v) => changeEditingPolicyType(p, v)}
                   >
                     <SelectTrigger className="h-8 w-36">
                       <SelectValue />
@@ -4284,35 +4358,13 @@ function InsuranceSection({
                               <div key={ct} className="flex items-center gap-2">
                                 <Switch
                                   checked={isChecked}
-                                  onCheckedChange={(checked) => {
-                                    const prev_e = editing[p.id] ?? p
-                                    setEditing((prev) => ({
-                                      ...prev,
-                                      [p.id]: {
-                                        ...prev_e,
-                                        coverages: checked
-                                          ? [...prev_e.coverages, { id: "", coverage_type: ct as string | null, coverage_amount: 0, benefit_name: COVERAGE_TYPE_LABELS[ct], benefit_premium: null, renewal_bonus: null, benefit_expiry_date: null, benefit_unit: null, sort_order: prev_e.coverages.length }]
-                                          : prev_e.coverages.filter((c) => c.coverage_type !== ct),
-                                      },
-                                    }))
-                                  }}
+                                  onCheckedChange={(checked) => toggleEditingCoverage(p, ct, checked)}
                                 />
                                 <span className="text-sm w-44">{COVERAGE_TYPE_LABELS[ct]}</span>
                                 {isChecked && (
                                   <CurrencyInput
                                     value={cov.coverage_amount}
-                                    onChange={(v) => {
-                                      const prev_e = editing[p.id] ?? p
-                                      setEditing((prev) => ({
-                                        ...prev,
-                                        [p.id]: {
-                                          ...prev_e,
-                                          coverages: prev_e.coverages.map((c) =>
-                                            c.coverage_type === ct ? { ...c, coverage_amount: v ?? 0 } : c,
-                                          ),
-                                        },
-                                      }))
-                                    }}
+                                    onChange={(v) => updateEditingCoverageAmount(p, ct, v)}
                                     className="h-8 w-32"
                                   />
                                 )}
@@ -4324,64 +4376,19 @@ function InsuranceSection({
                           <div key={`${p.id}-custom-${cb.benefit_name ?? idx}`} className="flex items-center gap-2 rounded-md border border-dashed p-2">
                             <Input
                               value={cb.benefit_name ?? ""}
-                              onChange={(ev) => {
-                                const prev_e = editing[p.id] ?? p
-                                const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
-                                let ci = 0
-                                setEditing((prev) => ({
-                                  ...prev,
-                                  [p.id]: {
-                                    ...prev_e,
-                                    coverages: prev_e.coverages.map((c) => {
-                                      if (c.coverage_type) return c
-                                      if (ci++ === customIdx) return { ...c, benefit_name: ev.target.value || null }
-                                      return c
-                                    }),
-                                  },
-                                }))
-                              }}
+                              onChange={(ev) => updateEditingCustomBenefit(p, cb, { benefit_name: ev.target.value || null })}
                               placeholder="Benefit name"
                               className="h-8 w-44"
                             />
                             <CurrencyInput
                               value={cb.coverage_amount}
-                              onChange={(v) => {
-                                const prev_e = editing[p.id] ?? p
-                                const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
-                                let ci = 0
-                                setEditing((prev) => ({
-                                  ...prev,
-                                  [p.id]: {
-                                    ...prev_e,
-                                    coverages: prev_e.coverages.map((c) => {
-                                      if (c.coverage_type) return c
-                                      if (ci++ === customIdx) return { ...c, coverage_amount: v ?? 0 }
-                                      return c
-                                    }),
-                                  },
-                                }))
-                              }}
+                              onChange={(v) => updateEditingCustomBenefit(p, cb, { coverage_amount: v ?? 0 })}
                               placeholder="Coverage"
                               className="h-8 w-28"
                             />
                             <CurrencyInput
                               value={cb.benefit_premium}
-                              onChange={(v) => {
-                                const prev_e = editing[p.id] ?? p
-                                const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
-                                let ci = 0
-                                setEditing((prev) => ({
-                                  ...prev,
-                                  [p.id]: {
-                                    ...prev_e,
-                                    coverages: prev_e.coverages.map((c) => {
-                                      if (c.coverage_type) return c
-                                      if (ci++ === customIdx) return { ...c, benefit_premium: v ?? null }
-                                      return c
-                                    }),
-                                  },
-                                }))
-                              }}
+                              onChange={(v) => updateEditingCustomBenefit(p, cb, { benefit_premium: v ?? null })}
                               placeholder="Premium"
                               className="h-8 w-24"
                             />
@@ -4389,21 +4396,7 @@ function InsuranceSection({
                               size="sm"
                               variant="ghost"
                               className="h-8 w-8 p-0"
-                              onClick={() => {
-                                const prev_e = editing[p.id] ?? p
-                                const customIdx = prev_e.coverages.filter((c) => !c.coverage_type).indexOf(cb)
-                                let ci = 0
-                                setEditing((prev) => ({
-                                  ...prev,
-                                  [p.id]: {
-                                    ...prev_e,
-                                    coverages: prev_e.coverages.filter((c) => {
-                                      if (c.coverage_type) return true
-                                      return ci++ !== customIdx
-                                    }),
-                                  },
-                                }))
-                              }}
+                              onClick={() => removeEditingCustomBenefit(p, cb)}
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
