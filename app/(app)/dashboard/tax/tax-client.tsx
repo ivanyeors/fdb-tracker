@@ -144,6 +144,11 @@ function daysLeftColor(daysLeft: number): string {
   return "text-red-600 dark:text-red-400"
 }
 
+function formatSignedAmount(diff: number): string {
+  const sign = diff >= 0 ? "+" : "-"
+  return `${sign}$${formatCurrency(Math.abs(diff))}`
+}
+
 function diffColor(diff: number | null | undefined): string {
   if (diff == null) return "text-muted-foreground"
   if (diff < 0) return "text-green-600 dark:text-green-400"
@@ -861,9 +866,7 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
                               diffColor(diff)
                             }`}
                           >
-                            {diff != null
-                              ? `${diff >= 0 ? "+" : "-"}$${formatCurrency(Math.abs(diff))}`
-                              : "—"}
+                            {diff == null ? "—" : formatSignedAmount(diff)}
                           </td>
                         </tr>
                       )

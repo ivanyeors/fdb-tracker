@@ -280,9 +280,11 @@ export function TaxComparison({
             <p
               className={`mt-1 text-xl font-semibold tabular-nums tracking-tight ${diffColor(diff)}`}
             >
-              {diff != null
-                ? `${diff >= 0 ? "+" : ""}$${formatCurrency(diff)}`
-                : "—"}
+              {(() => {
+                if (diff == null) return "—"
+                const sign = diff >= 0 ? "+" : ""
+                return `${sign}$${formatCurrency(diff)}`
+              })()}
             </p>
           </div>
         </div>

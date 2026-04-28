@@ -32,6 +32,15 @@ const NODE_RADIUS = 22
 const LABEL_FONT_SIZE = 9
 const CLUSTER_PADDING = 16
 
+function getEdgeStrokeWidth(
+  isSelected: boolean,
+  isHoveredOrHighlighted: boolean
+): number {
+  if (isSelected) return 2.5
+  if (isHoveredOrHighlighted) return 2
+  return 1.2
+}
+
 function getEdgeColor(
   isSelected: boolean,
   isHighlighted: boolean,
@@ -668,9 +677,10 @@ function NetworkGraphInner({
                     d={bezierPath(source.x, source.y, target.x, target.y)}
                     fill="none"
                     stroke={getEdgeColor(isSelected, isHighlighted, source.type)}
-                    strokeWidth={
-                      isSelected ? 2.5 : isHovered || isHighlighted ? 2 : 1.2
-                    }
+                    strokeWidth={getEdgeStrokeWidth(
+                      isSelected,
+                      isHovered || isHighlighted
+                    )}
                     strokeOpacity={getEdgeOpacity(
                       dimmed,
                       isSelected,
