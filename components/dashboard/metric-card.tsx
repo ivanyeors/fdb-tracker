@@ -59,11 +59,10 @@ export function MetricCard({
         </div>
         <p className="mt-1 truncate text-2xl font-bold tracking-tight">
           {prefix}
-          {typeof value === "number"
-            ? prefix === "$"
-              ? formatCurrency(value)
-              : value.toLocaleString()
-            : value}
+          {(() => {
+            if (typeof value !== "number") return value
+            return prefix === "$" ? formatCurrency(value) : value.toLocaleString()
+          })()}
           {suffix}
         </p>
         {subtitle && (

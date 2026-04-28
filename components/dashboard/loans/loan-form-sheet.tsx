@@ -453,7 +453,10 @@ export function LoanFormSheet({
 
         <ResponsiveSheetFooter className="px-4 pb-4">
           <Button onClick={() => loanImpact.requestChange(handleSave)} disabled={saving} className="w-full">
-            {saving ? "Saving..." : isEdit ? "Update Loan" : "Add Loan"}
+            {(() => {
+              if (saving) return "Saving..."
+              return isEdit ? "Update Loan" : "Add Loan"
+            })()}
           </Button>
         </ResponsiveSheetFooter>
       </ResponsiveSheetContent>

@@ -54,14 +54,13 @@ export default function IncomePage() {
         pay_frequency: value as IncomeConfig["pay_frequency"],
       }
     } else {
+      const numValue = (() => {
+        if (value === null || value === undefined || value === "") return null
+        return typeof value === "number" ? value : Number(value)
+      })()
       updated[index] = {
         ...updated[index],
-        [field]:
-          value === null || value === undefined || value === ""
-            ? null
-            : typeof value === "number"
-              ? value
-              : Number(value),
+        [field]: numValue,
       }
     }
     setIncomeConfigs(updated)

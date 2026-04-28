@@ -67,6 +67,13 @@ export type CollectibleCard = {
   updated_at: string
 }
 
+function pnlColor(value: number | null | undefined, zeroClass = ""): string {
+  if (value == null) return zeroClass
+  if (value > 0) return "text-emerald-600 dark:text-emerald-400"
+  if (value < 0) return "text-red-600 dark:text-red-400"
+  return zeroClass
+}
+
 function pnl(item: CollectibleCard) {
   if (item.current_value == null) return null
   const cost = item.purchase_price * item.quantity
@@ -206,13 +213,7 @@ export function CardsTab({
           <div>
             <span className="text-muted-foreground">P&L: </span>
             <span
-              className={`font-medium ${
-                summary.gain > 0
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : summary.gain < 0
-                    ? "text-red-600 dark:text-red-400"
-                    : ""
-              }`}
+              className={`font-medium ${pnlColor(summary.gain)}`}
             >
               {summary.gain >= 0 ? "+" : ""}${formatCurrency(summary.gain)} (
               {summary.gainPct >= 0 ? "+" : ""}
@@ -223,15 +224,18 @@ export function CardsTab({
       )}
 
       {/* Item list */}
-      {isLoading ? (
-        <ChartSkeleton height={256} className="rounded-xl" />
-      ) : filtered.length === 0 ? (
+      {(() => {
+        if (isLoading) return <ChartSkeleton height={256} className="rounded-xl" />
+        if (filtered.length === 0) {
+          return (
         <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
           {items.length === 0
             ? "No items yet. Use Add item to get started."
             : "No items match this filter."}
         </div>
-      ) : (
+          )
+        }
+        return (
         <div className="space-y-2">
           {filtered.map((item) => {
             const itemPnl = pnl(item)
@@ -273,13 +277,7 @@ export function CardsTab({
                     </div>
                     {itemPnl != null ? (
                       <div
-                        className={`text-xs ${
-                          itemPnl > 0
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : itemPnl < 0
-                              ? "text-red-600 dark:text-red-400"
-                              : "text-muted-foreground"
-                        }`}
+                        className={`text-xs ${pnlColor(itemPnl, "text-muted-foreground")}`}
                       >
                         {itemPnl >= 0 ? "+" : ""}${formatCurrency(itemPnl)}
                         {itemPnlPct != null &&
@@ -316,7 +314,8 @@ export function CardsTab({
             )
           })}
         </div>
-      )}
+        )
+      })()}
 
       {/* Add Sheet */}
       <Sheet open={addOpen} onOpenChange={setAddOpen}>

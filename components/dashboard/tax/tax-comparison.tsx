@@ -58,6 +58,13 @@ const RELIEF_PREVIEW_TYPES: ReadonlyArray<ReliefPreviewType> = [
 
 type ReliefRow = { amount: number }
 
+function diffColor(diff: number | null | undefined): string {
+  if (diff == null) return "text-muted-foreground"
+  if (diff < 0) return "text-green-600 dark:text-green-400"
+  if (diff > 0) return "text-red-600 dark:text-red-400"
+  return "text-muted-foreground"
+}
+
 function emptyReliefPreviewRows(): Record<string, ReliefRow> {
   return Object.fromEntries(
     RELIEF_PREVIEW_TYPES.map((t) => [t.id, { amount: 0 }])
@@ -271,13 +278,7 @@ export function TaxComparison({
               Difference (actual − estimate)
             </p>
             <p
-              className={`mt-1 text-xl font-semibold tabular-nums tracking-tight ${
-                diff != null && diff < 0
-                  ? "text-green-600 dark:text-green-400"
-                  : diff != null && diff > 0
-                    ? "text-red-600 dark:text-red-400"
-                    : "text-muted-foreground"
-              }`}
+              className={`mt-1 text-xl font-semibold tabular-nums tracking-tight ${diffColor(diff)}`}
             >
               {diff != null
                 ? `${diff >= 0 ? "+" : ""}$${formatCurrency(diff)}`
@@ -401,7 +402,9 @@ export function TaxComparison({
                 })}
               </div>
 
-              {extraCountedRelief > 0 && chargeableDelta > 0 && taxPreviewDelta ? (
+              {(() => {
+                if (extraCountedRelief > 0 && chargeableDelta > 0 && taxPreviewDelta) {
+                  return (
                 <div className="rounded-lg border border-dashed bg-background/60 px-3 py-2 text-xs sm:text-sm">
                   <p className="font-medium text-foreground">Preview impact (model)</p>
                   <p className="mt-1 text-muted-foreground">
@@ -420,12 +423,18 @@ export function TaxComparison({
                     (YA {year} rebate rules applied).
                   </p>
                 </div>
-              ) : extraCountedRelief > 0 ? (
+                  )
+                }
+                if (extraCountedRelief > 0) {
+                  return (
                 <p className="text-xs text-muted-foreground">
                   Extra reliefs do not change chargeable income further (e.g. already
                   at the $80k cap in this model).
                 </p>
-              ) : null}
+                  )
+                }
+                return null
+              })()}
             </div>
 
             <Dialog

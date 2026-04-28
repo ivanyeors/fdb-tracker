@@ -41,11 +41,11 @@ interface Goal {
 export function SavingsGoalsSection() {
   const { activeProfileId, activeFamilyId } = useActiveProfile()
 
-  const apiPath = activeProfileId
-    ? `/api/goals?profileId=${activeProfileId}`
-    : activeFamilyId
-      ? `/api/goals?familyId=${activeFamilyId}`
-      : null
+  const apiPath = (() => {
+    if (activeProfileId) return `/api/goals?profileId=${activeProfileId}`
+    if (activeFamilyId) return `/api/goals?familyId=${activeFamilyId}`
+    return null
+  })()
 
   const { data: goals = [], isLoading } = useApi<Goal[]>(apiPath)
 
@@ -66,7 +66,9 @@ export function SavingsGoalsSection() {
         description="Track your progress towards your financial objectives."
       />
 
-      {isLoading ? (
+      {(() => {
+        if (isLoading) {
+          return (
         <>
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard label="" value={0} loading />
@@ -89,11 +91,16 @@ export function SavingsGoalsSection() {
             ))}
           </div>
         </>
-      ) : goals.length === 0 ? (
+          )
+        }
+        if (goals.length === 0) {
+          return (
         <div className="flex h-32 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
           No savings goals found.
         </div>
-      ) : (
+          )
+        }
+        return (
         <>
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard label="Total Saved" value={totalCurrent} prefix="$" />
@@ -213,7 +220,8 @@ export function SavingsGoalsSection() {
             })}
           </div>
         </>
-      )}
+        )
+      })()}
     </div>
   )
 }

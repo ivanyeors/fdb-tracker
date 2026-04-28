@@ -229,24 +229,20 @@ export function StatementUploadZone({
               key={`queue-${item.file?.name ?? item.status}`}
               className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
             >
-              {item.status === "parsing" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-              ) : item.status === "parsed" ? (
-                <FileText className="h-3.5 w-3.5 text-green-600" />
-              ) : item.status === "error" ? (
-                <X className="h-3.5 w-3.5 text-red-600" />
-              ) : (
-                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-              )}
+              {(() => {
+                if (item.status === "parsing") return <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                if (item.status === "parsed") return <FileText className="h-3.5 w-3.5 text-green-600" />
+                if (item.status === "error") return <X className="h-3.5 w-3.5 text-red-600" />
+                return <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+              })()}
               <span className="flex-1 truncate">{item.file.name}</span>
               <span className="text-xs text-muted-foreground">
-                {item.status === "parsing"
-                  ? "Parsing..."
-                  : item.status === "parsed"
-                    ? `${item.result?.extracted?.transactions?.length ?? 0} txns`
-                    : item.status === "error"
-                      ? item.error
-                      : "Waiting..."}
+                {(() => {
+                  if (item.status === "parsing") return "Parsing..."
+                  if (item.status === "parsed") return `${item.result?.extracted?.transactions?.length ?? 0} txns`
+                  if (item.status === "error") return item.error
+                  return "Waiting..."
+                })()}
               </span>
             </div>
           ))}

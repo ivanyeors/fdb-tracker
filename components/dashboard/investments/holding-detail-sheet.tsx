@@ -227,14 +227,17 @@ export function HoldingDetailSheet({
               </section>
             ) : null}
 
-            {txLoading ? (
+            {(() => {
+              if (txLoading) {
+                return (
               <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" />
                 Loading transactions…
               </div>
-            ) : txError ? (
-              <p className="py-4 text-sm text-destructive">{txError}</p>
-            ) : (
+                )
+              }
+              if (txError) return <p className="py-4 text-sm text-destructive">{txError}</p>
+              return (
               <>
                 <section className="space-y-2">
                   <h3 className="text-sm font-medium">Buys</h3>
@@ -258,7 +261,8 @@ export function HoldingDetailSheet({
                   )}
                 </section>
               </>
-            )}
+              )
+            })()}
           </div>
         </ScrollArea>
       </SheetContent>

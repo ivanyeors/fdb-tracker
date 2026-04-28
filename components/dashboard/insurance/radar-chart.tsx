@@ -29,6 +29,18 @@ type RadarChartProps = {
 
 const RING_LEVELS = [25, 50, 75, 100]
 
+function getDominantBaseline(isBottom: boolean, isTop: boolean): "hanging" | "auto" | "central" {
+  if (isBottom) return "hanging"
+  if (isTop) return "auto"
+  return "central"
+}
+
+function getTspanDy(li: number, isTop: boolean, totalLines: number): string {
+  if (li !== 0) return "1.2em"
+  if (isTop) return `-${(totalLines - 1) * 0.6}em`
+  return "0"
+}
+
 function splitLabel(label: string): string[] {
   if (label.length <= 14) return [label]
   if (label.includes("/"))
@@ -196,7 +208,7 @@ function RadarChartInner({
                 x={point.x}
                 y={point.y}
                 textAnchor="middle"
-                dominantBaseline={isBottom ? "hanging" : isTop ? "auto" : "central"}
+                dominantBaseline={getDominantBaseline(isBottom, isTop)}
                 className={`text-[12px] font-medium ${
                   hoveredAxis === i
                     ? "fill-foreground"
@@ -210,7 +222,7 @@ function RadarChartInner({
                     <tspan
                       key={`${axis}-${line}`}
                       x={point.x}
-                      dy={li === 0 ? (isTop ? `-${(lines.length - 1) * 0.6}em` : "0") : "1.2em"}
+                      dy={getTspanDy(li, isTop, lines.length)}
                     >
                       {line}
                     </tspan>

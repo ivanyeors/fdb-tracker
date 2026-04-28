@@ -128,15 +128,10 @@ export function HoldingsTable({
             >
               <span className="inline-flex items-center gap-1">
                 {col.label}
-                {sortKey === col.key ? (
-                  sortDir === "asc" ? (
-                    <ArrowUp className="size-3" />
-                  ) : (
-                    <ArrowDown className="size-3" />
-                  )
-                ) : (
-                  <ChevronsUpDown className="size-3 opacity-30" />
-                )}
+                {(() => {
+                  if (sortKey !== col.key) return <ChevronsUpDown className="size-3 opacity-30" />
+                  return sortDir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />
+                })()}
               </span>
             </TableHead>
           ))}
@@ -200,13 +195,15 @@ export function HoldingsTable({
               <TableCell>
                 {h.currentValue == null ? "—" : `${fmt(pctOfPortfolio(h))}%`}
               </TableCell>
-              {showActions && singleLot?.id ? (
+              {(() => {
+                if (showActions && singleLot?.id) {
+                  return (
                 <TableCell
                   className="text-right"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex justify-end gap-0.5">
-                    {singleLot.units > 0 ? (
+                    {singleLot.units > 0 && (
                       <SellHoldingDialog
                         initial={{
                           symbol: singleLot.symbol,
@@ -216,7 +213,7 @@ export function HoldingsTable({
                         defaultPrice={singleLot.currentPrice}
                         onSuccess={onChanged}
                       />
-                    ) : null}
+                    )}
                     <EditHoldingDialog
                       initial={{
                         id: singleLot.id,
@@ -234,14 +231,20 @@ export function HoldingsTable({
                     />
                   </div>
                 </TableCell>
-              ) : showActions ? (
+                  )
+                }
+                if (showActions) {
+                  return (
                 <TableCell
                   className="text-right text-muted-foreground"
                   onClick={(e) => e.stopPropagation()}
                 >
                   —
                 </TableCell>
-              ) : null}
+                  )
+                }
+                return null
+              })()}
             </TableRow>
           )
         })}

@@ -1133,13 +1133,19 @@ export function IlpFundImportTab({
 
   const singleNewPremiumInvalid =
     productId === CREATE_NEW_ILP &&
-    (needsSingleAllocStep
-      ? singleGroupPremiumAmount == null ||
-        (singleGroupPremiumMode === "monthly" && singleGroupPremiumAmount <= 0) ||
-        (singleGroupPremiumMode === "one_time" && singleGroupPremiumAmount < 0)
-      : singlePremiumPaymentMode === "monthly"
-        ? newMonthlyPremium == null || newMonthlyPremium <= 0
-        : newMonthlyPremium == null || newMonthlyPremium < 0)
+    (() => {
+      if (needsSingleAllocStep) {
+        return (
+          singleGroupPremiumAmount == null ||
+          (singleGroupPremiumMode === "monthly" && singleGroupPremiumAmount <= 0) ||
+          (singleGroupPremiumMode === "one_time" && singleGroupPremiumAmount < 0)
+        )
+      }
+      if (singlePremiumPaymentMode === "monthly") {
+        return newMonthlyPremium == null || newMonthlyPremium <= 0
+      }
+      return newMonthlyPremium == null || newMonthlyPremium < 0
+    })()
 
   const singleConfirmDisabled =
     step === "saving" ||
@@ -1187,11 +1193,10 @@ export function IlpFundImportTab({
           (!r.newProductName.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(r.newEndDate))),
     )
 
-  const confirmDisabled = isMulti
-    ? saveMultiAsIndividual
-      ? multiIndividualDisabled
-      : multiGroupDisabled
-    : singleConfirmDisabled
+  const confirmDisabled = (() => {
+    if (!isMulti) return singleConfirmDisabled
+    return saveMultiAsIndividual ? multiIndividualDisabled : multiGroupDisabled
+  })()
 
   const inner = (
     <>

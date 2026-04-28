@@ -358,9 +358,14 @@ export function InvestmentValueChart({
           ))}
         </div>
       </div>
-      {isLoading ? (
+      {(() => {
+        if (isLoading) {
+          return (
         <div className="animate-pulse rounded-lg bg-muted" style={{ height: chartHeight }} />
-      ) : series.length > 0 ? (
+          )
+        }
+        if (series.length > 0) {
+          return (
         <div className="w-full" style={{ height: chartHeight }}>
           <ParentSize>
             {({ width, height }) => (
@@ -372,11 +377,14 @@ export function InvestmentValueChart({
             )}
           </ParentSize>
         </div>
-      ) : (
+          )
+        }
+        return (
         <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
           No history yet. Daily snapshots will appear after the cron runs.
         </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

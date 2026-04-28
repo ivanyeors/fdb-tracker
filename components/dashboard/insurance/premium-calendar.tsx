@@ -52,6 +52,12 @@ export function PremiumCalendar({ policies }: PremiumCalendarProps) {
   )
 }
 
+function getCalendarBarClass(isCurrent: boolean, hasYearly: boolean): string {
+  if (isCurrent) return "bg-primary"
+  if (hasYearly) return "bg-yellow-500"
+  return "bg-muted-foreground/40"
+}
+
 function MonthCard({
   entry,
   isCurrent,
@@ -95,7 +101,7 @@ function MonthCard({
         <div
           className={cn(
             "h-full rounded-full transition-all",
-            isCurrent ? "bg-primary" : hasYearly ? "bg-yellow-500" : "bg-muted-foreground/40",
+            getCalendarBarClass(isCurrent, hasYearly),
           )}
           style={{ width: `${Math.max(intensity * 100, 2)}%` }}
         />
@@ -111,19 +117,27 @@ function MonthCard({
               p.isCpf ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground",
             )}
           >
-            {p.isCpf ? (
+            {(() => {
+              if (p.isCpf) {
+                return (
               <span className="shrink-0 text-[8px]" title="CPF premium">
                 ◆
               </span>
-            ) : p.isRecurring ? (
+                )
+              }
+              if (p.isRecurring) {
+                return (
               <span className="shrink-0 text-[8px]" title="Monthly recurring">
                 ↻
               </span>
-            ) : (
+                )
+              }
+              return (
               <span className="shrink-0 text-[8px] text-yellow-600" title="Yearly premium">
                 ★
               </span>
-            )}
+              )
+            })()}
             <span className="min-w-0 flex-1 truncate">{p.name}</span>
             <span className="shrink-0 tabular-nums">
               ${formatCurrency(p.amount)}

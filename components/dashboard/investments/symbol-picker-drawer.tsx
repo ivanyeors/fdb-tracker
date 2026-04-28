@@ -158,19 +158,29 @@ export function SymbolPickerDrawer({
         </div>
 
         <ScrollArea className="flex-1 -mx-4 px-4 min-h-0">
-          {query.trim().length < 2 ? (
+          {(() => {
+            if (query.trim().length < 2) {
+              return (
             <p className="text-sm text-muted-foreground py-8 text-center">
               Type 2+ characters to search
             </p>
-          ) : searchError ? (
+              )
+            }
+            if (searchError) {
+              return (
             <p className="text-sm text-destructive py-8 text-center">
               {searchError}
             </p>
-          ) : results.length === 0 && !isSearching ? (
+              )
+            }
+            if (results.length === 0 && !isSearching) {
+              return (
             <p className="text-sm text-muted-foreground py-8 text-center">
               No results found for &quot;{query.trim()}&quot;
             </p>
-          ) : (
+              )
+            }
+            return (
             <div className="space-y-0.5 pr-2">
               {results.map((r) => {
                 const handleSelect = () =>
@@ -228,7 +238,8 @@ export function SymbolPickerDrawer({
                 )
               })}
             </div>
-          )}
+            )
+          })()}
         </ScrollArea>
 
         {multiSelect && selected.size > 0 && (

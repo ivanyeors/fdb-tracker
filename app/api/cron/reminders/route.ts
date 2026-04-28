@@ -308,14 +308,12 @@ export async function GET(request: NextRequest) {
         dashboardUrl,
       }
 
-      const effectivePromptType =
-        schedule.prompt_type === "income"
-          ? `income_${schedule.frequency}`
-          : schedule.prompt_type === "insurance"
-            ? `insurance_${schedule.frequency}`
-            : schedule.prompt_type === "tax"
-              ? "tax_yearly"
-              : schedule.prompt_type
+      const effectivePromptType = (() => {
+        if (schedule.prompt_type === "income") return `income_${schedule.frequency}`
+        if (schedule.prompt_type === "insurance") return `insurance_${schedule.frequency}`
+        if (schedule.prompt_type === "tax") return "tax_yearly"
+        return schedule.prompt_type
+      })()
 
       const message = await generateMessage(
         effectivePromptType,

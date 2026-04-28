@@ -370,16 +370,17 @@ export function AddCardForm({
       )}
 
       <Button type="submit" className="w-full" disabled={saving}>
-        {saving ? (
+        {(() => {
+          if (saving) {
+            return (
           <>
             <Loader2 className="mr-2 size-4 animate-spin" />
             Saving...
           </>
-        ) : isEdit ? (
-          "Update item"
-        ) : (
-          "Add item"
-        )}
+            )
+          }
+          return isEdit ? "Update item" : "Add item"
+        })()}
       </Button>
     </form>
   )

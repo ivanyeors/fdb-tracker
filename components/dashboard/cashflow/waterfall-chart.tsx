@@ -427,11 +427,8 @@ function WaterfallChartInner({
             const barX = xScale(xStart) ?? 0
             const barWidth = Math.max((xScale(xEnd) ?? 0) - barX, 2)
             const isAnchor = bar.type === "anchor"
-            const fill = isAnchor
-              ? NEUTRAL_FILL
-              : bar.value >= 0
-                ? POSITIVE_FILL
-                : NEGATIVE_FILL
+            const valueFill = bar.value >= 0 ? POSITIVE_FILL : NEGATIVE_FILL
+            const fill = isAnchor ? NEUTRAL_FILL : valueFill
 
             return (
               <g key={bar.name}>

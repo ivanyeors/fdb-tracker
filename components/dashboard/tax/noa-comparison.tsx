@@ -1,7 +1,6 @@
 "use client"
 
 import { cn, formatCurrency } from "@/lib/utils"
-import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -50,6 +49,12 @@ interface NoaComparisonProps {
     }>
   }
   readonly className?: string
+}
+
+function noaDueColor(daysUntilDue: number): string {
+  if (daysUntilDue > 30) return "text-green-600 dark:text-green-400"
+  if (daysUntilDue > 0) return "text-amber-600 dark:text-amber-400"
+  return "text-red-600 dark:text-red-400"
 }
 
 function DeltaBadge({
@@ -149,18 +154,14 @@ export function NoaComparison({
               variant="outline"
               className={cn(
                 "text-xs",
-                daysUntilDue > 30
-                  ? "text-green-600 dark:text-green-400"
-                  : daysUntilDue > 0
-                    ? "text-amber-600 dark:text-amber-400"
-                    : "text-red-600 dark:text-red-400"
+                noaDueColor(daysUntilDue)
               )}
             >
-              {daysUntilDue > 0
-                ? `Due in ${daysUntilDue}d`
-                : daysUntilDue === 0
-                  ? "Due today"
-                  : `Overdue ${Math.abs(daysUntilDue)}d`}
+              {(() => {
+                if (daysUntilDue > 0) return `Due in ${daysUntilDue}d`
+                if (daysUntilDue === 0) return "Due today"
+                return `Overdue ${Math.abs(daysUntilDue)}d`
+              })()}
             </Badge>
           )}
         </div>
@@ -204,7 +205,7 @@ export function NoaComparison({
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="ml-4 space-y-0.5 border-l pl-3">
-              {(noaData.reliefs_json ?? []).map((r, i) => {
+              {(noaData.reliefs_json ?? []).map((r) => {
                 const ourMatch = estimate.reliefBreakdown.find(
                   (b) =>
                     b.type === r.type ||

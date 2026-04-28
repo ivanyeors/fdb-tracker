@@ -63,11 +63,7 @@ export function GlobalToolbar() {
       <div
         className={cn(
           "pointer-events-none fixed left-1/2 z-40 -translate-x-1/2 transition-[bottom] duration-200 ease-out",
-          isMobile
-            ? hidden
-              ? "bottom-[calc(env(safe-area-inset-bottom)+16px)]"
-              : "bottom-[calc(env(safe-area-inset-bottom)+88px)]"
-            : "bottom-4"
+          getToolbarBottomClass(isMobile, hidden)
         )}
       >
         <div
@@ -108,6 +104,13 @@ export function GlobalToolbar() {
       <GlobalToolbarChat open={chatOpen} onOpenChange={setChatOpen} />
     </>
   )
+}
+
+function getToolbarBottomClass(isMobile: boolean, hidden: boolean): string {
+  if (!isMobile) return "bottom-4"
+  return hidden
+    ? "bottom-[calc(env(safe-area-inset-bottom)+16px)]"
+    : "bottom-[calc(env(safe-area-inset-bottom)+88px)]"
 }
 
 function ToolbarIconButton({

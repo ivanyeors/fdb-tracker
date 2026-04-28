@@ -36,7 +36,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const modeParam = request.nextUrl.searchParams.get("mode")
-    const mode = modeParam === "new-family" ? "new-family" : modeParam === "resume" ? "resume" : "first-time"
+    const mode = (() => {
+      if (modeParam === "new-family") return "new-family"
+      if (modeParam === "resume") return "resume"
+      return "first-time"
+    })()
     const supabase = createSupabaseAdmin()
 
     const { data: household } = await supabase

@@ -129,9 +129,12 @@ function FullVariant() {
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Upcoming
           </p>
-          {upcoming.length > 0 ? (
-            upcoming.map((e) => <EventCard key={e.id} event={e} />)
-          ) : next ? (
+          {(() => {
+            if (upcoming.length > 0) {
+              return upcoming.map((e) => <EventCard key={e.id} event={e} />)
+            }
+            if (next) {
+              return (
             <Alert className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
               <Calendar className="size-4 text-blue-500 dark:text-blue-400" />
               <AlertTitle>
@@ -142,11 +145,14 @@ function FullVariant() {
               </AlertTitle>
               <AlertDescription>{next.description}</AlertDescription>
             </Alert>
-          ) : (
+              )
+            }
+            return (
             <p className="text-sm text-muted-foreground">
               No upcoming events in the next 7 days.
             </p>
-          )}
+            )
+          })()}
         </div>
       </div>
     </div>

@@ -605,7 +605,9 @@ export function IlpGroupFundsEditSheet({
                 </div>
               </div>
 
-              {addMode === "existing" ? (
+              {(() => {
+                if (addMode === "existing") {
+                  return (
                 <div className="space-y-3">
                   <p className="text-xs text-muted-foreground">
                     Select an existing fund already in your family to add to this group.
@@ -669,7 +671,10 @@ export function IlpGroupFundsEditSheet({
                     )
                   })()}
                 </div>
-              ) : addMode === "manual" ? (
+                  )
+                }
+                if (addMode === "manual") {
+                  return (
                 <form onSubmit={handleAddFundSubmit} className="space-y-3">
                   <p className="text-xs text-muted-foreground">
                     Creates a new ILP product, then include it in the allocation list and
@@ -709,7 +714,9 @@ export function IlpGroupFundsEditSheet({
                     Add fund
                   </Button>
                 </form>
-              ) : (
+                  )
+                }
+                return (
                 <div className="space-y-3">
                   <p className="text-xs text-muted-foreground">
                     Upload a Tokio Marine fund report (.mhtml) to extract fund details
@@ -920,7 +927,8 @@ export function IlpGroupFundsEditSheet({
                     </form>
                   ) : null}
                 </div>
-              )}
+                )
+              })()}
             </div>
           </div>
 

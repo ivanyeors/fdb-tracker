@@ -261,9 +261,9 @@ function WaterfallMiniChart({ bars, width }: { readonly bars: WaterfallBarItem[]
             const isAnchor = bar.type === "anchor"
             const isPerceived = bar.type === "perceived"
             const isAnchorOrPerceived = isAnchor || isPerceived
-            const fill = isAnchorOrPerceived
-              ? NEUTRAL_FILL
-              : bar.value >= 0 ? POSITIVE_FILL : NEGATIVE_FILL
+            const valueFill = bar.value >= 0 ? POSITIVE_FILL : NEGATIVE_FILL
+            const fill = isAnchorOrPerceived ? NEUTRAL_FILL : valueFill
+            const barFillOpacity = isPerceived ? 0.2 : isAnchor ? 0.5 : 1
 
             return (
               <g key={bar.name}>
@@ -272,10 +272,10 @@ function WaterfallMiniChart({ bars, width }: { readonly bars: WaterfallBarItem[]
                   y={barY}
                   width={barWidth}
                   height={barHeight}
-                  fill={isPerceived ? (bar.value >= 0 ? POSITIVE_FILL : NEGATIVE_FILL) : fill}
-                  fillOpacity={isPerceived ? 0.2 : isAnchor ? 0.5 : 1}
+                  fill={isPerceived ? valueFill : fill}
+                  fillOpacity={barFillOpacity}
                   strokeDasharray={isPerceived ? "4 2" : undefined}
-                  stroke={isPerceived ? (bar.value >= 0 ? POSITIVE_FILL : NEGATIVE_FILL) : undefined}
+                  stroke={isPerceived ? valueFill : undefined}
                   strokeWidth={isPerceived ? 1.5 : 0}
                   rx={2}
                   ry={2}

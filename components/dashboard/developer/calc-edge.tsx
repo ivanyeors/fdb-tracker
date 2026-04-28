@@ -11,6 +11,18 @@ import type { CalcEdgeData } from "@/lib/developer/graph-adapter"
 import { NODE_COLORS } from "@/lib/developer/calculation-graph-data"
 import { useDeveloperView } from "@/components/dashboard/developer/developer-view-context"
 
+function getEdgeStrokeWidth(selected: unknown, isMoneyFlow: unknown): number {
+  if (selected) return 3
+  if (isMoneyFlow) return 2
+  return 1.5
+}
+
+function getEdgeOpacityValue(selected: unknown, isMoneyFlow: unknown): number {
+  if (selected) return 1
+  if (isMoneyFlow) return 0.8
+  return 0.6
+}
+
 function CalcEdgeComponent({
   id,
   sourceX,
@@ -62,8 +74,8 @@ function CalcEdgeComponent({
           "--xy-edge-stroke": edgeColor,
           "--xy-edge-stroke-selected": edgeColor,
           stroke: edgeColor,
-          strokeWidth: selected ? 3 : isMoneyFlow ? 2 : 1.5,
-          opacity: selected ? 1 : isMoneyFlow ? 0.8 : 0.6,
+          strokeWidth: getEdgeStrokeWidth(selected, isMoneyFlow),
+          opacity: getEdgeOpacityValue(selected, isMoneyFlow),
           filter: selected ? `drop-shadow(0 0 4px ${edgeColor})` : "none",
           transition:
             "stroke-width 0.15s, opacity 0.15s, filter 0.15s",

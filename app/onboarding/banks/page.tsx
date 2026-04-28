@@ -157,14 +157,12 @@ export default function BanksPage() {
         deadline: value === "" || value === null || value === undefined ? null : (value as string),
       }
     } else {
-      const numValue =
-        value === "" || value === null || value === undefined
-          ? field === "current_amount"
-            ? 0
-            : null
-          : typeof value === "number"
-            ? value
-            : Number(value)
+      const numValue = (() => {
+        if (value === "" || value === null || value === undefined) {
+          return field === "current_amount" ? 0 : null
+        }
+        return typeof value === "number" ? value : Number(value)
+      })()
       goals[goalIdx] = { ...goals[goalIdx], [field]: numValue }
     }
     updated[accountIdx] = { ...updated[accountIdx], savings_goals: goals }

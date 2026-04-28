@@ -4,6 +4,12 @@
  */
 
 /** Earned Income Relief: $1,000 (≤54), $6,000 (55–59), $8,000 (60+) */
+function wmcrPercentForBirthOrder(birthOrder: number): number {
+  if (birthOrder === 1) return 0.15
+  if (birthOrder === 2) return 0.2
+  return 0.25
+}
+
 export function earnedIncomeRelief(age: number): number {
   if (age <= 54) return 1000;
   if (age <= 59) return 6000;
@@ -128,12 +134,7 @@ export function wmcrRelief(
       else if (child.birthOrder === 2) raw = 10000;
       else raw = 12000;
     } else {
-      const pct =
-        child.birthOrder === 1
-          ? 0.15
-          : child.birthOrder === 2
-            ? 0.2
-            : 0.25;
+      const pct = wmcrPercentForBirthOrder(child.birthOrder);
       raw = motherEarnedIncome * pct;
     }
 

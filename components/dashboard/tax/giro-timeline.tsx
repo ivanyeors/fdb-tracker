@@ -53,11 +53,11 @@ export function GiroTimeline({
           <div>
             <CardTitle className="text-base">GIRO Payment Schedule</CardTitle>
             <CardDescription className="text-xs">
-              {source === "pdf_import"
-                ? "Imported from IRAS GIRO plan"
-                : source === "manual"
-                  ? "Manually entered"
-                  : "Auto-calculated from tax assessment"}
+              {(() => {
+                if (source === "pdf_import") return "Imported from IRAS GIRO plan"
+                if (source === "manual") return "Manually entered"
+                return "Auto-calculated from tax assessment"
+              })()}
             </CardDescription>
           </div>
           <div className="text-right">

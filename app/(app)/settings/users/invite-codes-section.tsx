@@ -171,17 +171,24 @@ export function InviteCodesSection({
           </div>
 
           {/* Codes table */}
-          {loading ? (
+          {(() => {
+            if (loading) {
+              return (
             <div className="space-y-2">
               {Array.from({ length: 2 }).map((_, i) => (
                 <Skeleton key={`invite-skeleton-${i}`} className="h-10 w-full" />
               ))}
             </div>
-          ) : codes.length === 0 ? (
+              )
+            }
+            if (codes.length === 0) {
+              return (
             <p className="text-sm text-muted-foreground">
               No active invite codes. Generate one above.
             </p>
-          ) : (
+              )
+            }
+            return (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <h4 className="text-sm font-medium">Active invite codes</h4>
@@ -251,7 +258,8 @@ export function InviteCodesSection({
                 </TableBody>
               </Table>
             </div>
-          )}
+            )
+          })()}
         </CardContent>
       </Card>
 

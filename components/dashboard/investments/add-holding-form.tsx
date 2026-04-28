@@ -38,8 +38,11 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
   const [note, setNote] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const effectiveSymbol =
-    type === "gold" ? "Gold" : type === "silver" ? "Silver" : symbol
+  const effectiveSymbol = (() => {
+    if (type === "gold") return "Gold"
+    if (type === "silver") return "Silver"
+    return symbol
+  })()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -121,14 +124,19 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
 
         <div className="space-y-1.5">
           <Label htmlFor="holding-symbol">Symbol</Label>
-          {type === "gold" || type === "silver" ? (
+          {(() => {
+            if (type === "gold" || type === "silver") {
+              return (
             <Input
               id="holding-symbol"
               value={effectiveSymbol}
               disabled
               className="bg-muted"
             />
-          ) : symbol ? (
+              )
+            }
+            if (symbol) {
+              return (
             <div className="flex items-center gap-2">
               <span
                 id="holding-symbol"
@@ -153,7 +161,9 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
                 Change
               </Button>
             </div>
-          ) : (
+              )
+            }
+            return (
             <Button
               type="button"
               variant="outline"
@@ -164,7 +174,8 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
               <Plus className="mr-2 size-4" />
               Add symbol
             </Button>
-          )}
+            )
+          })()}
           <SymbolPickerDrawer
             open={drawerOpen}
             onOpenChange={setDrawerOpen}

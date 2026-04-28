@@ -57,8 +57,11 @@ export function EditHoldingDialog({ initial, onSuccess }: EditHoldingDialogProps
     setCostPerUnit(initial.costPerUnit)
   }, [open, initial])
 
-  const effectiveSymbol =
-    type === "gold" ? "Gold" : type === "silver" ? "Silver" : symbol
+  const effectiveSymbol = (() => {
+    if (type === "gold") return "Gold"
+    if (type === "silver") return "Silver"
+    return symbol
+  })()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -142,14 +145,19 @@ export function EditHoldingDialog({ initial, onSuccess }: EditHoldingDialogProps
 
             <div className="space-y-1.5">
               <Label htmlFor="edit-holding-symbol">Symbol</Label>
-              {type === "gold" || type === "silver" ? (
+              {(() => {
+                if (type === "gold" || type === "silver") {
+                  return (
                 <Input
                   id="edit-holding-symbol"
                   value={effectiveSymbol}
                   disabled
                   className="bg-muted"
                 />
-              ) : symbol ? (
+                  )
+                }
+                if (symbol) {
+                  return (
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1 rounded-md border bg-muted px-3 py-2 text-sm font-medium">
                     {symbol}
@@ -171,7 +179,9 @@ export function EditHoldingDialog({ initial, onSuccess }: EditHoldingDialogProps
                     Change
                   </Button>
                 </div>
-              ) : (
+                  )
+                }
+                return (
                 <Button
                   type="button"
                   variant="outline"
@@ -180,7 +190,8 @@ export function EditHoldingDialog({ initial, onSuccess }: EditHoldingDialogProps
                 >
                   Select symbol
                 </Button>
-              )}
+                )
+              })()}
               <SymbolPickerDrawer
                 open={drawerOpen}
                 onOpenChange={setDrawerOpen}

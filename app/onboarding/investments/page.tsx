@@ -74,10 +74,15 @@ export default function InvestmentsPage() {
     const updated = [...items]
     if (field === "type") {
       const newType = value as OnboardingInvestment["type"]
+      const newSymbol = (() => {
+        if (newType === "gold") return "Gold"
+        if (newType === "silver") return "Silver"
+        return updated[index].symbol
+      })()
       updated[index] = {
         ...updated[index],
         type: newType,
-        symbol: newType === "gold" ? "Gold" : newType === "silver" ? "Silver" : updated[index].symbol,
+        symbol: newSymbol,
       }
     } else if (field === "symbol") {
       updated[index] = { ...updated[index], symbol: value as string }
@@ -196,13 +201,18 @@ export default function InvestmentsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Symbol / Name</Label>
-                {(item.type === "gold" || item.type === "silver") ? (
+                {(() => {
+                  if (item.type === "gold" || item.type === "silver") {
+                    return (
                   <Input
                     value={item.type === "gold" ? "Gold" : "Silver"}
                     disabled
                     className="bg-muted"
                   />
-                ) : item.symbol ? (
+                    )
+                  }
+                  if (item.symbol) {
+                    return (
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center gap-1 rounded-md border bg-muted px-3 py-2 text-sm font-medium">
                       {item.symbol}
@@ -224,7 +234,9 @@ export default function InvestmentsPage() {
                       Change
                     </Button>
                   </div>
-                ) : (
+                    )
+                  }
+                  return (
                   <Button
                     type="button"
                     variant="outline"
@@ -234,7 +246,8 @@ export default function InvestmentsPage() {
                     <Plus className="mr-2 size-4" />
                     Add symbol
                   </Button>
-                )}
+                  )
+                })()}
               </div>
               <div className="space-y-1.5">
                 <Label>Units</Label>

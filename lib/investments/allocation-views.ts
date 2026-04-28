@@ -126,12 +126,11 @@ export function buildUnifiedPositionList(
   const rows: Omit<PositionRow, "cumulativePercentage">[] = []
 
   for (const entry of holdingMap.values()) {
-    const name =
-      entry.type === "gold"
-        ? "Gold"
-        : entry.type === "silver"
-          ? "Silver"
-          : entry.symbol.trim().toUpperCase()
+    const name = (() => {
+      if (entry.type === "gold") return "Gold"
+      if (entry.type === "silver") return "Silver"
+      return entry.symbol.trim().toUpperCase()
+    })()
     rows.push({
       name,
       type: entry.type as PositionRow["type"],

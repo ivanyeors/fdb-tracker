@@ -27,11 +27,12 @@ export function SourceBadge({
 }: SourceBadgeProps) {
   const resolvedTooltip =
     tooltip ??
-    (nodeId
-      ? source === "auto"
+    (() => {
+      if (!nodeId) return undefined
+      return source === "auto"
         ? IMPACT_NODES[nodeId].autoTooltip
         : IMPACT_NODES[nodeId].manualTooltip
-      : undefined)
+    })()
 
   const badge = (
     <Badge

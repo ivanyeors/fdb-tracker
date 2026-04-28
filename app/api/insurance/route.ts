@@ -136,16 +136,17 @@ export async function POST(request: NextRequest) {
 
     const coverages = parsed.data.coverages
     const firstStandard = coverages?.find((c) => c.coverageType)
-    const legacyCoverageType = firstStandard
-      ? firstStandard.coverageType
-      : coverages && coverages.length > 0
-        ? null
-        : getCoverageType(parsed.data.type)
-    const legacyCoverageAmount = firstStandard
-      ? firstStandard.coverageAmount
-      : coverages && coverages.length > 0
-        ? coverages[0].coverageAmount
-        : (parsed.data.coverageAmount ?? null)
+    const hasOtherCoverages = !!coverages && coverages.length > 0
+    const legacyCoverageType = (() => {
+      if (firstStandard) return firstStandard.coverageType
+      if (hasOtherCoverages) return null
+      return getCoverageType(parsed.data.type)
+    })()
+    const legacyCoverageAmount = (() => {
+      if (firstStandard) return firstStandard.coverageAmount
+      if (hasOtherCoverages) return coverages[0].coverageAmount
+      return parsed.data.coverageAmount ?? null
+    })()
 
     const { data: policy, error } = await supabase
       .from("insurance_policies")

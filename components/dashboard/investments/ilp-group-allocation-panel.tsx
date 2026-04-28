@@ -105,13 +105,12 @@ export function IlpGroupAllocationPanel({
 
       {allocationData.length === 0 ? (
         <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed border-border px-3 text-center text-sm text-muted-foreground">
-          {members.length === 0
-            ? "No funds in this group yet."
-            : groupTotal <= 0
-              ? "No fund balance to weight this chart. Enter a fund value on the latest monthly entry, or ensure a prior month has a positive balance."
-              : variant === "summary"
-                ? "Could not build allocation from the current data. Re-import fund reports if holdings are missing."
-                : "Could not build allocation from the current data. Re-import fund reports if holdings are missing, or try another view above."}
+          {(() => {
+            if (members.length === 0) return "No funds in this group yet."
+            if (groupTotal <= 0) return "No fund balance to weight this chart. Enter a fund value on the latest monthly entry, or ensure a prior month has a positive balance."
+            if (variant === "summary") return "Could not build allocation from the current data. Re-import fund reports if holdings are missing."
+            return "Could not build allocation from the current data. Re-import fund reports if holdings are missing, or try another view above."
+          })()}
         </div>
       ) : (
         <div className="min-h-0 w-full min-w-0">

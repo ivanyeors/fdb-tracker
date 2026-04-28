@@ -27,6 +27,12 @@ const DRIFT_THRESHOLD = 5 // Percentage points
  * Calculate rebalancing suggestions for holdings with target allocations.
  * Only returns suggestions for holdings that have a targetPct set and drift > threshold.
  */
+function rebalanceAction(adjustmentAmount: number): "buy" | "sell" | "hold" {
+  if (adjustmentAmount > 0) return "buy"
+  if (adjustmentAmount < 0) return "sell"
+  return "hold"
+}
+
 export function calculateRebalancing(
   entries: AllocationEntry[],
   driftThreshold: number = DRIFT_THRESHOLD,
@@ -54,7 +60,7 @@ export function calculateRebalancing(
         targetPct: entry.targetPct,
         driftPct: Math.round(driftPct * 100) / 100,
         adjustmentAmount,
-        action: adjustmentAmount > 0 ? "buy" : adjustmentAmount < 0 ? "sell" : "hold",
+        action: rebalanceAction(adjustmentAmount),
       })
     }
   }

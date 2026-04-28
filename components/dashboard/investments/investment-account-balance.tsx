@@ -196,16 +196,17 @@ export function InvestmentAccountBalance({
             type="submit"
             disabled={isSubmitting || sgdPerUsd == null || sgdPerUsd <= 0}
           >
-            {isSubmitting ? (
+            {(() => {
+              if (isSubmitting) {
+                return (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
                 Saving...
               </>
-            ) : hasAccountRow ? (
-              "Edit balance"
-            ) : (
-              "Set balance"
-            )}
+                )
+              }
+              return hasAccountRow ? "Edit balance" : "Set balance"
+            })()}
           </Button>
         </form>
       )}

@@ -243,17 +243,24 @@ export function TelegramApiKeysSection() {
           <Separator />
 
           {/* API Keys table */}
-          {loading ? (
+          {(() => {
+            if (loading) {
+              return (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={`apikey-skeleton-${i}`} className="h-10 w-full" />
               ))}
             </div>
-          ) : keys.length === 0 ? (
+              )
+            }
+            if (keys.length === 0) {
+              return (
             <p className="text-sm text-muted-foreground">
               No API keys yet. Create one above.
             </p>
-          ) : (
+              )
+            }
+            return (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <h4 className="text-sm font-medium">Your API keys</h4>
@@ -297,18 +304,24 @@ export function TelegramApiKeysSection() {
                 </TableBody>
               </Table>
             </div>
-          )}
+            )
+          })()}
 
           <Separator />
 
           {/* Linked accounts table */}
-          {loading ? (
+          {(() => {
+            if (loading) {
+              return (
             <div className="space-y-2">
               {Array.from({ length: 2 }).map((_, i) => (
                 <Skeleton key={`linked-skeleton-${i}`} className="h-10 w-full" />
               ))}
             </div>
-          ) : linkedAccounts.length === 0 ? (
+              )
+            }
+            if (linkedAccounts.length === 0) {
+              return (
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Linked Telegram accounts</h4>
               <p className="text-sm text-muted-foreground">
@@ -316,7 +329,9 @@ export function TelegramApiKeysSection() {
                 get started.
               </p>
             </div>
-          ) : (
+              )
+            }
+            return (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <h4 className="text-sm font-medium">
@@ -354,7 +369,8 @@ export function TelegramApiKeysSection() {
                 </TableBody>
               </Table>
             </div>
-          )}
+            )
+          })()}
         </CardContent>
       </Card>
 

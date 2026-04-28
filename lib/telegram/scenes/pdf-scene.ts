@@ -109,12 +109,11 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
 
       // Show classification result
       const typeLabel = DOCUMENT_TYPE_LABELS[classification.type]
-      const confidenceEmoji =
-        classification.confidence === "high"
-          ? "🟢"
-          : classification.confidence === "medium"
-            ? "🟡"
-            : "🔴"
+      const confidenceEmoji = (() => {
+        if (classification.confidence === "high") return "🟢"
+        if (classification.confidence === "medium") return "🟡"
+        return "🔴"
+      })()
 
       const header = progressHeader(1, TOTAL_STEPS, "PDF Upload")
       let msg = `${header}\n\n`

@@ -408,12 +408,11 @@ function IlpInvestedVsValueBar({
           const barY = yScale(d.key) ?? 0
           const barH = yScale.bandwidth()
           const barW = Math.max(xScale(d.value) ?? 0, 0)
+          const gainFill = gain
+            ? "var(--color-chart-positive)"
+            : "var(--color-chart-negative)"
           const fill =
-            d.key === "invested"
-              ? "var(--color-muted-foreground)"
-              : gain
-                ? "var(--color-chart-positive)"
-                : "var(--color-chart-negative)"
+            d.key === "invested" ? "var(--color-muted-foreground)" : gainFill
           const valueText = formatMoney(d.value)
           const valueFitsInside = barW > 80
           return (

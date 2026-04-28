@@ -196,13 +196,11 @@ function ResultCard({
         disabled={mutating || (isSelf && data.isSuperAdmin)}
         onClick={() => onToggle(data)}
       >
-        {mutating ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : promoting ? (
-          <ShieldCheck className="size-4" />
-        ) : (
-          <ShieldOff className="size-4" />
-        )}
+        {(() => {
+          if (mutating) return <Loader2 className="size-4 animate-spin" />
+          if (promoting) return <ShieldCheck className="size-4" />
+          return <ShieldOff className="size-4" />
+        })()}
         <span className="ml-2">
           {promoting ? "Promote to super-admin" : "Demote to regular"}
         </span>

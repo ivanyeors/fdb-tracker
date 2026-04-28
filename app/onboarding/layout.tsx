@@ -31,13 +31,12 @@ function OnboardingLayoutInner({ children }: { readonly children: React.ReactNod
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const currentStep = STEP_MAP[pathname] ?? 1
-  const mode = (
-    searchParams.get("mode") === "new-family"
-      ? "new-family"
-      : searchParams.get("mode") === "resume"
-        ? "resume"
-        : "first-time"
-  ) as OnboardingMode
+  const modeParam = searchParams.get("mode")
+  const mode = (() => {
+    if (modeParam === "new-family") return "new-family"
+    if (modeParam === "resume") return "resume"
+    return "first-time"
+  })() as OnboardingMode
   const isOptionalFlow = pathname.startsWith("/onboarding/optional")
 
   if (isOptionalFlow) {
