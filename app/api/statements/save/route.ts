@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       body.profileId,
       body.familyId
     )
-    if (!resolved || !resolved.profileIds.includes(body.profileId)) {
+    if (!resolved?.profileIds.includes(body.profileId)) {
       return NextResponse.json(
         { error: "Profile not found or unauthorized" },
         { status: 403 }

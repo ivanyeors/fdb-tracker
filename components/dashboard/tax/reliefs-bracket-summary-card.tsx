@@ -40,12 +40,12 @@ export function ReliefsBracketSummaryCard({
 
   function snapCurrent(id: string): TaxSnapshot | null {
     const s = taxSnapshots?.[id]
-    return s && s.year === selectedYear ? s : null
+    return s?.year === selectedYear ? s : null
   }
 
   function snapNext(id: string): TaxSnapshot | null {
     const s = taxSnapshotsNextYa?.[id]
-    return s && s.year === nextYa ? s : null
+    return s?.year === nextYa ? s : null
   }
 
   const profilesWithSnap = orderedProfiles.filter((p) => snapCurrent(p.id) != null)

@@ -46,6 +46,9 @@ export default function LoansPage() {
   const [items, setItems] = useState<OnboardingLoan[]>(
     loans.length > 0 ? loans : [],
   )
+  const [itemKeys, setItemKeys] = useState<string[]>(() =>
+    Array.from({ length: loans.length }, () => crypto.randomUUID()),
+  )
 
   function addItem() {
     const today = new Date().toISOString().slice(0, 10)
@@ -62,10 +65,12 @@ export default function LoansPage() {
         profileIndex: 0,
       },
     ])
+    setItemKeys([...itemKeys, crypto.randomUUID()])
   }
 
   function removeItem(index: number) {
     setItems(items.filter((_, i) => i !== index))
+    setItemKeys(itemKeys.filter((_, i) => i !== index))
   }
 
   function updateItem(
@@ -152,7 +157,7 @@ export default function LoansPage() {
       </CardHeader>
       <CardContent className="space-y-6">
         {items.map((item, i) => (
-          <div key={`loan-${i}`} className="space-y-3 rounded-lg border p-4">
+          <div key={itemKeys[i]} className="space-y-3 rounded-lg border p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Loan {i + 1}</p>
               <Button variant="ghost" size="icon-xs" onClick={() => removeItem(i)}>

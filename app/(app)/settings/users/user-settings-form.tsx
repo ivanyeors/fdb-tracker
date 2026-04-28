@@ -1964,7 +1964,7 @@ function MonthlyLogSection({
         throw new Error((data as { error?: string }).error ?? "Failed to delete entry")
       }
       toast.success("Monthly entry removed")
-      if (expandedMonth && entryToDelete.month.slice(0, 7) === expandedMonth.slice(0, 7)) {
+      if (entryToDelete.month.slice(0, 7) === expandedMonth?.slice(0, 7)) {
         setInflow(0)
         setOutflow(0)
       }
@@ -3400,6 +3400,7 @@ function InsuranceSection({
     benefit_expiry_date: string | null
     benefit_unit: string | null
     sort_order: number
+    _clientKey?: string
   }
 
   const makeStandardCoverage = (ct: CoverageType, sortOrder: number): CoverageEntry => ({
@@ -3978,6 +3979,7 @@ function InsuranceSection({
                           benefit_expiry_date: null,
                           benefit_unit: null,
                           sort_order: prev.coverages.length + prev.customBenefits.length,
+                          _clientKey: crypto.randomUUID(),
                         },
                       ],
                     }))
@@ -3992,7 +3994,7 @@ function InsuranceSection({
                 </p>
               )}
               {newPolicy.customBenefits.map((b, idx) => (
-                <div key={`new-benefit-${idx}`} className="flex flex-wrap items-center gap-2 rounded-md border p-2">
+                <div key={b._clientKey ?? `new-benefit-${b.sort_order}`} className="flex flex-wrap items-center gap-2 rounded-md border p-2">
                   <Input
                     placeholder="Benefit name"
                     value={b.benefit_name ?? ""}

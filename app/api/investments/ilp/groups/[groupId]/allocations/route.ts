@@ -98,7 +98,7 @@ export async function PATCH(
       .in("id", productIds)
       .eq("family_id", resolved.familyId)
 
-    if (prodErr || !products || products.length !== productIds.length) {
+    if (prodErr || products?.length !== productIds.length) {
       return NextResponse.json(
         { error: "One or more ILP products not found in this family" },
         { status: 400 },

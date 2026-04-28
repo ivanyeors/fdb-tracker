@@ -240,9 +240,10 @@ export function LoansClient({
           </div>
           <div className="overflow-hidden rounded-xl border">
             <div className="space-y-3 p-4">
-              {["a", "b", "c", "d"].map((slot) => (
-                <Skeleton key={`loan-skeleton-${slot}`} className="h-12 w-full" />
-              ))}
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
             </div>
           </div>
         </>
@@ -654,7 +655,7 @@ export function LoansClient({
                             key={row.lender}
                             className={cn(
                               "border-b last:border-0",
-                              loan.lender && loan.lender.toLowerCase().includes(row.lender.toLowerCase())
+                              loan.lender?.toLowerCase().includes(row.lender.toLowerCase())
                                 ? "bg-primary/5 font-medium"
                                 : "",
                             )}

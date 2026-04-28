@@ -107,7 +107,7 @@ export async function PUT(request: NextRequest) {
       profileId,
       familyId ?? null
     )
-    if (!resolved || !resolved.profileIds.includes(profileId)) {
+    if (!resolved?.profileIds.includes(profileId)) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 

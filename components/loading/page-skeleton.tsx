@@ -2,10 +2,17 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { ChartSkeleton } from "./chart-skeleton"
 
-const SKELETON_SLOTS = [
-  "alpha", "bravo", "charlie", "delta", "echo",
-  "foxtrot", "golf", "hotel", "india", "juliet",
-] as const
+const PRIMARY_SKELETON_KEYS = [
+  "p-alpha", "p-bravo", "p-charlie", "p-delta", "p-echo",
+  "p-foxtrot", "p-golf", "p-hotel", "p-india", "p-juliet",
+]
+const SECONDARY_SKELETON_KEYS = [
+  "s-alpha", "s-bravo", "s-charlie", "s-delta", "s-echo",
+  "s-foxtrot", "s-golf", "s-hotel", "s-india", "s-juliet",
+]
+const ROW_SKELETON_KEYS = [
+  "r-alpha", "r-bravo", "r-charlie", "r-delta", "r-echo", "r-foxtrot",
+]
 
 interface PageSkeletonProps {
   /** Number of metric cards in the first row (default: 3) */
@@ -42,16 +49,16 @@ export function PageSkeleton({
 
       {/* Primary metrics grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {SKELETON_SLOTS.slice(0, metricCount).map((slot) => (
-          <MetricCard key={`primary-skeleton-${slot}`} label="" value={0} loading />
+        {PRIMARY_SKELETON_KEYS.slice(0, metricCount).map((key) => (
+          <MetricCard key={key} label="" value={0} loading />
         ))}
       </div>
 
       {/* Secondary metrics grid (e.g. 4 cards) */}
       {metricCountSecondary > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {SKELETON_SLOTS.slice(0, metricCountSecondary).map((slot) => (
-            <MetricCard key={`secondary-skeleton-${slot}`} label="" value={0} loading />
+          {SECONDARY_SKELETON_KEYS.slice(0, metricCountSecondary).map((key) => (
+            <MetricCard key={key} label="" value={0} loading />
           ))}
         </div>
       )}
@@ -64,8 +71,8 @@ export function PageSkeleton({
         <div className="rounded-lg border p-4">
           <Skeleton className="mb-4 h-6 w-48" />
           <div className="space-y-3">
-            {SKELETON_SLOTS.slice(0, 6).map((slot) => (
-              <Skeleton key={`row-skeleton-${slot}`} className="h-10 w-full" />
+            {ROW_SKELETON_KEYS.map((key) => (
+              <Skeleton key={key} className="h-10 w-full" />
             ))}
           </div>
         </div>

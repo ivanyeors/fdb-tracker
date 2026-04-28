@@ -47,6 +47,9 @@ export default function InvestmentsPage() {
   const [items, setItems] = useState<OnboardingInvestment[]>(
     investments.length > 0 ? investments : [],
   )
+  const [itemKeys, setItemKeys] = useState<string[]>(() =>
+    Array.from({ length: investments.length }, () => crypto.randomUUID()),
+  )
   const [symbolDrawerIndex, setSymbolDrawerIndex] = useState<number | null>(null)
 
   function addItem() {
@@ -60,10 +63,12 @@ export default function InvestmentsPage() {
         profileIndex: 0,
       },
     ])
+    setItemKeys([...itemKeys, crypto.randomUUID()])
   }
 
   function removeItem(index: number) {
     setItems(items.filter((_, i) => i !== index))
+    setItemKeys(itemKeys.filter((_, i) => i !== index))
   }
 
   function updateItem(
@@ -162,7 +167,7 @@ export default function InvestmentsPage() {
       </CardHeader>
       <CardContent className="space-y-6">
         {items.map((item, i) => (
-          <div key={`holding-${i}`} className="space-y-3 rounded-lg border p-4">
+          <div key={itemKeys[i]} className="space-y-3 rounded-lg border p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Holding {i + 1}</p>
               <Button variant="ghost" size="icon-xs" onClick={() => removeItem(i)}>

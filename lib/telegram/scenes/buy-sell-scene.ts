@@ -55,7 +55,7 @@ async function promptAccountStep(ctx: MyContext): Promise<boolean> {
 
   if (!accounts || accounts.length <= 1) {
     // Auto-select single/default account
-    if (accounts && accounts.length === 1) {
+    if (accounts?.length === 1) {
       s.accountId = accounts[0].id
       s.accountName = accounts[0].account_name
     }

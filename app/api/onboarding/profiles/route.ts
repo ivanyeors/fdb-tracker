@@ -110,8 +110,7 @@ export async function POST(request: Request) {
     let profileIds: string[]
 
     if (
-      existingProfiles &&
-      existingProfiles.length === resolvedProfiles.length &&
+      existingProfiles?.length === resolvedProfiles.length &&
       !isNewFamily
     ) {
       for (let i = 0; i < resolvedProfiles.length; i++) {

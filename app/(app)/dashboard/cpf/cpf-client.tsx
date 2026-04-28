@@ -568,12 +568,7 @@ function RetirementTab({
   const totalMonthlyHousing = data?.totalMonthlyHousingDeduction
 
   const simulatorSeed: SimulatorSeedData | null = useMemo(() => {
-    if (
-      !data ||
-      !data.extendedProjection ||
-      data.extendedProjection.length === 0
-    )
-      return null
+    if (!data?.extendedProjection?.length) return null
     return {
       currentCpf: {
         oa: data.currentCpf.oa,

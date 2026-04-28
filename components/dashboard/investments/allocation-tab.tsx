@@ -230,9 +230,11 @@ export function AllocationTab({
       <div className="space-y-6">
         {/* Skeleton for insights row */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {["a", "b", "c", "d", "e"].map((slot) => (
-            <div key={`alloc-insight-skeleton-${slot}`} className="h-20 animate-pulse rounded-xl border bg-muted/30" />
-          ))}
+          <div className="h-20 animate-pulse rounded-xl border bg-muted/30" />
+          <div className="h-20 animate-pulse rounded-xl border bg-muted/30" />
+          <div className="h-20 animate-pulse rounded-xl border bg-muted/30" />
+          <div className="h-20 animate-pulse rounded-xl border bg-muted/30" />
+          <div className="h-20 animate-pulse rounded-xl border bg-muted/30" />
         </div>
         {/* Skeleton for donuts */}
         <div className="grid gap-6 md:grid-cols-2">

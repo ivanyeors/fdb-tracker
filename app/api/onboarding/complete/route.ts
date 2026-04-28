@@ -276,8 +276,7 @@ export async function POST(request: Request) {
     let insertedProfiles: { id: string }[]
 
     if (
-      existingProfiles &&
-      existingProfiles.length === data.userCount &&
+      existingProfiles?.length === data.userCount &&
       !isNewFamily
     ) {
       // Reuse existing profiles to avoid duplicates and ensure CPF/data maps to displayed profiles

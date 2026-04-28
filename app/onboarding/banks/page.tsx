@@ -77,6 +77,9 @@ export default function BanksPage() {
         }))
       : [{ bank_name: "", account_type: "savings", opening_balance: 0, savings_goals: [], profileIndex: 0 }],
   )
+  const [accountKeys, setAccountKeys] = useState<string[]>(() =>
+    Array.from({ length: bankAccounts.length > 0 ? bankAccounts.length : 1 }, () => crypto.randomUUID()),
+  )
   const [showGoals, setShowGoals] = useState<Record<number, boolean>>({})
 
   function updateAccount(
@@ -111,10 +114,12 @@ export default function BanksPage() {
       ...accounts,
       { bank_name: "", account_type: "savings", opening_balance: 0, savings_goals: [], profileIndex: 0 },
     ])
+    setAccountKeys([...accountKeys, crypto.randomUUID()])
   }
 
   function removeAccount(index: number) {
     setAccounts(accounts.filter((_, i) => i !== index))
+    setAccountKeys(accountKeys.filter((_, i) => i !== index))
     setShowGoals((prev) => {
       const next = { ...prev }
       delete next[index]
@@ -234,7 +239,7 @@ export default function BanksPage() {
       </CardHeader>
       <CardContent className="space-y-6">
         {accounts.map((account, i) => (
-          <div key={`account-${i}`} className="space-y-3 rounded-lg border p-4">
+          <div key={accountKeys[i]} className="space-y-3 rounded-lg border p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Account {i + 1}</p>
               {accounts.length > 1 && (

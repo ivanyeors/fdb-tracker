@@ -28,6 +28,17 @@ import {
 import { profilesSchema } from "@/lib/validations/onboarding"
 import { toast } from "sonner"
 
+const PROFILE_SLOT_KEYS = [
+  "profile-slot-alpha",
+  "profile-slot-bravo",
+  "profile-slot-charlie",
+  "profile-slot-delta",
+  "profile-slot-echo",
+  "profile-slot-foxtrot",
+  "profile-slot-golf",
+  "profile-slot-hotel",
+]
+
 export default function ProfilesPage() {
   const router = useRouter()
   const { mode, userCount, profiles, setProfiles, familyId, setFamilyId, skipOnboarding } = useOnboarding()
@@ -97,7 +108,7 @@ export default function ProfilesPage() {
       </CardHeader>
       <CardContent className="space-y-6">
         {profiles.slice(0, userCount).map((profile, i) => (
-          <div key={`profile-row-${i}`} className="space-y-3 rounded-lg border p-4">
+          <div key={PROFILE_SLOT_KEYS[i]} className="space-y-3 rounded-lg border p-4">
             <p className="text-sm font-medium">Person {i + 1}</p>
 
             <div className="space-y-1.5">

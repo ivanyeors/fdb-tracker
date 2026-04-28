@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const formData = await request.formData()
     const file = formData.get("file") as File | null
 
-    if (!file || !file.name.endsWith(".pdf")) {
+    if (!file?.name.endsWith(".pdf")) {
       return NextResponse.json(
         { error: "Please upload a PDF file" },
         { status: 400 },

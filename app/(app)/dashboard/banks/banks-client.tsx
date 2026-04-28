@@ -228,9 +228,14 @@ export function BanksClient({
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {["a", "b", "c", "d", "e", "f", "g", "h"].map((slot) => (
-                    <Skeleton key={`bank-skeleton-${slot}`} className="h-10 w-full" />
-                  ))}
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
                 </div>
               </CardContent>
             </Card>

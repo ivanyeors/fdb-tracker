@@ -46,6 +46,9 @@ export default function TaxReliefsPage() {
   const [items, setItems] = useState<OnboardingTaxRelief[]>(
     taxReliefInputs.length > 0 ? taxReliefInputs : [],
   )
+  const [itemKeys, setItemKeys] = useState<string[]>(() =>
+    Array.from({ length: taxReliefInputs.length }, () => crypto.randomUUID()),
+  )
 
   function addItem() {
     setItems([
@@ -56,10 +59,12 @@ export default function TaxReliefsPage() {
         profileIndex: 0,
       },
     ])
+    setItemKeys([...itemKeys, crypto.randomUUID()])
   }
 
   function removeItem(index: number) {
     setItems(items.filter((_, i) => i !== index))
+    setItemKeys(itemKeys.filter((_, i) => i !== index))
   }
 
   function updateItem(
@@ -127,7 +132,7 @@ export default function TaxReliefsPage() {
       </CardHeader>
       <CardContent className="space-y-6">
         {items.map((item, i) => (
-          <div key={`relief-row-${i}`} className="space-y-3 rounded-lg border p-4">
+          <div key={itemKeys[i]} className="space-y-3 rounded-lg border p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Relief {i + 1}</p>
               <Button variant="ghost" size="icon-xs" onClick={() => removeItem(i)}>

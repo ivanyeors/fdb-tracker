@@ -233,7 +233,7 @@ export function IlpFundImportTab({
   // Restore draft from localStorage on mount
   useEffect(() => {
     const draft = loadIlpImportDraft()
-    if (!draft || !draft.parsedBundleMeta?.length) return
+    if (!draft?.parsedBundleMeta?.length) return
     // Reconstruct parsedBundles from stored metadata (File objects can't be serialized)
     const bundles: ParsedBundle[] = draft.parsedBundleMeta.map((m) => ({
       file: new File([], m.fileName),

@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
       null,
       familyId,
     )
-    if (!resolved || resolved.familyId !== familyId) {
+    if (resolved?.familyId !== familyId) {
       return NextResponse.json({ error: "Family not found" }, { status: 404 })
     }
 
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       .select("id, family_id")
       .eq("id", sourceBankAccountId)
       .single()
-    if (!sourceAccount || sourceAccount.family_id !== familyId) {
+    if (sourceAccount?.family_id !== familyId) {
       return NextResponse.json({ error: "Source bank account not found" }, { status: 404 })
     }
 
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
         .select("id, family_id")
         .eq("id", destinationBankAccountId)
         .single()
-      if (!destAccount || destAccount.family_id !== familyId) {
+      if (destAccount?.family_id !== familyId) {
         return NextResponse.json(
           { error: "Destination bank account not found" },
           { status: 404 },

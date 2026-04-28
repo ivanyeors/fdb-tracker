@@ -49,6 +49,9 @@ export default function InsurancePage() {
   const [items, setItems] = useState<OnboardingInsurance[]>(
     insurancePolicies.length > 0 ? insurancePolicies : [],
   )
+  const [itemKeys, setItemKeys] = useState<string[]>(() =>
+    Array.from({ length: insurancePolicies.length }, () => crypto.randomUUID()),
+  )
 
   function addItem() {
     setItems([
@@ -61,6 +64,7 @@ export default function InsurancePage() {
         profileIndex: 0,
       },
     ])
+    setItemKeys([...itemKeys, crypto.randomUUID()])
   }
 
   function updateItemWithTypeReset(index: number, type: string) {
@@ -77,6 +81,7 @@ export default function InsurancePage() {
 
   function removeItem(index: number) {
     setItems(items.filter((_, i) => i !== index))
+    setItemKeys(itemKeys.filter((_, i) => i !== index))
   }
 
   function updateItem(
@@ -182,7 +187,7 @@ export default function InsurancePage() {
       </CardHeader>
       <CardContent className="space-y-6">
         {items.map((item, i) => (
-          <div key={`policy-${i}`} className="space-y-3 rounded-lg border p-4">
+          <div key={itemKeys[i]} className="space-y-3 rounded-lg border p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Policy {i + 1}</p>
               <Button variant="ghost" size="icon-xs" onClick={() => removeItem(i)}>

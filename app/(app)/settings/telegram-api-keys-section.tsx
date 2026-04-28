@@ -247,9 +247,9 @@ export function TelegramApiKeysSection() {
             if (loading) {
               return (
             <div className="space-y-2">
-              {["a", "b", "c"].map((slot) => (
-                <Skeleton key={`apikey-skeleton-${slot}`} className="h-10 w-full" />
-              ))}
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
             </div>
               )
             }
@@ -314,9 +314,8 @@ export function TelegramApiKeysSection() {
             if (loading) {
               return (
             <div className="space-y-2">
-              {["a", "b"].map((slot) => (
-                <Skeleton key={`linked-skeleton-${slot}`} className="h-10 w-full" />
-              ))}
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
             </div>
               )
             }

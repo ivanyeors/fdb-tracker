@@ -261,7 +261,7 @@ export async function DELETE(request: NextRequest) {
       row.profile_id,
       familyId ?? null
     )
-    if (!resolved || !resolved.profileIds.includes(row.profile_id)) {
+    if (!resolved?.profileIds.includes(row.profile_id)) {
       return NextResponse.json({ error: "Not found" }, { status: 404 })
     }
 

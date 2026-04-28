@@ -18,6 +18,22 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
+function GoalCardSkeleton() {
+  return (
+    <Card className="flex flex-col">
+      <CardHeader className="pb-3">
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="mt-2 h-4 w-24" />
+      </CardHeader>
+      <CardContent className="flex-1">
+        <Skeleton className="mb-2 h-8 w-24" />
+        <Skeleton className="mb-2 h-2 w-full" />
+        <Skeleton className="h-4 w-full" />
+      </CardContent>
+    </Card>
+  )
+}
+
 interface GoalContribution {
   id: string
   amount: number
@@ -76,19 +92,9 @@ export function SavingsGoalsSection() {
             <MetricCard label="" value={0} loading />
           </div>
           <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {["a", "b", "c"].map((slot) => (
-              <Card key={`goal-skeleton-${slot}`} className="flex flex-col">
-                <CardHeader className="pb-3">
-                  <Skeleton className="h-6 w-32" />
-                  <Skeleton className="mt-2 h-4 w-24" />
-                </CardHeader>
-                <CardContent className="flex-1">
-                  <Skeleton className="mb-2 h-8 w-24" />
-                  <Skeleton className="mb-2 h-2 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                </CardContent>
-              </Card>
-            ))}
+            <GoalCardSkeleton />
+            <GoalCardSkeleton />
+            <GoalCardSkeleton />
           </div>
         </>
           )
