@@ -191,7 +191,8 @@ export function BanksClient({
       params.delete("tab")
     }
     const qs = params.toString()
-    router.replace(`/dashboard/banks${qs ? `?${qs}` : ""}`, { scroll: false })
+    const suffix = qs ? `?${qs}` : ""
+    router.replace(`/dashboard/banks${suffix}`, { scroll: false })
   }
 
   return (

@@ -45,6 +45,17 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+const PROFILE_OPTION_KEYS = [
+  "person-alpha",
+  "person-bravo",
+  "person-charlie",
+  "person-delta",
+  "person-echo",
+  "person-foxtrot",
+  "person-golf",
+  "person-hotel",
+]
+
 const ACCOUNT_TYPES = [
   { value: "ocbc_360", label: "OCBC 360" },
   { value: "basic", label: "Basic Savings" },
@@ -265,7 +276,7 @@ export default function BanksPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {profiles.slice(0, userCount).map((p, idx) => (
-                      <SelectItem key={`${p.name || `person-${idx}`}`} value={String(idx)}>
+                      <SelectItem key={p.name || PROFILE_OPTION_KEYS[idx]} value={String(idx)}>
                         {p.name || `Person ${idx + 1}`}
                       </SelectItem>
                     ))}

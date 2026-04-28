@@ -177,9 +177,11 @@ function CpfTrendChartInner({
           <AxisLeft
             scale={yScale}
             numTicks={4}
-            tickFormat={(v) =>
-              `$${Number(v) >= 1000 ? `${(Number(v) / 1000).toFixed(0)}k` : v}`
-            }
+            tickFormat={(v) => {
+              const n = Number(v)
+              const display = n >= 1000 ? `${(n / 1000).toFixed(0)}k` : String(v)
+              return `$${display}`
+            }}
             tickLabelProps={{
               className: "fill-muted-foreground",
               fontSize: 10,

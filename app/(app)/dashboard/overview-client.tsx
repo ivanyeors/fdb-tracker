@@ -203,7 +203,8 @@ export function OverviewClient({
   const { startMonth, endMonth } = getCalendarYearRange()
 
   // Cashflow range (12 months)
-  const cashflowRangeUrl = `/api/cashflow?startMonth=${startMonth}&endMonth=${endMonth}${qs ? `&${qs}` : ""}`
+  const qsAmpSuffix = qs ? `&${qs}` : ""
+  const cashflowRangeUrl = `/api/cashflow?startMonth=${startMonth}&endMonth=${endMonth}${qsAmpSuffix}`
   const { data: cashflowRangeRaw, isLoading: isCashflowLoading } = useApi<
     CashflowRangeEntry[]
   >(cashflowRangeUrl, { fallbackData: initialData.cashflowRange ?? undefined })
@@ -248,7 +249,8 @@ export function OverviewClient({
   })
 
   // ILP products
-  const ilpUrl = `/api/investments/ilp${qs ? `?${qs}` : ""}`
+  const qsQuerySuffix = qs ? `?${qs}` : ""
+  const ilpUrl = `/api/investments/ilp${qsQuerySuffix}`
   const { data: ilpRaw, isLoading: isIlpLoading } = useApi<
     IlpProductWithEntries[]
   >(ilpUrl, { fallbackData: initialData.ilp ?? undefined })
@@ -258,20 +260,21 @@ export function OverviewClient({
   )
 
   // Goals
-  const goalsUrl = `/api/goals${qs ? `?${qs}` : ""}`
+  const goalsUrl = `/api/goals${qsQuerySuffix}`
   const { data: goals = [], isLoading: isGoalsLoading } = useApi<Goal[]>(
     goalsUrl,
     { fallbackData: initialData.goals ?? undefined }
   )
 
   // Insurance
-  const insuranceUrl = `/api/insurance${qs ? `?${qs}` : ""}`
+  const insuranceUrl = `/api/insurance${qsQuerySuffix}`
   const { data: policies = [], isLoading: isInsuranceLoading } = useApi<
     Policy[]
   >(insuranceUrl, { fallbackData: initialData.insurance ?? undefined })
 
   // Transactions
-  const txUrl = `/api/investments/transactions${qs ? `?${qs}&limit=100` : "?limit=100"}`
+  const txQs = qs ? `?${qs}&limit=100` : "?limit=100"
+  const txUrl = `/api/investments/transactions${txQs}`
   const { data: txRaw, isLoading: isTxLoading } = useApi<TransactionRaw[]>(
     txUrl,
     { fallbackData: initialData.transactions ?? undefined }

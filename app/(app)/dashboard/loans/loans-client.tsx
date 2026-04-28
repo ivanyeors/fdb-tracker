@@ -442,7 +442,8 @@ export function LoansClient({
                                 )
                               }
                               if (remaining === 0) return "Past scheduled end"
-                              return `${years > 0 ? `${years}y ` : ""}${months}m left on tenure`
+                              const yearsPart = years > 0 ? `${years}y ` : ""
+                              return `${yearsPart}${months}m left on tenure`
                             })()}
                           </div>
                           {outstanding > 0 && (

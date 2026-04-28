@@ -461,9 +461,10 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
       const buttons = results.slice(0, 8).map((r) => {
         // Telegram callback_data max 64 bytes — truncate name to fit
         const name = (r.name ?? "").slice(0, 50)
+        const exchangePart = r.exchange ? ` (${r.exchange})` : ""
         return [
           {
-            text: `${r.ticker} — ${r.name ?? "Unknown"}${r.exchange ? ` (${r.exchange})` : ""}`,
+            text: `${r.ticker} — ${r.name ?? "Unknown"}${exchangePart}`,
             callback_data: `ssym_${r.ticker}|${name}`,
           },
         ]
