@@ -263,7 +263,11 @@ function WaterfallMiniChart({ bars, width }: { readonly bars: WaterfallBarItem[]
             const isAnchorOrPerceived = isAnchor || isPerceived
             const valueFill = bar.value >= 0 ? POSITIVE_FILL : NEGATIVE_FILL
             const fill = isAnchorOrPerceived ? NEUTRAL_FILL : valueFill
-            const barFillOpacity = isPerceived ? 0.2 : isAnchor ? 0.5 : 1
+            const barFillOpacity = (() => {
+              if (isPerceived) return 0.2
+              if (isAnchor) return 0.5
+              return 1
+            })()
 
             return (
               <g key={bar.name}>

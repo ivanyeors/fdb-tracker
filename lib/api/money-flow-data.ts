@@ -1042,13 +1042,13 @@ export async function fetchMoneyFlowData(
 
   // Family dependents
   const depTotal = dependentChildCount + dependentParentCount
+  const childWord = dependentChildCount !== 1 ? "children" : "child"
   const childPart =
-    dependentChildCount > 0
-      ? `${dependentChildCount} child${dependentChildCount !== 1 ? "ren" : ""}`
-      : ""
+    dependentChildCount > 0 ? `${dependentChildCount} ${childWord}` : ""
+  const parentSuffix = dependentParentCount !== 1 ? "s" : ""
   const parentPart =
     dependentParentCount > 0
-      ? `${dependentParentCount} parent${dependentParentCount !== 1 ? "s" : ""}`
+      ? `${dependentParentCount} parent${parentSuffix}`
       : ""
   const reliefSuffix =
     totalDependentReliefs > 0 ? ` · ${fmt(totalDependentReliefs)}/yr relief` : ""
@@ -1056,8 +1056,10 @@ export async function fetchMoneyFlowData(
     depTotal > 0
       ? [childPart, parentPart].filter(Boolean).join(", ") + reliefSuffix
       : undefined
+  const depCountSuffix = depTotal !== 1 ? "s" : ""
+  const depAmount = depTotal > 0 ? `${depTotal} dependent${depCountSuffix}` : "None"
   nodes["dependents"] = {
-    amount: depTotal > 0 ? `${depTotal} dependent${depTotal !== 1 ? "s" : ""}` : "None",
+    amount: depAmount,
     breakdown: depBreakdown,
     rawAmount: totalDependentReliefs,
     period: "annual",
@@ -1333,13 +1335,13 @@ function generateEdgeFormula(
         rawAmount: ctx.giroMonthlyBase,
       }
     case "dependents->tax_reliefs": {
+      const childWord = ctx.childCount !== 1 ? "children" : "child"
       const childPart =
-        ctx.childCount > 0
-          ? `${ctx.childCount} child${ctx.childCount !== 1 ? "ren" : ""}`
-          : ""
+        ctx.childCount > 0 ? `${ctx.childCount} ${childWord}` : ""
+      const parentSuffix = ctx.parentCount !== 1 ? "s" : ""
       const parentPart =
         ctx.parentCount > 0
-          ? `${ctx.parentCount} parent${ctx.parentCount !== 1 ? "s" : ""}`
+          ? `${ctx.parentCount} parent${parentSuffix}`
           : ""
       const sources = [childPart, parentPart].filter(Boolean).join(" + ")
       return {
