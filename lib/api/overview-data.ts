@@ -603,12 +603,10 @@ export async function fetchOverviewData(
     let ma = 0
 
     for (const pid of targetProfileIds) {
-      // Find latest CPF balance <= month for this profile
-      const cpfEntries = (cpfRes.data ?? []).filter(
+      // Find latest CPF balance <= month for this profile (rows already desc-sorted)
+      const latest = (cpfRes.data ?? []).find(
         (c) => c.profile_id === pid && (month == null || c.month <= month)
       )
-      // Already sorted desc by month from query
-      const latest = cpfEntries[0]
 
       if (latest) {
         const decoded = decodeCpfBalancesPii(latest)

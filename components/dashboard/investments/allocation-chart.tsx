@@ -72,13 +72,11 @@ function AllocationChartInner({
 
   const besideActive =
     legendLayout === "beside" && width >= legendBesideMinWidth && !mobileStacked
-  let chartVertical: number
   let chartSize: number
   if (mobileStacked) {
     // Mobile stacked: donut above, legend below — use generous sizing
     chartSize = Math.min(Math.round(innerWidth * 0.55), 200)
     chartSize = Math.max(120, chartSize)
-    chartVertical = chartSize
   } else if (besideActive) {
     // Reserve horizontal space for the legend column; cap donut diameter so the
     // donut+legend pair stays balanced and can be centered (tall containers
@@ -94,9 +92,8 @@ function AllocationChartInner({
     const BESIDE_DONUT_MAX = 220
     chartSize = Math.min(maxFromWidth, maxFromHeight, BESIDE_DONUT_MAX)
     chartSize = Math.max(96, chartSize)
-    chartVertical = chartSize
   } else {
-    chartVertical = Math.max(
+    const chartVertical = Math.max(
       96,
       height - titleBudget - legendBudget - 10,
     )

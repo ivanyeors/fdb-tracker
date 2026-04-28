@@ -170,14 +170,11 @@ export async function GET(request: NextRequest) {
       let bankTotal = 0
       if (accountIds.length > 0) {
         const monthStr = monthKey.slice(0, 7)
-        const relevantSnapshots = allSnapshots.filter(
-          (s) => String(s.month).slice(0, 7) <= monthStr,
-        )
+        const relevantSnapshots = allSnapshots
+          .filter((s) => String(s.month).slice(0, 7) <= monthStr)
+          .toSorted((a, b) => new Date(b.month).getTime() - new Date(a.month).getTime())
         const latestByAccount = new Map<string, number>()
-        for (const s of relevantSnapshots.sort(
-          (a, b) =>
-            new Date(b.month).getTime() - new Date(a.month).getTime(),
-        )) {
+        for (const s of relevantSnapshots) {
           if (!latestByAccount.has(s.account_id)) {
             latestByAccount.set(s.account_id, s.closing_balance)
           }

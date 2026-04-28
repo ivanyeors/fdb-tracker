@@ -725,10 +725,9 @@ export function IlpGroupFundsEditSheet({
 
                   {uploadStep !== "extracted" ? (
                     <>
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        className="flex min-h-[100px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30 px-4 py-4 text-center transition-colors hover:bg-muted/50"
+                      <button
+                        type="button"
+                        className="flex min-h-[100px] w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30 px-4 py-4 text-center transition-colors hover:bg-muted/50"
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={(e) => {
                           e.preventDefault()
@@ -739,14 +738,6 @@ export function IlpGroupFundsEditSheet({
                             .getElementById("ilp-group-mhtml-input")
                             ?.click()
                         }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault()
-                            document
-                              .getElementById("ilp-group-mhtml-input")
-                              ?.click()
-                          }
-                        }}
                       >
                         <Upload className="size-6 text-muted-foreground" />
                         <p className="text-xs text-muted-foreground">
@@ -757,14 +748,14 @@ export function IlpGroupFundsEditSheet({
                             {uploadFile.name}
                           </p>
                         ) : null}
-                        <input
-                          id="ilp-group-mhtml-input"
-                          type="file"
-                          accept=".mhtml,.mht,text/html"
-                          className="hidden"
-                          onChange={(e) => onPickUploadFile(e.target.files)}
-                        />
-                      </div>
+                      </button>
+                      <input
+                        id="ilp-group-mhtml-input"
+                        type="file"
+                        accept=".mhtml,.mht,text/html"
+                        className="hidden"
+                        onChange={(e) => onPickUploadFile(e.target.files)}
+                      />
 
                       <div className="flex flex-wrap gap-2">
                         <Button

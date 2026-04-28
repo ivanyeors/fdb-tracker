@@ -362,7 +362,6 @@ function finalizeBankTxn(
       txnType = "credit"
       amount = Math.abs(amount)
     } else {
-      txnType = "debit"
       amount = -Math.abs(amount)
     }
   } else if (amount > 0) {
@@ -374,7 +373,6 @@ function finalizeBankTxn(
     ) {
       txnType = "credit"
     } else {
-      txnType = "debit"
       amount = -Math.abs(amount)
     }
   }

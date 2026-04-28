@@ -831,7 +831,6 @@ export function chargeableIncomeFromTax(
     if (remainingTax <= maxTaxInBand + 0.005) {
       // Remaining tax falls within this band
       chargeableIncome += roundToCent(remainingTax / rate);
-      remainingTax = 0;
       break;
     }
 

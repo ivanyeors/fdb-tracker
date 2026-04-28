@@ -188,23 +188,16 @@ export function SymbolPickerDrawer({
                     ? handleMultiToggle(r.ticker)
                     : handleSingleSelect(r.ticker)
                 return (
-                <div
+                <button
                   key={r.ticker}
-                  role="button"
-                  tabIndex={0}
+                  type="button"
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 cursor-pointer transition-colors",
+                    "flex w-full items-center gap-3 rounded-lg bg-transparent px-3 py-2.5 cursor-pointer text-left transition-colors",
                     multiSelect
                       ? "hover:bg-accent"
                       : "hover:bg-accent hover:text-accent-foreground",
                   )}
                   onClick={handleSelect}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault()
-                      handleSelect()
-                    }
-                  }}
                 >
                   {multiSelect && (
                     <div
@@ -234,7 +227,7 @@ export function SymbolPickerDrawer({
                       </span>
                     )}
                   </div>
-                </div>
+                </button>
                 )
               })}
             </div>

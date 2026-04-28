@@ -1236,19 +1236,12 @@ export function IlpFundImportTab({
 
         {step !== "success" ? (
           <>
-            <div
-              role="button"
-              tabIndex={0}
-              className="flex min-h-[140px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30 px-4 py-6 text-center transition-colors hover:bg-muted/50"
+            <button
+              type="button"
+              className="flex min-h-[140px] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30 px-4 py-6 text-center transition-colors hover:bg-muted/50"
               onDragOver={(e) => e.preventDefault()}
               onDrop={onDrop}
               onClick={() => document.getElementById("ilp-mhtml-input")?.click()}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault()
-                  document.getElementById("ilp-mhtml-input")?.click()
-                }
-              }}
             >
               <Upload className="size-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
@@ -1257,15 +1250,15 @@ export function IlpFundImportTab({
               {fileLabel ? (
                 <p className="text-xs font-medium text-foreground">{fileLabel}</p>
               ) : null}
-              <input
-                id="ilp-mhtml-input"
-                type="file"
-                accept=".mhtml,.mht,text/html"
-                multiple
-                className="hidden"
-                onChange={(e) => onPickFiles(e.target.files)}
-              />
-            </div>
+            </button>
+            <input
+              id="ilp-mhtml-input"
+              type="file"
+              accept=".mhtml,.mht,text/html"
+              multiple
+              className="hidden"
+              onChange={(e) => onPickFiles(e.target.files)}
+            />
 
             <div className="flex flex-wrap gap-2">
               <Button

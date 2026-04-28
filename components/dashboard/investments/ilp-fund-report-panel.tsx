@@ -462,14 +462,14 @@ export function IlpFundReportPanel({ snapshot }: IlpFundReportPanelProps) {
                     className="size-2 rounded-sm"
                     style={{ background: FUND_BAR }}
                   />
-                  Fund
+                  {" "}Fund
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <span
                     className="size-2 rounded-sm"
                     style={{ background: CAT_BAR }}
                   />
-                  Category
+                  {" "}Category
                 </span>
               </div>
             </div>

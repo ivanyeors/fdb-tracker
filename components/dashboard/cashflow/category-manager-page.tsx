@@ -192,8 +192,8 @@ export function CategoryManagerPage({
         return next
       })
       // Select the next available category
-      const remaining = categories.filter((c) => c.id !== id)
-      setActiveCategoryId(remaining[0]?.id ?? null)
+      const next = categories.find((c) => c.id !== id)
+      setActiveCategoryId(next?.id ?? null)
       fetchCategories()
     } catch {
       toast.error("Failed to delete category")

@@ -36,21 +36,21 @@ function SemanticDots({ palette }: { readonly palette: ChartPalette }) {
           className="size-2.5 rounded-full"
           style={{ backgroundColor: palette.positive }}
         />
-        Positive
+        {" "}Positive
       </span>
       <span className="flex items-center gap-1.5">
         <span
           className="size-2.5 rounded-full"
           style={{ backgroundColor: palette.negative }}
         />
-        Negative
+        {" "}Negative
       </span>
       <span className="flex items-center gap-1.5">
         <span
           className="size-2.5 rounded-full"
           style={{ backgroundColor: palette.neutral }}
         />
-        Neutral
+        {" "}Neutral
       </span>
     </div>
   )

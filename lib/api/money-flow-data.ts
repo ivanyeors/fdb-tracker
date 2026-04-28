@@ -708,8 +708,7 @@ function aggregateProfileCpfBalance(
   cpf: { oa: number; sa: number; ma: number },
   now: Date,
 ) {
-  const cpfEntries = cpfRows.filter((c) => c.profile_id === pid)
-  const latestCpf = cpfEntries[0]
+  const latestCpf = cpfRows.find((c) => c.profile_id === pid)
   if (latestCpf) {
     const decodedCpf = decodeCpfBalancesPii(latestCpf as Parameters<typeof decodeCpfBalancesPii>[0])
     acc.totalCpfBalanceOa += decodedCpf.oa ?? 0

@@ -387,8 +387,7 @@ export function InvestmentsClient({
   const tabsPath = activeFamilyId
     ? `/api/investments/tabs?familyId=${activeFamilyId}`
     : null
-  const { data: dynamicTabs, isLoading: tabsLoading } =
-    useApi<InvestmentTab[]>(tabsPath)
+  const { data: dynamicTabs } = useApi<InvestmentTab[]>(tabsPath)
 
   const investmentTabs = useMemo(() => dynamicTabs ?? [], [dynamicTabs])
 

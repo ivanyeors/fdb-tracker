@@ -695,7 +695,7 @@ export function IlpCard({
           </div>
           <div className="flex justify-between gap-2">
             <span className="text-muted-foreground shrink-0">
-              Premiums Paid
+              Premiums Paid{" "}
               <span className="ml-1 font-normal text-xs opacity-70">
                 {premiumsSource === "entry" ? "(statement)" : "(est.)"}
               </span>

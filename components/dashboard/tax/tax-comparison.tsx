@@ -344,8 +344,7 @@ export function TaxComparison({
                           maximumFractionDigits: 2,
                         })}
                         %
-                      </strong>
-                      .
+                      </strong>{"."}
                     </li>
                   )}
                   {snapshot.marginalRate > 0 && (
@@ -488,8 +487,7 @@ export function TaxComparison({
                       {snapshot.employmentIncome > 0
                         ? `${snapshot.effectiveRate.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
                         : "—"}
-                    </span>
-                    .
+                    </span>{"."}
                   </p>
                   {rebateNote && (
                     <p className="text-xs text-amber-700 dark:text-amber-400">

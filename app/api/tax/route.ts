@@ -450,7 +450,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      entries: entries.sort((a, b) => b.year - a.year),
+      entries: entries.toSorted((a, b) => b.year - a.year),
       reliefs,
       profiles: profiles ?? [],
       profileDetails: Object.fromEntries(profileDetails),

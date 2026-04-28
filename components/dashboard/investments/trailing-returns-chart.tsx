@@ -177,7 +177,7 @@ export function TrailingReturnsChart({
             className="size-2 rounded-sm"
             style={{ background: FUND_COLOR }}
           />
-          Fund
+          {" "}Fund
         </span>
         {hasBenchmark && (
           <span className="inline-flex items-center gap-1.5">
@@ -185,7 +185,7 @@ export function TrailingReturnsChart({
               className="size-2 rounded-sm"
               style={{ background: BENCHMARK_COLOR }}
             />
-            Benchmark
+            {" "}Benchmark
           </span>
         )}
         {hasCategory && (
@@ -194,7 +194,7 @@ export function TrailingReturnsChart({
               className="size-2 rounded-sm"
               style={{ background: CATEGORY_COLOR }}
             />
-            Category
+            {" "}Category
           </span>
         )}
       </div>

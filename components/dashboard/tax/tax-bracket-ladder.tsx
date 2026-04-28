@@ -179,7 +179,6 @@ export function TaxBracketLadder({
 
   if (showMarginalPositionMarker && ci > 0) {
     connectorStartPct = marginalStartPct
-    connectorTopStyle = "50%"
   } else if (subjectHousehold) {
     connectorStartPct = subjectHousehold.posPct
     connectorTopStyle = `calc(50% - ${subjectHousehold.stagger * 5}px)`

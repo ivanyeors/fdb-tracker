@@ -143,7 +143,6 @@ function buildInvestmentBars(data: InvestmentWaterfallSection): WaterfallBarItem
   if (ilpPerf !== 0) {
     const label = ilpPerf >= 0 ? "ILP Gain" : "ILP Loss"
     bars.push({ name: label, start: cumulative, end: cumulative + ilpPerf, value: ilpPerf, type: "perceived" })
-    cumulative += ilpPerf
   }
 
   // Market Value anchor (perceived) — actual snapshot value
@@ -164,7 +163,6 @@ function buildCpfBars(data: CpfWaterfallSection): WaterfallBarItem[] {
   }
   if (data.housing > 0) {
     bars.push({ name: "Housing (OA)", start: cumulative, end: cumulative - data.housing, value: -data.housing, type: "outflow" })
-    cumulative -= data.housing
   }
 
   bars.push({ name: "Ending Balance", start: 0, end: data.endingBalance, value: data.endingBalance, type: "anchor" })

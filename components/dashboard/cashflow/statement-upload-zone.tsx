@@ -177,11 +177,11 @@ export function StatementUploadZone({
       />
 
       {/* Drop zone */}
-      <div
-        role="button"
-        tabIndex={isProcessing ? -1 : 0}
+      <button
+        type="button"
+        disabled={isProcessing}
         className={cn(
-          "relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors",
+          "relative flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed bg-transparent p-6 text-left transition-colors",
           isDragging
             ? "border-primary bg-primary/5"
             : "border-muted-foreground/25 hover:border-muted-foreground/50",
@@ -192,13 +192,6 @@ export function StatementUploadZone({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         onClick={() => !isProcessing && inputRef.current?.click()}
-        onKeyDown={(e) => {
-          if (isProcessing) return
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault()
-            inputRef.current?.click()
-          }
-        }}
       >
         {isProcessing ? (
           <div className="flex flex-col items-center gap-2">
@@ -219,7 +212,7 @@ export function StatementUploadZone({
             </p>
           </>
         )}
-      </div>
+      </button>
 
       {/* Processing queue */}
       {queue.length > 0 && (
