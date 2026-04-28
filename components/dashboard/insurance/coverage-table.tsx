@@ -9,16 +9,19 @@ import type {
 import { getCoverageRecommendation } from "@/lib/calculations/insurance"
 
 type CoverageTableProps = {
-  readonly profiles: ProfileCoverageAnalysis[]
-  readonly policies: Array<{
-    id: string
-    name: string
-    type: string
-    coverage_type: string | null
-    coverage_amount: number | null
-    is_active: boolean
-    profile_id: string
-    coverages: Array<{ coverage_type: string | null; coverage_amount: number }>
+  readonly profiles: readonly ProfileCoverageAnalysis[]
+  readonly policies: ReadonlyArray<{
+    readonly id: string
+    readonly name: string
+    readonly type: string
+    readonly coverage_type: string | null
+    readonly coverage_amount: number | null
+    readonly is_active: boolean
+    readonly profile_id: string
+    readonly coverages: ReadonlyArray<{
+      readonly coverage_type: string | null
+      readonly coverage_amount: number
+    }>
   }>
 }
 

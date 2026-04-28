@@ -138,7 +138,7 @@ export default function CpfPage() {
             ma: 0,
           }
           return (
-            <div key={i} className="space-y-3 rounded-lg border p-4">
+            <div key={`cpf-profile-${i}`} className="space-y-3 rounded-lg border p-4">
               <p className="text-sm font-medium">
                 {profiles[i]?.name || `Person ${i + 1}`}
               </p>

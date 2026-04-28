@@ -12,16 +12,16 @@ import { resolve } from "node:path"
 // Strip control characters from externally-sourced strings before logging
 // to prevent log forging via injected newlines/CRs.
 function safe(value: unknown): string {
-  return String(value ?? "").replace(/[\r\n\u0000-\u001F\u007F]/g, "")
+  return String(value ?? "").replaceAll(/[\r\n\u0000-\u001F\u007F]/g, "")
 }
 
 function loadEnvLocal() {
   const path = resolve(process.cwd(), ".env.local")
   if (!existsSync(path)) return
   for (const line of readFileSync(path, "utf-8").split("\n")) {
-    const m = line.match(/^([^#=]+)=(.*)$/)
+    const m = /^([^#=]+)=(.*)$/.exec(line)
     if (m && !process.env[m[1].trim()]) {
-      process.env[m[1].trim()] = m[2].trim().replace(/^["']|["']$/g, "")
+      process.env[m[1].trim()] = m[2].trim().replaceAll(/^["']|["']$/g, "")
     }
   }
 }

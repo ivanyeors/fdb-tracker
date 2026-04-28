@@ -64,18 +64,20 @@ export const MONTH_MAP: Record<string, string> = {
  */
 export function extractMonth(text: string): string | null {
   // "Statement for January 2026" or "Statement Period: 01 Jan 2026 to 31 Jan 2026"
-  const stmtFor = text.match(
-    /statement\s+(?:for|period)[^]*?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i
-  )
+  const stmtFor =
+    /statement\s+(?:for|period)[^]*?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
+      text
+    )
   if (stmtFor) {
     const mm = MONTH_MAP[stmtFor[1].toLowerCase()]
     if (mm) return `${stmtFor[2]}-${mm}-01`
   }
 
   // "1 JAN 2026 TO 31 JAN 2026" (OCBC bank statement period)
-  const periodMatch = text.match(
-    /\d{1,2}\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})\s+TO\s+\d{1,2}\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i
-  )
+  const periodMatch =
+    /\d{1,2}\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})\s+TO\s+\d{1,2}\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
+      text
+    )
   if (periodMatch) {
     // Use the end month
     const mm = MONTH_MAP[periodMatch[3].toLowerCase()]
@@ -89,18 +91,20 @@ export function extractMonth(text: string): string | null {
   }
 
   // "Statement Date January 05, 2026" (Citibank format)
-  const citiDate = text.match(
-    /Statement\s+Date\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2},?\s+(\d{4})/i
-  )
+  const citiDate =
+    /Statement\s+Date\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2},?\s+(\d{4})/i.exec(
+      text
+    )
   if (citiDate) {
     const mm = MONTH_MAP[citiDate[1].toLowerCase()]
     if (mm) return `${citiDate[2]}-${mm}-01`
   }
 
   // Fallback: "DD Mon YYYY" date pattern
-  const datePattern = text.match(
-    /(\d{1,2})\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i
-  )
+  const datePattern =
+    /(\d{1,2})\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
+      text
+    )
   if (datePattern) {
     const mm = MONTH_MAP[datePattern[2].toLowerCase()]
     if (mm) return `${datePattern[3]}-${mm}-01`

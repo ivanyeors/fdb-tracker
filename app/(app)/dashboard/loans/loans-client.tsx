@@ -240,8 +240,8 @@ export function LoansClient({
           </div>
           <div className="overflow-hidden rounded-xl border">
             <div className="space-y-3 p-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={`loan-skeleton-${i}`} className="h-12 w-full" />
+              {["a", "b", "c", "d"].map((slot) => (
+                <Skeleton key={`loan-skeleton-${slot}`} className="h-12 w-full" />
               ))}
             </div>
           </div>

@@ -18,8 +18,8 @@ import { CheckCircle2, CircleX, Loader2 } from "lucide-react"
 
 type Props = {
   readonly data: {
-    telegram_bot_token: string | null
-    telegram_chat_id: string | null
+    readonly telegram_bot_token: string | null
+    readonly telegram_chat_id: string | null
   }
 }
 

@@ -57,7 +57,7 @@ export function extractTax(text: string): TaxExtractionResult {
     /amount\s+of\s+tax\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
   ]
   for (const pat of taxPatterns) {
-    const match = text.match(pat)
+    const match = pat.exec(text)
     if (match) {
       taxPayable = parseAmount(match[1])
       if (taxPayable !== null) break
@@ -73,45 +73,34 @@ export function extractTax(text: string): TaxExtractionResult {
   // ── Employment Income ──
   let employmentIncome: number | null = null
   // NOA pattern: "INCOME^ ($) 73,471.00" or "INCOME ($) 73,471.00"
-  const incomeMatch = text.match(
-    /INCOME\^?\s*\(\$\)\s*([\d,]+\.?\d{0,2})/i
-  )
+  const incomeMatch = /INCOME\^?\s*\(\$\)\s*([\d,]+\.?\d{0,2})/i.exec(text)
   if (incomeMatch) {
     employmentIncome = parseAmount(incomeMatch[1])
   } else {
     // Try "EMPLOYMENT 73,471.00" line
-    const empMatch = text.match(
-      /EMPLOYMENT\s+([\d,]+\.?\d{0,2})/i
-    )
+    const empMatch = /EMPLOYMENT\s+([\d,]+\.?\d{0,2})/i.exec(text)
     if (empMatch) employmentIncome = parseAmount(empMatch[1])
   }
 
   // ── Chargeable Income ──
   let chargeableIncome: number | null = null
-  const ciMatch = text.match(
-    /CHARGEABLE\s+INCOME\s*(?:\(\$\))?\s*([\d,]+\.?\d{0,2})/i
-  )
+  const ciMatch =
+    /CHARGEABLE\s+INCOME\s*(?:\(\$\))?\s*([\d,]+\.?\d{0,2})/i.exec(text)
   if (ciMatch) chargeableIncome = parseAmount(ciMatch[1])
 
   // ── Total Deductions ──
   let totalDeductions: number | null = null
-  const dedMatch = text.match(
-    /DEDUCTIONS\s*\(\$\)\s*([\d,]+\.?\d{0,2})/i
-  )
+  const dedMatch = /DEDUCTIONS\s*\(\$\)\s*([\d,]+\.?\d{0,2})/i.exec(text)
   if (dedMatch) totalDeductions = parseAmount(dedMatch[1])
 
   // ── Donations Deduction ──
   let donationsDeduction: number | null = null
-  const donMatch = text.match(
-    /DONATIONS?\s+([\d,]+\.?\d{0,2})/i
-  )
+  const donMatch = /DONATIONS?\s+([\d,]+\.?\d{0,2})/i.exec(text)
   if (donMatch) donationsDeduction = parseAmount(donMatch[1])
 
   // ── Reliefs Total ──
   let reliefsTotal: number | null = null
-  const relMatch = text.match(
-    /RELIEFS?\s+([\d,]+\.?\d{0,2})/i
-  )
+  const relMatch = /RELIEFS?\s+([\d,]+\.?\d{0,2})/i.exec(text)
   if (relMatch) reliefsTotal = parseAmount(relMatch[1])
 
   // ── Relief Breakdown ──
@@ -162,7 +151,7 @@ export function extractTax(text: string): TaxExtractionResult {
     },
   ]
   for (const { pattern, label } of reliefPatterns) {
-    const m = text.match(pattern)
+    const m = pattern.exec(text)
     if (m) {
       const amount = parseAmount(m[1])
       if (amount !== null && amount > 0) {
@@ -180,9 +169,8 @@ export function extractTax(text: string): TaxExtractionResult {
   const bracketSummary: TaxNoaBracketLine[] = []
 
   // "First X Y" pattern (cumulative, no rate shown)
-  const firstMatch = text.match(
-    /First\s+([\d,]+\.?\d{0,2})\s+([\d,]+\.?\d{0,2})/i
-  )
+  const firstMatch =
+    /First\s+([\d,]+\.?\d{0,2})\s+([\d,]+\.?\d{0,2})/i.exec(text)
   if (firstMatch) {
     const income = parseAmount(firstMatch[1])
     const tax = parseAmount(firstMatch[2])
@@ -217,9 +205,7 @@ export function extractTax(text: string): TaxExtractionResult {
   // ── Payment Due Date ──
   let paymentDueDate: string | null = null
   // "by 26 May 2026" or "by 26 May, 2026"
-  const dueDateMatch = text.match(
-    /by\s+(\d{1,2})\s+(\w+)\s+(\d{4})/i
-  )
+  const dueDateMatch = /by\s+(\d{1,2})\s+(\w+)\s+(\d{4})/i.exec(text)
   if (dueDateMatch) {
     const day = Number.parseInt(dueDateMatch[1], 10)
     const monthStr = dueDateMatch[2]

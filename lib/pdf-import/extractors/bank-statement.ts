@@ -16,7 +16,7 @@ import {
 
 function extractBalance(text: string, patterns: RegExp[]): number | null {
   for (const pat of patterns) {
-    const match = text.match(pat)
+    const match = pat.exec(text)
     if (match) {
       // Look for dollar amount near the match
       const afterMatch = text.slice(

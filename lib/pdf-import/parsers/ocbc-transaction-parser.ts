@@ -145,9 +145,10 @@ export function parseOcbcBankStatement(pages: string[]): BankParseResult {
   const acctMatch = /Account No\.\s*(\d{10,})/.exec(allText)
   if (acctMatch) accountNumber = acctMatch[1]
 
-  const periodMatch = allText.match(
-    /(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{4})\s+TO\s+(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{4})/i
-  )
+  const periodMatch =
+    /(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{4})\s+TO\s+(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{4})/i.exec(
+      allText
+    )
   let stmtYear = new Date().getFullYear()
   let stmtMonthNum = 1
   if (periodMatch) {
@@ -166,9 +167,10 @@ export function parseOcbcBankStatement(pages: string[]): BankParseResult {
   if (cfMatch) closingBalance = parseAmount(cfMatch[1])
 
   // Parse totals
-  const totalsMatch = allText.match(
-    /Total Withdrawals\/Deposits[\s\S]*?([\d,]+\.\d{2})([\d,]+\.\d{2})/
-  )
+  const totalsMatch =
+    /Total Withdrawals\/Deposits[\s\S]*?([\d,]+\.\d{2})([\d,]+\.\d{2})/.exec(
+      allText
+    )
   if (totalsMatch) {
     // In the text: "3,726.912,088.60" — deposits then withdrawals mashed together
     // Actually from the extracted text: "3,726.912,088.60" means deposits=3726.91, withdrawals=2088.60
@@ -253,7 +255,7 @@ export function parseOcbcBankStatement(pages: string[]): BankParseResult {
       }
 
       // Try to match a transaction start line
-      const txnMatch = trimmed.match(BANK_TXN_START)
+      const txnMatch = BANK_TXN_START.exec(trimmed)
       if (txnMatch) {
         // Flush previous transaction
         if (currentTxn) {
@@ -268,7 +270,7 @@ export function parseOcbcBankStatement(pages: string[]): BankParseResult {
         const rest = trimmed.slice(txnMatch[0].length)
 
         // Try to match: amount balance+valueDate description
-        const bvdMatch = rest.match(BALANCE_VALUEDATE_DESC)
+        const bvdMatch = BALANCE_VALUEDATE_DESC.exec(rest)
         if (bvdMatch) {
           // Has amount(s) before the balance+valueDate
           const beforeBalance = rest.slice(0, rest.indexOf(bvdMatch[0]))
@@ -412,9 +414,8 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
   if (cardMatch) cardNumber = cardMatch[1]
 
   // Match "STATEMENT DATE" label then date on same or next line
-  const stmtDateMatch = allText.match(
-    /STATEMENT\s+DATE[\s\n]+(\d{2})-(\d{2})-(\d{4})/i
-  )
+  const stmtDateMatch =
+    /STATEMENT\s+DATE[\s\n]+(\d{2})-(\d{2})-(\d{4})/i.exec(allText)
   if (stmtDateMatch) {
     statementDate = `${stmtDateMatch[3]}-${stmtDateMatch[2]}-${stmtDateMatch[1]}`
     statementMonth = `${stmtDateMatch[3]}-${stmtDateMatch[2]}-01`
@@ -427,16 +428,13 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
     }
   }
 
-  const dueDateMatch = allText.match(
-    /PAYMENT\s+DUE\s+DATE[\s\n]+(\d{2})-(\d{2})-(\d{4})/i
-  )
+  const dueDateMatch =
+    /PAYMENT\s+DUE\s+DATE[\s\n]+(\d{2})-(\d{2})-(\d{4})/i.exec(allText)
   if (dueDateMatch) {
     paymentDueDate = `${dueDateMatch[3]}-${dueDateMatch[2]}-${dueDateMatch[1]}`
   }
 
-  const totalDueMatch = allText.match(
-    /TOTAL\s+AMOUNT\s+DUE\s+([\d,]+\.\d{2})/i
-  )
+  const totalDueMatch = /TOTAL\s+AMOUNT\s+DUE\s+([\d,]+\.\d{2})/i.exec(allText)
   if (totalDueMatch) totalAmountDue = parseAmount(totalDueMatch[1])
 
   // OCBC CC: "TOTAL MINIMUM DUE" header is on one line, values on next:
@@ -459,9 +457,8 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
   }
   // Also try inline format: "TOTAL MINIMUM DUE S$50.00"
   if (minimumPayment === null) {
-    const inlineMatch = allText.match(
-      /TOTAL\s+MINIMUM\s+(?:DUE|PAYMENT)\s+S?\$?([\d,]+\.\d{2})/i
-    )
+    const inlineMatch =
+      /TOTAL\s+MINIMUM\s+(?:DUE|PAYMENT)\s+S?\$?([\d,]+\.\d{2})/i.exec(allText)
     if (inlineMatch) minimumPayment = parseAmount(inlineMatch[1])
   }
 
@@ -533,7 +530,7 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
       if (trimmed.includes("LAST MONTH'S BALANCE")) continue
 
       // Try CC transaction line: " DD/MM description amount"
-      const ccMatch = line.match(CC_TXN_START)
+      const ccMatch = CC_TXN_START.exec(line)
       if (ccMatch) {
         // Flush previous
         if (currentTxn) {
@@ -602,9 +599,10 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
         currentTxn.rawLines.push(trimmed)
 
         // Check for FOREIGN CURRENCY line
-        const fcyMatch = trimmed.match(
-          /^FOREIGN\s+CURRENCY\s+(USD|EUR|GBP|JPY|AUD|CNY)\s+([\d,.]+)/i
-        )
+        const fcyMatch =
+          /^FOREIGN\s+CURRENCY\s+(USD|EUR|GBP|JPY|AUD|CNY)\s+([\d,.]+)/i.exec(
+            trimmed
+          )
         if (fcyMatch) {
           currentTxn.foreignCurrency = `${fcyMatch[1]} ${fcyMatch[2]}`
         } else {

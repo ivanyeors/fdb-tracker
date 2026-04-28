@@ -181,7 +181,7 @@ function findYahooQuoteRow(
   ticker: string,
 ): YahooQuoteRow | undefined {
   const u = ticker.toUpperCase()
-  const alt = u.replace(/\./g, "-")
+  const alt = u.replaceAll(/\./g, "-")
   for (const item of rows) {
     const q = item as YahooQuoteRow
     const sym = (q.symbol ?? "").toUpperCase()

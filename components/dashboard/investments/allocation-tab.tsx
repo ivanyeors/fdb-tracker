@@ -230,8 +230,8 @@ export function AllocationTab({
       <div className="space-y-6">
         {/* Skeleton for insights row */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={`alloc-insight-skeleton-${i}`} className="h-20 animate-pulse rounded-xl border bg-muted/30" />
+          {["a", "b", "c", "d", "e"].map((slot) => (
+            <div key={`alloc-insight-skeleton-${slot}`} className="h-20 animate-pulse rounded-xl border bg-muted/30" />
           ))}
         </div>
         {/* Skeleton for donuts */}

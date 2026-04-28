@@ -87,18 +87,17 @@ export function parseCitibankCcStatement(
   const allText = pages.join("\n")
 
   // Extract metadata
-  const cardNumMatch = allText.match(
-    /(\d{4}\s+\d{4}\s+\d{4}\s+\d{4})/
-  )
+  const cardNumMatch = /(\d{4}\s+\d{4}\s+\d{4}\s+\d{4})/.exec(allText)
   if (cardNumMatch) cardNumber = cardNumMatch[1].replaceAll(/\s+/g, "-")
 
   if (allText.includes("CITI PREMIERMILES")) cardName = "Citi PremierMiles"
   else if (allText.includes("CITI REWARDS")) cardName = "Citi Rewards"
 
   // Statement Date: "Statement Date January 05, 2026" or "Statement Date: January 05, 2026"
-  const stmtDateMatch = allText.match(
-    /Statement\s+Date:?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})/i
-  )
+  const stmtDateMatch =
+    /Statement\s+Date:?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})/i.exec(
+      allText
+    )
   if (stmtDateMatch) {
     const mm = MONTH_MAP[stmtDateMatch[1].toLowerCase()]
     if (mm) {
@@ -109,9 +108,10 @@ export function parseCitibankCcStatement(
   }
 
   // Payment Due Date
-  const dueDateMatch = allText.match(
-    /Payment\s+Due\s+Date:?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})/i
-  )
+  const dueDateMatch =
+    /Payment\s+Due\s+Date:?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})/i.exec(
+      allText
+    )
   if (dueDateMatch) {
     const mm = MONTH_MAP[dueDateMatch[1].toLowerCase()]
     if (mm) {
@@ -120,21 +120,19 @@ export function parseCitibankCcStatement(
   }
 
   // Current Balance = total amount due
-  const balanceMatch = allText.match(
-    /Current\s+Balance\s+\$?([\d,]+\.\d{2})/i
-  )
+  const balanceMatch = /Current\s+Balance\s+\$?([\d,]+\.\d{2})/i.exec(allText)
   if (balanceMatch) totalAmountDue = parseAmount(balanceMatch[1])
 
   // Minimum payment
-  const minPayMatch = allText.match(
-    /Total\s+Minimum\s+Payment\s+\$?([\d,]+\.\d{2})/i
-  )
+  const minPayMatch =
+    /Total\s+Minimum\s+Payment\s+\$?([\d,]+\.\d{2})/i.exec(allText)
   if (minPayMatch) minimumPayment = parseAmount(minPayMatch[1])
 
   // Balance breakdown line: "7,292.44 7,292.44 967.32 0.00 0.19 967.51"
-  const breakdownMatch = allText.match(
-    /(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})/
-  )
+  const breakdownMatch =
+    /(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})/.exec(
+      allText
+    )
   if (breakdownMatch) {
     previousBalance = parseAmount(breakdownMatch[1])
     paymentsCredits = parseAmount(breakdownMatch[2])
@@ -203,7 +201,7 @@ export function parseCitibankCcStatement(
       }
 
       // Try transaction start
-      const txnMatch = trimmed.match(TXN_START)
+      const txnMatch = TXN_START.exec(trimmed)
       if (txnMatch) {
         // Flush previous
         if (currentTxn) {

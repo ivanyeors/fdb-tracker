@@ -29,9 +29,9 @@ interface InvestmentValueChartProps {
   readonly liveTotal?: number
   /** Optional breakdown matching portfolio total (listed + cash + ILP). */
   readonly breakdown?: {
-    holdingsLive: number
-    brokerageCash: number
-    ilpTotal: number
+    readonly holdingsLive: number
+    readonly brokerageCash: number
+    readonly ilpTotal: number
   }
 }
 
@@ -214,7 +214,7 @@ function ChartInner({
             const x = xGetter(data[i], i)
             return (
               <text
-                key={i}
+                key={`xtick-${data[i].label}-${i}`}
                 x={x}
                 y={14}
                 textAnchor="middle"

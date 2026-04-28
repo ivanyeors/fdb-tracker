@@ -17,25 +17,25 @@ import { ChevronDown, FileText, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface Category {
-  id: string
-  name: string
-  icon: string | null
+  readonly id: string
+  readonly name: string
+  readonly icon: string | null
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ParsedResult = any
 
 export interface ParsedFile {
-  fileName: string
-  result: ParsedResult
-  categoryOverrides: Map<number, string | null>
+  readonly fileName: string
+  readonly result: ParsedResult
+  readonly categoryOverrides: Map<number, string | null>
 }
 
 interface ImportPreviewDialogProps {
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
-  readonly parsedFiles: ParsedFile[]
-  readonly categories: Category[]
+  readonly parsedFiles: readonly ParsedFile[]
+  readonly categories: readonly Category[]
   readonly onCategoryOverride: (
     fileIndex: number,
     txnIndex: number,
@@ -56,7 +56,7 @@ function FilePreview({
 }: {
   readonly file: ParsedFile
   readonly fileIndex: number
-  readonly categories: Category[]
+  readonly categories: readonly Category[]
   readonly onCategoryOverride: (
     fileIndex: number,
     txnIndex: number,

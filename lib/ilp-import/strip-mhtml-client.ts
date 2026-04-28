@@ -7,9 +7,10 @@
 
 function extractBoundary(headerBlock: string): string | null {
   const joined = headerBlock.replaceAll(/\r?\n[ \t]+/g, " ")
-  const m = joined.match(
-    /Content-Type:\s*multipart\/[^;]+;\s*[^]*?boundary\s*=\s*"([^"]+)"/i
-  )
+  const m =
+    /Content-Type:\s*multipart\/[^;]+;\s*[^]*?boundary\s*=\s*"([^"]+)"/i.exec(
+      joined
+    )
   if (m) return m[1].trim()
   const m2 = /boundary\s*=\s*"([^"]+)"/i.exec(joined)
   if (m2) return m2[1].trim()

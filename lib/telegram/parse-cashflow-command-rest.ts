@@ -17,7 +17,7 @@ export function parseAmountAndMemoFromRest(
 ): { amount: number; memo?: string } | null {
   const trimmed = rest.trim()
   if (!trimmed) return null
-  const m = trimmed.match(AMOUNT_MEMO)
+  const m = AMOUNT_MEMO.exec(trimmed)
   if (!m) return null
   const amount = Number.parseFloat(m[1])
   if (Number.isNaN(amount) || amount <= 0) return null

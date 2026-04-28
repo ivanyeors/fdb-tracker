@@ -175,8 +175,8 @@ export function InviteCodesSection({
             if (loading) {
               return (
             <div className="space-y-2">
-              {Array.from({ length: 2 }).map((_, i) => (
-                <Skeleton key={`invite-skeleton-${i}`} className="h-10 w-full" />
+              {["a", "b"].map((slot) => (
+                <Skeleton key={`invite-skeleton-${slot}`} className="h-10 w-full" />
               ))}
             </div>
               )

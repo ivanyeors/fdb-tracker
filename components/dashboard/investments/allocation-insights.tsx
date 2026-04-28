@@ -76,8 +76,8 @@ export function AllocationInsights({
   if (loading) {
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <InsightSkeleton key={`insight-skeleton-${i}`} />
+        {["a", "b", "c", "d", "e"].map((slot) => (
+          <InsightSkeleton key={`insight-skeleton-${slot}`} />
         ))}
       </div>
     )

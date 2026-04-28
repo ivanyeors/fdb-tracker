@@ -7,14 +7,14 @@ import { toast } from "sonner"
 
 interface StatementUploadProps {
   readonly onParsed: (result: {
-    classification: {
-      type: string
-      confidence: string
-      matchedKeywords: string[]
+    readonly classification: {
+      readonly type: string
+      readonly confidence: string
+      readonly matchedKeywords: readonly string[]
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    extracted: any
-    pageCount: number
+    readonly extracted: any
+    readonly pageCount: number
   }) => void
 }
 

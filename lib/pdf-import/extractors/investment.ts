@@ -17,9 +17,10 @@ const MONTH_MAP: Record<string, string> = {
 }
 
 function extractMonth(text: string): string | null {
-  const stmtMatch = text.match(
-    /(?:statement|report|as\s+at|period)[^]*?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i
-  )
+  const stmtMatch =
+    /(?:statement|report|as\s+at|period)[^]*?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
+      text
+    )
   if (stmtMatch) {
     const mm = MONTH_MAP[stmtMatch[1].toLowerCase()]
     if (mm) return `${stmtMatch[2]}-${mm}-01`
@@ -49,9 +50,10 @@ function extractHoldings(text: string): Array<{
   const lines = text.split("\n")
   for (const line of lines) {
     // Try: SYMBOL_CODE ... some_name ... quantity ... price
-    const stockMatch = line.match(
-      /([A-Z][A-Z0-9]{1,5}(?:\.[A-Z]{2})?)\s+(.{3,40}?)\s+([\d,]+)\s+(?:(?:S?\$)?\s*)([\d,]+\.?\d{0,2})/
-    )
+    const stockMatch =
+      /([A-Z][A-Z0-9]{1,5}(?:\.[A-Z]{2})?)\s+(.{3,40}?)\s+([\d,]+)\s+(?:(?:S?\$)?\s*)([\d,]+\.?\d{0,2})/.exec(
+        line
+      )
     if (stockMatch) {
       const units = parseAmount(stockMatch[3])
       if (units && units > 0) {
@@ -87,7 +89,7 @@ export function extractInvestment(text: string): InvestmentExtractionResult {
     /net\s+asset\s+value\s*:?\s*\$?\s*([\d,]+\.?\d{0,2})/i,
   ]
   for (const pat of totalPatterns) {
-    const match = text.match(pat)
+    const match = pat.exec(text)
     if (match) {
       totalValue = parseAmount(match[1])
       if (totalValue !== null) break

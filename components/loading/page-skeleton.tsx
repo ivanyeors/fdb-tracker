@@ -2,6 +2,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { ChartSkeleton } from "./chart-skeleton"
 
+const SKELETON_SLOTS = [
+  "alpha", "bravo", "charlie", "delta", "echo",
+  "foxtrot", "golf", "hotel", "india", "juliet",
+] as const
+
 interface PageSkeletonProps {
   /** Number of metric cards in the first row (default: 3) */
   readonly metricCount?: number
@@ -37,16 +42,16 @@ export function PageSkeleton({
 
       {/* Primary metrics grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {Array.from({ length: metricCount }).map((_, i) => (
-          <MetricCard key={`primary-skeleton-${i}`} label="" value={0} loading />
+        {SKELETON_SLOTS.slice(0, metricCount).map((slot) => (
+          <MetricCard key={`primary-skeleton-${slot}`} label="" value={0} loading />
         ))}
       </div>
 
       {/* Secondary metrics grid (e.g. 4 cards) */}
       {metricCountSecondary > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: metricCountSecondary }).map((_, i) => (
-            <MetricCard key={`secondary-skeleton-${i}`} label="" value={0} loading />
+          {SKELETON_SLOTS.slice(0, metricCountSecondary).map((slot) => (
+            <MetricCard key={`secondary-skeleton-${slot}`} label="" value={0} loading />
           ))}
         </div>
       )}
@@ -59,8 +64,8 @@ export function PageSkeleton({
         <div className="rounded-lg border p-4">
           <Skeleton className="mb-4 h-6 w-48" />
           <div className="space-y-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={`row-skeleton-${i}`} className="h-10 w-full" />
+            {SKELETON_SLOTS.slice(0, 6).map((slot) => (
+              <Skeleton key={`row-skeleton-${slot}`} className="h-10 w-full" />
             ))}
           </div>
         </div>

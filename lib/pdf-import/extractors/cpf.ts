@@ -15,23 +15,25 @@ function parseAmount(str: string): number | null {
  */
 function extractMonth(text: string): string | null {
   // "as at DD Mon YYYY" or "as at DD Month YYYY"
-  const asAt = text.match(
-    /as\s+at\s+\d{1,2}\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i
-  )
+  const asAt =
+    /as\s+at\s+\d{1,2}\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
+      text
+    )
   if (asAt) {
     return resolveMonth(asAt[1], asAt[2])
   }
 
   // "Statement for Month YYYY"
-  const stmtFor = text.match(
-    /statement\s+for\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i
-  )
+  const stmtFor =
+    /statement\s+for\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
+      text
+    )
   if (stmtFor) {
     return resolveMonth(stmtFor[1], stmtFor[2])
   }
 
   // "DD/MM/YYYY" or "DD-MM-YYYY" date near keywords
-  const dateMatch = text.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
+  const dateMatch = /(\d{1,2})[/-](\d{1,2})[/-](\d{4})/.exec(text)
   if (dateMatch) {
     const month = Number.parseInt(dateMatch[2], 10)
     const year = Number.parseInt(dateMatch[3], 10)
@@ -69,7 +71,7 @@ function resolveMonth(monthStr: string, yearStr: string): string | null {
  * Looks for patterns like "Ordinary Account ... $123,456.78"
  */
 function extractBalance(text: string, accountPattern: RegExp): number | null {
-  const match = text.match(accountPattern)
+  const match = accountPattern.exec(text)
   if (!match) return null
   // Look for a dollar amount near the match
   const afterMatch = text.slice((match.index ?? 0) + match[0].length, (match.index ?? 0) + match[0].length + 200)

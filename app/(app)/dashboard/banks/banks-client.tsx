@@ -228,8 +228,8 @@ export function BanksClient({
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <Skeleton key={`bank-skeleton-${i}`} className="h-10 w-full" />
+                  {["a", "b", "c", "d", "e", "f", "g", "h"].map((slot) => (
+                    <Skeleton key={`bank-skeleton-${slot}`} className="h-10 w-full" />
                   ))}
                 </div>
               </CardContent>

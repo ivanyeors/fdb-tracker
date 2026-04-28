@@ -66,17 +66,17 @@ function detectCoverageType(text: string): string | null {
 
 function extractPolicyNumber(text: string): string | null {
   // Common patterns: "Policy No. L12345678", "Policy Number: ABC-123456"
-  const match = text.match(
-    /policy\s+(?:no\.?|number)\s*:?\s*([A-Z0-9][-A-Z0-9/]{4,20})/i
-  )
+  const match =
+    /policy\s+(?:no\.?|number)\s*:?\s*([A-Z0-9][-A-Z0-9/]{4,20})/i.exec(text)
   return match ? match[1].trim() : null
 }
 
 function extractPremium(text: string): { amount: number | null; frequency: string | null } {
   // "Premium: $123.45" or "Annual Premium $1,234.00" or "Total Premium Payable (with GST): S$500.00"
-  const premiumMatch = text.match(
-    /(?:total\s+)?(?:annual|yearly|monthly|quarterly)?\s*premium\s*(?:payable|amount)?(?:\s*\([^)]*\))?\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i
-  )
+  const premiumMatch =
+    /(?:total\s+)?(?:annual|yearly|monthly|quarterly)?\s*premium\s*(?:payable|amount)?(?:\s*\([^)]*\))?\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i.exec(
+      text
+    )
   const amount = premiumMatch ? parseAmount(premiumMatch[1]) : null
 
   let frequency: string | null = null
@@ -115,7 +115,7 @@ function extractCoverageAmount(text: string): number | null {
     /accidental\s+death\s*.*?(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
   ]
   for (const pat of patterns) {
-    const match = text.match(pat)
+    const match = pat.exec(text)
     if (match) {
       const val = parseAmount(match[1])
       if (val && val >= 1000) return val
@@ -135,12 +135,12 @@ const MONTH_NAMES_RE =
   "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"
 
 function extractDate(text: string, pattern: RegExp): string | null {
-  const match = text.match(pattern)
+  const match = pattern.exec(text)
   if (!match) return null
   const dateArea = match[0]
 
   // DD/MM/YYYY or DD-MM-YYYY
-  const slashDate = dateArea.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
+  const slashDate = /(\d{1,2})[/-](\d{1,2})[/-](\d{4})/.exec(dateArea)
   if (slashDate) {
     const d = slashDate[1].padStart(2, "0")
     const m = slashDate[2].padStart(2, "0")
@@ -148,18 +148,20 @@ function extractDate(text: string, pattern: RegExp): string | null {
   }
 
   // DD Mon YYYY (e.g., "27 Dec 2025")
-  const longDate = dateArea.match(
-    new RegExp(String.raw`(\d{1,2})\s+(${MONTH_NAMES_RE})\s+(\d{4})`, "i")
-  )
+  const longDate = new RegExp(
+    String.raw`(\d{1,2})\s+(${MONTH_NAMES_RE})\s+(\d{4})`,
+    "i"
+  ).exec(dateArea)
   if (longDate) {
     const mm = MONTH_MAP[longDate[2].toLowerCase()]
     if (mm) return `${longDate[3]}-${mm}-${longDate[1].padStart(2, "0")}`
   }
 
   // Mon DD, YYYY (e.g., "Dec 27, 2025")
-  const monthFirstDate = dateArea.match(
-    new RegExp(String.raw`(${MONTH_NAMES_RE})\s+(\d{1,2}),?\s+(\d{4})`, "i")
-  )
+  const monthFirstDate = new RegExp(
+    String.raw`(${MONTH_NAMES_RE})\s+(\d{1,2}),?\s+(\d{4})`,
+    "i"
+  ).exec(dateArea)
   if (monthFirstDate) {
     const mm = MONTH_MAP[monthFirstDate[1].toLowerCase()]
     if (mm) return `${monthFirstDate[3]}-${mm}-${monthFirstDate[2].padStart(2, "0")}`
@@ -212,9 +214,10 @@ function findLatestDate(text: string, minDate: string): string | null {
 function extractPolicyName(text: string): string | null {
   // Match "Plan Name:", "Product Name:", "Policy Name:", "Plan Type:", or bare "Plan:"
   // Capture up to 2 lines to handle wrapped plan names
-  const nameMatch = text.match(
-    /(?:plan(?:\s+(?:name|type))?|product\s+name|policy\s+name)\s*:\s*([^\n]{3,80}(?:\n[^\n]{3,80})?)/i
-  )
+  const nameMatch =
+    /(?:plan(?:\s+(?:name|type))?|product\s+name|policy\s+name)\s*:\s*([^\n]{3,80}(?:\n[^\n]{3,80})?)/i.exec(
+      text
+    )
   if (nameMatch) {
     let name = nameMatch[1]
       .split(/\n/)
@@ -230,9 +233,10 @@ function extractPolicyName(text: string): string | null {
   }
 
   // AIA-specific: look for "AIA <product name>" pattern
-  const aiaMatch = text.match(
-    /\bAIA\s+([\w\s]*(?:Solitaire|Premier|Vitality|Pro|Plus|Elite)[\w\s]*)/i
-  )
+  const aiaMatch =
+    /\bAIA\s+([\w\s]*(?:Solitaire|Premier|Vitality|Pro|Plus|Elite)[\w\s]*)/i.exec(
+      text
+    )
   if (aiaMatch) {
     let name = `AIA ${aiaMatch[1].trim()}`
     name = name.replace(
@@ -246,12 +250,10 @@ function extractPolicyName(text: string): string | null {
 }
 
 function extractRider(text: string): { name: string | null; premium: number | null } {
-  const riderMatch = text.match(
-    /rider\s*(?:name)?\s*:?\s*(.{3,60}?)(?:\n|rider\s+premium)/i
-  )
-  const riderPremiumMatch = text.match(
-    /rider\s+premium\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i
-  )
+  const riderMatch =
+    /rider\s*(?:name)?\s*:?\s*(.{3,60}?)(?:\n|rider\s+premium)/i.exec(text)
+  const riderPremiumMatch =
+    /rider\s+premium\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i.exec(text)
   return {
     name: riderMatch ? riderMatch[1].trim() : null,
     premium: riderPremiumMatch ? parseAmount(riderPremiumMatch[1]) : null,
@@ -324,23 +326,25 @@ const BENEFIT_HEADER_RE = new RegExp(
 /** Parse a date from a text fragment (standalone, no label prefix needed). */
 function parseDateFromFragment(fragment: string): string | null {
   // Mon DD, YYYY
-  const mf = fragment.match(
-    new RegExp(String.raw`(${MONTH_NAMES_RE})\s+(\d{1,2}),?\s+(\d{4})`, "i")
-  )
+  const mf = new RegExp(
+    String.raw`(${MONTH_NAMES_RE})\s+(\d{1,2}),?\s+(\d{4})`,
+    "i"
+  ).exec(fragment)
   if (mf) {
     const mm = MONTH_MAP[mf[1].toLowerCase()]
     if (mm) return `${mf[3]}-${mm}-${mf[2].padStart(2, "0")}`
   }
   // DD Mon YYYY
-  const df = fragment.match(
-    new RegExp(String.raw`(\d{1,2})\s+(${MONTH_NAMES_RE})\s+(\d{4})`, "i")
-  )
+  const df = new RegExp(
+    String.raw`(\d{1,2})\s+(${MONTH_NAMES_RE})\s+(\d{4})`,
+    "i"
+  ).exec(fragment)
   if (df) {
     const mm = MONTH_MAP[df[2].toLowerCase()]
     if (mm) return `${df[3]}-${mm}-${df[1].padStart(2, "0")}`
   }
   // DD/MM/YYYY
-  const sf = fragment.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
+  const sf = /(\d{1,2})[/-](\d{1,2})[/-](\d{4})/.exec(fragment)
   if (sf) {
     return `${sf[3]}-${sf[2].padStart(2, "0")}-${sf[1].padStart(2, "0")}`
   }
@@ -447,7 +451,7 @@ function extractCpfPremium(text: string): number | null {
     /cpf\s*:?\s*(?:S?\$)\s*([\d,]+\.?\d{0,2})/i,
   ]
   for (const pat of patterns) {
-    const match = text.match(pat)
+    const match = pat.exec(text)
     if (match) {
       const val = parseAmount(match[1])
       if (val && val > 0) return val
@@ -461,9 +465,10 @@ function detectPremiumWaiver(text: string): boolean {
 }
 
 function extractCoverageTillAge(text: string): number | null {
-  const match = text.match(
-    /(?:coverage|covered?|term)\s+(?:till?|to|until)\s+age\s+(\d{2,3})/i
-  )
+  const match =
+    /(?:coverage|covered?|term)\s+(?:till?|to|until)\s+age\s+(\d{2,3})/i.exec(
+      text
+    )
   if (match) {
     const age = Number.parseInt(match[1])
     if (age >= 20 && age <= 120) return age
@@ -484,9 +489,10 @@ function extractSubType(text: string, policyType: string | null): string | null 
 }
 
 function extractCashValue(text: string): number | null {
-  const match = text.match(
-    /(?:cash|surrender)\s+value\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i
-  )
+  const match =
+    /(?:cash|surrender)\s+value\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i.exec(
+      text
+    )
   if (match) {
     const val = parseAmount(match[1])
     if (val && val > 0) return val
@@ -495,9 +501,10 @@ function extractCashValue(text: string): number | null {
 }
 
 function extractMaturityValue(text: string): number | null {
-  const match = text.match(
-    /(?:maturity|guaranteed)\s+(?:value|benefit|payout)\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i
-  )
+  const match =
+    /(?:maturity|guaranteed)\s+(?:value|benefit|payout)\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i.exec(
+      text
+    )
   if (match) {
     const val = parseAmount(match[1])
     if (val && val > 0) return val

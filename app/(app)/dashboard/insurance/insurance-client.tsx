@@ -322,8 +322,8 @@ export function InsuranceClient({
                 <MetricCard label="" value={0} loading />
               </div>
               <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={`policy-skeleton-${i}`} className="h-16 w-full" />
+                {["a", "b", "c"].map((slot) => (
+                  <Skeleton key={`policy-skeleton-${slot}`} className="h-16 w-full" />
                 ))}
               </div>
             </>

@@ -7,13 +7,13 @@ import { getUpcomingPremiums } from "@/lib/calculations/insurance-premium"
 
 type PremiumCalendarProps = {
   readonly policies: Array<{
-    name: string
-    type: string
-    premium_amount: number
-    frequency: string
-    yearly_outflow_date: number | null
-    is_active: boolean
-    cpf_premium?: number | null
+    readonly name: string
+    readonly type: string
+    readonly premium_amount: number
+    readonly frequency: string
+    readonly yearly_outflow_date: number | null
+    readonly is_active: boolean
+    readonly cpf_premium?: number | null
   }>
 }
 

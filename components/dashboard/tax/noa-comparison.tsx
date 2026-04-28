@@ -38,14 +38,14 @@ export interface NoaData {
 interface NoaComparisonProps {
   readonly noaData: NoaData
   readonly estimate: {
-    employmentIncome: number
-    totalReliefs: number
-    chargeableIncome: number
-    taxPayable: number
-    reliefBreakdown: Array<{
-      type: string
-      amount: number
-      source: "auto" | "manual"
+    readonly employmentIncome: number
+    readonly totalReliefs: number
+    readonly chargeableIncome: number
+    readonly taxPayable: number
+    readonly reliefBreakdown: ReadonlyArray<{
+      readonly type: string
+      readonly amount: number
+      readonly source: "auto" | "manual"
     }>
   }
   readonly className?: string

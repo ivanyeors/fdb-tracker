@@ -22,9 +22,9 @@ function loadEnvLocal() {
   const path = resolve(process.cwd(), ".env.local")
   if (!existsSync(path)) return
   for (const line of readFileSync(path, "utf-8").split("\n")) {
-    const m = line.match(/^([^#=]+)=(.*)$/)
+    const m = /^([^#=]+)=(.*)$/.exec(line)
     if (m && !process.env[m[1].trim()]) {
-      process.env[m[1].trim()] = m[2].trim().replace(/^["']|["']$/g, "")
+      process.env[m[1].trim()] = m[2].trim().replaceAll(/^["']|["']$/g, "")
     }
   }
 }

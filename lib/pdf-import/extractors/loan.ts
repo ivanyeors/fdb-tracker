@@ -49,20 +49,21 @@ function detectPropertyType(text: string): string | null {
 }
 
 function extractDate(text: string, labelPattern: RegExp): string | null {
-  const match = text.match(labelPattern)
+  const match = labelPattern.exec(text)
   if (!match) return null
   const area = text.slice(match.index ?? 0, (match.index ?? 0) + match[0].length + 100)
 
   // DD/MM/YYYY
-  const slashDate = area.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
+  const slashDate = /(\d{1,2})[/-](\d{1,2})[/-](\d{4})/.exec(area)
   if (slashDate) {
     return `${slashDate[3]}-${slashDate[2].padStart(2, "0")}-${slashDate[1].padStart(2, "0")}`
   }
 
   // DD Mon YYYY
-  const longDate = area.match(
-    /(\d{1,2})\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i
-  )
+  const longDate =
+    /(\d{1,2})\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
+      area
+    )
   if (longDate) {
     const mm = MONTH_MAP[longDate[2].toLowerCase()]
     if (mm) return `${longDate[3]}-${mm}-${longDate[1].padStart(2, "0")}`
@@ -88,7 +89,7 @@ export function extractLoan(text: string): LoanExtractionResult {
     /facility\s+amount\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
   ]
   for (const pat of principalPatterns) {
-    const match = text.match(pat)
+    const match = pat.exec(text)
     if (match) {
       principal = parseAmount(match[1])
       if (principal !== null) break
@@ -98,9 +99,10 @@ export function extractLoan(text: string): LoanExtractionResult {
 
   // Interest rate
   let ratePct: number | null = null
-  const rateMatch = text.match(
-    /(?:interest\s+rate|rate\s+of\s+interest)\s*:?\s*(\d+\.?\d{0,4})\s*%/i
-  )
+  const rateMatch =
+    /(?:interest\s+rate|rate\s+of\s+interest)\s*:?\s*(\d+\.?\d{0,4})\s*%/i.exec(
+      text
+    )
   if (rateMatch) {
     ratePct = Number.parseFloat(rateMatch[1])
   }
