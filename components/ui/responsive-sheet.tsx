@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils"
 
 function ResponsiveSheet({
   ...props
-}: React.ComponentProps<typeof Sheet>) {
+}: Readonly<React.ComponentProps<typeof Sheet>>) {
   const isMobile = useIsMobile()
   if (isMobile) return <Drawer {...props} />
   return <Sheet {...props} />

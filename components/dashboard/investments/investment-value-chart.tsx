@@ -85,7 +85,7 @@ function ChartInner({
   readonly height: number
 }) {
   const { formatMoney } = useInvestmentsDisplayCurrency()
-  const gradId = useId().replaceAll(/:/g, "_")
+  const gradId = useId().replaceAll(":", "_")
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<{ index: number; point: SeriesPoint }>()
 

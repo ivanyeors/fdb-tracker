@@ -689,7 +689,7 @@ export function InsuranceClient({
                               <td className="px-4 py-3 text-muted-foreground">
                                 {INSURANCE_TYPE_LABELS[
                                   policy.type as InsuranceType
-                                ] ?? policy.type.replaceAll(/_/g, " ")}
+                                ] ?? policy.type.replaceAll("_", " ")}
                               </td>
                               <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
                                 {policy.policy_number ?? "—"}
@@ -722,10 +722,7 @@ export function InsuranceClient({
                                             {COVERAGE_TYPE_LABELS[
                                               c.coverage_type as CoverageType
                                             ] ??
-                                              c.coverage_type!.replace(
-                                                /_/g,
-                                                " "
-                                              )}
+                                              c.coverage_type!.replaceAll("_", " ")}
                                           </Badge>
                                           <span className="text-xs tabular-nums text-muted-foreground">
                                             {c.coverage_amount > 0
@@ -743,7 +740,7 @@ export function InsuranceClient({
                                   </div>
                                 ) : (
                                   <span className="text-muted-foreground">
-                                    {policy.coverage_type?.replaceAll(/_/g, " ") ??
+                                    {policy.coverage_type?.replaceAll("_", " ") ??
                                       "—"}
                                     {policy.coverage_amount
                                       ? ` ($${formatCurrency(policy.coverage_amount)})`

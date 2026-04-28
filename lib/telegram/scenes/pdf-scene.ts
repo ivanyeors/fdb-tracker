@@ -199,7 +199,7 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
       // switch here would map to the wrong fields. Ask for re-upload instead.
       if (selectedType !== ctx.scene.session.pdfDocType) {
         await ctx.reply(
-          `🔁 Re-upload the PDF to reclassify it as ${selectedType.replaceAll(/_/g, " ")}.`,
+          `🔁 Re-upload the PDF to reclassify it as ${selectedType.replaceAll("_", " ")}.`,
         )
         return ctx.scene.leave()
       }

@@ -2,7 +2,7 @@ import type * as cheerio from "cheerio"
 import type { IlpTopHoldingRow } from "./types"
 
 function normalizeCell(s: string): string {
-  return s.replaceAll(/\u00a0/g, " ").replaceAll(/\s+/g, " ").trim()
+  return s.replaceAll("\u00a0", " ").replaceAll(/\s+/g, " ").trim()
 }
 
 /** Sector/country cells often show an em dash or similar when unknown. */
@@ -60,7 +60,7 @@ export function parseTopHoldingsTable(
       $(tds[4]).find(".ec-table__cell-content").first().text() ||
         $(tds[4]).text(),
     )
-    const w = Number.parseFloat(wText.replaceAll(/,/g, ""))
+    const w = Number.parseFloat(wText.replaceAll(",", ""))
     const weightPct = Number.isFinite(w) ? w : null
 
     rows.push({

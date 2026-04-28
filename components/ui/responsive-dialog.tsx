@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils"
 
 function ResponsiveDialog({
   ...props
-}: React.ComponentProps<typeof Dialog>) {
+}: Readonly<React.ComponentProps<typeof Dialog>>) {
   const isMobile = useIsMobile()
   if (isMobile) return <Drawer {...props} />
   return <Dialog {...props} />

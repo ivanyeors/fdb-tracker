@@ -63,7 +63,7 @@ function insuranceFields(r: InsuranceExtractionResult): Field[] {
   pushIfTruthy(fields, "Insurer", r.insurer)
   pushIfTruthy(fields, "Policy Name", r.name)
   pushIfTruthy(fields, "Policy No.", r.policyNumber)
-  if (r.type) fields.push({ label: "Policy Type", value: r.type.replaceAll(/_/g, " ") })
+  if (r.type) fields.push({ label: "Policy Type", value: r.type.replaceAll("_", " ") })
   pushIfPresent(fields, "Premium", r.premiumAmount)
   pushIfTruthy(fields, "Frequency", r.frequency)
   pushIfPresent(fields, "CPF Premium", r.cpfPremium)

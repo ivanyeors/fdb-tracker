@@ -90,10 +90,10 @@ export function parsePercentCell(
 ): number | null {
   if (raw == null) return null
   const t = raw
-    .replaceAll(/\u2212/g, "-")
+    .replaceAll("\u2212", "-")
     .replaceAll(/[−–]/g, "-")
-    .replaceAll(/,/g, "")
-    .replaceAll(/%/g, "")
+    .replaceAll(",", "")
+    .replaceAll("%", "")
     .trim()
   if (t === "" || t === "—" || t === "-" || /^n\/?a$/i.test(t)) return null
   const n = Number.parseFloat(t)

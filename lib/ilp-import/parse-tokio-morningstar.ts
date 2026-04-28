@@ -41,13 +41,13 @@ function parseMonthFromNavDate(text: string): string | null {
 }
 
 function parseLatestNavNumber(text: string): number | null {
-  const t = text.replaceAll(/,/g, "").trim()
+  const t = text.replaceAll(",", "").trim()
   const n = Number.parseFloat(t)
   return Number.isFinite(n) ? n : null
 }
 
 function normalizeCell(s: string): string {
-  return s.replaceAll(/\u00a0/g, " ").replaceAll(/\s+/g, " ").trim()
+  return s.replaceAll("\u00a0", " ").replaceAll(/\s+/g, " ").trim()
 }
 
 /** Parse a numeric value from a cell that may contain −, –, %, commas, etc. */

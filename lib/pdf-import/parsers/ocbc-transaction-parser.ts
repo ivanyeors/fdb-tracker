@@ -751,7 +751,7 @@ export function categorizeTransaction(
   }
 
   for (const rule of sorted) {
-    const pattern = rule.pattern.toUpperCase().replaceAll(/\*/g, "")
+    const pattern = rule.pattern.toUpperCase().replaceAll("*", "")
     if (descUpper.includes(pattern)) {
       return rule.categoryName
     }

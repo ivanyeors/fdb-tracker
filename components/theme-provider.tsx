@@ -6,7 +6,7 @@ import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes"
 function ThemeProvider({
   children,
   ...props
-}: React.ComponentProps<typeof NextThemesProvider>) {
+}: Readonly<React.ComponentProps<typeof NextThemesProvider>>) {
   return (
     <NextThemesProvider
       attribute="class"

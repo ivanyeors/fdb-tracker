@@ -4,5 +4,5 @@
  */
 export function tickerLookupVariants(symbol: string): string[] {
   const u = symbol.toUpperCase().trim()
-  return [...new Set([u, u.replaceAll(/\./g, "-"), u.replaceAll(/-/g, ".")])]
+  return [...new Set([u, u.replaceAll(".", "-"), u.replaceAll("-", ".")])]
 }
