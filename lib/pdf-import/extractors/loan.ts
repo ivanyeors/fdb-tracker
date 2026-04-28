@@ -1,4 +1,5 @@
 import type { LoanExtractionResult, ExtractionWarning } from "@/lib/pdf-import/types"
+import { MONTH_NAME_SRC } from "@/lib/pdf-import/parsers/common"
 
 function parseAmount(str: string): number | null {
   const cleaned = str.replaceAll(/[$,\s]/g, "")
@@ -60,10 +61,11 @@ function extractDate(text: string, labelPattern: RegExp): string | null {
   }
 
   // DD Mon YYYY
-  const longDate =
-    /(\d{1,2})\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
-      area
-    )
+  const longRe = new RegExp(
+    `(\\d{1,2})\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    "i",
+  )
+  const longDate = longRe.exec(area)
   if (longDate) {
     const mm = MONTH_MAP[longDate[2].toLowerCase()]
     if (mm) return `${longDate[3]}-${mm}-${longDate[1].padStart(2, "0")}`

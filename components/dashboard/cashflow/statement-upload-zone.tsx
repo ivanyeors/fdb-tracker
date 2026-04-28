@@ -38,6 +38,11 @@ async function parseFile(file: File): Promise<ParsedResult> {
   return result
 }
 
+function handleDragOver(e: React.DragEvent) {
+  e.preventDefault()
+  e.stopPropagation()
+}
+
 function validateFile(file: File): string | null {
   if (!file.name.toLowerCase().endsWith(".pdf")) {
     return `${file.name}: Only PDF files are supported`
@@ -134,11 +139,6 @@ export function StatementUploadZone({
     if (dragCounterRef.current === 0) {
       setIsDragging(false)
     }
-  }
-
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault()
-    e.stopPropagation()
   }
 
   function handleDrop(e: React.DragEvent) {

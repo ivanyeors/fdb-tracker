@@ -9,7 +9,7 @@ function normalizeCell(s: string): string {
 function cellToOptionalText(raw: string): string | null {
   const t = normalizeCell(raw)
   if (t.length === 0) return null
-  if (/^[−–—\u2013\u2014\-–—]\s*$/.test(t)) return null
+  if (/^[−–—-]\s*$/.test(t)) return null
   if (t === "—" || t === "–" || t === "-") return null
   return t
 }

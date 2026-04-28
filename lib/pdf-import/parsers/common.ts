@@ -32,6 +32,10 @@ export function detectBank(text: string): string | null {
   return null
 }
 
+/** Source string for matching English month names (long or 3-letter abbreviated). */
+export const MONTH_NAME_SRC =
+  "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"
+
 export const MONTH_MAP: Record<string, string> = {
   jan: "01",
   january: "01",
@@ -64,20 +68,22 @@ export const MONTH_MAP: Record<string, string> = {
  */
 export function extractMonth(text: string): string | null {
   // "Statement for January 2026" or "Statement Period: 01 Jan 2026 to 31 Jan 2026"
-  const stmtFor =
-    /statement\s+(?:for|period)[^]*?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
-      text
-    )
+  const stmtForRe = new RegExp(
+    `statement\\s+(?:for|period)[^]*?(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    "i",
+  )
+  const stmtFor = stmtForRe.exec(text)
   if (stmtFor) {
     const mm = MONTH_MAP[stmtFor[1].toLowerCase()]
     if (mm) return `${stmtFor[2]}-${mm}-01`
   }
 
   // "1 JAN 2026 TO 31 JAN 2026" (OCBC bank statement period)
-  const periodMatch =
-    /\d{1,2}\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})\s+TO\s+\d{1,2}\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
-      text
-    )
+  const periodRe = new RegExp(
+    `\\d{1,2}\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})\\s+TO\\s+\\d{1,2}\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    "i",
+  )
+  const periodMatch = periodRe.exec(text)
   if (periodMatch) {
     // Use the end month
     const mm = MONTH_MAP[periodMatch[3].toLowerCase()]
@@ -91,20 +97,19 @@ export function extractMonth(text: string): string | null {
   }
 
   // "Statement Date January 05, 2026" (Citibank format)
-  const citiDate =
-    /Statement\s+Date\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2},?\s+(\d{4})/i.exec(
-      text
-    )
+  const citiRe = new RegExp(
+    `Statement\\s+Date\\s+(${MONTH_NAME_SRC})\\s+\\d{1,2},?\\s+(\\d{4})`,
+    "i",
+  )
+  const citiDate = citiRe.exec(text)
   if (citiDate) {
     const mm = MONTH_MAP[citiDate[1].toLowerCase()]
     if (mm) return `${citiDate[2]}-${mm}-01`
   }
 
   // Fallback: "DD Mon YYYY" date pattern
-  const datePattern =
-    /(\d{1,2})\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
-      text
-    )
+  const dateRe = new RegExp(`(\\d{1,2})\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})`, "i")
+  const datePattern = dateRe.exec(text)
   if (datePattern) {
     const mm = MONTH_MAP[datePattern[2].toLowerCase()]
     if (mm) return `${datePattern[3]}-${mm}-01`

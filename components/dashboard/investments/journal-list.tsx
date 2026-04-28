@@ -27,6 +27,13 @@ interface JournalListProps {
   readonly entries: JournalEntry[]
 }
 
+function fmt(n: number): string {
+  return n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
 function isInDateRange(
   dateStr: string,
   range: DateRange | undefined
@@ -59,12 +66,6 @@ export function JournalList({ entries }: JournalListProps) {
     return matchSymbol && matchType && matchDate
   })
 
-  function fmt(n: number): string {
-    return n.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-  }
 
   return (
     <div className="space-y-4">

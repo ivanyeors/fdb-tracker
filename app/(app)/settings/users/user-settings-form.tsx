@@ -152,6 +152,15 @@ function insuranceTypeSelectItems(currentRowType: string) {
   return INSURANCE_TYPES_FOR_NEW
 }
 
+function nextYearlyOutflowDate(
+  frequency: "monthly" | "yearly",
+  current: number | null,
+): number | null {
+  if (frequency === "yearly" && !current) return 1
+  if (frequency === "monthly") return null
+  return current
+}
+
 export type FinancialDataByFamily = {
   bankAccounts: Array<{
     id: string
@@ -3461,15 +3470,6 @@ function InsuranceSection({
     premium_waiver: false,
     remarks: null,
   })
-
-  function nextYearlyOutflowDate(
-    frequency: "monthly" | "yearly",
-    current: number | null
-  ): number | null {
-    if (frequency === "yearly" && !current) return 1
-    if (frequency === "monthly") return null
-    return current
-  }
 
   const newPolicyFields = getFieldsForInsurancePolicyRow(newPolicy.type, newPolicy.frequency)
 

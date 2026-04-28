@@ -2,6 +2,7 @@ import type {
   InvestmentExtractionResult,
   ExtractionWarning,
 } from "@/lib/pdf-import/types"
+import { MONTH_NAME_SRC } from "@/lib/pdf-import/parsers/common"
 
 function parseAmount(str: string): number | null {
   const cleaned = str.replaceAll(/[$,\s]/g, "")
@@ -17,10 +18,11 @@ const MONTH_MAP: Record<string, string> = {
 }
 
 function extractMonth(text: string): string | null {
-  const stmtMatch =
-    /(?:statement|report|as\s+at|period)[^]*?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
-      text
-    )
+  const stmtRe = new RegExp(
+    `(?:statement|report|as\\s+at|period)[^]*?(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    "i",
+  )
+  const stmtMatch = stmtRe.exec(text)
   if (stmtMatch) {
     const mm = MONTH_MAP[stmtMatch[1].toLowerCase()]
     if (mm) return `${stmtMatch[2]}-${mm}-01`
@@ -51,7 +53,7 @@ function extractHoldings(text: string): Array<{
   for (const line of lines) {
     // Try: SYMBOL_CODE ... some_name ... quantity ... price
     const stockMatch =
-      /([A-Z][A-Z0-9]{1,5}(?:\.[A-Z]{2})?)\s+(.{3,40}?)\s+([\d,]+)\s+(?:(?:S?\$)?\s*)([\d,]+\.?\d{0,2})/.exec(
+      /([A-Z][A-Z0-9]{1,5}(?:\.[A-Z]{2})?)\s+(.{3,40}?)\s+([\d,]+)\s+(?:S?\$)?\s*([\d,]+\.?\d{0,2})/.exec(
         line
       )
     if (stockMatch) {

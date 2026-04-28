@@ -1,4 +1,5 @@
 import type { IlpExtractionResult, ExtractionWarning } from "@/lib/pdf-import/types"
+import { MONTH_NAME_SRC } from "@/lib/pdf-import/parsers/common"
 
 function parseAmount(str: string): number | null {
   const cleaned = str.replaceAll(/[$,\s]/g, "")
@@ -15,10 +16,11 @@ const MONTH_MAP: Record<string, string> = {
 
 function extractMonth(text: string): string | null {
   // "as at DD Mon YYYY"
-  const asAt =
-    /as\s+at\s+\d{1,2}\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
-      text
-    )
+  const asAtRe = new RegExp(
+    `as\\s+at\\s+\\d{1,2}\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    "i",
+  )
+  const asAt = asAtRe.exec(text)
   if (asAt) {
     const mm = MONTH_MAP[asAt[1].toLowerCase()]
     if (mm) return `${asAt[2]}-${mm}-01`
@@ -32,10 +34,11 @@ function extractMonth(text: string): string | null {
   }
 
   // General "Month YYYY" near statement/report keywords
-  const monthYear =
-    /(?:statement|report|period)\s+(?:for\s+)?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
-      text
-    )
+  const monthYearRe = new RegExp(
+    `(?:statement|report|period)\\s+(?:for\\s+)?(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    "i",
+  )
+  const monthYear = monthYearRe.exec(text)
   if (monthYear) {
     const mm = MONTH_MAP[monthYear[1].toLowerCase()]
     if (mm) return `${monthYear[2]}-${mm}-01`

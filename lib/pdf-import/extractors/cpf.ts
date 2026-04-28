@@ -1,4 +1,5 @@
 import type { CpfExtractionResult, ExtractionWarning } from "@/lib/pdf-import/types"
+import { MONTH_NAME_SRC } from "@/lib/pdf-import/parsers/common"
 
 /**
  * Parse a dollar amount from text, handling commas and optional dollar signs.
@@ -15,19 +16,21 @@ function parseAmount(str: string): number | null {
  */
 function extractMonth(text: string): string | null {
   // "as at DD Mon YYYY" or "as at DD Month YYYY"
-  const asAt =
-    /as\s+at\s+\d{1,2}\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
-      text
-    )
+  const asAtRe = new RegExp(
+    `as\\s+at\\s+\\d{1,2}\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    "i",
+  )
+  const asAt = asAtRe.exec(text)
   if (asAt) {
     return resolveMonth(asAt[1], asAt[2])
   }
 
   // "Statement for Month YYYY"
-  const stmtFor =
-    /statement\s+for\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})/i.exec(
-      text
-    )
+  const stmtForRe = new RegExp(
+    `statement\\s+for\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    "i",
+  )
+  const stmtFor = stmtForRe.exec(text)
   if (stmtFor) {
     return resolveMonth(stmtFor[1], stmtFor[2])
   }

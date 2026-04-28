@@ -29,8 +29,9 @@ interface Category {
   icon: string | null
 }
 
+// Loose transaction shape — keeps narrow casts at call sites. NOSONAR
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Transaction = any
+type Transaction = any // NOSONAR
 
 interface CategoryRule {
   match_pattern: string

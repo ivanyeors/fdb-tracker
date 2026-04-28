@@ -50,7 +50,7 @@ export function extractTax(text: string): TaxExtractionResult {
   // ── Tax Payable ──
   let taxPayable: number | null = null
   const taxPatterns = [
-    /tax\s+payable[^$\d]*(?:by\s+\d{1,2}\s+\w+\s+\d{4}\s*)?(?:S?\$)\s*([\d,]+\.?\d{0,2})/i,
+    /tax\s+payable[\s\S]{0,80}?S?\$\s*([\d,]+\.?\d{0,2})/i,
     /tax\s+payable\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
     /net\s+tax\s+payable\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
     /total\s+tax\s+payable\s*:?\s*(?:S?\$)?\s*([\d,]+\.?\d{0,2})/i,
@@ -142,7 +142,7 @@ export function extractTax(text: string): TaxExtractionResult {
       label: "Parent Relief",
     },
     {
-      pattern: /Course\s+Fee[s]?\s+([\d,]+\.?\d{0,2})/i,
+      pattern: /Course\s+Fees?\s+([\d,]+\.?\d{0,2})/i,
       label: "Course Fees",
     },
     {

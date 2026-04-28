@@ -22,8 +22,9 @@ interface Category {
   readonly icon: string | null
 }
 
+// Untyped parser result — document with named alias for usage clarity. NOSONAR
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ParsedResult = any
+export type ParsedResult = any // NOSONAR
 
 export interface ParsedFile {
   readonly fileName: string

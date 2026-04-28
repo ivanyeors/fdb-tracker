@@ -54,6 +54,11 @@ type UnlinkedProfile = {
   name: string
 }
 
+function handleCopyCode(code: string) {
+  navigator.clipboard.writeText(code)
+  toast.success("Code copied")
+}
+
 export function InviteCodesSection({
   unlinkedProfiles,
 }: {
@@ -114,11 +119,6 @@ export function InviteCodesSection({
     } catch {
       toast.error("Failed to delete invite code")
     }
-  }
-
-  function handleCopyCode(code: string) {
-    navigator.clipboard.writeText(code)
-    toast.success("Code copied")
   }
 
   function getProfileName(profileId: string | null): string {

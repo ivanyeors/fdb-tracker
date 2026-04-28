@@ -20,8 +20,6 @@ export type CpfTrendRow = {
   outflow: number
 }
 
-type TooltipPayload = CpfTrendRow
-
 const MONTH_NAMES = [
   "Jan",
   "Feb",
@@ -58,7 +56,7 @@ function CpfTrendChartInner({
     tooltipOpen,
     showTooltip,
     hideTooltip,
-  } = useTooltip<TooltipPayload>()
+  } = useTooltip<CpfTrendRow>()
   const [hoveredMonth, setHoveredMonth] = useState<string | null>(null)
 
   const margin = { top: 12, right: 12, bottom: 36, left: 52 }

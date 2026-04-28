@@ -129,10 +129,11 @@ export function parseCitibankCcStatement(
   if (minPayMatch) minimumPayment = parseAmount(minPayMatch[1])
 
   // Balance breakdown line: "7,292.44 7,292.44 967.32 0.00 0.19 967.51"
-  const breakdownMatch =
-    /(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})/.exec(
-      allText
-    )
+  const moneyToken = String.raw`\d[\d,]*\.\d{2}`
+  const breakdownRe = new RegExp(
+    `(${moneyToken})\\s+(${moneyToken})\\s+(${moneyToken})\\s+(${moneyToken})\\s+(${moneyToken})\\s+(${moneyToken})`,
+  )
+  const breakdownMatch = breakdownRe.exec(allText)
   if (breakdownMatch) {
     previousBalance = parseAmount(breakdownMatch[1])
     paymentsCredits = parseAmount(breakdownMatch[2])

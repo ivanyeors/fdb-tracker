@@ -14,6 +14,7 @@
 
 import {
   MONTH_MAP,
+  MONTH_NAME_SRC,
   resolveDateDDMMM,
   resolveDateDDSlashMM,
   parseAmount,
@@ -145,10 +146,11 @@ export function parseOcbcBankStatement(pages: string[]): BankParseResult {
   const acctMatch = /Account No\.\s*(\d{10,})/.exec(allText)
   if (acctMatch) accountNumber = acctMatch[1]
 
-  const periodMatch =
-    /(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{4})\s+TO\s+(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{4})/i.exec(
-      allText
-    )
+  const periodRe = new RegExp(
+    `(\\d{1,2})\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})\\s+TO\\s+(\\d{1,2})\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    "i",
+  )
+  const periodMatch = periodRe.exec(allText)
   let stmtYear = new Date().getFullYear()
   let stmtMonthNum = 1
   if (periodMatch) {
@@ -413,7 +415,7 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
 
   // Match "STATEMENT DATE" label then date on same or next line
   const stmtDateMatch =
-    /STATEMENT\s+DATE[\s\n]+(\d{2})-(\d{2})-(\d{4})/i.exec(allText)
+    /STATEMENT\s+DATE\s+(\d{2})-(\d{2})-(\d{4})/i.exec(allText)
   if (stmtDateMatch) {
     statementDate = `${stmtDateMatch[3]}-${stmtDateMatch[2]}-${stmtDateMatch[1]}`
     statementMonth = `${stmtDateMatch[3]}-${stmtDateMatch[2]}-01`
@@ -427,7 +429,7 @@ export function parseOcbcCcStatement(pages: string[]): CcParseResult {
   }
 
   const dueDateMatch =
-    /PAYMENT\s+DUE\s+DATE[\s\n]+(\d{2})-(\d{2})-(\d{4})/i.exec(allText)
+    /PAYMENT\s+DUE\s+DATE\s+(\d{2})-(\d{2})-(\d{4})/i.exec(allText)
   if (dueDateMatch) {
     paymentDueDate = `${dueDateMatch[3]}-${dueDateMatch[2]}-${dueDateMatch[1]}`
   }

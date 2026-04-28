@@ -80,7 +80,7 @@ function LogicBlock({ text }: { readonly text: string }) {
         // Formula-like line (contains =, ×, +, -, /, ^, or starts with uppercase var)
         const isFormula =
           /[=×÷^]/.test(trimmed) ||
-          /^[A-Z_][\w]* =/.test(trimmed) ||
+          /^[A-Z_]\w* =/.test(trimmed) ||
           /^\w+ [+\-*/]= /.test(trimmed)
 
         if (isFormula) {
