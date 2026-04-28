@@ -8,21 +8,34 @@ import type {
 } from "@/lib/calculations/insurance"
 import { getCoverageRecommendation } from "@/lib/calculations/insurance"
 
+type Policy = {
+  readonly id: string
+  readonly name: string
+  readonly type: string
+  readonly coverage_type: string | null
+  readonly coverage_amount: number | null
+  readonly is_active: boolean
+  readonly profile_id: string
+  readonly coverages: ReadonlyArray<{
+    readonly coverage_type: string | null
+    readonly coverage_amount: number
+  }>
+}
+
 type CoverageTableProps = {
   readonly profiles: readonly ProfileCoverageAnalysis[]
-  readonly policies: ReadonlyArray<{
-    readonly id: string
-    readonly name: string
-    readonly type: string
-    readonly coverage_type: string | null
-    readonly coverage_amount: number | null
-    readonly is_active: boolean
-    readonly profile_id: string
-    readonly coverages: ReadonlyArray<{
-      readonly coverage_type: string | null
-      readonly coverage_amount: number
-    }>
-  }>
+  readonly policies: ReadonlyArray<Policy>
+}
+
+function filterPoliciesForCoverageType(
+  policies: ReadonlyArray<Policy>,
+  coverageType: string,
+): ReadonlyArray<Policy> {
+  return policies.filter((p) =>
+    p.coverages && p.coverages.length > 0
+      ? p.coverages.some((c) => c.coverage_type === coverageType)
+      : p.coverage_type === coverageType,
+  )
 }
 
 function StatusBadge({ item }: { readonly item: CoverageGapItem }) {
@@ -119,11 +132,9 @@ export function CoverageTable({ profiles, policies }: CoverageTableProps) {
                   </thead>
                   <tbody>
                     {profile.items.map((item) => {
-                      const matchingPolicies = profilePolicies.filter(
-                        (p) =>
-                          (p.coverages && p.coverages.length > 0
-                            ? p.coverages.some((c) => c.coverage_type === item.coverageType)
-                            : p.coverage_type === item.coverageType),
+                      const matchingPolicies = filterPoliciesForCoverageType(
+                        profilePolicies,
+                        item.coverageType,
                       )
                       const recommendation = getCoverageRecommendation(item)
 

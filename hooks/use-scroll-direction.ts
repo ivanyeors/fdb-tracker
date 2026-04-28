@@ -35,7 +35,7 @@ export function useScrollDirection(
         const NEAR_TOP = 64
         if (y < NEAR_TOP) {
           lastY.current = y
-          setDirection((prev) => (prev === "up" ? prev : "up"))
+          setDirection("up")
           ticking.current = false
           return
         }
