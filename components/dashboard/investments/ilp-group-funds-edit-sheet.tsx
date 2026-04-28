@@ -504,7 +504,7 @@ export function IlpGroupFundsEditSheet({
                   }
                 >
                   Total {allocationSum.toFixed(2)}%
-                  {!allocationOk ? ` — ${allocationSumMessage(allocationSum)}` : ""}
+                  {allocationOk ? "" : ` — ${allocationSumMessage(allocationSum)}`}
                 </span>
               </div>
               <div className="rounded-lg border border-border">

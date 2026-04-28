@@ -1207,11 +1207,11 @@ export function IlpFundImportTab({
         </p>
       ) : null}
       <div className="space-y-6">
-        {!familyId ? (
+        {familyId ? null : (
           <p className="text-sm text-muted-foreground">
             Add a family in onboarding or user settings to import against an ILP product.
           </p>
-        ) : null}
+        )}
 
         {profiles.length > 1 ? (
           <div className="space-y-1.5">
@@ -1406,7 +1406,31 @@ export function IlpFundImportTab({
                     autoComplete="off"
                   />
                 </div>
-                {!needsSingleAllocStep ? (
+                {needsSingleAllocStep ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ilp-import-start-solo">Start date (optional)</Label>
+                      <DatePicker
+                        id="ilp-import-start-solo"
+                        value={newStartDate || null}
+                        onChange={(d) => setNewStartDate(d ?? "")}
+                        placeholder="Select start date"
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ilp-import-end-solo">Premium end date</Label>
+                      <DatePicker
+                        id="ilp-import-end-solo"
+                        value={newEndDate || null}
+                        onChange={(d) => setNewEndDate(d ?? "")}
+                        placeholder="Select end date"
+                        showIsoInput
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label htmlFor="ilp-import-premium-mode">Premium payment</Label>
@@ -1452,30 +1476,6 @@ export function IlpFundImportTab({
                       <Label htmlFor="ilp-import-end">Premium end date</Label>
                       <DatePicker
                         id="ilp-import-end"
-                        value={newEndDate || null}
-                        onChange={(d) => setNewEndDate(d ?? "")}
-                        placeholder="Select end date"
-                        showIsoInput
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ilp-import-start-solo">Start date (optional)</Label>
-                      <DatePicker
-                        id="ilp-import-start-solo"
-                        value={newStartDate || null}
-                        onChange={(d) => setNewStartDate(d ?? "")}
-                        placeholder="Select start date"
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ilp-import-end-solo">Premium end date</Label>
-                      <DatePicker
-                        id="ilp-import-end-solo"
                         value={newEndDate || null}
                         onChange={(d) => setNewEndDate(d ?? "")}
                         placeholder="Select end date"
@@ -1636,7 +1636,7 @@ export function IlpFundImportTab({
                         : "text-xs font-medium text-destructive"
                     }
                   >
-                    Total: {singleAllocSum.toFixed(2)}%{!singleAllocValid ? " — must be 100%." : ""}
+                    Total: {singleAllocSum.toFixed(2)}%{singleAllocValid ? "" : " — must be 100%."}
                   </p>
                 </div>
               </div>
@@ -2047,7 +2047,7 @@ export function IlpFundImportTab({
                           : "text-xs font-medium text-destructive"
                       }
                     >
-                      Total: {multiAllocSum.toFixed(2)}%{!multiAllocValid ? " — must be 100%." : ""}
+                      Total: {multiAllocSum.toFixed(2)}%{multiAllocValid ? "" : " — must be 100%."}
                     </p>
                   </div>
                 ) : null}
@@ -2226,9 +2226,9 @@ export function IlpFundImportTab({
             <p className="text-sm font-medium text-foreground">Import saved</p>
             <p className="text-sm text-muted-foreground">
               Your ILP entries and fund report snapshots are stored.
-              {!onSuccess
-                ? " View them on the Investments page under the ILP tab."
-                : null}
+              {onSuccess
+                ? null
+                : " View them on the Investments page under the ILP tab."}
             </p>
             <div className="flex flex-wrap gap-2">
               {onSuccess ? (

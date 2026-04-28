@@ -113,9 +113,7 @@ export function computeOcbc360CategoryRows(
   let salaryProgress: Ocbc360Progress | null = null
   let salaryLabel: string | null = null
 
-  if (!profileLinked) {
-    salaryLabel = "No profile linked to this account"
-  } else {
+  if (profileLinked) {
     let salaryProxy: number | null = null
     let salaryFrom: "cashflow" | "income" | null = null
     if (monthlyCashflowInflow !== null) {
@@ -140,6 +138,8 @@ export function computeOcbc360CategoryRows(
           : "income settings (annual ÷ 12)"
       salaryLabel = `$${salaryProxy.toFixed(0)} / $${OCBC_SALARY_CREDIT_MIN} (${src})`
     }
+  } else {
+    salaryLabel = "No profile linked to this account"
   }
 
   // Save (month-on-month closing balance delta)

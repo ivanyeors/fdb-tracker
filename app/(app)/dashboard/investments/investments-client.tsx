@@ -831,15 +831,15 @@ export function InvestmentsClient({
             profileId={activeProfileId}
             familyId={activeFamilyId}
             className="min-h-0"
-            liveTotal={!isLoading ? fullPortfolioTotal : undefined}
+            liveTotal={isLoading ? undefined : fullPortfolioTotal}
             breakdown={
-              !isLoading
-                ? {
+              isLoading
+                ? undefined
+                : {
                     holdingsLive: totalValue,
                     brokerageCash: cashBalance,
                     ilpTotal: ilpTotalSum,
                   }
-                : undefined
             }
           />
           <div className="rounded-xl border bg-card p-4">

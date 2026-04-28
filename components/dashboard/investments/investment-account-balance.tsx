@@ -132,9 +132,9 @@ export function InvestmentAccountBalance({
 
   const body = (
     <>
-      {!embedded ? (
+      {embedded ? null : (
         <h3 className="mb-4 text-sm font-medium">Cash balance</h3>
-      ) : null}
+      )}
       {hasMultipleAccounts && !showSkeleton ? (
         <div className="mb-3 space-y-1.5">
           {accounts.map((a) => (

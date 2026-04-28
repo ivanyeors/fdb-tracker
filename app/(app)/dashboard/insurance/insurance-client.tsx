@@ -520,7 +520,7 @@ export function InsuranceClient({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className={`h-7 gap-1 px-2 text-xs ${!showDollars ? "bg-accent" : ""}`}
+                      className={`h-7 gap-1 px-2 text-xs ${showDollars ? "" : "bg-accent"}`}
                       onClick={() => setShowDollars(false)}
                     >
                       <Percent className="size-3" />

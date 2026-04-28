@@ -52,13 +52,7 @@ export async function getEffectiveInflowForProfile(
       : null
     const annualSalary = decodedIncome?.annual_salary ?? 0
 
-    if (!profile || !incomeConfig || annualSalary <= 0) {
-      if (!profile) {
-        console.warn(`[effective-inflow] Profile ${profileId} not found or missing birth_year`)
-      } else if (!incomeConfig) {
-        console.warn(`[effective-inflow] No income_config for profile ${profileId}`)
-      }
-    } else {
+    if (profile && incomeConfig && annualSalary > 0) {
       const result = calculateTakeHome(
         annualSalary,
         decodedIncome?.bonus_estimate ?? 0,
@@ -67,6 +61,10 @@ export async function getEffectiveInflowForProfile(
         (profile.self_help_group as SelfHelpGroup) ?? "none",
       )
       baseInflow = result.annualTakeHome / 12
+    } else if (!profile) {
+      console.warn(`[effective-inflow] Profile ${profileId} not found or missing birth_year`)
+    } else if (!incomeConfig) {
+      console.warn(`[effective-inflow] No income_config for profile ${profileId}`)
     }
   }
 

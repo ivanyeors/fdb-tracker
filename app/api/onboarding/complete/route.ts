@@ -237,7 +237,18 @@ export async function POST(request: Request) {
     const householdChatPatch = encodeHouseholdPiiPatch({
       telegram_chat_id: newChatId,
     })
-    if (!isNewFamily) {
+    if (isNewFamily) {
+      const { error: householdError } = await supabase
+        .from("households")
+        .update({
+          telegram_chat_id: newChatId,
+          ...householdChatPatch,
+        })
+        .eq("id", session.accountId)
+      if (householdError) {
+        console.error("Onboarding household update error:", householdError)
+      }
+    } else {
       const { error: householdError } = await supabase
         .from("households")
         .update({
@@ -253,17 +264,6 @@ export async function POST(request: Request) {
           { error: "Failed to update household" },
           { status: 500 }
         )
-      }
-    } else {
-      const { error: householdError } = await supabase
-        .from("households")
-        .update({
-          telegram_chat_id: newChatId,
-          ...householdChatPatch,
-        })
-        .eq("id", session.accountId)
-      if (householdError) {
-        console.error("Onboarding household update error:", householdError)
       }
     }
 
