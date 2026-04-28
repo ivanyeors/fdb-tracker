@@ -5,9 +5,8 @@ import { createPortal } from "react-dom"
 import { Pie } from "@visx/shape"
 import { Group } from "@visx/group"
 import { useTooltip } from "@visx/tooltip"
-import { formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 import { createCategoryColorScale } from "@/lib/chart-colors"
-import { cn } from "@/lib/utils"
 
 interface CategoryData {
   name: string

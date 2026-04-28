@@ -850,29 +850,27 @@ function TelegramSection({ profile }: { readonly profile: ProfileWithIncome }) {
   const lastUsed = profile.telegram_last_used ? new Date(profile.telegram_last_used).toLocaleDateString() : "Never"
 
   return (
-    <>
-      <div className="space-y-4 rounded-lg border p-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-medium">Status: {isConnected ? "Connected" : "Not Connected"}</p>
-            {isConnected && <p className="text-xs text-muted-foreground mt-1">Last used: {lastUsed}</p>}
-          </div>
-          <Button size="sm" variant="outline" onClick={handleGenerate} disabled={generating}>
-            {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {token ? "Regenerate Token" : "Generate Link Token"}
-          </Button>
+    <div className="space-y-4 rounded-lg border p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-medium">Status: {isConnected ? "Connected" : "Not Connected"}</p>
+          {isConnected && <p className="text-xs text-muted-foreground mt-1">Last used: {lastUsed}</p>}
         </div>
-        
-        {token && (
-          <div className="rounded-md bg-muted p-3 text-sm">
-            <p className="font-mono text-xs break-all selectable">{token}</p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Send <code className="bg-background px-1 rounded border">/link</code> to the Telegram bot, then paste this token when asked.
-            </p>
-          </div>
-        )}
+        <Button size="sm" variant="outline" onClick={handleGenerate} disabled={generating}>
+          {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {token ? "Regenerate Token" : "Generate Link Token"}
+        </Button>
       </div>
-    </>
+
+      {token && (
+        <div className="rounded-md bg-muted p-3 text-sm">
+          <p className="font-mono text-xs break-all selectable">{token}</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Send <code className="bg-background px-1 rounded border">/link</code> to the Telegram bot, then paste this token when asked.
+          </p>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -1696,37 +1694,35 @@ function CPFSection({
   useUserSettingsSaveRegistration(`user-settings-cpf-${profileId}`, cpfDirty, persistCpf, cpfImpactNodes)
 
   return (
-    <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="space-y-1.5">
-          <Label htmlFor={`cpf-oa-${profileId}`}>Ordinary Account (OA)</Label>
-          <CurrencyInput
-            id={`cpf-oa-${profileId}`}
-            value={oa}
-            onChange={(v) => setOa(v ?? 0)}
-            className="h-8"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor={`cpf-sa-${profileId}`}>Special Account (SA)</Label>
-          <CurrencyInput
-            id={`cpf-sa-${profileId}`}
-            value={sa}
-            onChange={(v) => setSa(v ?? 0)}
-            className="h-8"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor={`cpf-ma-${profileId}`}>Medisave Account (MA)</Label>
-          <CurrencyInput
-            id={`cpf-ma-${profileId}`}
-            value={ma}
-            onChange={(v) => setMa(v ?? 0)}
-            className="h-8"
-          />
-        </div>
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="space-y-1.5">
+        <Label htmlFor={`cpf-oa-${profileId}`}>Ordinary Account (OA)</Label>
+        <CurrencyInput
+          id={`cpf-oa-${profileId}`}
+          value={oa}
+          onChange={(v) => setOa(v ?? 0)}
+          className="h-8"
+        />
       </div>
-    </>
+      <div className="space-y-1.5">
+        <Label htmlFor={`cpf-sa-${profileId}`}>Special Account (SA)</Label>
+        <CurrencyInput
+          id={`cpf-sa-${profileId}`}
+          value={sa}
+          onChange={(v) => setSa(v ?? 0)}
+          className="h-8"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`cpf-ma-${profileId}`}>Medisave Account (MA)</Label>
+        <CurrencyInput
+          id={`cpf-ma-${profileId}`}
+          value={ma}
+          onChange={(v) => setMa(v ?? 0)}
+          className="h-8"
+        />
+      </div>
+    </div>
   )
 }
 
@@ -5420,18 +5416,16 @@ export function FamilyMembersTable({
 
             <div className="min-w-0 flex-1 space-y-4">
               {activeProfile && (
-                <>
-                  <FamilyMemberSettingsPanels
-                    key={`${activeProfile.id}-${tabsResetKey}`}
-                    p={activeProfile}
-                    family={family}
-                    financialData={financialData}
-                    profiles={profiles}
-                    handleMutate={handleMutate}
-                    notificationPreferences={notificationPreferencesByProfile[activeProfile.id] ?? []}
-                    defaultSchedules={defaultSchedules}
-                  />
-                </>
+                <FamilyMemberSettingsPanels
+                  key={`${activeProfile.id}-${tabsResetKey}`}
+                  p={activeProfile}
+                  family={family}
+                  financialData={financialData}
+                  profiles={profiles}
+                  handleMutate={handleMutate}
+                  notificationPreferences={notificationPreferencesByProfile[activeProfile.id] ?? []}
+                  defaultSchedules={defaultSchedules}
+                />
               )}
             </div>
           </div>

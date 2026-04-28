@@ -88,7 +88,7 @@ export function hashBankTransactionAmount(amount: number): string {
 // (matching NUMERIC(14,2) equality semantics in Postgres).
 function canonicalAmount(amount: number): string {
   if (!Number.isFinite(amount)) {
-    throw new Error("canonicalAmount: non-finite input")
+    throw new TypeError("canonicalAmount: non-finite input")
   }
   return amount.toFixed(2)
 }

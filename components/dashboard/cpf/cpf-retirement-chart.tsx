@@ -458,28 +458,26 @@ function ChartInner({
               </span>
             </div>
             {tooltipData.simulatedPoint != null && (
-              <>
-                <div className="mt-1.5 border-t border-border pt-1.5 space-y-0.5">
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Simulated</span>
-                    <span className="tabular-nums font-medium text-card-foreground">
-                      ${formatCurrency(tooltipData.simulatedPoint.total)}
-                    </span>
-                  </div>
-                  {(() => {
-                    const delta = tooltipData.simulatedPoint.total - tooltipData.point.total
-                    if (Math.abs(delta) < 1) return null
-                    return (
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Delta</span>
-                        <span className={`tabular-nums font-medium ${delta > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                          {delta > 0 ? "+" : ""}${formatCurrency(delta)}
-                        </span>
-                      </div>
-                    )
-                  })()}
+              <div className="mt-1.5 border-t border-border pt-1.5 space-y-0.5">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Simulated</span>
+                  <span className="tabular-nums font-medium text-card-foreground">
+                    ${formatCurrency(tooltipData.simulatedPoint.total)}
+                  </span>
                 </div>
-              </>
+                {(() => {
+                  const delta = tooltipData.simulatedPoint.total - tooltipData.point.total
+                  if (Math.abs(delta) < 1) return null
+                  return (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Delta</span>
+                      <span className={`tabular-nums font-medium ${delta > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                        {delta > 0 ? "+" : ""}${formatCurrency(delta)}
+                      </span>
+                    </div>
+                  )
+                })()}
+              </div>
             )}
             {tooltipData.comparisonTotal != null && !tooltipData.simulatedPoint && (
               <div className="mt-1 flex items-center justify-between text-muted-foreground">

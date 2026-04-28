@@ -13,8 +13,8 @@ export interface TaxNoaDataPiiInput {
   donations_deduction?: number | null
   reliefs_total?: number | null
   tax_payable?: number | null
-  reliefs_json?: unknown | null
-  bracket_summary_json?: unknown | null
+  reliefs_json?: unknown
+  bracket_summary_json?: unknown
 }
 
 type TaxNoaDataPiiPatch = {
@@ -78,9 +78,9 @@ export interface TaxNoaDataPiiRow {
   reliefs_total_enc?: string | null
   tax_payable?: number | null
   tax_payable_enc?: string | null
-  reliefs_json?: unknown | null
+  reliefs_json?: unknown
   reliefs_json_enc?: string | null
-  bracket_summary_json?: unknown | null
+  bracket_summary_json?: unknown
   bracket_summary_json_enc?: string | null
 }
 
@@ -91,8 +91,8 @@ export interface TaxNoaDataPiiDecoded {
   donations_deduction: number | null
   reliefs_total: number | null
   tax_payable: number | null
-  reliefs_json: unknown | null
-  bracket_summary_json: unknown | null
+  reliefs_json: unknown
+  bracket_summary_json: unknown
 }
 
 export function decodeTaxNoaDataPii(

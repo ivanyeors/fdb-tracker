@@ -278,5 +278,4 @@ async function handleAmountInput(ctx: MyContext) {
 
   ctx.wizard.selectStep(STEP_CONFIRM)
   await sendConfirmation(ctx)
-  return
 }

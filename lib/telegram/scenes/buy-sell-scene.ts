@@ -487,7 +487,6 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
       ctx.scene.session.symbolName = results[0].name || undefined
     }
     await proceedFromSymbol(ctx)
-    return
   },
 
   // STEP 3: Quantity input
@@ -598,7 +597,6 @@ export const buySellScene = new Scenes.WizardScene<MyContext>(
 
     ctx.wizard.selectStep(STEP_CONFIRM)
     await sendConfirmation(ctx)
-    return
   },
 
   // STEP 6: Confirmation

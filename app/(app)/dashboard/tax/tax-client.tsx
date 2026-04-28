@@ -255,8 +255,7 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
     }
     // Fallback: yearly tax / 12
     const yearly = entriesForYear.reduce((s, e) => {
-      const part =
-        e.actual_amount != null ? e.actual_amount : e.calculated_amount
+      const part = e.actual_amount ?? e.calculated_amount
       return s + part
     }, 0)
     return Math.round((yearly / 12) * 100) / 100

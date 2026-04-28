@@ -7,7 +7,7 @@ import {
 } from "@/lib/crypto/cipher"
 
 export interface TaxGiroSchedulePiiInput {
-  schedule?: unknown | null
+  schedule?: unknown
   total_payable?: number | null
   outstanding_balance?: number | null
 }
@@ -46,7 +46,7 @@ export function encodeTaxGiroSchedulePiiPatch(
 // ─── Decoder ─────────────────────────────────────────────────────────────
 
 export interface TaxGiroSchedulePiiRow {
-  schedule?: unknown | null
+  schedule?: unknown
   schedule_enc?: string | null
   total_payable?: number | null
   total_payable_enc?: string | null
@@ -55,7 +55,7 @@ export interface TaxGiroSchedulePiiRow {
 }
 
 export interface TaxGiroSchedulePiiDecoded {
-  schedule: unknown | null
+  schedule: unknown
   total_payable: number | null
   outstanding_balance: number | null
 }

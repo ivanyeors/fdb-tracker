@@ -299,7 +299,6 @@ export function createCashflowScene(type: CashflowType) {
 
       ctx.wizard.selectStep(STEP_CONFIRM)
       await sendConfirmation(ctx, type)
-      return
     },
 
     // STEP 5: Confirmation

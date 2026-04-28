@@ -30,8 +30,7 @@ import {
 } from "@/components/ui/popover"
 import { Plus, Save, Sparkles } from "lucide-react"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
-import { formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 
 interface Transaction {
   id: string

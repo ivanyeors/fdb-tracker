@@ -6,14 +6,13 @@ import {
   getResidentBracketChartLayers,
   resolveTaxBracketChartAxisMaxDollars,
 } from "@/lib/calculations/tax"
-import { formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils"
 
 /** Singapore resident schedule tops out at 24% — normalize for linear scale */
 const MAX_RESIDENT_MARGIN_RATE = 0.24

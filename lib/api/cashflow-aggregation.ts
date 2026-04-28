@@ -7,7 +7,6 @@
 import { calculateTakeHome } from "@/lib/calculations/take-home"
 import type { SelfHelpGroup } from "@/lib/calculations/self-help-group"
 import { calculateTax } from "@/lib/calculations/tax"
-import { GIRO_OUTFLOW_DESTINATIONS } from "@/lib/api/giro-amounts"
 
 /* ------------------------------------------------------------------ */
 /*  Types for pre-fetched data maps                                    */
@@ -47,7 +46,7 @@ export type CashflowRow = {
 /*  GIRO outflow by profile                                            */
 /* ------------------------------------------------------------------ */
 
-export { GIRO_OUTFLOW_DESTINATIONS }
+export { GIRO_OUTFLOW_DESTINATIONS } from "@/lib/api/giro-amounts"
 
 export function buildGiroOutflowByProfile(
   rules:

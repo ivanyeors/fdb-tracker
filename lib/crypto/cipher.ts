@@ -73,7 +73,7 @@ export function decryptStringNullable(
 
 export function encryptNumber(plain: number, ctx: CryptoContext): EncryptedString {
   if (!Number.isFinite(plain)) {
-    throw new Error("Cannot encrypt non-finite number")
+    throw new TypeError("Cannot encrypt non-finite number")
   }
   return encryptString(plain.toString(), ctx)
 }
@@ -82,7 +82,7 @@ export function decryptNumber(blob: string, ctx: CryptoContext): number {
   const text = decryptString(blob, ctx)
   const n = Number(text)
   if (!Number.isFinite(n)) {
-    throw new Error("Decrypted value is not a finite number")
+    throw new TypeError("Decrypted value is not a finite number")
   }
   return n
 }

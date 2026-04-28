@@ -185,7 +185,6 @@ export const goalAddScene = new Scenes.WizardScene<MyContext>(
 
     ctx.wizard.selectStep(STEP_CONFIRM)
     await sendConfirmation(ctx)
-    return
   },
 
   // STEP 3: Confirmation

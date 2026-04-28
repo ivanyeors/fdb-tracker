@@ -10,7 +10,7 @@ export type ParsedCashflowOneLine = {
   memo?: string
 }
 
-const AMOUNT_MEMO = /^\s*([0-9]+(?:\.[0-9]+)?)\s*([\s\S]*)$/
+const AMOUNT_MEMO = /^\s*(\d+(?:\.\d+)?)\s*([\s\S]*)$/
 
 export function parseAmountAndMemoFromRest(
   rest: string,

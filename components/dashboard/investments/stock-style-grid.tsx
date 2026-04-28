@@ -8,7 +8,7 @@ const STYLE_LABELS = ["Value", "Blend", "Growth"] as const
 
 export function StockStyleGrid({ style }: { readonly style: StockStyleBox }) {
   const maxVal = Math.max(
-    ...style.grid.map((v) => (v != null ? v : 0)),
+    ...style.grid.map((v) => v ?? 0),
     1,
   )
 

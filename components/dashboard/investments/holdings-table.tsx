@@ -18,7 +18,7 @@ import { DeleteHoldingDialog } from "@/components/dashboard/investments/delete-h
 import { SellHoldingDialog } from "@/components/dashboard/investments/sell-holding-dialog"
 import type { Holding } from "@/lib/investments/holding"
 
-export type { Holding }
+export type { Holding } from "@/lib/investments/holding"
 
 export interface HoldingGroup {
   summary: Holding

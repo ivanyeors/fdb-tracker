@@ -550,7 +550,6 @@ export const ilpScene = new Scenes.WizardScene<MyContext>(
     ctx.scene.session.amount = value
     ctx.wizard.selectStep(STEP_CONFIRM)
     await sendConfirmation(ctx)
-    return
   },
 
   // STEP 6: Confirmation handler.

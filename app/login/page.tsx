@@ -128,7 +128,7 @@ export default function LoginPage() {
                   value={telegramUsername}
                   onChange={(e) =>
                     setTelegramUsername(
-                      e.target.value.replaceAll(/[^a-zA-Z0-9_]/g, "")
+                      e.target.value.replaceAll(/\W/g, "")
                     )
                   }
                   disabled={loading}

@@ -193,4 +193,4 @@ export function getToolbarConfig(pathname: string): ToolbarConfig {
   return ROUTE_CONFIG[matches[0]]
 }
 
-export const TOOLBAR_DEFAULT_PLUS_ICON = Plus
+export { Plus as TOOLBAR_DEFAULT_PLUS_ICON } from "lucide-react"

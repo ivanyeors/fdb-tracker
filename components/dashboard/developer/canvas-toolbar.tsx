@@ -16,9 +16,9 @@ import {
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { TooltipProvider } from "@/components/ui/tooltip"
 import {
   useDeveloperView,
   type DeveloperViewMode,

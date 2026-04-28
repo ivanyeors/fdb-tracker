@@ -87,7 +87,7 @@ function loadKeys(): KeyRegistry {
 }
 
 export function getKeys(): KeyRegistry {
-  if (!cached) cached = loadKeys()
+  cached ??= loadKeys()
   return cached
 }
 

@@ -270,7 +270,6 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
         reply_markup: { inline_keyboard: buttons },
       })
       ctx.wizard.selectStep(STEP_PROFILE_CB)
-      return
     }
   },
 
@@ -302,7 +301,6 @@ export const pdfScene = new Scenes.WizardScene<MyContext>(
 
       ctx.wizard.selectStep(STEP_CONFIRM)
       await sendConfirmation(ctx)
-      return
     }
   },
 

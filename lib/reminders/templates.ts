@@ -100,8 +100,10 @@ export function seasonalityReminder(
   if (risks.length > 0) {
     lines.push("⚠️ RISK / CAUTION:")
     for (const e of risks) {
-      lines.push(`• ${e.title} (${formatSeasonalityDateRange(e)})`)
-      lines.push(`  ${e.description}`)
+      lines.push(
+        `• ${e.title} (${formatSeasonalityDateRange(e)})`,
+        `  ${e.description}`,
+      )
     }
     lines.push("")
   }
@@ -109,8 +111,10 @@ export function seasonalityReminder(
   if (opps.length > 0) {
     lines.push("📈 OPPORTUNITY:")
     for (const e of opps) {
-      lines.push(`• ${e.title} (${formatSeasonalityDateRange(e)})`)
-      lines.push(`  ${e.description}`)
+      lines.push(
+        `• ${e.title} (${formatSeasonalityDateRange(e)})`,
+        `  ${e.description}`,
+      )
     }
     lines.push("")
   }

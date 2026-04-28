@@ -2,8 +2,7 @@
 
 import type { Edge } from "@xyflow/react"
 import type { CalcEdgeData } from "@/lib/developer/graph-adapter"
-import { NODE_COLORS } from "@/lib/developer/calculation-graph-data"
-import { GRAPH_NODES } from "@/lib/developer/calculation-graph-data"
+import { GRAPH_NODES, NODE_COLORS } from "@/lib/developer/calculation-graph-data"
 import { X, ArrowRight, FileCode, DollarSign } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useDeveloperView } from "@/components/dashboard/developer/developer-view-context"

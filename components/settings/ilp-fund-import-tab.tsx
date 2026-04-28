@@ -114,7 +114,7 @@ function saveIlpImportDraft(state: IlpImportDraft) {
 
 function loadIlpImportDraft(): IlpImportDraft | null {
   try {
-    if (typeof globalThis.window === "undefined") return null
+    if (globalThis.window === undefined) return null
     const raw = localStorage.getItem(ILP_IMPORT_STORAGE_KEY)
     return raw ? (JSON.parse(raw) as IlpImportDraft) : null
   } catch {

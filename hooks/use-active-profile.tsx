@@ -43,7 +43,7 @@ export function ActiveProfileProvider({
 }) {
   const [activeFamilyId, setActiveFamilyIdState] = React.useState<string | null>(() => {
     if (initialFamilyId) return initialFamilyId
-    if (typeof globalThis.window !== "undefined") {
+    if (globalThis.window !== undefined) {
       try {
         const stored = localStorage.getItem(ACTIVE_FAMILY_KEY)
         if (stored) return stored
@@ -55,7 +55,7 @@ export function ActiveProfileProvider({
   })
 
   React.useEffect(() => {
-    if (initialFamilyId && typeof globalThis.window !== "undefined") {
+    if (initialFamilyId && globalThis.window !== undefined) {
       try {
         const stored = localStorage.getItem(ACTIVE_FAMILY_KEY)
         if (stored !== initialFamilyId) {
@@ -70,7 +70,7 @@ export function ActiveProfileProvider({
 
   const setActiveProfileId = React.useCallback((id: string | null) => {
     setActiveProfileIdState(id)
-    if (typeof globalThis.window !== "undefined") {
+    if (globalThis.window !== undefined) {
       try {
         if (id) {
           localStorage.setItem(ACTIVE_PROFILE_KEY, id)
@@ -199,7 +199,7 @@ export function useActiveProfile() {
 }
 
 export function getStoredActiveFamilyId(): string | null {
-  if (typeof globalThis.window === "undefined") return null
+  if (globalThis.window === undefined) return null
   try {
     return localStorage.getItem(ACTIVE_FAMILY_KEY)
   } catch {
@@ -208,7 +208,7 @@ export function getStoredActiveFamilyId(): string | null {
 }
 
 export function getStoredActiveProfileId(): string | null {
-  if (typeof globalThis.window === "undefined") return null
+  if (globalThis.window === undefined) return null
   try {
     return localStorage.getItem(ACTIVE_PROFILE_KEY)
   } catch {

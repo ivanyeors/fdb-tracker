@@ -73,9 +73,8 @@ export async function PATCH(
       (ex as { premium_payment_mode?: string }).premium_payment_mode ??
       "monthly"
     const afterPremium =
-      p.monthlyPremium !== undefined
-        ? p.monthlyPremium
-        : Number((ex as { monthly_premium?: number }).monthly_premium ?? 0)
+      p.monthlyPremium ??
+      Number((ex as { monthly_premium?: number }).monthly_premium ?? 0)
     if (afterMode === "monthly" && afterPremium <= 0) {
       return NextResponse.json(
         {

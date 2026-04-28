@@ -286,7 +286,7 @@ function forceLayout(
         const b = nodes[j][1]
         const dx = b.x - a.x
         const dy = b.y - a.y
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1
+        const dist = Math.hypot(dx, dy) || 1
         const force = repulsion / (dist * dist)
         const fx = (dx / dist) * force
         const fy = (dy / dist) * force
@@ -304,7 +304,7 @@ function forceLayout(
       if (!a || !b) continue
       const dx = b.x - a.x
       const dy = b.y - a.y
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1
+      const dist = Math.hypot(dx, dy) || 1
       const force = dist * attraction
       const fx = (dx / dist) * force
       const fy = (dy / dist) * force
@@ -412,7 +412,7 @@ function bezierPath(sx: number, sy: number, tx: number, ty: number): string {
   const my = (sy + ty) / 2
   const dx = tx - sx
   const dy = ty - sy
-  const len = Math.sqrt(dx * dx + dy * dy) || 1
+  const len = Math.hypot(dx, dy) || 1
   const offset = Math.min(Math.abs(dx), Math.abs(dy)) * 0.3 + 20
   const perpX = -dy / len
   const perpY = dx / len

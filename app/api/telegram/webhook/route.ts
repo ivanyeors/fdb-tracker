@@ -571,7 +571,6 @@ function ensureHandlers() {
     if (parsed.command === "link") {
       botState(ctx).linkApiKeyOrToken = undefined
       await ctx.scene.enter("link_api_wizard")
-      return
     }
   })
 }
