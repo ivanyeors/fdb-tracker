@@ -156,6 +156,43 @@ function diffColor(diff: number | null | undefined): string {
   return "text-muted-foreground"
 }
 
+function SuggestedReliefRow({
+  suggestion,
+  keyPrefix,
+  onApply,
+}: {
+  readonly suggestion: SuggestedRelief
+  readonly keyPrefix: string
+  readonly onApply: (s: SuggestedRelief) => void
+}) {
+  return (
+    <div
+      key={`${keyPrefix}-${suggestion.relief_type}-${suggestion.label}`}
+      className="flex items-center justify-between rounded-md border bg-blue-50/50 px-3 py-2 dark:bg-blue-950/20"
+    >
+      <div className="min-w-0 flex-1 text-sm">
+        <span className="truncate font-medium capitalize">
+          {suggestion.relief_type.replaceAll("_", " ")}
+        </span>{" "}
+        <span className="hidden text-muted-foreground sm:inline">
+          — {suggestion.label}
+        </span>
+        <Badge variant="outline" className="ml-2 text-xs">
+          ${formatCurrency(suggestion.amount)}
+        </Badge>
+      </div>
+      <Button
+        size="sm"
+        variant="outline"
+        className="shrink-0"
+        onClick={() => onApply(suggestion)}
+      >
+        Apply
+      </Button>
+    </div>
+  )
+}
+
 function buildTaxUrl(
   profileId: string | null,
   familyId: string | null,
@@ -625,33 +662,12 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
                               Suggested Reliefs
                             </h4>
                             {(data.suggestedReliefs ?? []).map((s) => (
-                              <div
+                              <SuggestedReliefRow
                                 key={`relief-${s.relief_type}-${s.label}`}
-                                className="flex items-center justify-between rounded-md border bg-blue-50/50 px-3 py-2 dark:bg-blue-950/20"
-                              >
-                                <div className="min-w-0 flex-1 text-sm">
-                                  <span className="truncate font-medium capitalize">
-                                    {s.relief_type.replaceAll("_", " ")}
-                                  </span>{" "}
-                                  <span className="hidden text-muted-foreground sm:inline">
-                                    — {s.label}
-                                  </span>
-                                  <Badge
-                                    variant="outline"
-                                    className="ml-2 text-xs"
-                                  >
-                                    ${formatCurrency(s.amount)}
-                                  </Badge>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="shrink-0"
-                                  onClick={() => handleApplySuggestion(s)}
-                                >
-                                  Apply
-                                </Button>
-                              </div>
+                                suggestion={s}
+                                keyPrefix="relief"
+                                onApply={handleApplySuggestion}
+                              />
                             ))}
                           </div>
                         )}
@@ -701,30 +717,12 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium">Suggested Reliefs</h4>
                     {(data.suggestedReliefs ?? []).map((s) => (
-                      <div
+                      <SuggestedReliefRow
                         key={`mobile-relief-${s.relief_type}-${s.label}`}
-                        className="flex items-center justify-between rounded-md border bg-blue-50/50 px-3 py-2 dark:bg-blue-950/20"
-                      >
-                        <div className="min-w-0 flex-1 text-sm">
-                          <span className="truncate font-medium capitalize">
-                            {s.relief_type.replaceAll("_", " ")}
-                          </span>{" "}
-                          <span className="hidden text-muted-foreground sm:inline">
-                            — {s.label}
-                          </span>
-                          <Badge variant="outline" className="ml-2 text-xs">
-                            ${formatCurrency(s.amount)}
-                          </Badge>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="shrink-0"
-                          onClick={() => handleApplySuggestion(s)}
-                        >
-                          Apply
-                        </Button>
-                      </div>
+                        suggestion={s}
+                        keyPrefix="mobile-relief"
+                        onApply={handleApplySuggestion}
+                      />
                     ))}
                   </div>
                 )}

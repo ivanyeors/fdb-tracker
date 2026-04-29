@@ -192,6 +192,24 @@ export function IlpGroupFundsEditSheet({
     )
   }
 
+  function handleAddExistingFund() {
+    const fund = allFamilyProducts.find((p) => p.id === existingFundId)
+    if (!fund) return
+    setRows((prev) => [
+      ...prev,
+      {
+        productId: fund.id,
+        name: fund.name,
+        fundValue: 0,
+        allocationPct: 0,
+      },
+    ])
+    setExistingFundId("")
+    toast.success(
+      "Fund added. Adjust allocations to total 100%, then save.",
+    )
+  }
+
   function applyTopUp() {
     const d = topUpDelta ?? 0
     if (d === 0) return
@@ -644,25 +662,7 @@ export function IlpGroupFundsEditSheet({
                           variant="secondary"
                           size="sm"
                           disabled={!existingFundId}
-                          onClick={() => {
-                            const fund = allFamilyProducts.find(
-                              (p) => p.id === existingFundId,
-                            )
-                            if (!fund) return
-                            setRows((prev) => [
-                              ...prev,
-                              {
-                                productId: fund.id,
-                                name: fund.name,
-                                fundValue: 0,
-                                allocationPct: 0,
-                              },
-                            ])
-                            setExistingFundId("")
-                            toast.success(
-                              "Fund added. Adjust allocations to total 100%, then save.",
-                            )
-                          }}
+                          onClick={handleAddExistingFund}
                         >
                           <Plus className="mr-2 size-4" />
                           Add to group

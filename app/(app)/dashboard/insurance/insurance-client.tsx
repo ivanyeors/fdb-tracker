@@ -124,6 +124,22 @@ function radarValueFromItem(item: CoverageGapItem): number {
   return Math.min(item.held / item.needed, 1) * 100
 }
 
+function radarAxisDatum(
+  profile: ProfileCoverageAnalysis,
+  types: readonly string[],
+  axisLabel: string,
+) {
+  const values = types
+    .map((ct) => profile.items.find((it) => it.coverageType === ct))
+    .filter((it): it is CoverageGapItem => it != null)
+    .map(radarValueFromItem)
+  const avg =
+    values.length > 0
+      ? values.reduce((s, v) => s + v, 0) / values.length
+      : 0
+  return { axis: axisLabel, value: avg, profileName: profile.profileName }
+}
+
 function buildRadarSeries(
   profiles: ProfileCoverageAnalysis[],
   activeProfileId: string | null
@@ -135,21 +151,9 @@ function buildRadarSeries(
   return filtered.map((profile, i) => ({
     profileName: profile.profileName,
     color: PROFILE_COLORS[i % PROFILE_COLORS.length],
-    data: RADAR_AXIS_TYPES.map((types, idx) => {
-      const values = types
-        .map((ct) => profile.items.find((it) => it.coverageType === ct))
-        .filter((it): it is CoverageGapItem => it != null)
-        .map(radarValueFromItem)
-      const avg =
-        values.length > 0
-          ? values.reduce((s, v) => s + v, 0) / values.length
-          : 0
-      return {
-        axis: RADAR_AXES[idx],
-        value: avg,
-        profileName: profile.profileName,
-      }
-    }),
+    data: RADAR_AXIS_TYPES.map((types, idx) =>
+      radarAxisDatum(profile, types, RADAR_AXES[idx]),
+    ),
   }))
 }
 
@@ -179,6 +183,15 @@ export function InsuranceClient({
   const [expandedPolicies, setExpandedPolicies] = useState<Set<string>>(
     new Set()
   )
+
+  function togglePolicyExpanded(policyId: string) {
+    setExpandedPolicies((prev) => {
+      const next = new Set(prev)
+      if (next.has(policyId)) next.delete(policyId)
+      else next.add(policyId)
+      return next
+    })
+  }
 
   const policiesUrl = buildUrl(
     "/api/insurance",
@@ -662,16 +675,11 @@ export function InsuranceClient({
                           <React.Fragment key={policy.id}>
                             <tr
                               className={`border-b last:border-0 ${hasExpandableContent ? "cursor-pointer hover:bg-muted/30" : ""}`}
-                              onClick={() => {
-                                if (!hasExpandableContent) return
-                                setExpandedPolicies((prev) => {
-                                  const next = new Set(prev)
-                                  if (next.has(policy.id))
-                                    next.delete(policy.id)
-                                  else next.add(policy.id)
-                                  return next
-                                })
-                              }}
+                              onClick={
+                                hasExpandableContent
+                                  ? () => togglePolicyExpanded(policy.id)
+                                  : undefined
+                              }
                             >
                               <td className="px-4 py-3 font-medium">
                                 <div className="flex items-center gap-1.5">

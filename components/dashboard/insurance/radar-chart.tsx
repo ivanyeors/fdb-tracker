@@ -69,6 +69,17 @@ function genPolygonPoints(
   return dataArray.map((d, i) => genPoint(numAxes, i, scale(d)))
 }
 
+function valuesAtAxis(
+  series: RadarSeriesData[],
+  axisIdx: number,
+): { profileName: string; value: number; color: string }[] {
+  return series.map((ser) => ({
+    profileName: ser.profileName,
+    value: ser.data[axisIdx].value,
+    color: ser.color,
+  }))
+}
+
 function RadarChartInner({
   series,
   axes,
@@ -174,13 +185,8 @@ function RadarChartInner({
                     className="cursor-pointer"
                     onMouseMove={(e) => {
                       setHoveredAxis(i)
-                      const allValues = series.map((ser) => ({
-                        profileName: ser.profileName,
-                        value: ser.data[i].value,
-                        color: ser.color,
-                      }))
                       showTooltip({
-                        tooltipData: { axis: axes[i], values: allValues },
+                        tooltipData: { axis: axes[i], values: valuesAtAxis(series, i) },
                         tooltipLeft: e.clientX,
                         tooltipTop: e.clientY,
                       })

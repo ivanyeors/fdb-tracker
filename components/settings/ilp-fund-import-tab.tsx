@@ -130,6 +130,27 @@ function clearIlpImportDraft() {
   }
 }
 
+function reindexAllocPct(
+  pct: Record<string, number>,
+  prevLength: number,
+  removedIndex: number,
+): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const [k, v] of Object.entries(pct)) {
+    if (k.startsWith("e:")) {
+      out[k] = v
+    }
+  }
+  let ni = 0
+  for (let i = 0; i < prevLength; i++) {
+    if (i === removedIndex) continue
+    const old = pct[`n:${i}`]
+    if (old != null) out[`n:${ni}`] = old
+    ni++
+  }
+  return out
+}
+
 export function IlpFundImportTab({
   familyId: familyIdProp,
   onSuccess,
@@ -401,38 +422,22 @@ export function IlpFundImportTab({
 
   const removeBundle = useCallback(
     (index: number) => {
-      setParsedBundles((prev) => {
-        const next = prev.filter((_, i) => i !== index)
-        if (next.length === 0) {
-          resetFlow()
-          return next
-        }
-        setFiles((f) => f.filter((_, i) => i !== index))
-        setFileLabel(
-          next.length === 1 ? next[0].file.name : `${next.length} files selected`,
-        )
-        setMultiRows((rows) => rows.filter((_, i) => i !== index))
-        // Re-index n:* keys (file-based allocation entries)
-        setMultiAllocPct((pct) => {
-          const out: Record<string, number> = {}
-          for (const [k, v] of Object.entries(pct)) {
-            if (k.startsWith("e:")) {
-              out[k] = v
-            }
-          }
-          let ni = 0
-          for (let i = 0; i < prev.length; i++) {
-            if (i === index) continue
-            const old = pct[`n:${i}`]
-            if (old != null) out[`n:${ni}`] = old
-            ni++
-          }
-          return out
-        })
-        return next
-      })
+      const prevBundles = parsedBundles
+      const next = prevBundles.filter((_, i) => i !== index)
+      setParsedBundles(next)
+      if (next.length === 0) {
+        resetFlow()
+        return
+      }
+      setFiles((f) => f.filter((_, i) => i !== index))
+      setFileLabel(
+        next.length === 1 ? next[0].file.name : `${next.length} files selected`,
+      )
+      setMultiRows((rows) => rows.filter((_, i) => i !== index))
+      // Re-index n:* keys (file-based allocation entries)
+      setMultiAllocPct((pct) => reindexAllocPct(pct, prevBundles.length, index))
     },
-    [resetFlow],
+    [resetFlow, parsedBundles],
   )
 
   // Auto-save form state to localStorage (debounced)
