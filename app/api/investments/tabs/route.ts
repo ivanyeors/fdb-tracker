@@ -6,11 +6,11 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
 const querySchema = z.object({
-  familyId: z.string().uuid(),
+  familyId: z.uuid(),
 })
 
 const createTabSchema = z.object({
-  familyId: z.string().uuid(),
+  familyId: z.uuid(),
   tabType: z.enum(["cards", "others"]),
   tabLabel: z.string().min(1).max(100).optional(),
 })

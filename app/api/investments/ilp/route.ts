@@ -7,8 +7,8 @@ import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { fetchIlpProducts } from "@/lib/api/ilp-data"
 
 const ilpQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 const createIlpSchema = z
@@ -16,8 +16,8 @@ const createIlpSchema = z
     name: z.string().min(1),
     monthlyPremium: z.number().min(0),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    profileId: z.string().uuid().optional(),
-    familyId: z.string().uuid().optional(),
+    profileId: z.uuid().optional(),
+    familyId: z.uuid().optional(),
     premiumPaymentMode: z.enum(["monthly", "one_time"]).optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   })
@@ -25,7 +25,7 @@ const createIlpSchema = z
     const mode = data.premiumPaymentMode ?? "monthly"
     if (mode === "monthly" && data.monthlyPremium <= 0) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "monthlyPremium must be positive when premiumPaymentMode is monthly.",
         path: ["monthlyPremium"],
       })

@@ -6,8 +6,8 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { verifyLoanInHousehold } from "@/lib/api/verify-loan-in-household"
 
 const createSchema = z.object({
-  loanId: z.string().uuid(),
-  profileId: z.string().uuid().optional(),
+  loanId: z.uuid(),
+  profileId: z.uuid().optional(),
   principalWithdrawn: z.number().positive(),
   withdrawalDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   usageType: z

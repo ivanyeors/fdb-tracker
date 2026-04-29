@@ -38,8 +38,8 @@ export async function GET(request: NextRequest) {
 }
 
 const createSchema = z.object({
-  householdId: z.string().uuid(),
-  categoryId: z.string().uuid(),
+  householdId: z.uuid(),
+  categoryId: z.uuid(),
   matchPattern: z
     .string()
     .min(1)
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
 }
 
 const deleteSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
 })
 
 export async function DELETE(request: Request) {

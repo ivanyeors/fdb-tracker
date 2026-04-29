@@ -7,7 +7,7 @@ import { deterministicHash } from "@/lib/crypto/hash"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const tokenBodySchema = z.object({
-  profileId: z.string().uuid(),
+  profileId: z.uuid(),
 })
 
 export async function POST(request: NextRequest) {

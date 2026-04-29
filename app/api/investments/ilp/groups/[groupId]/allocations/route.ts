@@ -12,11 +12,11 @@ import {
 import { deriveMonthlyPremiumsFromGroupTotal } from "@/lib/investments/ilp-premium-derive"
 
 const bodySchema = z.object({
-  familyId: z.string().uuid(),
+  familyId: z.uuid(),
   items: z
     .array(
       z.object({
-        productId: z.string().uuid(),
+        productId: z.uuid(),
         allocationPct: z.number().min(0).max(100),
       }),
     )
@@ -25,7 +25,7 @@ const bodySchema = z.object({
   groupPremiumAmount: z.number().min(0).optional(),
   premiumPaymentMode: z.enum(["monthly", "one_time"]).optional(),
   /** Assign this group to a specific profile. */
-  profileId: z.string().uuid().nullable().optional(),
+  profileId: z.uuid().nullable().optional(),
 })
 
 /**

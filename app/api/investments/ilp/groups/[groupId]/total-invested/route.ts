@@ -7,7 +7,7 @@ import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { deriveMonthlyPremiumsFromGroupTotal } from "@/lib/investments/ilp-premium-derive"
 
 const bodySchema = z.object({
-  familyId: z.string().uuid(),
+  familyId: z.uuid(),
   totalInvested: z.number().min(0),
 })
 

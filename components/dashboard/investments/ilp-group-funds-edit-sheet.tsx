@@ -326,7 +326,7 @@ export function IlpGroupFundsEditSheet({
     }
   }
 
-  async function handleAddFundSubmit(e: React.FormEvent) {
+  async function handleAddFundSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!activeFamilyId) {
       toast.error("Please select a family first.")

@@ -24,7 +24,7 @@ const profileSchema = z.object({
 
 const profilesSchema = z.object({
   mode: z.enum(["first-time", "new-family", "resume"]).optional().default("first-time"),
-  familyId: z.string().uuid().optional(),
+  familyId: z.uuid().optional(),
   profiles: z.array(profileSchema).min(1).max(6),
 })
 

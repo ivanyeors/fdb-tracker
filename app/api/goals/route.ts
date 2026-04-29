@@ -7,8 +7,8 @@ import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { fetchGoals } from "@/lib/api/goals-data"
 
 const goalsQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -61,9 +61,9 @@ const createGoalSchema = z.object({
   category: z
     .enum(["dream_home", "gadget", "travel", "wardrobe", "car", "custom"])
     .optional(),
-  linkedBankAccountId: z.string().uuid().nullable().optional(),
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  linkedBankAccountId: z.uuid().nullable().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 export async function POST(request: NextRequest) {

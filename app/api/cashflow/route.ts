@@ -9,8 +9,8 @@ import { fetchCashflowRangeSeries } from "@/lib/api/cashflow-range"
 import { fetchSingleMonthCashflow } from "@/lib/api/cashflow-single-month"
 
 const cashflowQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
   startMonth: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -26,8 +26,8 @@ const cashflowQuerySchema = z.object({
 })
 
 const cashflowBodySchema = z.object({
-  profileId: z.string().uuid(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid(),
+  familyId: z.uuid().optional(),
   month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   inflow: z.number().min(0).optional(),
   outflow: z.number().min(0).optional(),
@@ -37,8 +37,8 @@ const cashflowBodySchema = z.object({
 })
 
 const cashflowDeleteSchema = z.object({
-  id: z.string().uuid(),
-  familyId: z.string().uuid().optional(),
+  id: z.uuid(),
+  familyId: z.uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {

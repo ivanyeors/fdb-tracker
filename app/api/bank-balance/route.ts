@@ -13,7 +13,7 @@ import {
 } from "@/lib/api/giro-amounts"
 
 const balanceQuerySchema = z.object({
-  accountId: z.string().uuid(),
+  accountId: z.uuid(),
   months: z.string().regex(/^\d+$/).optional(),
 })
 

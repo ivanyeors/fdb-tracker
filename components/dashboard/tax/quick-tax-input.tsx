@@ -40,7 +40,7 @@ export function QuickTaxInput({
   const [isLoading, setIsLoading] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (taxAmount <= 0 || !selectedProfileId) return
 

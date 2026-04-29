@@ -4,7 +4,7 @@ import { requireSuperAdmin } from "@/lib/auth/admin"
 import { decodeProfilePii } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
-const uuidSchema = z.string().uuid()
+const uuidSchema = z.uuid()
 const patchSchema = z.object({ isSuperAdmin: z.boolean() })
 
 interface AdminHouseholdView {

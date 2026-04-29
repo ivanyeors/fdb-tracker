@@ -15,7 +15,7 @@ const updateLoanSchema = z.object({
   lender: z.string().nullable().optional(),
   useCpfOa: z.boolean().optional(),
   valuationLimit: z.number().positive().nullable().optional(),
-  splitProfileId: z.string().uuid().nullable().optional(),
+  splitProfileId: z.uuid().nullable().optional(),
   splitPct: z.number().min(0).max(100).optional(),
   rateIncreasePct: z.number().min(0).nullable().optional(),
   propertyType: z.enum(["hdb", "private"]).nullable().optional(),

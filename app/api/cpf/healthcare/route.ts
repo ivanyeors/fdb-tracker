@@ -16,12 +16,12 @@ import {
 } from "@/lib/calculations/cpf-healthcare"
 
 const querySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 const upsertSchema = z.object({
-  profileId: z.string().uuid(),
+  profileId: z.uuid(),
   mslAnnualOverride: z.number().min(0).nullable().optional(),
   cslAnnual: z.number().min(0).optional(),
   cslSupplementAnnual: z.number().min(0).optional(),

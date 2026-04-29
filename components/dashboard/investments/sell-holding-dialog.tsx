@@ -76,7 +76,7 @@ export function SellHoldingDialog({ initial, defaultPrice, onSuccess }: SellHold
       .catch(() => setNotes([]))
   }, [open, initial.symbol, activeProfileId, activeFamilyId])
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!activeProfileId && !activeFamilyId) {
       toast.error("Please select a profile or family first.")

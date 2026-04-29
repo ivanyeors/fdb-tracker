@@ -15,7 +15,7 @@ const promptSchema = z.object({
 
 const remindersRouteSchema = z.object({
   mode: z.enum(["first-time", "new-family", "resume"]).optional().default("first-time"),
-  familyId: z.string().uuid().optional(),
+  familyId: z.uuid().optional(),
   promptSchedule: z.array(promptSchema).min(1),
 })
 

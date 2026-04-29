@@ -11,7 +11,7 @@ import { z } from "zod"
 
 const telegramSchema = z.object({
   telegramChatId: z.string().optional().default(""),
-  mergePublicHouseholdId: z.string().uuid().optional(),
+  mergePublicHouseholdId: z.uuid().optional(),
 })
 
 export async function POST(request: Request) {

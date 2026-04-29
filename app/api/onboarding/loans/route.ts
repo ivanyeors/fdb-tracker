@@ -19,7 +19,7 @@ const loanSchema = z.object({
 
 const loansRouteSchema = z.object({
   mode: z.enum(["first-time", "new-family", "resume"]).optional().default("first-time"),
-  familyId: z.string().uuid().optional(),
+  familyId: z.uuid().optional(),
   loans: z.array(loanSchema).optional().default([]),
 })
 

@@ -6,15 +6,15 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
 const querySchema = z.object({
-  tabId: z.string().uuid(),
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  tabId: z.uuid(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 const createOtherSchema = z.object({
-  tabId: z.string().uuid(),
-  profileId: z.string().uuid(),
-  familyId: z.string().uuid(),
+  tabId: z.uuid(),
+  profileId: z.uuid(),
+  familyId: z.uuid(),
   name: z.string().min(1).max(500),
   typeLabel: z.string().min(1).max(100),
   purchasePrice: z.number().min(0),

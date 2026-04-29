@@ -7,8 +7,8 @@ import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { fetchInvestmentHistory } from "@/lib/api/investment-history-data"
 
 const historyQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
   days: z.coerce.number().int().min(1).max(90).optional(),
 })
 

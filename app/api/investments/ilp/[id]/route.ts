@@ -11,7 +11,7 @@ const updateIlpSchema = z.object({
   monthlyPremium: z.number().min(0).optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   premiumPaymentMode: z.enum(["monthly", "one_time"]).optional(),
-  profileId: z.string().uuid().nullable().optional(),
+  profileId: z.uuid().nullable().optional(),
 })
 
 async function verifyIlpOwnership(

@@ -27,14 +27,14 @@ import {
 } from "@/lib/calculations/cpf-healthcare"
 
 const balancesQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
   months: z.string().regex(/^\d+$/).optional(),
 })
 
 const manualOverrideSchema = z.object({
-  profileId: z.string().uuid(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid(),
+  familyId: z.uuid().optional(),
   month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   oa: z.number().min(0),
   sa: z.number().min(0),

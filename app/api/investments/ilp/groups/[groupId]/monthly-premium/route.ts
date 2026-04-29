@@ -7,9 +7,9 @@ import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { deriveMonthlyPremiumsFromGroupTotal } from "@/lib/investments/ilp-premium-derive"
 
 const bodySchema = z.object({
-  familyId: z.string().uuid(),
+  familyId: z.uuid(),
   monthlyTotal: z.number().min(0),
-  profileId: z.string().uuid().nullable().optional(),
+  profileId: z.uuid().nullable().optional(),
 })
 
 export async function PATCH(

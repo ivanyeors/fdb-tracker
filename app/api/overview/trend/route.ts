@@ -7,8 +7,8 @@ import { decodeLoanPii } from "@/lib/repos/loans"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const trendQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
   months: z.coerce.number().int().min(1).max(24).optional(),
 })
 

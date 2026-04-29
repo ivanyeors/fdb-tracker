@@ -6,8 +6,8 @@ import { decodeBankTransactionPii } from "@/lib/repos/bank-transactions"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const querySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
   startMonth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endMonth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 })

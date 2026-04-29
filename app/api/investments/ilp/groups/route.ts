@@ -6,13 +6,13 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
 const querySchema = z.object({
-  familyId: z.string().uuid(),
+  familyId: z.uuid(),
 })
 
 const createGroupSchema = z.object({
-  familyId: z.string().uuid(),
+  familyId: z.uuid(),
   name: z.string().min(1).max(200),
-  profileId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {

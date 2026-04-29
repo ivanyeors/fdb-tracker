@@ -100,7 +100,7 @@ export function GiroRulesForm({ familyId }: { readonly familyId: string | null }
     fetchData()
   }, [familyId])
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!familyId) {
       toast.error("Please select a family first.")

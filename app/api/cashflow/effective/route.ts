@@ -8,7 +8,7 @@ import { getEffectiveInflowForProfile } from "@/lib/api/effective-inflow"
 import { getEffectiveOutflowForProfile } from "@/lib/api/effective-outflow"
 
 const querySchema = z.object({
-  profileId: z.string().uuid(),
+  profileId: z.uuid(),
 })
 
 export async function GET(request: NextRequest) {

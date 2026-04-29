@@ -5,7 +5,7 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const schema = z.object({
-  bankAccountId: z.string().uuid().nullable(),
+  bankAccountId: z.uuid().nullable(),
 })
 
 export async function PATCH(

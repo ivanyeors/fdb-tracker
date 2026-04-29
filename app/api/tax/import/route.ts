@@ -22,7 +22,7 @@ const bracketLineSchema = z.object({
 })
 
 const importBodySchema = z.object({
-  profile_id: z.string().uuid(),
+  profile_id: z.uuid(),
   year: z.number().int().min(2020).max(2040),
   tax_payable: z.number().min(0),
   employment_income: z.number().nullable().optional(),

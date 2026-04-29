@@ -7,7 +7,7 @@ import {
   encodeInsurancePoliciesPiiPatch,
 } from "@/lib/repos/insurance-policies"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-import { getCoverageType, COVERAGE_TYPES } from "@/lib/insurance/coverage-config"
+import { defaultCoverageTypeForPolicy, COVERAGE_TYPES } from "@/lib/insurance/coverage-config"
 
 const coverageEntrySchema = z.object({
   coverageType: z.enum(COVERAGE_TYPES).nullable().optional(),
@@ -121,7 +121,7 @@ export async function PATCH(
     if (parsed.data.name !== undefined) updates.name = parsed.data.name
     if (parsed.data.type !== undefined) {
       updates.type = parsed.data.type
-      updates.coverage_type = getCoverageType(parsed.data.type)
+      updates.coverage_type = defaultCoverageTypeForPolicy(parsed.data.type)
     }
     if (parsed.data.frequency !== undefined) updates.frequency = parsed.data.frequency
     if (parsed.data.yearlyOutflowDate !== undefined)

@@ -10,8 +10,8 @@ import { fetchTransactions } from "@/lib/api/transactions-data"
 const transactionQuerySchema = z.object({
   symbol: z.string().optional(),
   type: z.enum(["buy", "sell"]).optional(),
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
   limit: z.coerce.number().int().min(1).max(500).optional(),
 })
 
@@ -22,9 +22,9 @@ const createTransactionSchema = z.object({
   price: z.number().min(0),
   commission: z.number().min(0).optional().default(0),
   journalText: z.string().optional(),
-  screenshotUrl: z.string().url().optional(),
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  screenshotUrl: z.url().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {

@@ -42,8 +42,8 @@ function resultToTaxSnapshot(ya: number, result: TaxResult): TaxSnapshot {
 }
 
 const taxQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
   year: z.coerce.number().int().min(2020).max(2040).optional(),
 })
 

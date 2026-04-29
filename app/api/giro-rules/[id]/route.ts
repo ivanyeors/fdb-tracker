@@ -5,12 +5,12 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const updateGiroRuleSchema = z.object({
-  sourceBankAccountId: z.string().uuid().optional(),
+  sourceBankAccountId: z.uuid().optional(),
   amount: z.number().positive().optional(),
   destinationType: z
     .enum(["outflow", "investments", "cpf_investments", "srs", "bank_account"])
     .optional(),
-  destinationBankAccountId: z.string().uuid().nullable().optional(),
+  destinationBankAccountId: z.uuid().nullable().optional(),
   isActive: z.boolean().optional(),
 })
 

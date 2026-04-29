@@ -7,8 +7,8 @@ import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { fetchMoneyFlowData } from "@/lib/api/money-flow-data"
 
 const querySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {

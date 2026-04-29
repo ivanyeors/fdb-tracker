@@ -4,7 +4,7 @@
  *
  * Note: `ilp` is no longer a creatable insurance type (use Investments / ilp_products).
  * Legacy rows may still have type "ilp" in the database — use getFieldsForInsurancePolicyRow
- * and getCoverageType (string) for those rows.
+ * and defaultCoverageTypeForPolicy (string) for those rows.
  */
 
 export const INSURANCE_TYPES = [
@@ -39,31 +39,6 @@ export const COVERAGE_TYPES = [
 
 export type CoverageType = (typeof COVERAGE_TYPES)[number]
 
-/** @deprecated Use DEFAULT_COVERAGES_BY_POLICY for multi-coverage support. */
-export const COVERAGE_TYPE_BY_POLICY: Record<InsuranceType, CoverageType | null> = {
-  term_life: "death",
-  whole_life: "death",
-  universal_life: "death",
-  integrated_shield: "hospitalization",
-  critical_illness: "critical_illness",
-  early_critical_illness: "early_critical_illness",
-  multi_pay_ci: "critical_illness",
-  endowment: null,
-  personal_accident: "personal_accident",
-  disability_income: "disability",
-  long_term_care: "long_term_care",
-  tpd: "tpd",
-}
-
-/** @deprecated Use DEFAULT_COVERAGES_BY_POLICY. Kept for legacy ILP rows. */
-export function getCoverageType(type: string): CoverageType | null {
-  if (type === "ilp") return "death"
-  if (type in COVERAGE_TYPE_BY_POLICY) {
-    return COVERAGE_TYPE_BY_POLICY[type as InsuranceType]
-  }
-  return null
-}
-
 /** Default coverages pre-selected when creating a new policy of each type. */
 export const DEFAULT_COVERAGES_BY_POLICY: Record<InsuranceType, CoverageType[]> = {
   term_life: ["death"],
@@ -78,6 +53,19 @@ export const DEFAULT_COVERAGES_BY_POLICY: Record<InsuranceType, CoverageType[]> 
   disability_income: ["disability"],
   long_term_care: ["long_term_care"],
   tpd: ["tpd"],
+}
+
+/**
+ * Resolve the legacy single-coverage column for a policy type string.
+ * Used when persisting `insurance_policies.coverage_type` for legacy rows
+ * (including pre-migration "ilp" rows).
+ */
+export function defaultCoverageTypeForPolicy(type: string): CoverageType | null {
+  if (type === "ilp") return "death"
+  if (type in DEFAULT_COVERAGES_BY_POLICY) {
+    return DEFAULT_COVERAGES_BY_POLICY[type as InsuranceType][0] ?? null
+  }
+  return null
 }
 
 /** All valid coverage types that can be toggled on per policy type (superset of defaults). */

@@ -10,12 +10,12 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
 const querySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 const createSchema = z.object({
-  profileId: z.string().uuid(),
+  profileId: z.uuid(),
   employerName: z.string().min(1).max(200),
   monthlySalary: z.number().min(0),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -28,8 +28,8 @@ const createSchema = z.object({
 })
 
 const updateSchema = createSchema.partial().extend({
-  id: z.string().uuid(),
-  profileId: z.string().uuid(),
+  id: z.uuid(),
+  profileId: z.uuid(),
 })
 
 export async function GET(request: NextRequest) {

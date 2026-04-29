@@ -5209,7 +5209,6 @@ export function FamilyMembersTable({
     if (!hasUnsavedChanges) return
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault()
-      e.returnValue = ""
     }
     globalThis.addEventListener("beforeunload", onBeforeUnload)
     return () => globalThis.removeEventListener("beforeunload", onBeforeUnload)

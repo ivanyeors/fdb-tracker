@@ -81,7 +81,7 @@ export function AddCardForm({
 
   const [saving, setSaving] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!name.trim()) {
       toast.error("Name is required")

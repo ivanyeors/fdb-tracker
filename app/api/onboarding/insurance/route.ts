@@ -3,7 +3,7 @@ import { cookies } from "next/headers"
 import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { encodeInsurancePoliciesPiiPatch } from "@/lib/repos/insurance-policies"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
-import { getCoverageType } from "@/lib/insurance/coverage-config"
+import { defaultCoverageTypeForPolicy } from "@/lib/insurance/coverage-config"
 import { z } from "zod"
 
 const onboardingInsuranceTypeEnum = z.enum([
@@ -31,7 +31,7 @@ const insuranceSchema = z.object({
 
 const insuranceRouteSchema = z.object({
   mode: z.enum(["first-time", "new-family", "resume"]).optional().default("first-time"),
-  familyId: z.string().uuid().optional(),
+  familyId: z.uuid().optional(),
   insurancePolicies: z.array(insuranceSchema).optional().default([]),
 })
 
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     for (const pol of insurancePolicies) {
       const profileId = profiles[pol.profileIndex]?.id
       if (profileId && pol.name.trim() && pol.premium_amount > 0) {
-        const coverageType = getCoverageType(pol.type)
+        const coverageType = defaultCoverageTypeForPolicy(pol.type)
         const { data: policy } = await supabase
           .from("insurance_policies")
           .insert({

@@ -5,7 +5,7 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const postBodySchema = z.object({
-  profile_id: z.string().uuid(),
+  profile_id: z.uuid(),
   year: z.number().int().min(2020).max(2040),
   actual_amount: z.number().min(0),
 })

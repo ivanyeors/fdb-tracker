@@ -9,8 +9,8 @@ import { getSgdPerUsd } from "@/lib/external/usd-sgd"
 import { calculateWeightedAverageCost } from "@/lib/calculations/investments"
 
 const investmentsQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 const createInvestmentSchema = z.object({
@@ -18,8 +18,8 @@ const createInvestmentSchema = z.object({
   type: z.string().min(1),
   units: z.number().min(0),
   costBasis: z.number().min(0),
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
   /** Optional note stored on the linked buy transaction (same flow as Telegram /buy). */
   journalText: z.string().max(2000).optional(),
   /** Optional date when the investment actually started (YYYY-MM-DD). */

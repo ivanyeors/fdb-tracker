@@ -15,7 +15,7 @@ const investmentSchema = z.object({
 
 const investmentsRouteSchema = z.object({
   mode: z.enum(["first-time", "new-family", "resume"]).optional().default("first-time"),
-  familyId: z.string().uuid().optional(),
+  familyId: z.uuid().optional(),
   investments: z.array(investmentSchema).optional().default([]),
 })
 

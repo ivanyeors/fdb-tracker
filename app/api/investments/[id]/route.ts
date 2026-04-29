@@ -10,7 +10,7 @@ const updateInvestmentSchema = z.object({
   units: z.number().min(0).optional(),
   costBasis: z.number().min(0).optional(),
   targetAllocationPct: z.number().min(0).max(100).nullable().optional(),
-  profileId: z.string().uuid().nullable().optional(),
+  profileId: z.uuid().nullable().optional(),
 })
 
 async function verifyInvestmentOwnership(

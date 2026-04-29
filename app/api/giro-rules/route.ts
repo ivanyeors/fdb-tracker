@@ -6,14 +6,14 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
 const giroRulesQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 const createGiroRuleSchema = z.object({
-  familyId: z.string().uuid(),
-  profileId: z.string().uuid().optional(),
-  sourceBankAccountId: z.string().uuid(),
+  familyId: z.uuid(),
+  profileId: z.uuid().optional(),
+  sourceBankAccountId: z.uuid(),
   amount: z.number().positive(),
   destinationType: z.enum([
     "outflow",
@@ -22,7 +22,7 @@ const createGiroRuleSchema = z.object({
     "srs",
     "bank_account",
   ]),
-  destinationBankAccountId: z.string().uuid().optional(),
+  destinationBankAccountId: z.uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {

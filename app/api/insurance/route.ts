@@ -5,12 +5,12 @@ import { validateSession, COOKIE_NAME } from "@/lib/auth/session"
 import { encodeInsurancePoliciesPiiPatch } from "@/lib/repos/insurance-policies"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
-import { getCoverageType, COVERAGE_TYPES } from "@/lib/insurance/coverage-config"
+import { defaultCoverageTypeForPolicy, COVERAGE_TYPES } from "@/lib/insurance/coverage-config"
 import { fetchInsurancePolicies } from "@/lib/api/insurance-data"
 
 const insuranceQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -71,7 +71,7 @@ const coverageEntrySchema = z.object({
 })
 
 const createPolicySchema = z.object({
-  profileId: z.string().uuid(),
+  profileId: z.uuid(),
   name: z.string().min(1),
   type: z.enum([
     "term_life",
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     const legacyCoverageType = (() => {
       if (firstStandard) return firstStandard.coverageType
       if (hasOtherCoverages) return null
-      return getCoverageType(parsed.data.type)
+      return defaultCoverageTypeForPolicy(parsed.data.type)
     })()
     const legacyCoverageAmount = (() => {
       if (firstStandard) return firstStandard.coverageAmount

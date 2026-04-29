@@ -18,8 +18,8 @@ import {
 import { getAge } from "@/lib/calculations/cpf"
 
 const querySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {

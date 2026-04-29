@@ -7,14 +7,14 @@ import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
 const createAccountSchema = z.object({
   accountName: z.string().min(1).max(100),
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
   initialBalance: z.number().optional().default(0),
 })
 
 const deleteAccountSchema = z.object({
-  accountId: z.string().uuid(),
-  familyId: z.string().uuid().optional(),
+  accountId: z.uuid(),
+  familyId: z.uuid().optional(),
 })
 
 export async function POST(request: NextRequest) {

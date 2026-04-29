@@ -6,8 +6,8 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
 const createEntrySchema = z.object({
-  productId: z.string().uuid(),
-  familyId: z.string().uuid().optional(),
+  productId: z.uuid(),
+  familyId: z.uuid().optional(),
   month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   fundValue: z.number().min(0),
   premiumsPaid: z.number().min(0).nullable().optional(),

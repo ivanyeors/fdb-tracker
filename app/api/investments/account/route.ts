@@ -27,15 +27,15 @@ async function getGiroInvestmentCredit(
 }
 
 const accountQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 const updateAccountSchema = z.object({
   cashBalance: z.number(),
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
-  accountId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
+  accountId: z.uuid().optional(),
 })
 
 /** Resolved profile id for the row, or null for family-level (shared) account. */

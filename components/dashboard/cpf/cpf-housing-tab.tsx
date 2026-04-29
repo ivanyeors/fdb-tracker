@@ -119,7 +119,7 @@ export function CpfHousingTab({
       ].filter(Boolean)
     : []
 
-  async function handleAdd(e: React.FormEvent) {
+  async function handleAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!loanId || !cpfLoanOptions.some((l) => l.id === loanId)) {
       toast.error("Select a loan that uses CPF OA")

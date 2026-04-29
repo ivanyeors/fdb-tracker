@@ -44,7 +44,7 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
     return symbol
   })()
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!activeProfileId && !activeFamilyId) {
       toast.error("Please select a profile or family first.")

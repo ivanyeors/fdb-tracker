@@ -13,7 +13,7 @@ import { encodeProfilePiiPatch } from "@/lib/repos/profiles"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const updateUserSchema = z.object({
-  profileId: z.string().uuid(),
+  profileId: z.uuid(),
   name: z.string().min(1, "Name is required"),
   birthYear: z.coerce.number().min(1900).max(new Date().getFullYear()),
   annualSalary: z.coerce.number().min(0),
@@ -213,7 +213,7 @@ export type CreateProfileState = {
 }
 
 const createProfileSchema = z.object({
-  familyId: z.string().uuid(),
+  familyId: z.uuid(),
   name: z.string().min(1, "Name is required").max(50),
   birthYear: z.coerce.number().min(1900).max(new Date().getFullYear()),
 })
@@ -467,7 +467,7 @@ export async function addNewFamilyAction(): Promise<void> {
 }
 
 const updateFamilyNameSchema = z.object({
-  familyId: z.string().uuid(),
+  familyId: z.uuid(),
   name: z.string().transform((s) => s.trim()).pipe(z.string().min(1, "Name is required").max(50)),
 })
 
@@ -541,11 +541,11 @@ export type DependentState = {
 }
 
 const dependentSchema = z.object({
-  familyId: z.string().uuid(),
+  familyId: z.uuid(),
   name: z.string().min(1).max(50),
   birthYear: z.coerce.number().min(1920).max(2040),
   relationship: z.enum(["child", "parent", "grandparent"]),
-  claimedByProfileId: z.string().uuid().optional().nullable(),
+  claimedByProfileId: z.uuid().optional().nullable(),
   inFullTimeEducation: z.coerce.boolean().default(false),
   annualIncome: z.coerce.number().min(0).default(0),
   livingWithClaimant: z.coerce.boolean().default(true),
@@ -801,7 +801,7 @@ const NOTIFICATION_TYPES = [
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
 const updateNotificationPreferenceSchema = z.object({
-  profileId: z.string().uuid(),
+  profileId: z.uuid(),
   notificationType: z.enum(NOTIFICATION_TYPES),
   enabled: z.boolean(),
   dayOfMonth: z.coerce.number().int().min(1).max(31).nullable().optional(),

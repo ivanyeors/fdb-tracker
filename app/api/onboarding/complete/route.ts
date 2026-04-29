@@ -121,7 +121,7 @@ const completeSchema = z.object({
   incomeConfigs: z.array(completeIncomeSchema),
   bankAccounts: z.array(
     bankAccountSchema.omit({ profile_id: true }).extend({
-      profile_id: z.string().uuid().nullable().optional(),
+      profile_id: z.uuid().nullable().optional(),
       opening_balance: z.number().min(0).optional(),
       savings_goals: z.array(completeSavingsGoalSchema).optional().default([]),
     })

@@ -7,8 +7,8 @@ import { drainSummaryRefreshQueue } from "@/lib/repos/summary-refresh-queue"
 import { createSupabaseAdmin } from "@/lib/supabase/server"
 
 const querySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
   month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   statementType: z.enum(["bank", "cc"]).optional(),
 })
@@ -54,15 +54,15 @@ export async function GET(request: NextRequest) {
 const patchSchema = z.object({
   updates: z.array(
     z.object({
-      id: z.string().uuid(),
-      categoryId: z.string().uuid().nullable(),
+      id: z.uuid(),
+      categoryId: z.uuid().nullable(),
     }),
   ),
   categoryRules: z
     .array(
       z.object({
         pattern: z.string(),
-        categoryId: z.string().uuid(),
+        categoryId: z.uuid(),
       }),
     )
     .optional(),

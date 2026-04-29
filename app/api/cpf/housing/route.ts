@@ -11,8 +11,8 @@ import {
 } from "@/lib/calculations/cpf-housing"
 
 const housingQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 const USAGE_TYPES = ["downpayment", "monthly", "stamp_duty", "legal", "hps", "other"] as const

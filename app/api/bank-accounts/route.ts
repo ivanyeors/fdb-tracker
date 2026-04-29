@@ -14,16 +14,16 @@ const createAccountSchema = z.object({
   bankName: z.string().min(1),
   accountType: z.string().min(1),
   accountNumber: z.string().optional(),
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
   interestRatePct: z.number().min(0).optional(),
   openingBalance: z.number().min(0).optional(),
   lockedAmount: z.number().min(0).optional(),
 })
 
 const listQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {

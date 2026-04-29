@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 }
 
 const createSchema = z.object({
-  householdId: z.string().uuid(),
+  householdId: z.uuid(),
   name: z.string().min(1).max(50),
   icon: z.string().max(50).optional(),
 })
@@ -127,7 +127,7 @@ export async function POST(request: Request) {
 }
 
 const updateSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   name: z.string().min(1).max(50).optional(),
   icon: z.string().max(50).nullable().optional(),
   sortOrder: z.number().int().optional(),
@@ -208,8 +208,8 @@ export async function PATCH(request: Request) {
 }
 
 const deleteSchema = z.object({
-  id: z.string().uuid(),
-  reassignTo: z.string().uuid().optional(),
+  id: z.uuid(),
+  reassignTo: z.uuid().optional(),
 })
 
 export async function DELETE(request: Request) {

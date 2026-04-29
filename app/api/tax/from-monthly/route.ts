@@ -18,7 +18,7 @@ function roundToCent(value: number): number {
 }
 
 const postBodySchema = z.object({
-  profile_id: z.string().uuid(),
+  profile_id: z.uuid(),
   year: z.number().int().min(2020).max(2040),
   monthly_amount: z.number().min(0),
   payments_per_year: z.number().int().min(1).max(24).optional().default(12),

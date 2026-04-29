@@ -17,16 +17,16 @@ const transactionSchema = z.object({
   amount: z.number(),
   balance: z.number().nullable(),
   txnType: z.enum(["debit", "credit"]),
-  categoryId: z.string().uuid().nullable(),
+  categoryId: z.uuid().nullable(),
   foreignCurrency: z.string().nullable().optional(),
   excludeFromSpending: z.boolean(),
   rawText: z.string().optional(),
 })
 
 const bodySchema = z.object({
-  profileId: z.string().uuid(),
-  familyId: z.string().uuid(),
-  accountId: z.string().uuid().nullable().optional(),
+  profileId: z.uuid(),
+  familyId: z.uuid(),
+  accountId: z.uuid().nullable().optional(),
   month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   statementType: z.enum(["bank", "cc"]),
   transactions: z.array(transactionSchema),
@@ -34,7 +34,7 @@ const bodySchema = z.object({
     .array(
       z.object({
         pattern: z.string(),
-        categoryId: z.string().uuid(),
+        categoryId: z.uuid(),
       }),
     )
     .optional(),

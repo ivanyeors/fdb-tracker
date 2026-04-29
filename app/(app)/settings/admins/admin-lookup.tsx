@@ -43,7 +43,7 @@ export function AdminLookup({ currentAccountId }: AdminLookupProps) {
   const [state, setState] = useState<LookupState>({ kind: "idle" })
   const [mutating, setMutating] = useState(false)
 
-  async function handleLookup(e: React.FormEvent) {
+  async function handleLookup(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const trimmed = uuid.trim()
     if (!UUID_RE.test(trimmed)) {

@@ -122,7 +122,7 @@ export function EditIlpDialog({
     latestEntryPremiumsPaid,
   ])
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const premiumVal = premium ?? 0
     if (paymentMode === "monthly" && premiumVal <= 0) {

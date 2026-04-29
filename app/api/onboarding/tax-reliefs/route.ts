@@ -12,7 +12,7 @@ const taxReliefSchema = z.object({
 
 const taxReliefsRouteSchema = z.object({
   mode: z.enum(["first-time", "new-family", "resume"]).optional().default("first-time"),
-  familyId: z.string().uuid().optional(),
+  familyId: z.uuid().optional(),
   taxReliefInputs: z.array(taxReliefSchema).optional().default([]),
 })
 

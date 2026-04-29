@@ -16,7 +16,7 @@ const incomeSchema = z.object({
 
 const incomeRouteSchema = z.object({
   mode: z.enum(["first-time", "new-family", "resume"]).optional().default("first-time"),
-  familyId: z.string().uuid().optional(),
+  familyId: z.uuid().optional(),
   incomeConfigs: z.array(incomeSchema).min(1).max(6),
 })
 

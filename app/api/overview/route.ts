@@ -7,8 +7,8 @@ import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { fetchOverviewData } from "@/lib/api/overview-data"
 
 const overviewQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
   month: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)

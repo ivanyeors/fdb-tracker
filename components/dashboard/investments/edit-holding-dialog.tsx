@@ -63,7 +63,7 @@ export function EditHoldingDialog({ initial, onSuccess }: EditHoldingDialogProps
     return symbol
   })()
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const unitsNum = Number.parseFloat(units)
     if (Number.isNaN(unitsNum) || unitsNum < 0) {

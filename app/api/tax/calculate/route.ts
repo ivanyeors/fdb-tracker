@@ -11,7 +11,7 @@ import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { calculateTax } from "@/lib/calculations/tax"
 
 const calculateQuerySchema = z.object({
-  profileId: z.string().uuid(),
+  profileId: z.uuid(),
   year: z.coerce.number().int().min(2020).max(2040).optional(),
 })
 

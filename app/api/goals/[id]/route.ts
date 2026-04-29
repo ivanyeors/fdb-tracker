@@ -13,8 +13,8 @@ const updateGoalSchema = z.object({
   category: z
     .enum(["dream_home", "gadget", "travel", "wardrobe", "car", "custom"])
     .optional(),
-  linkedBankAccountId: z.string().uuid().nullable().optional(),
-  profileId: z.string().uuid().nullable().optional(),
+  linkedBankAccountId: z.uuid().nullable().optional(),
+  profileId: z.uuid().nullable().optional(),
 })
 
 async function verifyGoalOwnership(

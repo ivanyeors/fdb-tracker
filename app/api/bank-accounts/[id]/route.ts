@@ -12,7 +12,7 @@ const updateAccountSchema = z.object({
   bankName: z.string().min(1).optional(),
   accountType: z.string().min(1).optional(),
   accountNumber: z.string().nullable().optional(),
-  profileId: z.string().uuid().nullable().optional(),
+  profileId: z.uuid().nullable().optional(),
   interestRatePct: z.number().min(0).optional(),
   openingBalance: z.number().min(0).optional(),
   lockedAmount: z.number().min(0).optional(),
@@ -20,8 +20,8 @@ const updateAccountSchema = z.object({
     .object({
       insure_met: z.boolean().optional(),
       invest_met: z.boolean().optional(),
-      linked_insurance_policy_id: z.string().uuid().nullable().optional(),
-      linked_investment_id: z.string().uuid().nullable().optional(),
+      linked_insurance_policy_id: z.uuid().nullable().optional(),
+      linked_investment_id: z.uuid().nullable().optional(),
     })
     .optional(),
 })

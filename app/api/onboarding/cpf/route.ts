@@ -14,7 +14,7 @@ const cpfBalanceSchema = z.object({
 
 const cpfRouteSchema = z.object({
   mode: z.enum(["first-time", "new-family", "resume"]).optional().default("first-time"),
-  familyId: z.string().uuid().optional(),
+  familyId: z.uuid().optional(),
   cpfBalances: z.array(cpfBalanceSchema).optional().default([]),
 })
 

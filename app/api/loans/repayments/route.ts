@@ -84,13 +84,13 @@ function buildCpfUsageRows(
 }
 
 const querySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
-  loanId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
+  loanId: z.uuid().optional(),
 })
 
 const postSchema = z.object({
-  loanId: z.string().uuid(),
+  loanId: z.uuid(),
   amount: z.number().positive(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   cpfOaAmount: z.number().min(0).optional().nullable(),

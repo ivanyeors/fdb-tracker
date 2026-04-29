@@ -37,7 +37,7 @@ export function AddIlpForm({ onSuccess }: AddIlpFormProps) {
   const [startDate, setStartDate] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!activeProfileId && !activeFamilyId) {
       toast.error("Please select a profile or family first.")

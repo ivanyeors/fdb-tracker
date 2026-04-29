@@ -23,7 +23,7 @@ export function AddMetalForm({ onSuccess }: AddMetalFormProps) {
 
   const symbol = type === "gold" ? "Gold" : "Silver"
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!activeProfileId && !activeFamilyId) {
       toast.error("Please select a profile or family first.")

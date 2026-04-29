@@ -8,7 +8,7 @@ import { generateInviteCode } from "@/lib/auth/signup-codes"
 const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? ""
 
 const createInviteSchema = z.object({
-  targetProfileId: z.string().uuid().optional(),
+  targetProfileId: z.uuid().optional(),
 })
 
 export async function GET() {

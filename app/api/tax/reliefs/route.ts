@@ -22,15 +22,15 @@ const RELIEF_TYPES = [
 ] as const
 
 const reliefItemSchema = z.object({
-  profile_id: z.string().uuid(),
+  profile_id: z.uuid(),
   year: z.number().int().min(2020).max(2040),
   relief_type: z.enum(RELIEF_TYPES),
   amount: z.number().min(0),
 })
 
 const getQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
   year: z.coerce.number().int().min(2020).max(2040).optional(),
 })
 

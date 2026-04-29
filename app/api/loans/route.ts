@@ -7,8 +7,8 @@ import { createSupabaseAdmin } from "@/lib/supabase/server"
 import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 
 const loansQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 }
 
 const createLoanSchema = z.object({
-  profileId: z.string().uuid(),
+  profileId: z.uuid(),
   name: z.string().min(1),
   type: z.enum(["housing", "personal", "car", "education"]),
   principal: z.number().positive(),
@@ -75,7 +75,7 @@ const createLoanSchema = z.object({
   useCpfOa: z.boolean().optional(),
   valuationLimit: z.number().positive().optional().nullable(),
   // Split between couples
-  splitProfileId: z.string().uuid().optional().nullable(),
+  splitProfileId: z.uuid().optional().nullable(),
   splitPct: z.number().min(0).max(100).optional(),
   // Rate increase
   rateIncreasePct: z.number().min(0).optional().nullable(),

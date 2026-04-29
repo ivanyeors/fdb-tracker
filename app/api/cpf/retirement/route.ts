@@ -26,8 +26,8 @@ import {
 import { estimateAnnualInterest } from "@/lib/calculations/cpf-interest"
 
 const retirementQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 export async function GET(request: NextRequest) {

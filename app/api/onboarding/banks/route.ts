@@ -23,7 +23,7 @@ const savingsGoalSchema = z.object({
 
 const banksRouteSchema = z.object({
   mode: z.enum(["first-time", "new-family", "resume"]).optional().default("first-time"),
-  familyId: z.string().uuid().optional(),
+  familyId: z.uuid().optional(),
   bankAccounts: z.array(
     bankAccountSchema
       .omit({ profile_id: true })

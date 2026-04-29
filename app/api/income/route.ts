@@ -12,13 +12,13 @@ import { resolveFamilyAndProfiles } from "@/lib/api/resolve-family"
 import { getAge, getCpfRates } from "@/lib/calculations/cpf"
 
 const incomeQuerySchema = z.object({
-  profileId: z.string().uuid().optional(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid().optional(),
+  familyId: z.uuid().optional(),
 })
 
 const incomeUpdateSchema = z.object({
-  profileId: z.string().uuid(),
-  familyId: z.string().uuid().optional(),
+  profileId: z.uuid(),
+  familyId: z.uuid().optional(),
   annualSalary: z.number().min(0),
   bonusEstimate: z.number().min(0).optional(),
   payFrequency: z.string().optional(),

@@ -73,7 +73,7 @@ export function UpdateFundValueDialog({
   const deltaPct = latestEntryFundValue > 0 ? (delta / latestEntryFundValue) * 100 : 0
   const isPositive = delta >= 0
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!activeFamilyId) {
       toast.error("Please select a family first.")
