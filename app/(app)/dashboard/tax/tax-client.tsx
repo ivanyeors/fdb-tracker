@@ -836,9 +836,9 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
                   <tbody>
                     {data.entries.map((entry) => {
                       const diff =
-                        entry.actual_amount != null
-                          ? entry.actual_amount - entry.calculated_amount
-                          : null
+                        entry.actual_amount == null
+                          ? null
+                          : entry.actual_amount - entry.calculated_amount
                       return (
                         <tr
                           key={entry.id}
@@ -856,9 +856,9 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
                             ${formatCurrency(entry.calculated_amount)}
                           </td>
                           <td className="px-4 py-3 text-right tabular-nums">
-                            {entry.actual_amount != null
-                              ? `$${formatCurrency(entry.actual_amount)}`
-                              : "—"}
+                            {entry.actual_amount == null
+                              ? "—"
+                              : `$${formatCurrency(entry.actual_amount)}`}
                           </td>
                           <td
                             className={`px-4 py-3 text-right tabular-nums ${

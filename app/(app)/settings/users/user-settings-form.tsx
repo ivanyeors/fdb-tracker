@@ -332,7 +332,7 @@ function EmptyState({ noun, onAdd }: { readonly noun: string; readonly onAdd?: (
 
 function profileEmployeeCpfInputString(profile: ProfileWithIncome): string {
   const r = profile.income_config?.employee_cpf_rate
-  return r != null ? String(r) : ""
+  return r == null ? "" : String(r)
 }
 
 function bankRowDirty(
@@ -471,9 +471,9 @@ function ProfileSection({
   const [bonusEstimate, setBonusEstimate] = useState(profile.income_config?.bonus_estimate ?? 0)
   const [payFrequency, setPayFrequency] = useState(profile.income_config?.pay_frequency ?? "monthly")
   const [employeeCpfRate, setEmployeeCpfRate] = useState<string>(
-    profile.income_config?.employee_cpf_rate != null
-      ? String(profile.income_config.employee_cpf_rate)
-      : ""
+    profile.income_config?.employee_cpf_rate == null
+      ? ""
+      : String(profile.income_config.employee_cpf_rate)
   )
   const [dpsInclude, setDpsInclude] = useState(profile.dps_include_in_projection !== false)
   const [selfHelpGroup, setSelfHelpGroup] = useState(profile.self_help_group ?? "none")
@@ -583,9 +583,9 @@ function ProfileSection({
     setBonusEstimate(profile.income_config?.bonus_estimate ?? 0)
     setPayFrequency(profile.income_config?.pay_frequency ?? "monthly")
     setEmployeeCpfRate(
-      profile.income_config?.employee_cpf_rate != null
-        ? String(profile.income_config.employee_cpf_rate)
-        : ""
+      profile.income_config?.employee_cpf_rate == null
+        ? ""
+        : String(profile.income_config.employee_cpf_rate)
     )
     setDpsInclude(profile.dps_include_in_projection !== false)
     setSelfHelpGroup(profile.self_help_group ?? "none")
@@ -1265,7 +1265,7 @@ function SavingsGoalsSection({
     )
     setNewGoal((p) => ({
       ...p,
-      monthly_auto_amount: auto != null ? Math.round(auto * 100) / 100 : 0,
+      monthly_auto_amount: auto == null ? 0 : Math.round(auto * 100) / 100,
     }))
   }, [newGoal.target_amount, newGoal.current_amount, newGoal.deadline, monthlyAutoManualOverride])
 
@@ -2236,11 +2236,11 @@ function InvestmentCashBalanceSettings({
             disabled={sgdPerUsd == null || sgdPerUsd <= 0}
           />
         )}
-        {sgdEquivalent != null ? (
+        {sgdEquivalent == null ? null : (
           <p className="text-xs text-muted-foreground tabular-nums">
             ≈ ${formatCurrency(sgdEquivalent)} SGD stored
           </p>
-        ) : null}
+        )}
         {sgdPerUsd == null && !loading ? (
           <p className="text-xs text-destructive">Could not load USD/SGD rate.</p>
         ) : null}
@@ -3361,10 +3361,10 @@ function LoanRepaymentsSection({
                       : "—"}
                   </TableCell>
                   <TableCell className="text-right tabular-nums text-muted-foreground">
-                    {r.principal_portion != null ? `$${formatCurrency(r.principal_portion)}` : "—"}
+                    {r.principal_portion == null ? "—" : `$${formatCurrency(r.principal_portion)}`}
                   </TableCell>
                   <TableCell className="text-right tabular-nums text-muted-foreground">
-                    {r.interest_portion != null ? `$${formatCurrency(r.interest_portion)}` : "—"}
+                    {r.interest_portion == null ? "—" : `$${formatCurrency(r.interest_portion)}`}
                   </TableCell>
                 </TableRow>
               ))

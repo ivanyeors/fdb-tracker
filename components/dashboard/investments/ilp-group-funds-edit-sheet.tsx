@@ -723,7 +723,7 @@ export function IlpGroupFundsEditSheet({
                     automatically.
                   </p>
 
-                  {uploadStep !== "extracted" ? (
+                  {uploadStep === "extracted" ? null : (
                     <>
                       <button
                         type="button"
@@ -785,7 +785,7 @@ export function IlpGroupFundsEditSheet({
                         ) : null}
                       </div>
                     </>
-                  ) : null}
+                  )}
 
                   {uploadStep === "extracted" && uploadParse ? (
                     <form
@@ -834,9 +834,9 @@ export function IlpGroupFundsEditSheet({
                               Latest NAV
                             </dt>
                             <dd>
-                              {uploadParse.latestNavNumeric != null
-                                ? String(uploadParse.latestNavNumeric)
-                                : "—"}
+                              {uploadParse.latestNavNumeric == null
+                                ? "—"
+                                : String(uploadParse.latestNavNumeric)}
                             </dd>
                           </div>
                         </dl>

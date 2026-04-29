@@ -261,7 +261,7 @@ export default function IlpFundGroupDetailPage() {
           title={groupTitle}
           description="Funds in this group. Monthly values, returns, and imported report details."
         >
-          {!isLoading ? (
+          {isLoading ? null : (
             <div className="flex flex-wrap items-center gap-2">
               {groupProfileId && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground">
@@ -278,7 +278,7 @@ export default function IlpFundGroupDetailPage() {
                 fundCount={groupCards.length}
               />
             </div>
-          ) : null}
+          )}
         </SectionHeader>
 
         <IlpGroupFundsEditSheet
@@ -366,9 +366,9 @@ export default function IlpFundGroupDetailPage() {
               <div className="mt-3 flex items-end gap-3">
                 <div className="flex-1 max-w-[200px]">
                   <CurrencyInput
-                    value={premiumInput ?? (groupPremiumAmount != null ? Number(groupPremiumAmount) : null)}
+                    value={premiumInput ?? (groupPremiumAmount == null ? null : Number(groupPremiumAmount))}
                     onChange={(v) => setPremiumInput(v ?? null)}
-                    placeholder={groupPremiumAmount != null ? `$${formatCurrency(Number(groupPremiumAmount))}` : "0.00"}
+                    placeholder={groupPremiumAmount == null ? "0.00" : `$${formatCurrency(Number(groupPremiumAmount))}`}
                   />
                 </div>
                 <Button

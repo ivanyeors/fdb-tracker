@@ -140,7 +140,7 @@ export function TaxComparison({
   const [estimateBreakdownOpen, setEstimateBreakdownOpen] = useState(false)
 
   const diff =
-    actualAmount != null ? actualAmount - calculatedAmount : null
+    actualAmount == null ? null : actualAmount - calculatedAmount
 
   const hasModel = Boolean(snapshot)
   const rebateNote =
@@ -228,7 +228,7 @@ export function TaxComparison({
             className="shrink-0"
           >
             <Pencil className="mr-1 size-4" />
-            {actualAmount != null ? "Edit actual" : "Enter IRAS actual"}
+            {actualAmount == null ? "Enter IRAS actual" : "Edit actual"}
           </Button>
         </div>
         <div className="flex flex-col gap-3">
@@ -268,9 +268,9 @@ export function TaxComparison({
               Actual (IRAS)
             </p>
             <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight">
-              {actualAmount != null
-                ? `$${formatCurrency(actualAmount)}`
-                : "—"}
+              {actualAmount == null
+                ? "—"
+                : `$${formatCurrency(actualAmount)}`}
             </p>
           </div>
           <div className="rounded-lg border bg-muted/20 px-4 py-3">

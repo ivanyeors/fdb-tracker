@@ -183,11 +183,11 @@ export function InvestmentAccountBalance({
               allowNegativeValue
               disabled={sgdPerUsd == null || sgdPerUsd <= 0}
             />
-            {sgdEquivalent != null ? (
+            {sgdEquivalent == null ? null : (
               <p className="text-xs text-muted-foreground tabular-nums">
                 ≈ ${formatCurrency(sgdEquivalent)} SGD stored
               </p>
-            ) : null}
+            )}
             {sgdPerUsd == null ? (
               <p className="text-xs text-destructive">Could not load USD/SGD rate.</p>
             ) : null}

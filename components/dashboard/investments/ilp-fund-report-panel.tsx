@@ -94,11 +94,11 @@ function AssetAllocationGroupedBars({
               {filtered.map((r, i) => {
                 const yBase = i * rowH
                 const fw =
-                  r.fundPct != null ? Math.max(0, xScale(r.fundPct) ?? 0) : 0
+                  r.fundPct == null ? 0 : Math.max(0, xScale(r.fundPct) ?? 0)
                 const cw =
-                  r.categoryPct != null
-                    ? Math.max(0, xScale(r.categoryPct) ?? 0)
-                    : 0
+                  r.categoryPct == null
+                    ? 0
+                    : Math.max(0, xScale(r.categoryPct) ?? 0)
                 return (
                   <Group key={`${r.label}-${i}`}>
                     <text
@@ -553,11 +553,11 @@ export function IlpFundReportPanel({ snapshot }: IlpFundReportPanelProps) {
                       {row.country ?? "—"}
                     </td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-foreground">
-                      {row.weightPct != null
-                        ? row.weightPct.toLocaleString(undefined, {
+                      {row.weightPct == null
+                        ? "—"
+                        : row.weightPct.toLocaleString(undefined, {
                             maximumFractionDigits: 2,
-                          })
-                        : "—"}
+                          })}
                     </td>
                   </tr>
                 ))}

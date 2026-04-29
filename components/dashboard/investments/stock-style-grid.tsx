@@ -58,7 +58,7 @@ export function StockStyleGrid({ style }: { readonly style: StockStyleBox }) {
                       }}
                       title={STYLE_BOX_LABELS[idx]}
                     >
-                      {val != null ? `${val.toFixed(1)}%` : "—"}
+                      {val == null ? "—" : `${val.toFixed(1)}%`}
                     </div>
                   </td>
                 )

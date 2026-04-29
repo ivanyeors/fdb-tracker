@@ -95,13 +95,13 @@ export function IlpGroupAllocationPanel({
 
       <p className="min-h-[2.5rem] text-xs text-muted-foreground">{subtitle}</p>
 
-      {!holdingsAvailable ? (
+      {holdingsAvailable ? null : (
         <p className="text-[10px] leading-snug text-muted-foreground/90">
           The companies view needs a saved fund report that includes the portfolio
           holdings table. Re-import the latest .mhtml from the insurer if you
           don’t see that tab.
         </p>
-      ) : null}
+      )}
 
       {allocationData.length === 0 ? (
         <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed border-border px-3 text-center text-sm text-muted-foreground">

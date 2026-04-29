@@ -255,21 +255,21 @@ export function OthersTab({
                 <div className="flex items-center gap-3 pl-4">
                   <div className="text-right">
                     <div className="text-sm font-medium">
-                      {item.current_value != null
-                        ? `$${formatCurrency(item.current_value * item.quantity)}`
-                        : `$${formatCurrency(item.purchase_price * item.quantity)}`}
+                      {item.current_value == null
+                        ? `$${formatCurrency(item.purchase_price * item.quantity)}`
+                        : `$${formatCurrency(item.current_value * item.quantity)}`}
                     </div>
-                    {itemPnl != null ? (
+                    {itemPnl == null ? (
+                      <div className="text-xs text-muted-foreground">
+                        Cost: ${formatCurrency(item.purchase_price * item.quantity)}
+                      </div>
+                    ) : (
                       <div
                         className={`text-xs ${pnlColor(itemPnl, "text-muted-foreground")}`}
                       >
                         {itemPnl >= 0 ? "+" : ""}${formatCurrency(itemPnl)}
                         {itemPnlPct != null &&
                           ` (${itemPnlPct >= 0 ? "+" : ""}${itemPnlPct.toFixed(1)}%)`}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">
-                        Cost: ${formatCurrency(item.purchase_price * item.quantity)}
                       </div>
                     )}
                   </div>

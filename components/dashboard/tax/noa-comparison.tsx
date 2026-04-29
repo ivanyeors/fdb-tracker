@@ -115,7 +115,7 @@ function ComparisonRow({
         ${formatCurrency(ours)}
       </span>
       <span className="text-right text-sm tabular-nums text-muted-foreground">
-        {iras !== null ? `$${formatCurrency(iras)}` : "—"}
+        {iras === null ? "—" : `$${formatCurrency(iras)}`}
       </span>
       <DeltaBadge ours={ours} iras={iras} />
     </div>
@@ -193,9 +193,9 @@ export function NoaComparison({
             <span className="ml-auto flex items-center gap-3 tabular-nums">
               <span>${formatCurrency(estimate.totalReliefs)}</span>
               <span className="text-muted-foreground">
-                {noaData.reliefs_total !== null
-                  ? `$${formatCurrency(noaData.reliefs_total)}`
-                  : "—"}
+                {noaData.reliefs_total === null
+                  ? "—"
+                  : `$${formatCurrency(noaData.reliefs_total)}`}
               </span>
               <DeltaBadge
                 ours={estimate.totalReliefs}

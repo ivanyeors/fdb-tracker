@@ -132,9 +132,9 @@ export function BanksClient({
   const categories = useMemo(() => derived?.categories ?? [], [derived])
 
   const ocbc360Balance =
-    ocbc360Account != null
-      ? (ocbc360Account.latest_balance ?? ocbc360Account.opening_balance ?? 0)
-      : 0
+    ocbc360Account == null
+      ? 0
+      : (ocbc360Account.latest_balance ?? ocbc360Account.opening_balance ?? 0)
 
   const tieredInterest = useMemo(() => {
     if (categories.length === 0 || ocbc360Balance <= 0) return null
@@ -432,7 +432,7 @@ export function BanksClient({
                       return (
                         <span className="block mt-1 text-xs text-muted-foreground">
                           Day {dayOfMonth} of {daysInMonth} — conditions reset
-                          in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
+                          in {daysLeft} day{daysLeft === 1 ? "" : "s"}
                         </span>
                       )
                     })()}

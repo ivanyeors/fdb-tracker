@@ -626,9 +626,9 @@ export function InvestmentsClient({
         groupId: firstMembership?.group_id ?? null,
         groupName: firstMembership?.group_name ?? null,
         groupAllocationPct:
-          firstMembership?.allocation_pct != null
-            ? Number(firstMembership.allocation_pct)
-            : null,
+          firstMembership?.allocation_pct == null
+            ? null
+            : Number(firstMembership.allocation_pct),
         fundValue,
         fundValueForAllocation: fundValueForAllocationWeighted,
         totalPremiumsPaid,
@@ -671,9 +671,9 @@ export function InvestmentsClient({
             groupName: m.group_name,
             groupAllocationPct: Number(m.allocation_pct),
             groupPremiumAmount:
-              m.group_premium_amount != null
-                ? Number(m.group_premium_amount)
-                : null,
+              m.group_premium_amount == null
+                ? null
+                : Number(m.group_premium_amount),
           })
         }
       }
@@ -912,7 +912,7 @@ export function InvestmentsClient({
                 <CardTitle className="text-base">Rebalancing Alerts</CardTitle>
                 <Badge variant="outline" className="text-xs">
                   {rebalanceSuggestions.length} drift
-                  {rebalanceSuggestions.length !== 1 ? "s" : ""}
+                  {rebalanceSuggestions.length === 1 ? "" : "s"}
                 </Badge>
               </div>
             </CardHeader>

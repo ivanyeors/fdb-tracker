@@ -243,9 +243,9 @@ export function InsuranceClient({
       .map((p) => {
         const age = getAge(p.birth_year, year)
         const premium = getDpsAnnualPremium(age, year)
-        return premium != null
-          ? { name: p.name, age, annualPremium: premium }
-          : null
+        return premium == null
+          ? null
+          : { name: p.name, age, annualPremium: premium }
       })
       .filter((d) => d != null)
   }, [profiles, activeProfileId])
@@ -456,7 +456,7 @@ export function InsuranceClient({
                                     ? `$${formatCurrency(item.held)}`
                                     : "None"
                                 }
-                                return pct != null ? `${pct}%` : "—"
+                                return pct == null ? "—" : `${pct}%`
                               })()}
                             </span>
                           </div>
@@ -872,9 +872,9 @@ export function InsuranceClient({
                                                       : "—"}
                                                   </td>
                                                   <td className="py-1.5 pr-4 text-right tabular-nums">
-                                                    {c.benefit_premium != null
-                                                      ? `$${formatCurrency(c.benefit_premium)}`
-                                                      : "—"}
+                                                    {c.benefit_premium == null
+                                                      ? "—"
+                                                      : `$${formatCurrency(c.benefit_premium)}`}
                                                   </td>
                                                   <td className="py-1.5 pr-4 text-right tabular-nums">
                                                     {c.renewal_bonus != null &&

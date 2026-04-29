@@ -18,7 +18,7 @@ export function PortfolioSummary({
   const { formatMoney } = useInvestmentsDisplayCurrency()
   const unrealizedPnL = currentValue - totalInvested
   const unrealizedPnLPct =
-    totalInvested !== 0 ? (unrealizedPnL / totalInvested) * 100 : 0
+    totalInvested === 0 ? 0 : (unrealizedPnL / totalInvested) * 100
   const isPositive = unrealizedPnL >= 0
 
   return (

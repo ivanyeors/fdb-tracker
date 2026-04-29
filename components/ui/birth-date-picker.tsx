@@ -33,7 +33,7 @@ export function BirthDatePicker({
   "aria-invalid": ariaInvalid,
   className,
 }: BirthDatePickerProps) {
-  const stringValue = value != null ? value.toString() : PLACEHOLDER_VALUE
+  const stringValue = value == null ? PLACEHOLDER_VALUE : value.toString()
 
   return (
     <Select

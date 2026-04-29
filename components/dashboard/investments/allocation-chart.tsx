@@ -63,9 +63,9 @@ function AllocationChartInner({
     ? Math.min(5, legendMaxItems ?? data.length)
     : legendMaxItems
   const legendRowCount =
-    effectiveLegendMax != null
-      ? Math.min(effectiveLegendMax, data.length)
-      : data.length
+    effectiveLegendMax == null
+      ? data.length
+      : Math.min(effectiveLegendMax, data.length)
   const legendBudget = Math.min(100, 8 + legendRowCount * 28)
   const innerWidth = width
   const rowHeight = height - titleBudget - 4
@@ -109,9 +109,9 @@ function AllocationChartInner({
   if (width < 10 || data.length === 0) return null
 
   const legendData =
-    effectiveLegendMax != null
-      ? data.slice(0, Math.min(effectiveLegendMax, data.length))
-      : data
+    effectiveLegendMax == null
+      ? data
+      : data.slice(0, Math.min(effectiveLegendMax, data.length))
 
   const donutBlock = (
     <div

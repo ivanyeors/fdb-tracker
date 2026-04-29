@@ -86,7 +86,7 @@ export function TaxBracketLadder({
 }: TaxBracketLadderProps) {
   const ci = Math.max(0, chargeableIncome)
   const pCi =
-    reliefPreview != null ? Math.max(0, reliefPreview.chargeableIncome) : -1
+    reliefPreview == null ? -1 : Math.max(0, reliefPreview.chargeableIncome)
   const showReliefPreview =
     reliefPreview != null && pCi >= 0 && roundCent(pCi) !== roundCent(ci)
 

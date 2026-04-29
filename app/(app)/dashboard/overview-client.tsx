@@ -440,9 +440,9 @@ export function OverviewClient({
         groupId: firstMembership?.group_id ?? null,
         groupName: firstMembership?.group_name ?? null,
         groupAllocationPct:
-          firstMembership?.allocation_pct != null
-            ? Number(firstMembership.allocation_pct)
-            : null,
+          firstMembership?.allocation_pct == null
+            ? null
+            : Number(firstMembership.allocation_pct),
         fundValue,
         fundValueForAllocation: fvAlloc,
         totalPremiumsPaid,

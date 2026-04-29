@@ -141,14 +141,14 @@ export function HoldingDetailSheet({
           <SheetDescription>
             {fmt(summary.units)} units · Total invested{" "}
             {formatMoney(summary.costBasis)}
-            {summary.currentValue != null ? (
+            {summary.currentValue == null ? null : (
               <>
                 {" "}
                 · Value {formatMoney(summary.currentValue)}
               </>
-            ) : null}
+            )}
           </SheetDescription>
-          {summary.pnl != null ? (
+          {summary.pnl == null ? null : (
             <p
               className={cn(
                 "text-sm font-medium",
@@ -162,9 +162,9 @@ export function HoldingDetailSheet({
                 <ArrowDown className="inline size-3" />
               )}{" "}
               {formatMoney(Math.abs(summary.pnl))}
-              {summary.pnlPct != null ? ` (${fmt(summary.pnlPct)}%)` : ""}
+              {summary.pnlPct == null ? "" : ` (${fmt(summary.pnlPct)}%)`}
             </p>
-          ) : null}
+          )}
         </SheetHeader>
 
         <ScrollArea className="min-h-0 flex-1">

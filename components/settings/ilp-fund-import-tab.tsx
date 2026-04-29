@@ -1234,7 +1234,7 @@ export function IlpFundImportTab({
           </div>
         ) : null}
 
-        {step !== "success" ? (
+        {step === "success" ? null : (
           <>
             <button
               type="button"
@@ -1293,7 +1293,7 @@ export function IlpFundImportTab({
               ) : null}
             </div>
           </>
-        ) : null}
+        )}
 
         {step === "saving" ? (
           <div className="space-y-2">
@@ -1332,9 +1332,9 @@ export function IlpFundImportTab({
                 <div>
                   <dt className="font-medium text-foreground">Latest NAV (from report)</dt>
                   <dd>
-                    {singleParse.latestNavNumeric != null
-                      ? String(singleParse.latestNavNumeric)
-                      : "—"}
+                    {singleParse.latestNavNumeric == null
+                      ? "—"
+                      : String(singleParse.latestNavNumeric)}
                   </dd>
                 </div>
               </dl>
@@ -1745,16 +1745,16 @@ export function IlpFundImportTab({
                               next[i] = {
                                 ...cur,
                                 productId: v,
-                                ...(v !== CREATE_NEW_ILP
-                                  ? {
+                                ...(v === CREATE_NEW_ILP
+                                  ? {}
+                                  : {
                                       newProductName: "",
                                       newMonthlyPremium: null,
                                       newStartDate: "",
                                       newEndDate: "",
                                       fundGroupChoice: NO_FUND_GROUP,
                                       newFundGroupName: "",
-                                    }
-                                  : {}),
+                                    }),
                               }
                               return next
                             })
@@ -2076,16 +2076,16 @@ export function IlpFundImportTab({
                               next[i] = {
                                 ...cur,
                                 productId: v,
-                                ...(v !== CREATE_NEW_ILP
-                                  ? {
+                                ...(v === CREATE_NEW_ILP
+                                  ? {}
+                                  : {
                                       newProductName: "",
                                       newMonthlyPremium: null,
                                       newStartDate: "",
                                       newEndDate: "",
                                       fundGroupChoice: NO_FUND_GROUP,
                                       newFundGroupName: "",
-                                    }
-                                  : {}),
+                                    }),
                               }
                               return next
                             })
