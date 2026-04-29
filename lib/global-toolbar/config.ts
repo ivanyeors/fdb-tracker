@@ -6,7 +6,6 @@ import {
   HandCoins,
   LineChart,
   PiggyBank,
-  Plus,
   Receipt,
   ShieldCheck,
   Target,

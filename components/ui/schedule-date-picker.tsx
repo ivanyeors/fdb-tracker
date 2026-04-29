@@ -18,7 +18,6 @@ interface ScheduleDatePickerProps {
   readonly onChange: (day: number, month: number | null) => void
   readonly showMonth: boolean
   readonly id?: string
-  readonly label?: string
   readonly className?: string
 }
 

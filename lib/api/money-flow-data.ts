@@ -1240,8 +1240,8 @@ export async function fetchMoneyFlowData(
     (healthcareConfigRes.data ?? []) as Array<Record<string, unknown>>,
   )
 
-  const giroAccountIds = [...new Set((giroRulesRes.data ?? []).map((r) => r.source_bank_account_id))]
-  const giroAccounts = (bankAccountsRes.data ?? []).filter((a) => giroAccountIds.includes(a.id))
+  const giroAccountIds = new Set((giroRulesRes.data ?? []).map((r) => r.source_bank_account_id))
+  const giroAccounts = (bankAccountsRes.data ?? []).filter((a) => giroAccountIds.has(a.id))
   const giroByProfile = buildGiroOutflowByProfile(giroRulesRes.data ?? [], giroAccounts, profileIds)
 
   const lookups: Lookups = {

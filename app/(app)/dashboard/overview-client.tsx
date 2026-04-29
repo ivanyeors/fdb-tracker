@@ -652,7 +652,6 @@ export function OverviewClient({
           }
           trend={savingsTrend}
           savingsHistory={savingsHistory}
-          latestMonth={effectiveMonth ?? data?.latestMonth ?? null}
           loading={isOverviewLoading || isCashflowLoading}
           noData={!hasMonthData && !isCashflowLoading}
         />

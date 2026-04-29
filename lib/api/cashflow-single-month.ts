@@ -969,6 +969,7 @@ function buildInvestmentDeploymentSubItems(
   acc: Accumulator,
   ctx: AggregationContext,
   filter: (net: number) => boolean,
+  useAbs: boolean,
 ): SubItem[] {
   const sub: SubItem[] = []
   const hasMultipleAccounts = acc.investmentsByAccountAndSymbol.size > 1
@@ -977,7 +978,7 @@ function buildInvestmentDeploymentSubItems(
     for (const [symbol, net] of symbolMap) {
       if (!filter(net)) continue
       const label = hasMultipleAccounts && accName ? `${accName}: ${symbol}` : symbol
-      const amount = filter === ((n: number) => n !== 0) ? round(Math.abs(net)) : round(net)
+      const amount = useAbs ? round(Math.abs(net)) : round(net)
       sub.push({ label, amount })
     }
   }
@@ -1010,7 +1011,7 @@ function buildInvestmentSection(
   const ilpPerformance = ilpEndTotal - ilpStartTotal - totalIlpPremiums
   const securitiesGainLoss = invMarketGain - ilpPerformance
 
-  const investmentSub = buildInvestmentDeploymentSubItems(acc, ctx, (n) => n !== 0)
+  const investmentSub = buildInvestmentDeploymentSubItems(acc, ctx, (n) => n !== 0, true)
   const ilpCombined = [...acc.ilpSub, ...acc.ilpOneTimeSub]
 
   return {
@@ -1104,7 +1105,7 @@ function buildSubBreakdowns(acc: Accumulator, ctx: AggregationContext) {
   if (acc.savingsGoalsSub.length >= 2) out["Savings Goals"] = roundSub(acc.savingsGoalsSub)
   if (acc.taxReliefCashSub.length >= 2) out["SRS/CPF Top-ups"] = roundSub(acc.taxReliefCashSub)
 
-  const bankInvestmentSub = buildInvestmentDeploymentSubItems(acc, ctx, (n) => n > 0)
+  const bankInvestmentSub = buildInvestmentDeploymentSubItems(acc, ctx, (n) => n > 0, false)
   if (bankInvestmentSub.length >= 2) out["Investments"] = bankInvestmentSub
 
   return out

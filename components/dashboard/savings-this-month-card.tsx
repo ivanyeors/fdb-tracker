@@ -20,7 +20,6 @@ interface SavingsThisMonthCardProps {
   readonly savingsThisMonth: number
   readonly trend: number
   readonly savingsHistory: MonthlyData[]
-  readonly latestMonth?: string | null
   readonly loading?: boolean
   readonly noData?: boolean
 }

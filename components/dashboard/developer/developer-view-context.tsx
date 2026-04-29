@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode } from "react"
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react"
 
 export type DeveloperViewMode = "calculation" | "money-flow"
 
@@ -25,8 +25,9 @@ export function useDeveloperView(): DeveloperViewContextValue {
 
 export function DeveloperViewProvider({ children }: { readonly children: ReactNode }) {
   const [viewMode, setViewMode] = useState<DeveloperViewMode>("calculation")
+  const value = useMemo(() => ({ viewMode, setViewMode }), [viewMode])
   return (
-    <DeveloperViewContext.Provider value={{ viewMode, setViewMode }}>
+    <DeveloperViewContext.Provider value={value}>
       {children}
     </DeveloperViewContext.Provider>
   )

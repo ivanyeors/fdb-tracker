@@ -1,6 +1,5 @@
 "use client"
 
-import type { ProgressiveBracketBand } from "@/lib/calculations/tax"
 import {
   chargeableIncomeInLayer,
   getResidentBracketChartLayers,
@@ -56,8 +55,6 @@ export type ReliefPreviewModel = {
 
 interface TaxBracketLadderProps {
   readonly chargeableIncome: number
-  /** Retained for API compatibility; widths use full IRAS ladder on a dollar axis */
-  readonly bracketAllocation: ProgressiveBracketBand[]
   readonly marginalRate: number
   readonly marginalBandFrom: number
   readonly marginalBandTo: number | null

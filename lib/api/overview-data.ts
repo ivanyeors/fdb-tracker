@@ -424,11 +424,11 @@ export async function fetchOverviewData(
   }
 
   // GIRO outflow by profile (for cashflow aggregation)
-  const giroAccountIds = [
-    ...new Set((giroRulesRes.data ?? []).map((r) => r.source_bank_account_id)),
-  ]
+  const giroAccountIds = new Set(
+    (giroRulesRes.data ?? []).map((r) => r.source_bank_account_id),
+  )
   const giroAccounts = (bankAccountsRes.data ?? []).filter((a) =>
-    giroAccountIds.includes(a.id)
+    giroAccountIds.has(a.id),
   )
   const giroByProfile = buildGiroOutflowByProfile(
     giroRulesRes.data ?? [],

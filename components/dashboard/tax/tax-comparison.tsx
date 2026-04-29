@@ -293,7 +293,6 @@ export function TaxComparison({
           <>
             <TaxBracketLadder
               chargeableIncome={snapshot.chargeableIncome}
-              bracketAllocation={snapshot.bracketAllocation}
               marginalRate={snapshot.marginalRate}
               marginalBandFrom={snapshot.marginalBandFrom}
               marginalBandTo={snapshot.marginalBandTo}
