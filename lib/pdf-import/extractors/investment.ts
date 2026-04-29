@@ -19,7 +19,7 @@ const MONTH_MAP: Record<string, string> = {
 
 function extractMonth(text: string): string | null {
   const stmtRe = new RegExp(
-    `(?:statement|report|as\\s+at|period)[^]*?(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    String.raw`(?:statement|report|as\s+at|period)[^]*?(${MONTH_NAME_SRC})\s+(\d{4})`,
     "i",
   )
   const stmtMatch = stmtRe.exec(text)

@@ -17,7 +17,7 @@ function parseAmount(str: string): number | null {
 function extractMonth(text: string): string | null {
   // "as at DD Mon YYYY" or "as at DD Month YYYY"
   const asAtRe = new RegExp(
-    `as\\s+at\\s+\\d{1,2}\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    String.raw`as\s+at\s+\d{1,2}\s+(${MONTH_NAME_SRC})\s+(\d{4})`,
     "i",
   )
   const asAt = asAtRe.exec(text)
@@ -27,7 +27,7 @@ function extractMonth(text: string): string | null {
 
   // "Statement for Month YYYY"
   const stmtForRe = new RegExp(
-    `statement\\s+for\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    String.raw`statement\s+for\s+(${MONTH_NAME_SRC})\s+(\d{4})`,
     "i",
   )
   const stmtFor = stmtForRe.exec(text)

@@ -131,7 +131,7 @@ export function parseCitibankCcStatement(
   // Balance breakdown line: "7,292.44 7,292.44 967.32 0.00 0.19 967.51"
   const moneyToken = String.raw`\d[\d,]*\.\d{2}`
   const breakdownRe = new RegExp(
-    `(${moneyToken})\\s+(${moneyToken})\\s+(${moneyToken})\\s+(${moneyToken})\\s+(${moneyToken})\\s+(${moneyToken})`,
+    String.raw`(${moneyToken})\s+(${moneyToken})\s+(${moneyToken})\s+(${moneyToken})\s+(${moneyToken})\s+(${moneyToken})`,
   )
   const breakdownMatch = breakdownRe.exec(allText)
   if (breakdownMatch) {

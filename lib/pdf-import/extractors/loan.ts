@@ -62,7 +62,7 @@ function extractDate(text: string, labelPattern: RegExp): string | null {
 
   // DD Mon YYYY
   const longRe = new RegExp(
-    `(\\d{1,2})\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    String.raw`(\d{1,2})\s+(${MONTH_NAME_SRC})\s+(\d{4})`,
     "i",
   )
   const longDate = longRe.exec(area)

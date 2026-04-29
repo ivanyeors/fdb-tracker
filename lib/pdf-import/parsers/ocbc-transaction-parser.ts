@@ -147,7 +147,7 @@ export function parseOcbcBankStatement(pages: string[]): BankParseResult {
   if (acctMatch) accountNumber = acctMatch[1]
 
   const periodRe = new RegExp(
-    `(\\d{1,2})\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})\\s+TO\\s+(\\d{1,2})\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    String.raw`(\d{1,2})\s+(${MONTH_NAME_SRC})\s+(\d{4})\s+TO\s+(\d{1,2})\s+(${MONTH_NAME_SRC})\s+(\d{4})`,
     "i",
   )
   const periodMatch = periodRe.exec(allText)

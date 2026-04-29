@@ -17,7 +17,7 @@ const MONTH_MAP: Record<string, string> = {
 function extractMonth(text: string): string | null {
   // "as at DD Mon YYYY"
   const asAtRe = new RegExp(
-    `as\\s+at\\s+\\d{1,2}\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    String.raw`as\s+at\s+\d{1,2}\s+(${MONTH_NAME_SRC})\s+(\d{4})`,
     "i",
   )
   const asAt = asAtRe.exec(text)
@@ -35,7 +35,7 @@ function extractMonth(text: string): string | null {
 
   // General "Month YYYY" near statement/report keywords
   const monthYearRe = new RegExp(
-    `(?:statement|report|period)\\s+(?:for\\s+)?(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    String.raw`(?:statement|report|period)\s+(?:for\s+)?(${MONTH_NAME_SRC})\s+(\d{4})`,
     "i",
   )
   const monthYear = monthYearRe.exec(text)

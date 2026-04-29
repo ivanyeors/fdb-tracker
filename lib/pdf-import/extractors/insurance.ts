@@ -216,9 +216,9 @@ function extractPolicyName(text: string): string | null {
   // Match "Plan Name:", "Product Name:", "Policy Name:", "Plan Type:", or bare "Plan:"
   // Capture up to 2 lines to handle wrapped plan names. Built dynamically to keep
   // the static regex's complexity within Sonar's threshold.
-  const labelGroup = "plan(?:\\s+(?:name|type))?|product\\s+name|policy\\s+name"
+  const labelGroup = String.raw`plan(?:\s+(?:name|type))?|product\s+name|policy\s+name`
   const nameRe = new RegExp(
-    `(?:${labelGroup})\\s*:\\s*([^\\n]{3,80}(?:\\n[^\\n]{3,80})?)`,
+    String.raw`(?:${labelGroup})\s*:\s*([^\n]{3,80}(?:\n[^\n]{3,80})?)`,
     "i",
   )
   const nameMatch = nameRe.exec(text)

@@ -69,7 +69,7 @@ export const MONTH_MAP: Record<string, string> = {
 export function extractMonth(text: string): string | null {
   // "Statement for January 2026" or "Statement Period: 01 Jan 2026 to 31 Jan 2026"
   const stmtForRe = new RegExp(
-    `statement\\s+(?:for|period)[^]*?(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    String.raw`statement\s+(?:for|period)[^]*?(${MONTH_NAME_SRC})\s+(\d{4})`,
     "i",
   )
   const stmtFor = stmtForRe.exec(text)
@@ -80,7 +80,7 @@ export function extractMonth(text: string): string | null {
 
   // "1 JAN 2026 TO 31 JAN 2026" (OCBC bank statement period)
   const periodRe = new RegExp(
-    `\\d{1,2}\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})\\s+TO\\s+\\d{1,2}\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})`,
+    String.raw`\d{1,2}\s+(${MONTH_NAME_SRC})\s+(\d{4})\s+TO\s+\d{1,2}\s+(${MONTH_NAME_SRC})\s+(\d{4})`,
     "i",
   )
   const periodMatch = periodRe.exec(text)
@@ -98,7 +98,7 @@ export function extractMonth(text: string): string | null {
 
   // "Statement Date January 05, 2026" (Citibank format)
   const citiRe = new RegExp(
-    `Statement\\s+Date\\s+(${MONTH_NAME_SRC})\\s+\\d{1,2},?\\s+(\\d{4})`,
+    String.raw`Statement\s+Date\s+(${MONTH_NAME_SRC})\s+\d{1,2},?\s+(\d{4})`,
     "i",
   )
   const citiDate = citiRe.exec(text)
@@ -108,7 +108,7 @@ export function extractMonth(text: string): string | null {
   }
 
   // Fallback: "DD Mon YYYY" date pattern
-  const dateRe = new RegExp(`(\\d{1,2})\\s+(${MONTH_NAME_SRC})\\s+(\\d{4})`, "i")
+  const dateRe = new RegExp(String.raw`(\d{1,2})\s+(${MONTH_NAME_SRC})\s+(\d{4})`, "i")
   const datePattern = dateRe.exec(text)
   if (datePattern) {
     const mm = MONTH_MAP[datePattern[2].toLowerCase()]
