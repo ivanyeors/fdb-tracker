@@ -20,7 +20,7 @@ import {
   getUpcomingEvents,
 } from "@/lib/investments/seasonality"
 
-function nowInTimezone(timezone: string): { hour: number; day: number; month: number; year: number; monthLabel: string } {
+function nowInTimezone(timezone: string): { hour: number; day: number; month: number; year: number; monthLabel: string; previousMonthLabel: string } {
   const fmt = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
     hour: "numeric",
@@ -38,12 +38,16 @@ function nowInTimezone(timezone: string): { hour: number; day: number; month: nu
     "July", "August", "September", "October", "November", "December",
   ]
 
+  const month = get("month")
+  const previousMonthIndex = month === 1 ? 12 : month - 1
+
   return {
     hour: get("hour"),
     day: get("day"),
-    month: get("month"),
+    month,
     year: get("year"),
-    monthLabel: monthNames[get("month")] ?? "",
+    monthLabel: monthNames[month] ?? "",
+    previousMonthLabel: monthNames[previousMonthIndex] ?? "",
   }
 }
 
@@ -108,7 +112,7 @@ async function generateMessage(
 
   switch (promptType) {
     case "end_of_month":
-      return endOfMonthReminder(now.monthLabel, ctx)
+      return endOfMonthReminder(now.previousMonthLabel, ctx)
 
     case "income_yearly":
       return incomeYearlyReminder(now.year, ctx)

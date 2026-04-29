@@ -3,7 +3,7 @@
  * Registers the Telegram bot webhook URL with Telegram's API.
  * Loads .env.local for TELEGRAM_BOT_TOKEN. Run from project root:
  *
- *   npx tsx scripts/set-telegram-webhook.ts https://fd-tracker-mu.vercel.app
+ *   npx tsx scripts/set-telegram-webhook.ts https://dollar.ivanyeo.com
  */
 
 import { readFileSync, existsSync } from "node:fs"
@@ -38,13 +38,13 @@ if (!token) {
 
 if (!baseUrl) {
   console.error("Error: Pass production URL as argument or set NEXT_PUBLIC_APP_URL")
-  console.error("   npx tsx scripts/set-telegram-webhook.ts https://fd-tracker-mu.vercel.app")
+  console.error("   npx tsx scripts/set-telegram-webhook.ts https://dollar.ivanyeo.com")
   process.exit(1)
 }
 
 if (baseUrl.includes("localhost")) {
   console.error("Error: Use your production URL (Telegram cannot reach localhost)")
-  console.error("   npx tsx scripts/set-telegram-webhook.ts https://fd-tracker-mu.vercel.app")
+  console.error("   npx tsx scripts/set-telegram-webhook.ts https://dollar.ivanyeo.com")
   process.exit(1)
 }
 

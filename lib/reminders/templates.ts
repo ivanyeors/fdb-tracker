@@ -9,18 +9,10 @@ export function endOfMonthReminder(
   month: string,
   ctx: ReminderContext,
 ): string {
-  const names = ctx.profiles.map((p) => p.name)
-  const nameExamples = names[0] ?? "name"
-
   return [
     `📊 Time to update ${month} finances!`,
     "",
-    `/in ${nameExamples} [amount]`,
-    `/out ${nameExamples} [amount]`,
-    `/ilp ${nameExamples} [product] [value]`,
-    `/goaladd ${nameExamples} [goal] [amount]`,
-    "",
-    "Or send your PDF bank statement.",
+    "Send your PDF bank statement, or update via the dashboard.",
     "",
     `Dashboard: ${ctx.dashboardUrl}`,
   ].join("\n")

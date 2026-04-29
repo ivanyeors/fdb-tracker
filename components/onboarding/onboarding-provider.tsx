@@ -145,7 +145,7 @@ const DEFAULT_PROMPT_SCHEDULE: PromptScheduleConfig[] = [
   {
     prompt_type: "end_of_month",
     frequency: "monthly",
-    day_of_month: 28,
+    day_of_month: 5,
     month_of_year: null,
     time: "20:00",
     timezone: "Asia/Singapore",

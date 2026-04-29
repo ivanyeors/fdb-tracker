@@ -44,33 +44,33 @@ See `package.json` for the full list. Key commands:
 
 The `/otp` command and other Telegram commands require the webhook URL to be registered with Telegram after deploying to production. Telegram only sends updates to the URL you set via `setWebhook`.
 
-**Required env vars (Vercel):** `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL` (e.g. `https://fd-tracker-mu.vercel.app`), `CRON_SECRET`. For stock prices and search: `FMP_API_KEY` (Financial Modeling Prep). Optional for gold/silver fallback when OCBC API fails: `METALPRICEAPI_API_KEY` (metalpriceapi.com, free tier 100 req/month).
+**Required env vars (Vercel):** `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL` (e.g. `https://dollar.ivanyeo.com`), `CRON_SECRET`. For stock prices and search: `FMP_API_KEY` (Financial Modeling Prep). Optional for gold/silver fallback when OCBC API fails: `METALPRICEAPI_API_KEY` (metalpriceapi.com, free tier 100 req/month).
 
 **Register webhook after deploy:**
 
 1. **Via API route** (requires `CRON_SECRET` in Authorization header):
  ```bash
- curl -H "Authorization: Bearer $CRON_SECRET" "https://fd-tracker-mu.vercel.app/api/telegram/set-webhook"
+ curl -H "Authorization: Bearer $CRON_SECRET" "https://dollar.ivanyeo.com/api/telegram/set-webhook"
  ```
 
 2. **Via script** (from project root):
    ```bash
-   NEXT_PUBLIC_APP_URL=https://fd-tracker-mu.vercel.app TELEGRAM_BOT_TOKEN=your_token npx tsx scripts/set-telegram-webhook.ts
+   NEXT_PUBLIC_APP_URL=https://dollar.ivanyeo.com TELEGRAM_BOT_TOKEN=your_token npx tsx scripts/set-telegram-webhook.ts
    ```
 
 3. **Manual curl**:
    ```bash
-   curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://fd-tracker-mu.vercel.app/api/telegram/webhook"
+   curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://dollar.ivanyeo.com/api/telegram/webhook"
    ```
 
 **Check webhook status** (debugging):
 ```bash
-curl -H "Authorization: Bearer $CRON_SECRET" "https://fd-tracker-mu.vercel.app/api/telegram/webhook-info"
+curl -H "Authorization: Bearer $CRON_SECRET" "https://dollar.ivanyeo.com/api/telegram/webhook-info"
 ```
 
 **Command menu** (shows when users tap "/" in the chat): The set-webhook API and script also register the bot command menu. To update only the menu without changing the webhook:
 ```bash
-curl -H "Authorization: Bearer $CRON_SECRET" "https://fd-tracker-mu.vercel.app/api/telegram/set-commands"
+curl -H "Authorization: Bearer $CRON_SECRET" "https://dollar.ivanyeo.com/api/telegram/set-commands"
 ```
 The menu can take a few minutes to appear; restart the Telegram app if it does not show.
 
