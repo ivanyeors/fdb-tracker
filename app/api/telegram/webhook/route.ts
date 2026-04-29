@@ -106,7 +106,7 @@ async function handleOtpCommand(ctx: MyContext): Promise<void> {
   try {
     const accountId = await resolveHouseholdId(
       String(chat.id),
-      fromUserId != null ? String(fromUserId) : null,
+      fromUserId == null ? null : String(fromUserId),
       { telegramUsername, allowCreate: false }
     )
 
@@ -241,7 +241,7 @@ function ensureHandlers() {
       )
       const userContext = await resolveOrProvisionPublicUser(
         String(msg.chat.id),
-        msg.from?.id != null ? String(msg.from.id) : null,
+        msg.from?.id == null ? null : String(msg.from.id),
         msg.from?.username ?? null,
         msg.from?.first_name ?? null
       )
@@ -299,7 +299,7 @@ function ensureHandlers() {
 
       await handleStartCommand(
         String(chatId),
-        msg.from?.id != null ? String(msg.from.id) : null,
+        msg.from?.id == null ? null : String(msg.from.id),
         msg.from?.username ?? null,
         msg.from?.first_name ?? null,
         async (text) => {

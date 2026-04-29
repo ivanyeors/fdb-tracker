@@ -76,9 +76,9 @@ export function allocationByIlpProductWithGroupLabel(
     const gid = firstMembership?.group_id ?? null
     const fundName = p.name?.trim() || "ILP fund"
     const label =
-      gid != null
-        ? `${firstMembership?.group_name?.trim() || "Fund group"} · ${fundName}`
-        : fundName
+      gid == null
+        ? fundName
+        : `${firstMembership?.group_name?.trim() || "Fund group"} · ${fundName}`
     rows.push({ name: label, value: fv })
   }
   const perName = new Map<string, number>()

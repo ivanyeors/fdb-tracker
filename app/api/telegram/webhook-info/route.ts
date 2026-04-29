@@ -42,9 +42,9 @@ export async function GET(request: NextRequest) {
       ok: true,
       webhookUrl: url,
       isConfigured: !!url,
-      hint: !url
-        ? "Webhook not set. Call /api/telegram/set-webhook to register."
-        : undefined,
+      hint: url
+        ? undefined
+        : "Webhook not set. Call /api/telegram/set-webhook to register.",
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error"

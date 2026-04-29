@@ -981,13 +981,13 @@ function buildSavingsGoalsBreakdown(acc: Accumulator): string | undefined {
 
 function buildDependentsBreakdown(acc: Accumulator) {
   const depTotal = acc.dependentChildCount + acc.dependentParentCount
-  const childWord = acc.dependentChildCount !== 1 ? "children" : "child"
+  const childWord = acc.dependentChildCount === 1 ? "child" : "children"
   const childPart = acc.dependentChildCount > 0 ? `${acc.dependentChildCount} ${childWord}` : ""
-  const parentSuffix = acc.dependentParentCount !== 1 ? "s" : ""
+  const parentSuffix = acc.dependentParentCount === 1 ? "" : "s"
   const parentPart = acc.dependentParentCount > 0 ? `${acc.dependentParentCount} parent${parentSuffix}` : ""
   const reliefSuffix = acc.totalDependentReliefs > 0 ? ` · ${fmt(acc.totalDependentReliefs)}/yr relief` : ""
   const breakdown = depTotal > 0 ? [childPart, parentPart].filter(Boolean).join(", ") + reliefSuffix : undefined
-  const countSuffix = depTotal !== 1 ? "s" : ""
+  const countSuffix = depTotal === 1 ? "" : "s"
   const amount = depTotal > 0 ? `${depTotal} dependent${countSuffix}` : "None"
   return { amount, breakdown }
 }
@@ -1027,7 +1027,7 @@ function buildAllNodes(ctx: NodeBuildContext): Record<string, MoneyFlowNodeData>
   }
   nodes["bank_balance"] = {
     amount: fmt(ctx.bankTotal),
-    breakdown: `${ctx.accountCount} account${ctx.accountCount !== 1 ? "s" : ""}`,
+    breakdown: `${ctx.accountCount} account${ctx.accountCount === 1 ? "" : "s"}`,
     rawAmount: ctx.bankTotal,
     period: "total",
   }
@@ -1492,9 +1492,9 @@ function generateEdgeFormula(
         rawAmount: ctx.giroMonthlyBase,
       }
     case "dependents->tax_reliefs": {
-      const childWord = ctx.childCount !== 1 ? "children" : "child"
+      const childWord = ctx.childCount === 1 ? "child" : "children"
       const childPart = ctx.childCount > 0 ? `${ctx.childCount} ${childWord}` : ""
-      const parentSuffix = ctx.parentCount !== 1 ? "s" : ""
+      const parentSuffix = ctx.parentCount === 1 ? "" : "s"
       const parentPart = ctx.parentCount > 0 ? `${ctx.parentCount} parent${parentSuffix}` : ""
       const sources = [childPart, parentPart].filter(Boolean).join(" + ")
       return {

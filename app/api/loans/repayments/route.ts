@@ -294,9 +294,9 @@ export async function POST(request: NextRequest) {
         {
           property_type: loan.property_type,
           lock_in_end_date: loan.lock_in_end_date,
-          early_repayment_penalty_pct: loan.early_repayment_penalty_pct != null
-            ? Number(loan.early_repayment_penalty_pct)
-            : null,
+          early_repayment_penalty_pct: loan.early_repayment_penalty_pct == null
+            ? null
+            : Number(loan.early_repayment_penalty_pct),
         },
         date,
       )

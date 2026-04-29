@@ -23,7 +23,7 @@ async function sendConfirmation(ctx: MyContext) {
   const fields = [
     { label: "Loan", value: s.loanName ?? "—" },
     { label: "Type", value: repayType },
-    { label: "Amount", value: s.amount != null ? fmtAmt(s.amount) : "—" },
+    { label: "Amount", value: s.amount == null ? "—" : fmtAmt(s.amount) },
     { label: "Date", value: format(new Date(), "d MMM yyyy") },
   ]
 

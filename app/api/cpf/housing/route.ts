@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
       totalPrincipal += agg.totalPrincipal
       totalAccrued += agg.totalAccruedInterest
 
-      const vl = loan.valuation_limit != null ? Number(loan.valuation_limit) : null
+      const vl = loan.valuation_limit == null ? null : Number(loan.valuation_limit)
       let headroom: number | null = null
       if (vl != null && vl > 0) {
         anyVl = true
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
         valuationLimit: vl,
         profileId: loan.profile_id,
         splitProfileId: loan.split_profile_id ?? null,
-        splitPct: loan.split_pct != null ? Number(loan.split_pct) : null,
+        splitPct: loan.split_pct == null ? null : Number(loan.split_pct),
         propertyType: loan.property_type ?? null,
         ...agg,
         vlHeadroom120: headroom,

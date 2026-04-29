@@ -16,7 +16,7 @@ export function calculatePnL(
   const marketValue = units * currentPrice
   const totalCost = units * costBasis
   const unrealisedPnL = marketValue - totalCost
-  const unrealisedPnLPct = totalCost !== 0 ? (unrealisedPnL / totalCost) * 100 : 0
+  const unrealisedPnLPct = totalCost === 0 ? 0 : (unrealisedPnL / totalCost) * 100
 
   return { marketValue, unrealisedPnL, unrealisedPnLPct }
 }
@@ -37,7 +37,7 @@ export function calculatePortfolioAllocation(
     symbol: h.symbol,
     type: h.type,
     marketValue: h.marketValue,
-    allocationPct: totalValue !== 0 ? (h.marketValue / totalValue) * 100 : 0,
+    allocationPct: totalValue === 0 ? 0 : (h.marketValue / totalValue) * 100,
   }))
 }
 
@@ -51,5 +51,5 @@ export function calculateWeightedAverageCost(
   const totalCost =
     existingUnits * existingCostBasis + newUnits * newPrice + (commission ?? 0)
   const totalUnits = existingUnits + newUnits
-  return totalUnits !== 0 ? totalCost / totalUnits : 0
+  return totalUnits === 0 ? 0 : totalCost / totalUnits
 }

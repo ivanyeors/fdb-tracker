@@ -32,9 +32,7 @@ export async function getEffectiveInflowForProfile(
   const decodedCashflow = cashflow ? decodeMonthlyCashflowPii(cashflow) : null
 
   // Manual override: if user has a cashflow row for this month, use stored inflow
-  if (cashflow != null) {
-    baseInflow = decodedCashflow?.inflow ?? 0
-  } else {
+  if (cashflow == null) {
     // Derive from income_config: income + bonus - CPF
     const { data: profile } = await supabase
       .from("profiles")
@@ -66,6 +64,8 @@ export async function getEffectiveInflowForProfile(
     } else if (!incomeConfig) {
       console.warn(`[effective-inflow] No income_config for profile ${profileId}`)
     }
+  } else {
+    baseInflow = decodedCashflow?.inflow ?? 0
   }
 
   // Add estimated bank interest from primary bank account

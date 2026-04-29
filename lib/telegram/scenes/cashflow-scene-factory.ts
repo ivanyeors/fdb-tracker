@@ -43,7 +43,7 @@ async function sendConfirmation(ctx: MyContext, type: CashflowType) {
   const fields = [
     { label: "Profile", value: s.profileName ?? "—" },
     { label: "Month", value: s.monthLabel ?? "—" },
-    { label: "Amount", value: s.amount != null ? fmtAmt(s.amount) : "—" },
+    { label: "Amount", value: s.amount == null ? "—" : fmtAmt(s.amount) },
   ]
   if (s.memo) {
     fields.push({ label: "Memo", value: s.memo })

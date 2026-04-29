@@ -838,7 +838,7 @@ export async function fetchOverviewData(
       sa: round(cpfCurrent.sa),
       ma: round(cpfCurrent.ma),
     },
-    ...(cpfDelta !== undefined ? { cpfDelta: round(cpfDelta) } : {}),
+    ...(cpfDelta === undefined ? {} : { cpfDelta: round(cpfDelta) }),
     netLiquidValue: round(netLiquidValue),
     ilpFundTotal: round(ilpFundTotal),
     investmentTotal: round(investmentTotal),
@@ -852,14 +852,14 @@ export async function fetchOverviewData(
     latestInflow: round(latestInflow),
     latestOutflow: round(latestOutflow),
     latestMonth,
-    ...(previousMonthInflow !== undefined
-      ? { previousMonthInflow: round(previousMonthInflow) }
-      : {}),
-    ...(previousMonthOutflow !== undefined
-      ? { previousMonthOutflow: round(previousMonthOutflow) }
-      : {}),
-    ...(previousMonthSavings !== undefined
-      ? { previousMonthSavings: round(previousMonthSavings) }
-      : {}),
+    ...(previousMonthInflow === undefined
+      ? {}
+      : { previousMonthInflow: round(previousMonthInflow) }),
+    ...(previousMonthOutflow === undefined
+      ? {}
+      : { previousMonthOutflow: round(previousMonthOutflow) }),
+    ...(previousMonthSavings === undefined
+      ? {}
+      : { previousMonthSavings: round(previousMonthSavings) }),
   }
 }

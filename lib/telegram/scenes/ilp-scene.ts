@@ -117,9 +117,9 @@ async function sendConfirmation(ctx: MyContext) {
   const kindLabel = s.ilpKind === "grouped" ? "ILP Group" : "ILP Product"
   const newValue = s.amount ?? 0
   const currentLine =
-    s.ilpCurrentMonthValue != null
-      ? `${fmtAmt(s.ilpCurrentMonthValue)} (will be overwritten)`
-      : "— (no entry yet)"
+    s.ilpCurrentMonthValue == null
+      ? "— (no entry yet)"
+      : `${fmtAmt(s.ilpCurrentMonthValue)} (will be overwritten)`
   const latestLine =
     s.ilpLatestValue != null && s.ilpLatestMonth
       ? `${fmtAmt(s.ilpLatestValue)} (${format(new Date(s.ilpLatestMonth + "T00:00:00"), "MMM yyyy")})`
@@ -310,7 +310,7 @@ export const ilpScene = new Scenes.WizardScene<MyContext>(
     if (!accountId && ctx.chat?.id != null) {
       const resolved = await resolveOrProvisionPublicUser(
         String(ctx.chat.id),
-        ctx.from?.id != null ? String(ctx.from.id) : null,
+        ctx.from?.id == null ? null : String(ctx.from.id),
         ctx.from?.username ?? null,
         ctx.from?.first_name ?? null,
       )

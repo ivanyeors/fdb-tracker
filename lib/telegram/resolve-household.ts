@@ -120,7 +120,7 @@ export async function resolveHouseholdId(
   options: ResolveHouseholdOptions = {}
 ): Promise<string | null> {
   const { telegramUsername, allowCreate = true } = options
-  const fromUserIdStr = fromUserId != null ? String(fromUserId) : null
+  const fromUserIdStr = fromUserId == null ? null : String(fromUserId)
 
   const fromProfile = await getHouseholdFromLinkedProfile(chatId, fromUserIdStr)
   if (fromProfile) return fromProfile
@@ -152,7 +152,7 @@ export async function resolveProfileContext(
   fromUserId: string | null,
   options: ResolveHouseholdOptions = {}
 ): Promise<ProfileContext | null> {
-  const fromUserIdStr = fromUserId != null ? String(fromUserId) : null
+  const fromUserIdStr = fromUserId == null ? null : String(fromUserId)
 
   if (fromUserIdStr) {
     const supabase = createSupabaseAdmin()
@@ -211,7 +211,7 @@ export async function resolveOrProvisionPublicUser(
   firstName: string | null
 ): Promise<PublicUserContext | null> {
   const supabase = createSupabaseAdmin()
-  const fromUserIdStr = fromUserId != null ? String(fromUserId) : null
+  const fromUserIdStr = fromUserId == null ? null : String(fromUserId)
 
   // 1. Check profiles table by telegram_user_id_hash or telegram_chat_id_hash
   if (fromUserIdStr) {

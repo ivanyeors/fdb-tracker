@@ -125,7 +125,7 @@ export function buildIlpCardDataFromProduct(
     groupId: membership?.group_id ?? null,
     groupName: membership?.group_name ?? null,
     groupAllocationPct:
-      membership?.allocation_pct != null ? Number(membership.allocation_pct) : null,
+      membership?.allocation_pct == null ? null : Number(membership.allocation_pct),
     fundValue,
     fundValueForAllocation,
     totalPremiumsPaid,

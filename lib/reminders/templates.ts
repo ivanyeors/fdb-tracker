@@ -139,9 +139,9 @@ export function taxYearlyReminder(
   ctx: ReminderContext,
 ): string {
   const taxLine =
-    calculatedTax !== null
-      ? `Your calculated tax: $${calculatedTax.toLocaleString("en-SG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      : "Your calculated tax: not yet computed"
+    calculatedTax === null
+      ? "Your calculated tax: not yet computed"
+      : `Your calculated tax: $${calculatedTax.toLocaleString("en-SG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   return [
     `📋 Tax review for YA ${year}.`,

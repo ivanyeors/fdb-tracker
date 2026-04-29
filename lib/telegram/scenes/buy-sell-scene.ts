@@ -213,9 +213,9 @@ async function sendConfirmation(ctx: MyContext) {
     { label: "Symbol", value: symbolDisplay },
     {
       label: "Quantity",
-      value: s.quantity != null ? `${s.quantity} shares` : "—",
+      value: s.quantity == null ? "—" : `${s.quantity} shares`,
     },
-    { label: "Price", value: s.price != null ? fmtAmt(s.price) : "—" },
+    { label: "Price", value: s.price == null ? "—" : fmtAmt(s.price) },
   ]
   if (fee > 0) {
     fields.push({ label: "Commission", value: fmtAmt(fee) })

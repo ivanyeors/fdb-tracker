@@ -71,7 +71,7 @@ export async function PUT(
     if (d.purchasePrice !== undefined) updates.purchase_price = d.purchasePrice
     if (d.currentValue !== undefined) {
       updates.current_value = d.currentValue
-      updates.value_updated_at = d.currentValue !== null ? new Date().toISOString() : null
+      updates.value_updated_at = d.currentValue === null ? null : new Date().toISOString()
     }
     if (d.purchaseDate !== undefined) updates.purchase_date = d.purchaseDate
     if (d.brand !== undefined) updates.brand = d.brand
