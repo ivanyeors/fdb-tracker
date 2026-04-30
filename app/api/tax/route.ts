@@ -47,6 +47,424 @@ const taxQuerySchema = z.object({
   year: z.coerce.number().int().min(2020).max(2040).optional(),
 })
 
+const MAX_YA = 2040
+
+type SupabaseAdmin = ReturnType<typeof createSupabaseAdmin>
+type FamilyDependent = {
+  name: string
+  birth_year: number
+  relationship: string
+  annual_income: number
+  in_full_time_education: boolean | null
+  living_with_claimant: boolean | null
+  is_handicapped: boolean | null
+  claimed_by_profile_id: string | null
+}
+
+async function loadFamilyDependents(
+  supabase: SupabaseAdmin,
+  familyId: string,
+): Promise<FamilyDependent[]> {
+  const { data: rawFamilyDependents } = await supabase
+    .from("dependents")
+    .select("*")
+    .eq("family_id", familyId)
+  return (rawFamilyDependents ?? []).map((d) => {
+    const decoded = decodeDependentPii(d)
+    return {
+      ...d,
+      name: decoded.name ?? d.name,
+      birth_year: decoded.birth_year ?? d.birth_year,
+      annual_income: decoded.annual_income ?? d.annual_income,
+    }
+  })
+}
+
+async function fetchSpouseIncome(
+  supabase: SupabaseAdmin,
+  spouseProfileId: string,
+): Promise<{ annual_income: number } | null> {
+  const { data: spouseIncome } = await supabase
+    .from("income_config")
+    .select("annual_salary_enc, bonus_estimate_enc")
+    .eq("profile_id", spouseProfileId)
+    .single()
+  if (!spouseIncome) return null
+  const decodedSpouse = decodeIncomeConfigPii(spouseIncome)
+  return {
+    annual_income:
+      (decodedSpouse.annual_salary ?? 0) +
+      (decodedSpouse.bonus_estimate ?? 0),
+  }
+}
+
+function dependentsForTax(deps: FamilyDependent[]) {
+  return deps.map((d) => ({
+    name: d.name,
+    birth_year: d.birth_year,
+    relationship: d.relationship as "child" | "parent" | "grandparent",
+    annual_income: d.annual_income,
+    in_full_time_education: d.in_full_time_education ?? false,
+    living_with_claimant: d.living_with_claimant ?? false,
+    is_handicapped: d.is_handicapped ?? false,
+    claimed_by_profile_id: d.claimed_by_profile_id,
+  }))
+}
+
+async function persistAutoReliefs(
+  supabase: SupabaseAdmin,
+  profileId: string,
+  year: number,
+  result: TaxResult,
+): Promise<void> {
+  for (const item of result.reliefBreakdown.filter((r) => r.source === "auto")) {
+    await supabase.from("tax_relief_auto").upsert(
+      {
+        profile_id: profileId,
+        year,
+        relief_type: item.type,
+        ...encodeTaxReliefAutoPiiPatch({ amount: item.amount }),
+        source: "calculated",
+      },
+      { onConflict: "profile_id,year,relief_type" },
+    )
+  }
+}
+
+async function upsertTaxEntry(
+  supabase: SupabaseAdmin,
+  profileId: string,
+  year: number,
+  calculatedAmount: number,
+  existingActual: number | null,
+) {
+  const { data: newEntry } = await supabase
+    .from("tax_entries")
+    .upsert(
+      {
+        profile_id: profileId,
+        year,
+        calculated_amount: calculatedAmount,
+        actual_amount: existingActual,
+      },
+      { onConflict: "profile_id,year" },
+    )
+    .select()
+    .single()
+  return newEntry
+}
+
+async function processProfileForTax(args: {
+  supabase: SupabaseAdmin
+  profileId: string
+  currentYear: number
+  familyDependents: FamilyDependent[]
+  entries: Array<Record<string, unknown>>
+  entryByProfileYear: Map<string, Map<number, Record<string, unknown>>>
+  taxSnapshots: Record<string, TaxSnapshot>
+  taxSnapshotsNextYa: Record<string, TaxSnapshot>
+}): Promise<void> {
+  const {
+    supabase,
+    profileId,
+    currentYear,
+    familyDependents,
+    entries,
+    entryByProfileYear,
+    taxSnapshots,
+    taxSnapshotsNextYa,
+  } = args
+
+  const { data: rawProfile } = await supabase
+    .from("profiles")
+    .select(
+      "id, birth_year, birth_year_enc, gender, spouse_profile_id, marital_status",
+    )
+    .eq("id", profileId)
+    .single()
+  if (!rawProfile) return
+  const profile = {
+    ...rawProfile,
+    birth_year:
+      decodeProfilePii(rawProfile).birth_year ?? rawProfile.birth_year,
+  }
+
+  const { data: incomeConfig } = await supabase
+    .from("income_config")
+    .select("annual_salary_enc, bonus_estimate_enc")
+    .eq("profile_id", profileId)
+    .single()
+  if (!incomeConfig) return
+  const decodedIncome = decodeIncomeConfigPii(incomeConfig)
+
+  const { data: insurancePolicies } = await supabase
+    .from("insurance_policies")
+    .select(
+      "type, premium_amount_enc, frequency, coverage_amount_enc, is_active",
+    )
+    .eq("profile_id", profileId)
+
+  const { data: manualReliefs } = await supabase
+    .from("tax_relief_inputs")
+    .select("relief_type, amount_enc")
+    .eq("profile_id", profileId)
+    .eq("year", currentYear)
+
+  const spouseForTax = profile.spouse_profile_id
+    ? await fetchSpouseIncome(supabase, profile.spouse_profile_id)
+    : null
+
+  const taxParams = {
+    profile: {
+      birth_year: profile.birth_year,
+      gender: profile.gender as "male" | "female" | null,
+      spouse_profile_id: profile.spouse_profile_id,
+      marital_status: profile.marital_status,
+    },
+    profileId,
+    incomeConfig: {
+      annual_salary: decodedIncome.annual_salary ?? 0,
+      bonus_estimate: decodedIncome.bonus_estimate ?? 0,
+    },
+    insurancePolicies: (insurancePolicies ?? []).map((p) => {
+      const decoded = decodeInsurancePoliciesPii(p)
+      return {
+        type: p.type,
+        premium_amount: decoded.premium_amount ?? 0,
+        frequency: p.frequency,
+        coverage_amount: decoded.coverage_amount ?? 0,
+        is_active: p.is_active,
+      }
+    }),
+    manualReliefs: (manualReliefs ?? []).map((r) => ({
+      relief_type: r.relief_type,
+      amount: decodeTaxReliefInputsPii(r).amount ?? 0,
+    })),
+    spouse: spouseForTax,
+    dependents: dependentsForTax(familyDependents),
+  }
+
+  const result = calculateTax({ ...taxParams, year: currentYear })
+  taxSnapshots[profileId] = resultToTaxSnapshot(currentYear, result)
+
+  const nextYa = currentYear + 1
+  if (nextYa <= MAX_YA) {
+    const resultNext = calculateTax({ ...taxParams, year: nextYa })
+    taxSnapshotsNextYa[profileId] = resultToTaxSnapshot(nextYa, resultNext)
+  }
+
+  const existingEntry = entryByProfileYear.get(profileId)?.get(currentYear) as
+    | { actual_amount: number | null }
+    | undefined
+  const newEntry = await upsertTaxEntry(
+    supabase,
+    profileId,
+    currentYear,
+    result.taxPayable,
+    existingEntry?.actual_amount ?? null,
+  )
+  if (newEntry) {
+    const idx = entries.findIndex(
+      (e) => e.profile_id === profileId && e.year === currentYear,
+    )
+    if (idx >= 0) entries[idx] = newEntry as Record<string, unknown>
+    else entries.push(newEntry as Record<string, unknown>)
+  }
+
+  await persistAutoReliefs(supabase, profileId, currentYear, result)
+}
+
+async function loadProfileEmploymentIncomeMap(
+  supabase: SupabaseAdmin,
+  profileIds: string[],
+): Promise<Map<string, { employmentIncome: number }>> {
+  const map = new Map<string, { employmentIncome: number }>()
+  for (const profileId of profileIds) {
+    const { data: income } = await supabase
+      .from("income_config")
+      .select("annual_salary_enc, bonus_estimate_enc")
+      .eq("profile_id", profileId)
+      .single()
+    const dec = income ? decodeIncomeConfigPii(income) : null
+    const employmentIncome =
+      (dec?.annual_salary ?? 0) + (dec?.bonus_estimate ?? 0)
+    map.set(profileId, { employmentIncome })
+  }
+  return map
+}
+
+type SuggestedRelief = {
+  profile_id: string
+  relief_type: string
+  amount: number
+  label: string
+}
+
+async function buildSpouseAndDependentSuggestions(
+  supabase: SupabaseAdmin,
+  profileIds: string[],
+  currentYear: number,
+  familyDependents: FamilyDependent[],
+  reliefInputs: Array<{ profile_id: string; year: number; relief_type: string }>,
+): Promise<SuggestedRelief[]> {
+  const suggestions: SuggestedRelief[] = []
+  for (const profileId of profileIds) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("marital_status, spouse_profile_id, gender")
+      .eq("id", profileId)
+      .single()
+    if (!profile) continue
+
+    if (profile.marital_status === "married" && !profile.spouse_profile_id) {
+      const hasManualSpouse = reliefInputs.some(
+        (r) =>
+          r.profile_id === profileId &&
+          r.year === currentYear &&
+          r.relief_type === "spouse",
+      )
+      if (!hasManualSpouse) {
+        suggestions.push({
+          profile_id: profileId,
+          relief_type: "spouse",
+          amount: 2000,
+          label:
+            "Married but no spouse linked — link in Settings > User Settings to auto-derive, or apply $2,000 manually",
+        })
+      }
+    }
+
+    const unclaimedParents = familyDependents.filter(
+      (d) =>
+        (d.relationship === "parent" || d.relationship === "grandparent") &&
+        !d.claimed_by_profile_id,
+    )
+    for (const dep of unclaimedParents) {
+      const amount = dep.living_with_claimant ? 9000 : 5500
+      suggestions.push({
+        profile_id: profileId,
+        relief_type: "parent",
+        amount,
+        label: `${dep.name} (${dep.relationship}) not claimed by any profile — assign in Settings > User Settings`,
+      })
+    }
+
+    if (profile.gender === "female") {
+      const unclaimedChildren = familyDependents.filter(
+        (d) => d.relationship === "child" && !d.claimed_by_profile_id,
+      )
+      if (unclaimedChildren.length > 0) {
+        suggestions.push({
+          profile_id: profileId,
+          relief_type: "wmcr",
+          amount: 0,
+          label: `${unclaimedChildren.length} child(ren) not assigned — claim in Settings to unlock WMCR`,
+        })
+      }
+    }
+  }
+  return suggestions
+}
+
+async function buildSrsSuggestions(
+  supabase: SupabaseAdmin,
+  accountId: string,
+  profileIds: string[],
+  currentYear: number,
+  reliefInputs: Array<{ profile_id: string; year: number; relief_type: string }>,
+): Promise<SuggestedRelief[]> {
+  const suggestions: SuggestedRelief[] = []
+  const { data: allFamilies } = await supabase
+    .from("families")
+    .select("id")
+    .eq("household_id", accountId)
+  if (!allFamilies) return suggestions
+
+  const familyIds = allFamilies.map((f) => f.id)
+  const { data: srsAccounts } = await supabase
+    .from("bank_accounts")
+    .select("id, opening_balance, profile_id")
+    .in("family_id", familyIds)
+    .eq("account_type", "srs")
+  if (!srsAccounts) return suggestions
+
+  for (const srs of srsAccounts) {
+    if (!srs.profile_id || !profileIds.includes(srs.profile_id)) continue
+    const hasManualSrs = reliefInputs.some(
+      (r) =>
+        r.profile_id === srs.profile_id &&
+        r.year === currentYear &&
+        r.relief_type === "srs",
+    )
+    if (!hasManualSrs && srs.opening_balance > 0) {
+      const suggestedAmount = Math.min(srs.opening_balance, 15300)
+      suggestions.push({
+        profile_id: srs.profile_id,
+        relief_type: "srs",
+        amount: suggestedAmount,
+        label: `SRS account balance: $${formatNum(srs.opening_balance)}`,
+      })
+    }
+  }
+  return suggestions
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadNoaData(
+  supabase: SupabaseAdmin,
+  profileIds: string[],
+  currentYear: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<Record<string, any>> {
+  const { data: noaDataRows } = await supabase
+    .from("tax_noa_data")
+    .select("*")
+    .in("profile_id", profileIds)
+    .eq("year", currentYear)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const noaData: Record<string, any> = {}
+  for (const row of noaDataRows ?? []) {
+    const decoded = decodeTaxNoaDataPii(row)
+    noaData[row.profile_id] = {
+      ...row,
+      employment_income: decoded.employment_income,
+      chargeable_income: decoded.chargeable_income,
+      total_deductions: decoded.total_deductions,
+      donations_deduction: decoded.donations_deduction,
+      reliefs_total: decoded.reliefs_total,
+      tax_payable: decoded.tax_payable,
+      reliefs_json: decoded.reliefs_json,
+      bracket_summary_json: decoded.bracket_summary_json,
+    }
+  }
+  return noaData
+}
+
+async function loadGiroSchedules(
+  supabase: SupabaseAdmin,
+  profileIds: string[],
+  currentYear: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<Record<string, any>> {
+  const { data: giroRows } = await supabase
+    .from("tax_giro_schedule")
+    .select("*")
+    .in("profile_id", profileIds)
+    .eq("year", currentYear)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const giroSchedules: Record<string, any> = {}
+  for (const row of giroRows ?? []) {
+    const decoded = decodeTaxGiroSchedulePii(row)
+    giroSchedules[row.profile_id] = {
+      ...row,
+      schedule: decoded.schedule,
+      total_payable: decoded.total_payable,
+      outstanding_balance: decoded.outstanding_balance,
+    }
+  }
+  return giroSchedules
+}
+
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies()
@@ -86,10 +504,8 @@ export async function GET(request: NextRequest) {
       .select("id, name")
       .in("id", profileIds)
 
-    // Fetch tax entries
     const taxSnapshots: Record<string, TaxSnapshot> = {}
     const taxSnapshotsNextYa: Record<string, TaxSnapshot> = {}
-    const MAX_YA = 2040
 
     const { data: taxEntries, error: taxError } = await supabase
       .from("tax_entries")
@@ -101,184 +517,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch tax entries" }, { status: 500 })
     }
 
-    const entries = taxEntries ?? []
-    const entryByProfileYear = new Map<string, Map<number, (typeof entries)[0]>>()
+    const entries = (taxEntries ?? []) as Array<Record<string, unknown>>
+    const entryByProfileYear = new Map<string, Map<number, Record<string, unknown>>>()
     for (const e of entries) {
-      if (!entryByProfileYear.has(e.profile_id)) {
-        entryByProfileYear.set(e.profile_id, new Map())
-      }
-      entryByProfileYear.get(e.profile_id)!.set(e.year, e)
+      const pid = e.profile_id as string
+      const year = e.year as number
+      if (!entryByProfileYear.has(pid)) entryByProfileYear.set(pid, new Map())
+      entryByProfileYear.get(pid)!.set(year, e)
     }
 
-    // Always recalculate for profiles with income_config so reliefs stay in sync with profile/income changes
-    // Pre-fetch dependents for the family (shared across all profiles)
-    const { data: rawFamilyDependents } = await supabase
-      .from("dependents")
-      .select("*")
-      .eq("family_id", resolved.familyId)
-    const familyDependents = (rawFamilyDependents ?? []).map((d) => {
-      const decoded = decodeDependentPii(d)
-      return {
-        ...d,
-        name: decoded.name ?? d.name,
-        birth_year: decoded.birth_year ?? d.birth_year,
-        annual_income: decoded.annual_income ?? d.annual_income,
-      }
-    })
+    const familyDependents = await loadFamilyDependents(
+      supabase,
+      resolved.familyId,
+    )
 
     for (const profileId of profileIds) {
-      const { data: rawProfile } = await supabase
-        .from("profiles")
-        .select(
-          "id, birth_year, birth_year_enc, gender, spouse_profile_id, marital_status",
-        )
-        .eq("id", profileId)
-        .single()
-      if (!rawProfile) continue
-      const profile = {
-        ...rawProfile,
-        birth_year:
-          decodeProfilePii(rawProfile).birth_year ?? rawProfile.birth_year,
-      }
-
-      const { data: incomeConfig } = await supabase
-        .from("income_config")
-        .select("annual_salary_enc, bonus_estimate_enc")
-        .eq("profile_id", profileId)
-        .single()
-      if (!incomeConfig) continue
-      const decodedIncome = decodeIncomeConfigPii(incomeConfig)
-
-      const { data: insurancePolicies } = await supabase
-        .from("insurance_policies")
-        .select(
-          "type, premium_amount_enc, frequency, coverage_amount_enc, is_active",
-        )
-        .eq("profile_id", profileId)
-
-      const { data: manualReliefs } = await supabase
-        .from("tax_relief_inputs")
-        .select("relief_type, amount_enc")
-        .eq("profile_id", profileId)
-        .eq("year", currentYear)
-
-      // Fetch spouse income if linked
-      let spouseForTax: { annual_income: number } | null = null
-      if (profile.spouse_profile_id) {
-        const { data: spouseIncome } = await supabase
-          .from("income_config")
-          .select("annual_salary_enc, bonus_estimate_enc")
-          .eq("profile_id", profile.spouse_profile_id)
-          .single()
-        if (spouseIncome) {
-          const decodedSpouse = decodeIncomeConfigPii(spouseIncome)
-          spouseForTax = {
-            annual_income:
-              (decodedSpouse.annual_salary ?? 0) +
-              (decodedSpouse.bonus_estimate ?? 0),
-          }
-        }
-      }
-
-      const dependentsForTax = (familyDependents ?? []).map((d) => ({
-        name: d.name,
-        birth_year: d.birth_year,
-        relationship: d.relationship as "child" | "parent" | "grandparent",
-        annual_income: d.annual_income,
-        in_full_time_education: d.in_full_time_education,
-        living_with_claimant: d.living_with_claimant,
-        is_handicapped: d.is_handicapped,
-        claimed_by_profile_id: d.claimed_by_profile_id,
-      }))
-
-      const taxParams = {
-        profile: {
-          birth_year: profile.birth_year,
-          gender: profile.gender as "male" | "female" | null,
-          spouse_profile_id: profile.spouse_profile_id,
-          marital_status: profile.marital_status,
-        },
+      await processProfileForTax({
+        supabase,
         profileId,
-        incomeConfig: {
-          annual_salary: decodedIncome.annual_salary ?? 0,
-          bonus_estimate: decodedIncome.bonus_estimate ?? 0,
-        },
-        insurancePolicies: (insurancePolicies ?? []).map((p) => {
-          const decoded = decodeInsurancePoliciesPii(p)
-          return {
-            type: p.type,
-            premium_amount: decoded.premium_amount ?? 0,
-            frequency: p.frequency,
-            coverage_amount: decoded.coverage_amount ?? 0,
-            is_active: p.is_active,
-          }
-        }),
-        manualReliefs: (manualReliefs ?? []).map((r) => ({
-          relief_type: r.relief_type,
-          amount: decodeTaxReliefInputsPii(r).amount ?? 0,
-        })),
-        spouse: spouseForTax,
-        dependents: dependentsForTax,
-      }
-
-      const result = calculateTax({ ...taxParams, year: currentYear })
-      taxSnapshots[profileId] = resultToTaxSnapshot(currentYear, result)
-
-      const nextYa = currentYear + 1
-      if (nextYa <= MAX_YA) {
-        const resultNext = calculateTax({ ...taxParams, year: nextYa })
-        taxSnapshotsNextYa[profileId] = resultToTaxSnapshot(nextYa, resultNext)
-      }
-
-      const existingEntry = entryByProfileYear.get(profileId)?.get(currentYear)
-      const { data: newEntry } = await supabase
-        .from("tax_entries")
-        .upsert(
-          {
-            profile_id: profileId,
-            year: currentYear,
-            calculated_amount: result.taxPayable,
-            actual_amount: existingEntry?.actual_amount ?? null,
-          },
-          { onConflict: "profile_id,year" }
-        )
-        .select()
-        .single()
-
-      if (newEntry) {
-        const idx = entries.findIndex((e) => e.profile_id === profileId && e.year === currentYear)
-        if (idx >= 0) entries[idx] = newEntry
-        else entries.push(newEntry)
-      }
-
-      for (const item of result.reliefBreakdown.filter((r) => r.source === "auto")) {
-        await supabase.from("tax_relief_auto").upsert(
-          {
-            profile_id: profileId,
-            year: currentYear,
-            relief_type: item.type,
-            ...encodeTaxReliefAutoPiiPatch({ amount: item.amount }),
-            source: "calculated",
-          },
-          { onConflict: "profile_id,year,relief_type" }
-        )
-      }
+        currentYear,
+        familyDependents,
+        entries,
+        entryByProfileYear,
+        taxSnapshots,
+        taxSnapshotsNextYa,
+      })
     }
 
-    const profileDetails = new Map<string, { employmentIncome: number }>()
-    for (const profileId of profileIds) {
-      const { data: income } = await supabase
-        .from("income_config")
-        .select("annual_salary_enc, bonus_estimate_enc")
-        .eq("profile_id", profileId)
-        .single()
-      const dec = income ? decodeIncomeConfigPii(income) : null
-      const employmentIncome =
-        (dec?.annual_salary ?? 0) + (dec?.bonus_estimate ?? 0)
-      profileDetails.set(profileId, { employmentIncome })
-    }
+    const profileDetails = await loadProfileEmploymentIncomeMap(
+      supabase,
+      profileIds,
+    )
 
-    // Fetch tax relief inputs (manual) and auto-derived
     const { data: reliefInputs, error: reliefError } = await supabase
       .from("tax_relief_inputs")
       .select("*")
@@ -308,149 +578,38 @@ export async function GET(request: NextRequest) {
       })),
     ].sort((a, b) => b.year - a.year)
 
-    // Build suggested reliefs from existing data (SRS accounts, etc.)
-    const suggestedReliefs: Array<{
+    const reliefInputsList = (reliefInputs ?? []) as Array<{
       profile_id: string
+      year: number
       relief_type: string
-      amount: number
-      label: string
-    }> = []
+    }>
 
-    // Check for married profiles without spouse linked — suggest spouse relief
-    for (const profileId of profileIds) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("marital_status, spouse_profile_id, gender")
-        .eq("id", profileId)
-        .single()
-      if (!profile) continue
+    const suggestedReliefs: SuggestedRelief[] = [
+      ...(await buildSpouseAndDependentSuggestions(
+        supabase,
+        profileIds,
+        currentYear,
+        familyDependents,
+        reliefInputsList,
+      )),
+      ...(await buildSrsSuggestions(
+        supabase,
+        session.accountId,
+        profileIds,
+        currentYear,
+        reliefInputsList,
+      )),
+    ]
 
-      if (profile.marital_status === "married" && !profile.spouse_profile_id) {
-        const hasManualSpouse = (reliefInputs ?? []).some(
-          (r) => r.profile_id === profileId && r.year === currentYear && r.relief_type === "spouse"
-        )
-        if (!hasManualSpouse) {
-          suggestedReliefs.push({
-            profile_id: profileId,
-            relief_type: "spouse",
-            amount: 2000,
-            label: "Married but no spouse linked — link in Settings > User Settings to auto-derive, or apply $2,000 manually",
-          })
-        }
-      }
-
-      // Check for parent dependents with no claimant assigned
-      const unclaimedParents = (familyDependents ?? []).filter(
-        (d) =>
-          (d.relationship === "parent" || d.relationship === "grandparent") &&
-          !d.claimed_by_profile_id,
-      )
-      for (const dep of unclaimedParents) {
-        const amount = dep.living_with_claimant ? 9000 : 5500
-        suggestedReliefs.push({
-          profile_id: profileId,
-          relief_type: "parent",
-          amount,
-          label: `${dep.name} (${dep.relationship}) not claimed by any profile — assign in Settings > User Settings`,
-        })
-      }
-
-      // Check for children that could qualify for WMCR but aren't claimed by a female profile
-      if (profile.gender === "female") {
-        const unclaimedChildren = (familyDependents ?? []).filter(
-          (d) => d.relationship === "child" && !d.claimed_by_profile_id,
-        )
-        if (unclaimedChildren.length > 0) {
-          suggestedReliefs.push({
-            profile_id: profileId,
-            relief_type: "wmcr",
-            amount: 0,
-            label: `${unclaimedChildren.length} child(ren) not assigned — claim in Settings to unlock WMCR`,
-          })
-        }
-      }
-    }
-
-    // Check for SRS bank accounts — suggest as SRS contribution relief
-    const { data: allFamilies } = await supabase
-      .from("families")
-      .select("id")
-      .eq("household_id", session.accountId)
-
-    if (allFamilies) {
-      const familyIds = allFamilies.map((f) => f.id)
-      const { data: srsAccounts } = await supabase
-        .from("bank_accounts")
-        .select("id, opening_balance, profile_id")
-        .in("family_id", familyIds)
-        .eq("account_type", "srs")
-
-      if (srsAccounts) {
-        for (const srs of srsAccounts) {
-          if (!srs.profile_id || !profileIds.includes(srs.profile_id)) continue
-          // Check if SRS relief already entered manually for this profile+year
-          const hasManualSrs = (reliefInputs ?? []).some(
-            (r) => r.profile_id === srs.profile_id && r.year === currentYear && r.relief_type === "srs"
-          )
-          if (!hasManualSrs && srs.opening_balance > 0) {
-            // Cap at SRS annual limit ($15,300 for citizens/PRs)
-            const suggestedAmount = Math.min(srs.opening_balance, 15300)
-            suggestedReliefs.push({
-              profile_id: srs.profile_id,
-              relief_type: "srs",
-              amount: suggestedAmount,
-              label: `SRS account balance: $${formatNum(srs.opening_balance)}`,
-            })
-          }
-        }
-      }
-    }
-
-    // Fetch NOA data for comparison view
-    const { data: noaDataRows } = await supabase
-      .from("tax_noa_data")
-      .select("*")
-      .in("profile_id", profileIds)
-      .eq("year", currentYear)
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const noaData: Record<string, any> = {}
-    for (const row of noaDataRows ?? []) {
-      const decoded = decodeTaxNoaDataPii(row)
-      noaData[row.profile_id] = {
-        ...row,
-        employment_income: decoded.employment_income,
-        chargeable_income: decoded.chargeable_income,
-        total_deductions: decoded.total_deductions,
-        donations_deduction: decoded.donations_deduction,
-        reliefs_total: decoded.reliefs_total,
-        tax_payable: decoded.tax_payable,
-        reliefs_json: decoded.reliefs_json,
-        bracket_summary_json: decoded.bracket_summary_json,
-      }
-    }
-
-    // Fetch GIRO schedules
-    const { data: giroRows } = await supabase
-      .from("tax_giro_schedule")
-      .select("*")
-      .in("profile_id", profileIds)
-      .eq("year", currentYear)
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const giroSchedules: Record<string, any> = {}
-    for (const row of giroRows ?? []) {
-      const decoded = decodeTaxGiroSchedulePii(row)
-      giroSchedules[row.profile_id] = {
-        ...row,
-        schedule: decoded.schedule,
-        total_payable: decoded.total_payable,
-        outstanding_balance: decoded.outstanding_balance,
-      }
-    }
+    const [noaData, giroSchedules] = await Promise.all([
+      loadNoaData(supabase, profileIds, currentYear),
+      loadGiroSchedules(supabase, profileIds, currentYear),
+    ])
 
     return NextResponse.json({
-      entries: entries.toSorted((a, b) => b.year - a.year),
+      entries: entries.toSorted(
+        (a, b) => (b.year as number) - (a.year as number),
+      ),
       reliefs,
       profiles: profiles ?? [],
       profileDetails: Object.fromEntries(profileDetails),
