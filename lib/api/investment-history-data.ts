@@ -52,33 +52,103 @@ function ilpTotalForYearMonth(
   return sum
 }
 
-async function backfillHistory(
+async function fetchInvestments(
   supabase: SupabaseClient,
   familyId: string,
   profileId: string | null,
-  startStr: string,
-  endStr: string,
-): Promise<{ date: string; value: number }[]> {
+): Promise<InvestmentRow[]> {
   let invQuery = supabase
     .from("investments")
     .select("symbol, type, units, cost_basis")
     .eq("family_id", familyId)
   if (profileId) {
-    invQuery = invQuery.or(
-      `profile_id.eq.${profileId},profile_id.is.null`,
-    )
+    invQuery = invQuery.or(`profile_id.eq.${profileId},profile_id.is.null`)
   }
-  const { data: investments } = await invQuery
-  if (!investments || investments.length === 0) return []
+  const { data } = await invQuery
+  return (data ?? []) as InvestmentRow[]
+}
 
+async function fetchCashTotal(
+  supabase: SupabaseClient,
+  familyId: string,
+  profileId: string | null,
+): Promise<number> {
+  if (profileId) {
+    const { data: accountRow } = await supabase
+      .from("investment_accounts")
+      .select("cash_balance")
+      .eq("family_id", familyId)
+      .eq("profile_id", profileId)
+      .maybeSingle()
+    return accountRow?.cash_balance ?? 0
+  }
+  const { data: accounts } = await supabase
+    .from("investment_accounts")
+    .select("cash_balance")
+    .eq("family_id", familyId)
+  return accounts?.reduce((s, a) => s + (a.cash_balance ?? 0), 0) ?? 0
+}
+
+async function fetchIlpEntriesByProduct(
+  supabase: SupabaseClient,
+  familyId: string,
+  profileId: string | null,
+): Promise<Map<string, IlpEntryRow[]>> {
+  let ilpQuery = supabase
+    .from("ilp_products")
+    .select("id")
+    .eq("family_id", familyId)
+  if (profileId) {
+    ilpQuery = ilpQuery.or(`profile_id.eq.${profileId},profile_id.is.null`)
+  }
+  const { data: ilpProducts } = await ilpQuery
+  const byProduct = new Map<string, IlpEntryRow[]>()
+  if (!ilpProducts || ilpProducts.length === 0) return byProduct
+
+  const productIds = ilpProducts.map((p) => p.id)
+  const { data: allEntries } = await supabase
+    .from("ilp_entries")
+    .select("product_id, month, fund_value")
+    .in("product_id", productIds)
+    .order("month", { ascending: true })
+  if (!allEntries) return byProduct
+
+  for (const e of allEntries) {
+    const list = byProduct.get(e.product_id) ?? []
+    list.push({
+      product_id: e.product_id,
+      month: e.month,
+      fund_value: e.fund_value,
+    })
+    byProduct.set(e.product_id, list)
+  }
+  for (const list of byProduct.values()) {
+    list.sort((a, b) => a.month.localeCompare(b.month))
+  }
+  return byProduct
+}
+
+type PriceContext = {
+  stockPricesByTicker: Map<string, Map<string, number>>
+  metalPricesByType: Map<string, Map<string, number>>
+  currencyBySymbol: Map<string, string>
+  currentMetalMap: Map<string, number>
+  sgdPerUsd: number | null
+}
+
+async function fetchPriceContext(
+  investments: InvestmentRow[],
+  startStr: string,
+  endStr: string,
+): Promise<PriceContext> {
   const stockSymbols = [
     ...new Set(
-      (investments as InvestmentRow[])
+      investments
         .filter((i) => i.type === "stock" || i.type === "etf")
         .map((i) => i.symbol),
     ),
   ]
-  const hasMetals = (investments as InvestmentRow[]).some(
+  const hasMetals = investments.some(
     (i) => i.type === "gold" || i.type === "silver",
   )
 
@@ -94,7 +164,7 @@ async function backfillHistory(
       : Promise.resolve(new Map<string, Map<string, number>>()),
     hasMetals
       ? getHistoricalMetalPrices(startStr, endStr)
-      : Promise.resolve(new Map()),
+      : Promise.resolve(new Map<string, Map<string, number>>()),
     hasMetals ? getOcbcPreciousMetalPrices() : Promise.resolve([]),
     stockSymbols.length > 0
       ? getMultipleStockPrices(stockSymbols)
@@ -108,62 +178,94 @@ async function backfillHistory(
       (q.currency ?? "USD").toUpperCase(),
     ]),
   )
-
   const currentMetalMap = new Map(
     currentMetals.map((m) => [m.metalType.toLowerCase(), m.sellPriceSgd]),
   )
-
-  let cashTotal = 0
-  if (profileId) {
-    const { data: accountRow } = await supabase
-      .from("investment_accounts")
-      .select("cash_balance")
-      .eq("family_id", familyId)
-      .eq("profile_id", profileId)
-      .maybeSingle()
-    cashTotal = accountRow?.cash_balance ?? 0
-  } else {
-    const { data: accounts } = await supabase
-      .from("investment_accounts")
-      .select("cash_balance")
-      .eq("family_id", familyId)
-    cashTotal =
-      accounts?.reduce((s, a) => s + (a.cash_balance ?? 0), 0) ?? 0
+  return {
+    stockPricesByTicker,
+    metalPricesByType,
+    currencyBySymbol,
+    currentMetalMap,
+    sgdPerUsd,
   }
+}
 
-  let ilpQuery = supabase
-    .from("ilp_products")
-    .select("id")
-    .eq("family_id", familyId)
-  if (profileId) {
-    ilpQuery = ilpQuery.or(`profile_id.eq.${profileId},profile_id.is.null`)
+function priceToSgd(
+  raw: number,
+  currency: string,
+  sgdPerUsd: number | null,
+): number {
+  if (raw <= 0) return 0
+  if (currency === "SGD") return raw
+  if (currency === "USD") {
+    if (sgdPerUsd == null || sgdPerUsd <= 0) return 0
+    return raw * sgdPerUsd
   }
-  const { data: ilpProducts } = await ilpQuery
+  return 0
+}
 
-  const byProduct = new Map<string, IlpEntryRow[]>()
-  if (ilpProducts && ilpProducts.length > 0) {
-    const productIds = ilpProducts.map((p) => p.id)
-    const { data: allEntries } = await supabase
-      .from("ilp_entries")
-      .select("product_id, month, fund_value")
-      .in("product_id", productIds)
-      .order("month", { ascending: true })
+function valueStockOnDate(
+  inv: InvestmentRow,
+  dateStr: string,
+  ctx: PriceContext,
+  lastStockPrice: Map<string, number>,
+): number {
+  const sym = inv.symbol.toUpperCase()
+  const byDate = ctx.stockPricesByTicker.get(sym)
+  const raw = byDate?.get(dateStr) ?? lastStockPrice.get(sym) ?? 0
+  if (raw > 0) lastStockPrice.set(sym, raw)
+  const currency = ctx.currencyBySymbol.get(sym) ?? "USD"
+  const priceSgd = priceToSgd(raw, currency, ctx.sgdPerUsd)
+  return priceSgd > 0 ? inv.units * priceSgd : 0
+}
 
-    if (allEntries) {
-      for (const e of allEntries) {
-        const list = byProduct.get(e.product_id) ?? []
-        list.push({
-          product_id: e.product_id,
-          month: e.month,
-          fund_value: e.fund_value,
-        })
-        byProduct.set(e.product_id, list)
-      }
-      for (const list of byProduct.values()) {
-        list.sort((a, b) => a.month.localeCompare(b.month))
-      }
+function valueMetalOnDate(
+  inv: InvestmentRow,
+  dateStr: string,
+  ctx: PriceContext,
+  lastMetalPrice: Map<string, number>,
+): number {
+  const byDate = ctx.metalPricesByType.get(inv.type)
+  const current = ctx.currentMetalMap.get(inv.type.toLowerCase()) ?? 0
+  const price =
+    byDate?.get(dateStr) ?? lastMetalPrice.get(inv.type) ?? current
+  if (price > 0) lastMetalPrice.set(inv.type, price)
+  return price > 0 ? inv.units * price : 0
+}
+
+function marketValueOnDate(
+  investments: InvestmentRow[],
+  dateStr: string,
+  ctx: PriceContext,
+  lastStockPrice: Map<string, number>,
+  lastMetalPrice: Map<string, number>,
+): number {
+  let total = 0
+  for (const inv of investments) {
+    if (inv.type === "stock" || inv.type === "etf") {
+      total += valueStockOnDate(inv, dateStr, ctx, lastStockPrice)
+    } else if (inv.type === "gold" || inv.type === "silver") {
+      total += valueMetalOnDate(inv, dateStr, ctx, lastMetalPrice)
     }
   }
+  return total
+}
+
+async function backfillHistory(
+  supabase: SupabaseClient,
+  familyId: string,
+  profileId: string | null,
+  startStr: string,
+  endStr: string,
+): Promise<{ date: string; value: number }[]> {
+  const investments = await fetchInvestments(supabase, familyId, profileId)
+  if (investments.length === 0) return []
+
+  const [priceCtx, cashTotal, byProduct] = await Promise.all([
+    fetchPriceContext(investments, startStr, endStr),
+    fetchCashTotal(supabase, familyId, profileId),
+    fetchIlpEntriesByProduct(supabase, familyId, profileId),
+  ])
 
   const dates = dateRange(startStr, endStr)
   const result: { date: string; value: number }[] = []
@@ -172,46 +274,17 @@ async function backfillHistory(
 
   for (const dateStr of dates) {
     const ym = dateStr.slice(0, 7)
-    let marketSgd = 0
-
-    for (const inv of investments as InvestmentRow[]) {
-      if (inv.type === "stock" || inv.type === "etf") {
-        const sym = inv.symbol.toUpperCase()
-        const byDate = stockPricesByTicker.get(sym)
-        const raw =
-          byDate?.get(dateStr) ?? lastStockPrice.get(sym) ?? 0
-        if (raw > 0) lastStockPrice.set(sym, raw)
-        const curr = currencyBySymbol.get(sym) ?? "USD"
-        let priceSgd = raw
-        if (raw > 0) {
-          if (curr === "USD") {
-            if (sgdPerUsd == null || sgdPerUsd <= 0) priceSgd = 0
-            else priceSgd = raw * sgdPerUsd
-          } else if (curr !== "SGD") {
-            priceSgd = 0
-          }
-          if (priceSgd > 0) marketSgd += inv.units * priceSgd
-        }
-      } else if (inv.type === "gold" || inv.type === "silver") {
-        const byDate = metalPricesByType.get(
-          inv.type,
-        )
-        const current =
-          currentMetalMap.get(inv.type.toLowerCase()) ?? 0
-        const price =
-          byDate?.get(dateStr) ??
-          lastMetalPrice.get(inv.type) ??
-          current
-        if (price > 0) lastMetalPrice.set(inv.type, price)
-        if (price > 0) marketSgd += inv.units * price
-      }
-    }
-
+    const marketSgd = marketValueOnDate(
+      investments,
+      dateStr,
+      priceCtx,
+      lastStockPrice,
+      lastMetalPrice,
+    )
     const ilpTotal = ilpTotalForYearMonth(byProduct, ym)
     const total = cashTotal + marketSgd + ilpTotal
     result.push({ date: dateStr, value: Math.round(total * 100) / 100 })
   }
-
   return result
 }
 

@@ -48,6 +48,212 @@ export type CashflowRangeRow = {
   outflowMemo?: string
 }
 
+function throwIfAnyError(results: { error: { message: string } | null }[]): void {
+  for (const r of results) {
+    if (r.error) throw new Error(r.error.message)
+  }
+}
+
+type CashflowRangeLookups = {
+  cashflowByKey: Map<string, { inflow: number | null; outflow: number | null }>
+  profileById: Map<string, { birth_year: number; name: string; self_help_group?: string }>
+  incomeByProfileId: Map<string, { annual_salary: number; bonus_estimate: number | null }>
+  giroByProfile: ReturnType<typeof buildGiroOutflowByProfile>
+  insuranceByProfile: Map<
+    string,
+    Array<{
+      premium_amount: number
+      frequency: string
+      is_active: boolean | null
+      deduct_from_outflow: boolean | null
+      type: string
+      coverage_amount: number | null
+    }>
+  >
+  ilpByProfile: Map<
+    string,
+    Array<{ monthly_premium: number; premium_payment_mode?: string | null }>
+  >
+  loansByProfile: Map<
+    string,
+    Array<{
+      principal: number
+      rate_pct: number
+      tenure_months: number
+      use_cpf_oa?: boolean
+      start_date?: string | null
+    }>
+  >
+  taxReliefByProfileYear: Map<string, Array<{ relief_type: string; amount: number }>>
+  savingsGoalsByProfile: Map<string, number>
+  earlyRepaymentsByProfile: Map<
+    string,
+    Array<{ amount: number; penalty_amount: number | null; date: string }>
+  >
+  goalContribsByProfile: Map<string, Array<{ amount: number; created_at: string }>>
+  oneTimeIlpByProfile: Map<string, Array<{ monthly_premium: number; created_at: string }>>
+  investmentTxnsByProfile: Map<
+    string,
+    Array<{ type: string; quantity: number; price: number; created_at: string }>
+  >
+  taxReliefCashByProfileYear: Map<
+    string,
+    Array<{ relief_type: string; amount: number; year: number }>
+  >
+  taxEntryByProfileYear: Map<string, TaxEntryData>
+  inflowMemoByKey: Map<string, string>
+  outflowMemoByKey: Map<string, string>
+  sharedIlp: number
+}
+
+type MonthBuckets = {
+  inflow: number
+  discretionary: number
+  insurance: number
+  ilp: number
+  ilpOneTime: number
+  loans: number
+  earlyRepayments: number
+  tax: number
+  taxReliefCash: number
+  savingsGoals: number
+  investments: number
+}
+
+function aggregateProfileMonth(
+  buckets: MonthBuckets,
+  pid: string,
+  monthStr: string,
+  year: number,
+  L: CashflowRangeLookups,
+): void {
+  buckets.inflow += effectiveInflowFromContext(
+    pid,
+    monthStr,
+    year,
+    L.cashflowByKey,
+    L.profileById,
+    L.incomeByProfileId,
+  )
+  buckets.discretionary += discretionaryForProfileMonth(
+    pid,
+    monthStr,
+    L.cashflowByKey,
+    L.giroByProfile,
+  )
+
+  const pols = L.insuranceByProfile.get(pid) ?? []
+  const insSplit = sumInsuranceOutflowPremiumsSplit(pols)
+  buckets.insurance += insSplit.insurance
+  buckets.ilp += insSplit.ilpFromLegacyPolicies
+  buckets.ilp += sumIlpPremiums(L.ilpByProfile.get(pid) ?? [])
+
+  buckets.loans += sumLoanMonthlyPayments(L.loansByProfile.get(pid) ?? [], monthStr)
+
+  buckets.savingsGoals += L.savingsGoalsByProfile.get(pid) ?? 0
+  buckets.savingsGoals += sumGoalContributionsForMonth(
+    L.goalContribsByProfile.get(pid) ?? [],
+    monthStr,
+  )
+
+  buckets.earlyRepayments += sumEarlyRepaymentsForMonth(
+    L.earlyRepaymentsByProfile.get(pid) ?? [],
+    monthStr,
+  )
+
+  buckets.ilpOneTime += sumOneTimeIlpForMonth(
+    L.oneTimeIlpByProfile.get(pid) ?? [],
+    monthStr,
+  )
+
+  buckets.taxReliefCash += sumTaxReliefCashForMonth(
+    L.taxReliefCashByProfileYear.get(`${pid}:${year}`) ?? [],
+    year,
+  )
+
+  buckets.investments += sumNetInvestmentPurchasesForMonth(
+    L.investmentTxnsByProfile.get(pid) ?? [],
+    monthStr,
+  )
+
+  buckets.tax += monthlyTaxForProfile(
+    pid,
+    year,
+    L.profileById,
+    L.incomeByProfileId,
+    pols,
+    L.taxReliefByProfileYear.get(`${pid}:${year}`) ?? [],
+    L.taxEntryByProfileYear,
+  )
+}
+
+function buildMemoStrings(
+  profileIds: string[],
+  monthStr: string,
+  L: CashflowRangeLookups,
+): { inflowMemo?: string; outflowMemo?: string } {
+  const inflowParts: string[] = []
+  const outflowParts: string[] = []
+  for (const pid of profileIds) {
+    const memoKey = `${pid}:${monthStr}`
+    const pname = L.profileById.get(pid)?.name ?? "Member"
+    const im = L.inflowMemoByKey.get(memoKey)
+    if (im) inflowParts.push(`${pname}: ${im}`)
+    const om = L.outflowMemoByKey.get(memoKey)
+    if (om) outflowParts.push(`${pname}: ${om}`)
+  }
+  const out: { inflowMemo?: string; outflowMemo?: string } = {}
+  if (inflowParts.length > 0) out.inflowMemo = inflowParts.join(" · ")
+  if (outflowParts.length > 0) out.outflowMemo = outflowParts.join(" · ")
+  return out
+}
+
+function buildMonthRow(
+  month: string,
+  profileIds: string[],
+  L: CashflowRangeLookups,
+): CashflowRangeRow {
+  const monthStr = normalizeMonthKey(month)
+  const year = Number.parseInt(monthStr.slice(0, 4), 10) || new Date().getFullYear()
+
+  const buckets: MonthBuckets = {
+    inflow: 0,
+    discretionary: 0,
+    insurance: 0,
+    ilp: 0,
+    ilpOneTime: 0,
+    loans: 0,
+    earlyRepayments: 0,
+    tax: 0,
+    taxReliefCash: 0,
+    savingsGoals: 0,
+    investments: 0,
+  }
+  for (const pid of profileIds) {
+    aggregateProfileMonth(buckets, pid, monthStr, year, L)
+  }
+  buckets.ilp += L.sharedIlp
+
+  const totalOutflow =
+    buckets.discretionary +
+    buckets.insurance +
+    buckets.ilp +
+    buckets.ilpOneTime +
+    buckets.loans +
+    buckets.earlyRepayments +
+    buckets.tax +
+    buckets.taxReliefCash +
+    buckets.savingsGoals +
+    buckets.investments
+
+  return {
+    month,
+    ...buckets,
+    totalOutflow,
+    ...buildMemoStrings(profileIds, monthStr, L),
+  }
+}
+
 export function getMonthsInRange(
   startMonth: string,
   endMonth: string
@@ -198,19 +404,21 @@ export async function fetchCashflowRangeSeries(
       .lte("created_at", endMonth + "T23:59:59"),
   ])
 
-  if (cashflowRes.error) throw new Error(cashflowRes.error.message)
-  if (profilesRes.error) throw new Error(profilesRes.error.message)
-  if (incomeRes.error) throw new Error(incomeRes.error.message)
-  if (giroRulesRes.error) throw new Error(giroRulesRes.error.message)
-  if (insuranceRes.error) throw new Error(insuranceRes.error.message)
-  if (ilpRes.error) throw new Error(ilpRes.error.message)
-  if (loansRes.error) throw new Error(loansRes.error.message)
-  if (taxReliefRes.error) throw new Error(taxReliefRes.error.message)
-  if (sharedIlpRes.error) throw new Error(sharedIlpRes.error.message)
-  if (savingsGoalsRes.error) throw new Error(savingsGoalsRes.error.message)
-  if (goalContributionsRes.error) throw new Error(goalContributionsRes.error.message)
-  if (oneTimeIlpRes.error) throw new Error(oneTimeIlpRes.error.message)
-  if (investmentTxnsRes.error) throw new Error(investmentTxnsRes.error.message)
+  throwIfAnyError([
+    cashflowRes,
+    profilesRes,
+    incomeRes,
+    giroRulesRes,
+    insuranceRes,
+    ilpRes,
+    loansRes,
+    taxReliefRes,
+    sharedIlpRes,
+    savingsGoalsRes,
+    goalContributionsRes,
+    oneTimeIlpRes,
+    investmentTxnsRes,
+  ])
 
   // Fetch tax entries (actual_amount) for the years in range
   const { data: taxEntriesData } = await supabase
@@ -469,132 +677,26 @@ export async function fetchCashflowRangeSeries(
 
   const sharedIlp = sumIlpPremiums(sharedIlpRes.data)
 
-  const result: CashflowRangeRow[] = []
-  for (const month of months) {
-    const monthStr = normalizeMonthKey(month)
-    const year = Number.parseInt(monthStr.slice(0, 4), 10) || new Date().getFullYear()
-
-    let inflow = 0
-    let discretionary = 0
-    let insurance = 0
-    let ilp = 0
-    let ilpOneTime = 0
-    let loans = 0
-    let earlyRepayments = 0
-    let tax = 0
-    let taxReliefCash = 0
-    let savingsGoals = 0
-    let investments = 0
-
-    for (const pid of profileIds) {
-      inflow += effectiveInflowFromContext(
-        pid,
-        monthStr,
-        year,
-        cashflowByKey,
-        profileById,
-        incomeByProfileId
-      )
-
-      discretionary += discretionaryForProfileMonth(
-        pid,
-        monthStr,
-        cashflowByKey,
-        giroByProfile
-      )
-
-      const pols = insuranceByProfile.get(pid) ?? []
-      const insSplit = sumInsuranceOutflowPremiumsSplit(pols)
-      insurance += insSplit.insurance
-      ilp += insSplit.ilpFromLegacyPolicies
-
-      ilp += sumIlpPremiums(ilpByProfile.get(pid) ?? [])
-
-      loans += sumLoanMonthlyPayments(loansByProfile.get(pid) ?? [], monthStr)
-
-      savingsGoals += savingsGoalsByProfile.get(pid) ?? 0
-      savingsGoals += sumGoalContributionsForMonth(
-        goalContribsByProfile.get(pid) ?? [],
-        monthStr,
-      )
-
-      earlyRepayments += sumEarlyRepaymentsForMonth(
-        earlyRepaymentsByProfile.get(pid) ?? [],
-        monthStr,
-      )
-
-      ilpOneTime += sumOneTimeIlpForMonth(
-        oneTimeIlpByProfile.get(pid) ?? [],
-        monthStr,
-      )
-
-      taxReliefCash += sumTaxReliefCashForMonth(
-        taxReliefCashByProfileYear.get(`${pid}:${year}`) ?? [],
-        year,
-      )
-
-      investments += sumNetInvestmentPurchasesForMonth(
-        investmentTxnsByProfile.get(pid) ?? [],
-        monthStr,
-      )
-
-      tax += monthlyTaxForProfile(
-        pid,
-        year,
-        profileById,
-        incomeByProfileId,
-        pols,
-        taxReliefByProfileYear.get(`${pid}:${year}`) ?? [],
-        taxEntryByProfileYear,
-      )
-    }
-
-    ilp += sharedIlp
-    const totalOutflow =
-      discretionary +
-      insurance +
-      ilp +
-      ilpOneTime +
-      loans +
-      earlyRepayments +
-      tax +
-      taxReliefCash +
-      savingsGoals +
-      investments
-
-    const inflowMemoParts: string[] = []
-    const outflowMemoParts: string[] = []
-    for (const pid of profileIds) {
-      const memoKey = `${pid}:${monthStr}`
-      const pname = profileById.get(pid)?.name ?? "Member"
-      const im = inflowMemoByKey.get(memoKey)
-      if (im) inflowMemoParts.push(`${pname}: ${im}`)
-      const om = outflowMemoByKey.get(memoKey)
-      if (om) outflowMemoParts.push(`${pname}: ${om}`)
-    }
-
-    result.push({
-      month,
-      inflow,
-      discretionary,
-      insurance,
-      ilp,
-      ilpOneTime,
-      loans,
-      earlyRepayments,
-      tax,
-      taxReliefCash,
-      savingsGoals,
-      investments,
-      totalOutflow,
-      ...(inflowMemoParts.length > 0
-        ? { inflowMemo: inflowMemoParts.join(" · ") }
-        : {}),
-      ...(outflowMemoParts.length > 0
-        ? { outflowMemo: outflowMemoParts.join(" · ") }
-        : {}),
-    })
+  const lookups: CashflowRangeLookups = {
+    cashflowByKey,
+    profileById,
+    incomeByProfileId,
+    giroByProfile,
+    insuranceByProfile,
+    ilpByProfile,
+    loansByProfile,
+    taxReliefByProfileYear,
+    savingsGoalsByProfile,
+    earlyRepaymentsByProfile,
+    goalContribsByProfile,
+    oneTimeIlpByProfile,
+    investmentTxnsByProfile,
+    taxReliefCashByProfileYear,
+    taxEntryByProfileYear,
+    inflowMemoByKey,
+    outflowMemoByKey,
+    sharedIlp,
   }
 
-  return result
+  return months.map((month) => buildMonthRow(month, profileIds, lookups))
 }
