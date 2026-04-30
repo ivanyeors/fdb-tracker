@@ -17,8 +17,8 @@
 import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 
-function loadEnvLocal() {
-  const path = resolve(process.cwd(), ".env.local")
+function loadEnvLocal(filename: string) {
+  const path = resolve(process.cwd(), filename)
   if (!existsSync(path)) return
   for (const line of readFileSync(path, "utf-8").split("\n")) {
     const m = /^([^#=]+)=(.*)$/.exec(line)
@@ -27,15 +27,16 @@ function loadEnvLocal() {
     }
   }
 }
-loadEnvLocal()
 
 const RESET_SQL = `TRUNCATE households, precious_metals_prices RESTART IDENTITY CASCADE;`
 
 function parseArgs() {
   const args = process.argv.slice(2)
+  const envArg = args.find((a) => a.startsWith("--env="))?.split("=")[1]
   return {
     force: args.includes("--force"),
     dryRun: args.includes("--dry-run"),
+    env: envArg as "test" | undefined,
   }
 }
 
@@ -57,7 +58,13 @@ function printUsage() {
 }
 
 async function main() {
-  const { force, dryRun } = parseArgs()
+  const { force, dryRun, env } = parseArgs()
+
+  if (env === "test") {
+    loadEnvLocal(".env.test.local")
+  } else {
+    loadEnvLocal(".env.local")
+  }
 
   if (!force) {
     console.error("Error: --force is required to run the reset.")
@@ -66,22 +73,42 @@ async function main() {
     process.exit(1)
   }
 
+  let dbUrl: string | undefined
+  if (env === "test") {
+    dbUrl = process.env.TEST_DATABASE_URL
+    if (!dbUrl) {
+      console.error("Error: TEST_DATABASE_URL is not set in .env.test.local.")
+      process.exit(1)
+    }
+    // Safety guard: refuse if test DB URL matches the prod DATABASE_URL in .env.local.
+    const prevTestDbUrl = dbUrl
+    loadEnvLocal(".env.local")
+    const prodDbUrl = process.env.DATABASE_URL ?? process.env.SUPABASE_DB_URL
+    if (prodDbUrl && prodDbUrl.trim() === prevTestDbUrl.trim()) {
+      console.error(
+        "Refusing to reset: TEST_DATABASE_URL matches DATABASE_URL in .env.local."
+      )
+      console.error("These must point to DIFFERENT Supabase projects.")
+      process.exit(1)
+    }
+    dbUrl = prevTestDbUrl
+  } else {
+    dbUrl = process.env.DATABASE_URL ?? process.env.SUPABASE_DB_URL
+    if (!dbUrl) {
+      console.error("Error: DATABASE_URL or SUPABASE_DB_URL is not set.")
+      console.error("")
+      console.error("Get it from: Supabase Dashboard → Project Settings → Database → Connection string (URI)")
+      process.exit(1)
+    }
+  }
+
   if (dryRun) {
-    console.log("--dry-run: would execute:")
+    console.log(`--dry-run (env=${env ?? "default"}): would execute against ${dbUrl.slice(0, 60)}...`)
     console.log("")
     console.log(RESET_SQL)
     console.log("")
     console.log("Tables affected: households, precious_metals_prices (and all dependent tables via CASCADE)")
     return
-  }
-
-  const dbUrl = process.env.DATABASE_URL ?? process.env.SUPABASE_DB_URL
-
-  if (!dbUrl) {
-    console.error("Error: DATABASE_URL or SUPABASE_DB_URL is not set.")
-    console.error("")
-    console.error("Get it from: Supabase Dashboard → Project Settings → Database → Connection string (URI)")
-    process.exit(1)
   }
 
   const { default: postgres } = await import("postgres")

@@ -1,0 +1,159 @@
+name: Playwright
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "0 18 * * *"
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: "Test tier (smoke | critical | full)"
+        required: false
+        default: "smoke"
+
+jobs:
+  e2e:
+    name: ${{ matrix.tier }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        tier:
+          - smoke
+          - critical
+    env:
+      CI: "true"
+      E2E_TEST_MODE: "1"
+      E2E_TEST_SECRET: ${{ secrets.E2E_TEST_SECRET }}
+      TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+      TEST_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ${{ secrets.TEST_SUPABASE_PUBLISHABLE_DEFAULT_KEY }}
+      TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      TEST_JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
+      TEST_PII_ENCRYPTION_KEY_V1: ${{ secrets.TEST_PII_ENCRYPTION_KEY_V1 }}
+      TEST_PII_HASH_SECRET_V1: ${{ secrets.TEST_PII_HASH_SECRET_V1 }}
+      TEST_TELEGRAM_BOT_TOKEN: ${{ secrets.TEST_TELEGRAM_BOT_TOKEN }}
+      TEST_CRON_SECRET: ${{ secrets.TEST_CRON_SECRET }}
+      # Build needs these mapped from TEST_* — playwright.config.ts also passes them through.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ${{ secrets.TEST_SUPABASE_PUBLISHABLE_DEFAULT_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+      JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
+      PII_ENCRYPTION_KEY_V1: ${{ secrets.TEST_PII_ENCRYPTION_KEY_V1 }}
+      PII_HASH_SECRET_V1: ${{ secrets.TEST_PII_HASH_SECRET_V1 }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TEST_TELEGRAM_BOT_TOKEN }}
+      CRON_SECRET: ${{ secrets.TEST_CRON_SECRET }}
+      NEXT_PUBLIC_APP_URL: "http://127.0.0.1:3100"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers (cache miss)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Apply migrations to test DB (clean)
+        run: npx tsx scripts/migrate-supabase.ts --env=test --clean
+
+      - name: Seed test fixtures
+        run: npm run db:test:seed
+
+      - name: Build app with test env
+        run: npm run e2e:build
+
+      - name: Run Playwright (${{ matrix.tier }})
+        run: npx playwright test --project=chromium --grep "@${{ matrix.tier }}"
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.tier }}
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload trace + screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.tier }}
+          path: test-results/
+          retention-days: 14
+
+  e2e-full:
+    name: full (nightly)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.tier == 'full')
+    env:
+      CI: "true"
+      E2E_TEST_MODE: "1"
+      E2E_TEST_SECRET: ${{ secrets.E2E_TEST_SECRET }}
+      TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+      TEST_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ${{ secrets.TEST_SUPABASE_PUBLISHABLE_DEFAULT_KEY }}
+      TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      TEST_JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
+      TEST_PII_ENCRYPTION_KEY_V1: ${{ secrets.TEST_PII_ENCRYPTION_KEY_V1 }}
+      TEST_PII_HASH_SECRET_V1: ${{ secrets.TEST_PII_HASH_SECRET_V1 }}
+      TEST_TELEGRAM_BOT_TOKEN: ${{ secrets.TEST_TELEGRAM_BOT_TOKEN }}
+      TEST_CRON_SECRET: ${{ secrets.TEST_CRON_SECRET }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ${{ secrets.TEST_SUPABASE_PUBLISHABLE_DEFAULT_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+      JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
+      PII_ENCRYPTION_KEY_V1: ${{ secrets.TEST_PII_ENCRYPTION_KEY_V1 }}
+      PII_HASH_SECRET_V1: ${{ secrets.TEST_PII_HASH_SECRET_V1 }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TEST_TELEGRAM_BOT_TOKEN }}
+      CRON_SECRET: ${{ secrets.TEST_CRON_SECRET }}
+      NEXT_PUBLIC_APP_URL: "http://127.0.0.1:3100"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium firefox
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium firefox
+      - run: npx tsx scripts/migrate-supabase.ts --env=test --clean
+      - run: npm run db:test:seed
+      - run: npm run e2e:build
+      - run: npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-full
+          path: playwright-report/
+          retention-days: 14
