@@ -290,17 +290,30 @@ async function fetchPrimaryBatch(
   ])
 }
 
-async function fetchSecondaryBatch(
-  supabase: SupabaseClient,
-  profileIds: string[],
-  familyId: string,
-  monthStr: string,
-  nextMonthStr: string,
-  prevMonthStr: string,
-  allLoanIds: string[],
-  allGoalIds: string[],
-  allIlpProductIds: string[],
-) {
+type SecondaryBatchInput = {
+  supabase: SupabaseClient
+  profileIds: string[]
+  familyId: string
+  monthStr: string
+  nextMonthStr: string
+  prevMonthStr: string
+  allLoanIds: string[]
+  allGoalIds: string[]
+  allIlpProductIds: string[]
+}
+
+async function fetchSecondaryBatch(input: SecondaryBatchInput) {
+  const {
+    supabase,
+    profileIds,
+    familyId,
+    monthStr,
+    nextMonthStr,
+    prevMonthStr,
+    allLoanIds,
+    allGoalIds,
+    allIlpProductIds,
+  } = input
   const inIds = profileIds.length > 0 ? profileIds : ["__none__"]
   const buildTxnQuery = (type: "buy_sell" | "dividend") => {
     let q =
@@ -438,7 +451,7 @@ async function fetchAllData(
     cpfBalancesRes,
     ilpEntriesStartRes,
     ilpEntriesEndRes,
-  ] = await fetchSecondaryBatch(
+  ] = await fetchSecondaryBatch({
     supabase,
     profileIds,
     familyId,
@@ -448,7 +461,7 @@ async function fetchAllData(
     allLoanIds,
     allGoalIds,
     allIlpProductIds,
-  )
+  })
 
   const inIds = profileIds.length > 0 ? profileIds : ["__none__"]
   const { data: taxEntriesData } = await supabase

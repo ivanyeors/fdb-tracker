@@ -260,7 +260,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const hasProfiles = mappedProfiles.length > 0 && mappedProfiles.some((p) => p.name?.trim())
+    const hasProfiles = mappedProfiles.some((p) => p.name?.trim())
     const hasIncome = mappedIncomeConfigs.some((ic) => (ic.annual_salary ?? 0) > 0)
     const hasCpf = mappedCpfBalances.some((cb) => cb.oa > 0 || cb.sa > 0 || cb.ma > 0)
     const hasBanks = mappedBankAccounts.length > 0

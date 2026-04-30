@@ -306,16 +306,28 @@ async function fetchPrimaryQueries(
   ])
 }
 
-async function fetchSecondaryQueries(
-  supabase: SupabaseClient,
-  targetProfileIds: string[],
-  familyId: string,
-  monthStr: string,
-  nextMonthStr: string,
-  loanIds: string[],
-  goalIds: string[],
-  year: number,
-) {
+type SecondaryQueriesInput = {
+  supabase: SupabaseClient
+  targetProfileIds: string[]
+  familyId: string
+  monthStr: string
+  nextMonthStr: string
+  loanIds: string[]
+  goalIds: string[]
+  year: number
+}
+
+async function fetchSecondaryQueries(input: SecondaryQueriesInput) {
+  const {
+    supabase,
+    targetProfileIds,
+    familyId,
+    monthStr,
+    nextMonthStr,
+    loanIds,
+    goalIds,
+    year,
+  } = input
   const targetIds = targetProfileIds.length > 0 ? targetProfileIds : ["__none__"]
   return Promise.all([
     loanIds.length > 0
@@ -1271,16 +1283,16 @@ export async function fetchMoneyFlowData(
   const goalIdsForContribs = (savingsGoalsRes.data ?? []).map((g) => (g as { id: string }).id)
 
   const [earlyRepsRes, goalContribsRes, oneTimeIlpRes, investTxnsRes, bankInterestRes, divTxnsRes, taxEntriesRes] =
-    await fetchSecondaryQueries(
+    await fetchSecondaryQueries({
       supabase,
       targetProfileIds,
       familyId,
       monthStr,
       nextMonthStr,
-      loanIdsForEarlyRep,
-      goalIdsForContribs,
+      loanIds: loanIdsForEarlyRep,
+      goalIds: goalIdsForContribs,
       year,
-    )
+    })
 
   const secondary = buildSecondaryLookups(
     (loansRes.data ?? []) as Array<{ id: string; profile_id: string }>,

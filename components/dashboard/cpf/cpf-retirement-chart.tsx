@@ -377,7 +377,7 @@ function ChartInner({
           tickStroke="var(--color-border)"
           hideAxisLine
           hideTicks
-          tickFormat={(v) => String(v)}
+          tickFormat={String}
           tickLabelProps={() => ({
             fill: "var(--color-muted-foreground)",
             fontSize: 11,

@@ -15,7 +15,7 @@ export function decodeQuotedPrintable(input: string): string {
         continue
       }
     }
-    bytes.push(c.charCodeAt(0) & 0xff)
+    bytes.push((c.codePointAt(0) ?? 0) & 0xff)
   }
   return Buffer.from(bytes).toString("utf8")
 }

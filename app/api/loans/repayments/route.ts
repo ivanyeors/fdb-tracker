@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const parsed = postSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 })
+      return NextResponse.json({ error: "Invalid input", details: z.flattenError(parsed.error) }, { status: 400 })
     }
 
     const { loanId, amount, date, cpfOaAmount, isEarly, source } = parsed.data

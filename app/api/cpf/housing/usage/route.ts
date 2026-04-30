@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const parsed = createSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 })
+      return NextResponse.json({ error: "Invalid input", details: z.flattenError(parsed.error) }, { status: 400 })
     }
 
     const supabase = createSupabaseAdmin()

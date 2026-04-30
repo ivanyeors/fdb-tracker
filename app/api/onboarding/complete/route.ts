@@ -114,7 +114,7 @@ const taxReliefSchema = z.object({
 type SupabaseAdmin = ReturnType<typeof createSupabaseAdmin>
 
 function formatValidationError(parsed: { error: z.ZodError }): NextResponse {
-  const flattened = parsed.error.flatten()
+  const flattened = z.flattenError(parsed.error)
   const details = flattened.fieldErrors as Record<string, string[] | undefined>
   const firstError = Object.entries(details)
     .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
