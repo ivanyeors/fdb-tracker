@@ -11,6 +11,13 @@
 # testing
 /coverage
 
+# playwright
+/playwright/.auth/
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/
+
 # next.js
 /.next/
 /out/
@@ -36,6 +43,8 @@ pnpm-debug.log*
 
 # env files
 .env*.local
+.env.test.example
+.env.test.local
 
 # MCP config (may contain secrets)
 .cursor/mcp.json

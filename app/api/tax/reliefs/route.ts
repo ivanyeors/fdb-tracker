@@ -104,7 +104,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const parsed = putBodySchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid request body", details: parsed.error.flatten() }, { status: 400 })
+      return NextResponse.json({ error: "Invalid request body", details: z.flattenError(parsed.error) }, { status: 400 })
     }
 
     const supabase = createSupabaseAdmin()

@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const parsed = importBodySchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid request body", details: parsed.error.flatten() },
+        { error: "Invalid request body", details: z.flattenError(parsed.error) },
         { status: 400 }
       )
     }

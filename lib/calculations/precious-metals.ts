@@ -42,8 +42,7 @@ export function valuatePreciousMetalOz(
   }
 }
 
-/** Gold position: same math as silver; naming matches build plan. */
-export function valuateGold(
+function valuateMetalPosition(
   unitsOz: number,
   sellPriceSgdPerOz: number,
   totalCostBasisSgd: number,
@@ -57,16 +56,8 @@ export function valuateGold(
   })
 }
 
-export function valuateSilver(
-  unitsOz: number,
-  sellPriceSgdPerOz: number,
-  totalCostBasisSgd: number,
-  buyPriceSgdPerOz?: number | null,
-): PreciousMetalValuation {
-  return valuatePreciousMetalOz({
-    unitsOz,
-    sellPriceSgdPerOz,
-    buyPriceSgdPerOz: buyPriceSgdPerOz ?? null,
-    totalCostBasisSgd,
-  })
-}
+/** Gold position: alias of {@link valuateMetalPosition}; naming matches build plan. */
+export const valuateGold = valuateMetalPosition
+
+/** Silver position: alias of {@link valuateMetalPosition}; naming matches build plan. */
+export const valuateSilver = valuateMetalPosition

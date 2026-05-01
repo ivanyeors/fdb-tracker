@@ -194,7 +194,7 @@ function parseStockStyle(
 
     // If no grid cells, at least return the label
     if (styleLabel) {
-      return { grid: Array(9).fill(null) as (number | null)[], styleLabel }
+      return { grid: new Array(9).fill(null) as (number | null)[], styleLabel }
     }
   } catch {
     warnings.push("Failed to parse stock style box")

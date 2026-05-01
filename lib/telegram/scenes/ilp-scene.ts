@@ -641,9 +641,8 @@ export const ilpScene = new Scenes.WizardScene<MyContext>(
           details: error.details,
           message: error.message,
         })
-        await ctx.reply(
-          `❌ Save failed${error.code ? ` (${error.code})` : ""}: ${error.message}`,
-        )
+        const codePart = error.code ? ` (${error.code})` : ""
+        await ctx.reply(`❌ Save failed${codePart}: ${error.message}`)
         return ctx.scene.leave()
       }
 

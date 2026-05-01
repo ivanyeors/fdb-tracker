@@ -105,43 +105,63 @@ function getRemainingMonths(startDate: string, tenureMonths: number): number {
 /*  Bank total from pre-fetched data                                   */
 /* ------------------------------------------------------------------ */
 
-function computeBankTotalFromData(
+type BankTotalInput = {
   accounts: Array<{
     id: string
     profile_id: string | null
     opening_balance: number | null
     locked_amount: number | null
-  }>,
-  primaryAccountByProfile: Map<string, string>,
+  }>
+  primaryAccountByProfile: Map<string, string>
   snapshots: Array<{
     account_id: string
     month: string
     closing_balance: number
     is_reconciliation: boolean
-  }>,
-  giroDebitByAccount: Map<string, number>,
-  giroCreditByAccount: Map<string, number>,
-  targetMonth: string,
-  cashflowByKey: Map<string, CashflowRow>,
-  profileById: Map<string, ProfileData>,
-  incomeByProfileId: Map<string, IncomeData>,
-  giroByProfile: Map<string, number>,
-  insuranceByProfile: Map<string, InsurancePolicy[]>,
+  }>
+  giroDebitByAccount: Map<string, number>
+  giroCreditByAccount: Map<string, number>
+  targetMonth: string
+  cashflowByKey: Map<string, CashflowRow>
+  profileById: Map<string, ProfileData>
+  incomeByProfileId: Map<string, IncomeData>
+  giroByProfile: Map<string, number>
+  insuranceByProfile: Map<string, InsurancePolicy[]>
   ilpByProfile: Map<
     string,
     Array<{ monthly_premium: number; premium_payment_mode?: string | null }>
-  >,
+  >
   loansByProfile: Map<
     string,
     Array<{ principal: number; rate_pct: number; tenure_months: number; use_cpf_oa?: boolean; start_date?: string | null }>
-  >,
-  savingsGoalsByProfile: Map<string, number>,
+  >
+  savingsGoalsByProfile: Map<string, number>
   taxReliefByProfileYear: Map<
     string,
     Array<{ relief_type: string; amount: number }>
-  >,
-  taxEntryByProfileYear?: Map<string, TaxEntryData>,
-): number {
+  >
+  taxEntryByProfileYear?: Map<string, TaxEntryData>
+}
+
+function computeBankTotalFromData(input: BankTotalInput): number {
+  const {
+    accounts,
+    primaryAccountByProfile,
+    snapshots,
+    giroDebitByAccount,
+    giroCreditByAccount,
+    targetMonth,
+    cashflowByKey,
+    profileById,
+    incomeByProfileId,
+    giroByProfile,
+    insuranceByProfile,
+    ilpByProfile,
+    loansByProfile,
+    savingsGoalsByProfile,
+    taxReliefByProfileYear,
+    taxEntryByProfileYear,
+  } = input
   let total = 0
 
   for (const account of accounts) {
@@ -571,10 +591,10 @@ export async function fetchOverviewData(
     bankAccountIds.has(s.account_id)
   )
 
-  const bankTotal = computeBankTotalFromData(
-    filteredBankAccounts,
+  const bankTotal = computeBankTotalFromData({
+    accounts: filteredBankAccounts,
     primaryAccountByProfile,
-    relevantSnapshots,
+    snapshots: relevantSnapshots,
     giroDebitByAccount,
     giroCreditByAccount,
     targetMonth,
@@ -584,11 +604,11 @@ export async function fetchOverviewData(
     giroByProfile,
     insuranceByProfile,
     ilpByProfile,
-    loansForCashflow,
+    loansByProfile: loansForCashflow,
     savingsGoalsByProfile,
     taxReliefByProfileYear,
     taxEntryByProfileYear,
-  )
+  })
 
   // ── CPF Total ──
   function getCpfForMonth(month: string | null): {
