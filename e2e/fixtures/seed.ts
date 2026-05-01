@@ -67,6 +67,11 @@ export const FIXTURES = {
   H2: {
     householdId: "55555555-5555-4555-8555-555555555555",
   },
+  // H3 — fresh, no families/profiles. Reserved for the onboarding full UI
+  // walk so it doesn't collide with H2 (used by the skip-endpoint spec).
+  H3: {
+    householdId: "77777777-7777-4777-8777-777777777777",
+  },
   // bank_transactions seed for H1 / Person A. Used by category-edit spec.
   TXN: {
     grabfood: "66666666-6666-4666-8666-666666666601",
@@ -269,6 +274,17 @@ async function main() {
       VALUES (${FIXTURES.H2.householdId}, 2, NULL)
       ON CONFLICT (id) DO UPDATE
         SET user_count = excluded.user_count,
+            onboarding_completed_at = NULL
+    `
+
+    // H3 — fresh, no families/profiles, reserved for onboarding UI walk.
+    // Reset between runs by deleting any state the prior walk created.
+    await sql`DELETE FROM families WHERE household_id = ${FIXTURES.H3.householdId}`
+    await sql`
+      INSERT INTO households (id, user_count, onboarding_completed_at)
+      VALUES (${FIXTURES.H3.householdId}, 1, NULL)
+      ON CONFLICT (id) DO UPDATE
+        SET user_count = 1,
             onboarding_completed_at = NULL
     `
 

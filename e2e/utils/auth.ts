@@ -10,6 +10,9 @@ export const FIXTURES = {
   H2: {
     householdId: "55555555-5555-4555-8555-555555555555",
   },
+  H3: {
+    householdId: "77777777-7777-4777-8777-777777777777",
+  },
 } as const
 
 interface LoginParams {
