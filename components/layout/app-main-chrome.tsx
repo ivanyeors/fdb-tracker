@@ -7,24 +7,27 @@ import { GlobalToolbar } from "@/components/layout/global-toolbar"
 import { PageLoadingBar } from "@/components/layout/page-loading-bar"
 import { PageLoadingProvider } from "@/hooks/use-page-loading"
 import { UserSettingsSaveProvider } from "@/components/layout/user-settings-save-context"
+import { ToolbarFilterProvider } from "@/components/layout/toolbar-filter-context"
 
 export function AppMainChrome({ children }: { readonly children: ReactNode }) {
   return (
     <UserSettingsSaveProvider>
-      <PageLoadingProvider>
-        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
-          <Header />
-          <PageLoadingBar />
-          <div
-            id="main-scroll-container"
-            className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-40 md:pb-24"
-          >
-            {children}
+      <ToolbarFilterProvider>
+        <PageLoadingProvider>
+          <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
+            <Header />
+            <PageLoadingBar />
+            <div
+              id="main-scroll-container"
+              className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-40 md:pb-24"
+            >
+              {children}
+            </div>
+            <BottomNav />
+            <GlobalToolbar />
           </div>
-          <BottomNav />
-          <GlobalToolbar />
-        </div>
-      </PageLoadingProvider>
+        </PageLoadingProvider>
+      </ToolbarFilterProvider>
     </UserSettingsSaveProvider>
   )
 }

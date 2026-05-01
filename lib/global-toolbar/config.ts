@@ -3,13 +3,13 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Banknote,
+  CalendarClock,
   HandCoins,
-  LineChart,
   PiggyBank,
+  Plus,
   Receipt,
   ShieldCheck,
   Target,
-  TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react"
@@ -20,6 +20,12 @@ export type ToolbarAction = {
   description?: string
   icon: LucideIcon
   href: string
+  /**
+   * When set, the toolbar links to `?action=<value>` on the current pathname
+   * (preserving other params) instead of navigating to `href`. The page reads
+   * the param, opens its own dialog, and clears it.
+   */
+  action?: string
 }
 
 export type ToolbarConfig = {
@@ -51,60 +57,36 @@ const DEFAULT_CTAS: ToolbarAction[] = [
  */
 const ROUTE_CONFIG: Record<string, ToolbarConfig> = {
   "/dashboard": {
-    ctas: [
-      {
-        id: "add-income",
-        label: "Add income",
-        icon: ArrowDownCircle,
-        href: "/dashboard/cashflow",
-      },
-      {
-        id: "add-expense",
-        label: "Add expense",
-        icon: ArrowUpCircle,
-        href: "/dashboard/cashflow",
-      },
-      {
-        id: "add-investment",
-        label: "Buy / sell",
-        icon: LineChart,
-        href: "/dashboard/investments",
-      },
-    ],
+    ctas: [],
   },
   "/dashboard/cashflow": {
     ctas: [
       {
-        id: "add-income",
-        label: "Add income",
-        description: "Log a monthly inflow",
-        icon: TrendingUp,
-        href: "/dashboard/cashflow",
-      },
-      {
-        id: "add-expense",
-        label: "Add expense",
-        description: "Log a monthly outflow",
-        icon: TrendingDown,
-        href: "/dashboard/cashflow",
+        id: "upload-statement",
+        label: "Upload statement",
+        description: "Import transactions from a bank statement",
+        icon: ArrowUpCircle,
+        href: "/dashboard/cashflow?tab=categories",
       },
     ],
   },
   "/dashboard/investments": {
     ctas: [
       {
-        id: "add-buy",
-        label: "Buy",
-        description: "Record a purchase",
+        id: "add-holding",
+        label: "Add holding",
+        description: "Record a stock or ETF position",
         icon: TrendingUp,
         href: "/dashboard/investments",
+        action: "add-holding",
       },
       {
-        id: "add-sell",
-        label: "Sell",
-        description: "Record a disposal",
-        icon: TrendingDown,
+        id: "edit-cash",
+        label: "Edit cash balance",
+        description: "Update cash held in your investment account",
+        icon: Wallet,
         href: "/dashboard/investments",
+        action: "edit-cash",
       },
       {
         id: "ilp-update",
@@ -112,37 +94,40 @@ const ROUTE_CONFIG: Record<string, ToolbarConfig> = {
         description: "Set a monthly ILP fund value",
         icon: PiggyBank,
         href: "/dashboard/investments?tab=ilp",
+        action: "ilp-update",
       },
     ],
   },
   "/dashboard/banks": {
     ctas: [
       {
-        id: "add-bank-account",
-        label: "Add bank account",
+        id: "manage-bank-accounts",
+        label: "Manage bank accounts",
+        description: "Add or edit accounts in user settings",
         icon: Banknote,
-        href: "/dashboard/banks",
+        href: "/settings/users",
       },
     ],
   },
   "/dashboard/cpf": {
     ctas: [
       {
-        id: "edit-cpf",
-        label: "Edit CPF",
+        id: "edit-cpf-balances",
+        label: "Edit CPF balances",
+        description: "Update OA / SA / MA / RA in user settings",
         icon: Wallet,
-        href: "/dashboard/cpf",
+        href: "/settings/users",
       },
     ],
   },
   "/dashboard/goals": {
     ctas: [
       {
-        id: "add-goal-contribution",
-        label: "Contribute to goal",
-        description: "Log a savings contribution",
+        id: "manage-goals",
+        label: "Manage savings goals",
+        description: "Add or edit goals in user settings",
         icon: Target,
-        href: "/dashboard/goals",
+        href: "/settings/users",
       },
     ],
   },
@@ -151,8 +136,18 @@ const ROUTE_CONFIG: Record<string, ToolbarConfig> = {
       {
         id: "log-repayment",
         label: "Log repayment",
+        description: "Record a loan payment",
         icon: HandCoins,
         href: "/dashboard/loans",
+        action: "log-repayment",
+      },
+      {
+        id: "add-loan",
+        label: "Add loan",
+        description: "Track a new loan",
+        icon: Plus,
+        href: "/dashboard/loans",
+        action: "add-loan",
       },
     ],
   },
@@ -161,20 +156,44 @@ const ROUTE_CONFIG: Record<string, ToolbarConfig> = {
       {
         id: "add-policy",
         label: "Add policy",
+        description: "Track a new insurance policy",
         icon: ShieldCheck,
         href: "/dashboard/insurance",
+        action: "add-policy",
       },
     ],
   },
   "/dashboard/tax": {
     ctas: [
       {
-        id: "add-tax-noa",
-        label: "Add NOA",
+        id: "add-actual-tax",
+        label: "Record actual tax (NOA)",
+        description: "Enter the tax payable from your IRAS Notice of Assessment",
         icon: Receipt,
         href: "/dashboard/tax",
+        action: "add-actual-tax",
+      },
+      {
+        id: "add-monthly-tax",
+        label: "Set monthly installment",
+        description: "Record a GIRO monthly tax installment",
+        icon: CalendarClock,
+        href: "/dashboard/tax",
+        action: "add-monthly-tax",
       },
     ],
+  },
+  "/dashboard/developer": {
+    ctas: [],
+  },
+  "/settings": {
+    ctas: [],
+  },
+  "/settings/admins": {
+    ctas: [],
+  },
+  "/settings/notifications": {
+    ctas: [],
   },
   "/settings/users": {
     ctas: [],

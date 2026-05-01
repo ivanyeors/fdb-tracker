@@ -47,6 +47,7 @@ import {
 } from "@/components/dashboard/investments/journal-list"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { useDataRefresh } from "@/hooks/use-data-refresh"
+import { useToolbarAction } from "@/hooks/use-toolbar-action"
 import { useApi } from "@/hooks/use-api"
 import { CreditCard, Loader2, Package, Plus } from "lucide-react"
 import { toast } from "sonner"
@@ -490,6 +491,12 @@ export function InvestmentsClient({
   const handleMutation = useCallback(() => {
     triggerRefresh()
   }, [triggerRefresh])
+
+  useToolbarAction({
+    "add-holding": () => setAddHoldingOpen(true),
+    "edit-cash": () => setCashBalanceOpen(true),
+    "ilp-update": () => setAddIlpOpen(true),
+  })
 
   /** Live market values are USD; convert to SGD for totals with cash / ILP. */
   const totalValue = useMemo(

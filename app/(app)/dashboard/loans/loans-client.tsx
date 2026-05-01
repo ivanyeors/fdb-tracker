@@ -26,6 +26,7 @@ import { RepaymentFormSheet } from "@/components/dashboard/loans/repayment-form-
 import { DeleteLoanDialog } from "@/components/dashboard/loans/delete-loan-dialog"
 import { useApi } from "@/hooks/use-api"
 import { useDataRefresh } from "@/hooks/use-data-refresh"
+import { useToolbarAction } from "@/hooks/use-toolbar-action"
 
 interface Loan {
   id: string
@@ -209,6 +210,17 @@ export function LoansClient({
     setDeletingLoan({ id: loan.id, name: loan.name })
     setDeleteDialogOpen(true)
   }
+
+  useToolbarAction({
+    "add-loan": () => {
+      setEditingLoan(null)
+      setLoanFormOpen(true)
+    },
+    "log-repayment": () => {
+      setRepaymentLoanId(null)
+      setRepaymentFormOpen(true)
+    },
+  })
 
   return (
     <div className="space-y-6 p-4 sm:p-6">

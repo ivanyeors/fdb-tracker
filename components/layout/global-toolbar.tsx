@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { useCallback, useEffect, useState } from "react"
+import { usePathname, useSearchParams } from "next/navigation"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Loader2, MessageSquare, Plus, Search } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -24,11 +24,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { useUserSettingsSave } from "@/components/layout/user-settings-save-context"
+import { useToolbarFilter } from "@/components/layout/toolbar-filter-context"
 import { CombinedImpactConfirmationDialog } from "@/components/ui/combined-impact-confirmation-dialog"
 import type { ImpactNodeId } from "@/lib/impact-graph"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useScrollDirection } from "@/hooks/use-scroll-direction"
-import { getToolbarConfig } from "@/lib/global-toolbar/config"
+import {
+  getToolbarConfig,
+  type ToolbarAction,
+} from "@/lib/global-toolbar/config"
 import { cn } from "@/lib/utils"
 
 import { GlobalToolbarSearch } from "./global-toolbar-search"
@@ -36,11 +40,13 @@ import { GlobalToolbarChat } from "./global-toolbar-chat"
 
 export function GlobalToolbar() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const isMobile = useIsMobile()
   const scrollDir = useScrollDirection()
   const config = getToolbarConfig(pathname)
   const isSaveMode = config.saveContext === "user-settings"
   const hidden = scrollDir === "down"
+  const { filter } = useToolbarFilter()
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
@@ -85,6 +91,13 @@ export function GlobalToolbar() {
             <MessageSquare className="h-4 w-4" />
           </ToolbarIconButton>
 
+          {isMobile && filter ? (
+            <>
+              <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+              <div className="flex items-center">{filter}</div>
+            </>
+          ) : null}
+
           <span className="mx-1 h-5 w-px bg-border" aria-hidden />
 
           {isSaveMode ? (
@@ -95,6 +108,8 @@ export function GlobalToolbar() {
               open={ctaOpen}
               onOpenChange={setCtaOpen}
               isMobile={isMobile}
+              pathname={pathname}
+              searchParams={searchParams}
             />
           )}
         </div>
@@ -137,17 +152,57 @@ function ToolbarIconButton({
   )
 }
 
+function getCtaTarget(
+  cta: ToolbarAction,
+  pathname: string,
+  searchParams: URLSearchParams | ReturnType<typeof useSearchParams>
+): string {
+  if (!cta.action) return cta.href
+
+  // Extract optional query from cta.href so a CTA can carry its own params
+  // (e.g. `?tab=ilp`) in addition to the dispatched action.
+  const [hrefPath, hrefQuery = ""] = cta.href.split("?")
+  const onSamePath = hrefPath === pathname
+
+  const params = onSamePath
+    ? new URLSearchParams(searchParams?.toString() ?? "")
+    : new URLSearchParams()
+
+  if (hrefQuery) {
+    for (const [key, value] of new URLSearchParams(hrefQuery)) {
+      params.set(key, value)
+    }
+  }
+  params.set("action", cta.action)
+
+  const targetPath = onSamePath ? pathname : hrefPath
+  return `${targetPath}?${params.toString()}`
+}
+
 function CtaButton({
   ctas,
   open,
   onOpenChange,
   isMobile,
+  pathname,
+  searchParams,
 }: {
   readonly ctas: ReturnType<typeof getToolbarConfig>["ctas"]
   readonly open: boolean
   readonly onOpenChange: (next: boolean) => void
   readonly isMobile: boolean
+  readonly pathname: string
+  readonly searchParams: ReturnType<typeof useSearchParams>
 }) {
+  const items = useMemo(
+    () =>
+      ctas.map((cta) => ({
+        cta,
+        target: getCtaTarget(cta, pathname, searchParams),
+      })),
+    [ctas, pathname, searchParams]
+  )
+
   if (ctas.length === 0) {
     return null
   }
@@ -176,10 +231,10 @@ function CtaButton({
             </DrawerDescription>
           </DrawerHeader>
           <div className="mx-auto flex w-full max-w-md flex-col gap-1 px-4 pb-4">
-            {ctas.map((cta) => (
+            {items.map(({ cta, target }) => (
               <DrawerClose asChild key={cta.id}>
                 <Link
-                  href={cta.href}
+                  href={target}
                   className="flex items-start gap-3 rounded-lg border bg-card px-3 py-3 text-sm transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
                 >
                   <cta.icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
@@ -216,10 +271,10 @@ function CtaButton({
           </PopoverDescription>
         </PopoverHeader>
         <div className="flex flex-col gap-1">
-          {ctas.map((cta) => (
+          {items.map(({ cta, target }) => (
             <Link
               key={cta.id}
-              href={cta.href}
+              href={target}
               onClick={() => onOpenChange(false)}
               className="flex items-start gap-3 rounded-md border bg-card px-3 py-2.5 text-sm transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
             >
