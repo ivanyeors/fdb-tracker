@@ -28,12 +28,21 @@ export function ProfileToggle() {
       onValueChange={handleValueChange}
     >
       <div className="min-w-0 overflow-x-auto no-scrollbar [-webkit-overflow-scrolling:touch] [overscroll-behavior-x:contain]">
-        <TabsList className="inline-flex h-7 w-fit flex-nowrap">
-          <TabsTrigger value="combined" className="text-xs shrink-0 px-2">
+        <TabsList className="inline-flex h-7 w-fit flex-nowrap" data-testid="profile-toggle">
+          <TabsTrigger
+            value="combined"
+            className="text-xs shrink-0 px-2"
+            data-testid="profile-tab-combined"
+          >
             Combined
           </TabsTrigger>
           {profiles.map((p) => (
-            <TabsTrigger key={p.id} value={p.id} className="text-xs shrink-0 px-2">
+            <TabsTrigger
+              key={p.id}
+              value={p.id}
+              className="text-xs shrink-0 px-2"
+              data-testid={`profile-tab-${p.id}`}
+            >
               {p.name}
             </TabsTrigger>
           ))}

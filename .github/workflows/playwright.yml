@@ -14,11 +14,38 @@ on:
         required: false
         default: "smoke"
 
+# Two PRs (or two pushes) hitting the same shared test Supabase project would race
+# on the schema reset + seed. Serialise by branch — only one workflow run at a time.
+concurrency:
+  group: playwright-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  db-setup:
+    name: db-setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+      TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Apply migrations to test DB (clean)
+        run: npx tsx scripts/migrate-supabase.ts --env=test --clean
+      - name: Seed test fixtures
+        run: npm run db:test:seed
+
   e2e:
     name: ${{ matrix.tier }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: [db-setup]
     strategy:
       fail-fast: false
       matrix:
@@ -75,12 +102,6 @@ jobs:
       - name: Install Playwright system deps (cache hit)
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
-
-      - name: Apply migrations to test DB (clean)
-        run: npx tsx scripts/migrate-supabase.ts --env=test --clean
-
-      - name: Seed test fixtures
-        run: npm run db:test:seed
 
       - name: Build app with test env
         run: npm run e2e:build

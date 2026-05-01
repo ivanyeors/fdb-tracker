@@ -49,15 +49,19 @@ export function MetricCard({
     )
   }
 
+  const slug = label.toLowerCase().replace(/\s+/g, "-")
   return (
-    <Card className={className}>
+    <Card className={className} data-testid={`metric-card-${slug}`}>
       <CardContent>
         <div className="flex items-center gap-1.5">
           <p className="truncate text-sm text-muted-foreground">{label}</p>
           {tooltipId && <InfoTooltip id={tooltipId} />}
           {source && <SourceBadge source={source} nodeId={sourceNodeId} />}
         </div>
-        <p className="mt-1 truncate text-2xl font-bold tracking-tight">
+        <p
+          className="mt-1 truncate text-2xl font-bold tracking-tight"
+          data-testid={`metric-value-${slug}`}
+        >
           {prefix}
           {(() => {
             if (typeof value !== "number") return value

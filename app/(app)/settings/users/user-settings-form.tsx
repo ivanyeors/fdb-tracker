@@ -316,12 +316,20 @@ function ScrollableTableWrapper({
   )
 }
 
-function EmptyState({ noun, onAdd }: { readonly noun: string; readonly onAdd?: () => void }) {
+function EmptyState({
+  noun,
+  onAdd,
+  "data-testid": testId,
+}: {
+  readonly noun: string
+  readonly onAdd?: () => void
+  readonly "data-testid"?: string
+}) {
   return (
     <div className="flex items-center justify-between rounded-lg border border-dashed p-4">
       <p className="text-sm text-muted-foreground">No {noun} yet.</p>
       {onAdd && (
-        <Button size="sm" variant="outline" onClick={onAdd}>
+        <Button size="sm" variant="outline" onClick={onAdd} data-testid={testId}>
           <Plus className="mr-1 h-4 w-4" />
           Add
         </Button>
@@ -1381,7 +1389,7 @@ function SavingsGoalsSection({
         if (!open) setMonthlyAutoManualOverride(false)
       }}
     >
-      <DialogContent>
+      <DialogContent data-testid="add-goal-dialog">
         <DialogHeader>
           <DialogTitle>Add savings goal</DialogTitle>
           <DialogDescription>Create a new savings goal for this profile.</DialogDescription>
@@ -1393,6 +1401,7 @@ function SavingsGoalsSection({
               placeholder="Goal name"
               value={newGoal.name}
               onChange={(e) => setNewGoal((p) => ({ ...p, name: e.target.value }))}
+              data-testid="add-goal-name"
             />
           </div>
           <div className="space-y-2">
@@ -1401,6 +1410,7 @@ function SavingsGoalsSection({
               placeholder="Target"
               value={newGoal.target_amount}
               onChange={(v) => setNewGoal((p) => ({ ...p, target_amount: v ?? 0 }))}
+              data-testid="add-goal-target"
             />
           </div>
           <div className="space-y-2">
@@ -1474,7 +1484,7 @@ function SavingsGoalsSection({
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleAdd} disabled={adding}>
+          <Button onClick={handleAdd} disabled={adding} data-testid="add-goal-submit">
             {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Add savings goal
           </Button>
@@ -1486,7 +1496,11 @@ function SavingsGoalsSection({
   if (goals.length === 0) {
     return (
       <>
-        <EmptyState noun="savings goals" onAdd={() => setAddOpen(true)} />
+        <EmptyState
+          noun="savings goals"
+          onAdd={() => setAddOpen(true)}
+          data-testid="add-goal-button-empty"
+        />
         {addGoalDialog}
       </>
     )
@@ -1637,7 +1651,13 @@ function SavingsGoalsSection({
         </TableBody>
       </Table>
       </ScrollableTableWrapper>
-      <Button size="sm" variant="outline" className="mt-3" onClick={() => setAddOpen(true)}>
+      <Button
+        size="sm"
+        variant="outline"
+        className="mt-3"
+        onClick={() => setAddOpen(true)}
+        data-testid="add-goal-button"
+      >
         <Plus className="h-4 w-4" /> Add savings goal
       </Button>
       {addGoalDialog}

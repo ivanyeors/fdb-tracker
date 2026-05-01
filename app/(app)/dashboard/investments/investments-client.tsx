@@ -1037,7 +1037,11 @@ export function InvestmentsClient({
                     Edit cash
                   </Button>
                 ) : null}
-                <Button type="button" onClick={() => setAddHoldingOpen(true)}>
+                <Button
+                  type="button"
+                  onClick={() => setAddHoldingOpen(true)}
+                  data-testid="add-holding-button"
+                >
                   Add holding
                 </Button>
               </div>
