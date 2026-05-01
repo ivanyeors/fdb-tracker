@@ -131,212 +131,264 @@ const CC_STOP_MARKERS = [
 
 // ── Bank Statement Parser ──
 
-export function parseOcbcBankStatement(pages: string[]): BankParseResult {
-  const transactions: ParsedTransaction[] = []
-  let accountNumber: string | null = null
-  let statementMonth: string | null = null
-  let openingBalance: number | null = null
-  let closingBalance: number | null = null
-  let totalWithdrawals: number | null = null
-  let totalDeposits: number | null = null
+type OcbcBankMetadata = {
+  accountNumber: string | null
+  statementMonth: string | null
+  stmtYear: number
+  stmtMonthNum: number
+  openingBalance: number | null
+  closingBalance: number | null
+  totalWithdrawals: number | null
+  totalDeposits: number | null
+}
 
-  // Extract metadata from all pages
-  const allText = pages.join("\n")
+type CurrentBankTxn = {
+  txnDate: string
+  valueDate: string
+  descLines: string[]
+  amount: number | null
+  balance: number | null
+  rawLines: string[]
+  foreignCurrency?: string
+}
 
-  const acctMatch = /Account No\.\s*(\d{10,})/.exec(allText)
-  if (acctMatch) accountNumber = acctMatch[1]
+const PERIOD_HEADER_RE =
+  /\d{1,2}\s+[A-Z]{3}\s+\d{4}\s+TO\s+\d{1,2}\s+[A-Z]{3}\s+\d{4}/i
 
+const FOREIGN_CCY_RE = /^(USD|EUR|GBP|JPY|AUD|CNY)\s+([\d,.]+)$/
+
+function extractOcbcBankPeriod(allText: string): {
+  statementMonth: string | null
+  stmtYear: number
+  stmtMonthNum: number
+} {
   const periodRe = new RegExp(
     String.raw`(\d{1,2})\s+(${MONTH_NAME_SRC})\s+(\d{4})\s+TO\s+(\d{1,2})\s+(${MONTH_NAME_SRC})\s+(\d{4})`,
     "i",
   )
-  const periodMatch = periodRe.exec(allText)
-  let stmtYear = new Date().getFullYear()
-  let stmtMonthNum = 1
-  if (periodMatch) {
-    const endMM = MONTH_MAP[periodMatch[5].toLowerCase()]
-    stmtYear = Number.parseInt(periodMatch[6])
-    stmtMonthNum = Number.parseInt(endMM || "1")
-    statementMonth = `${stmtYear}-${endMM}-01`
+  const match = periodRe.exec(allText)
+  if (!match) {
+    return {
+      statementMonth: null,
+      stmtYear: new Date().getFullYear(),
+      stmtMonthNum: 1,
+    }
   }
+  const endMM = MONTH_MAP[match[5].toLowerCase()]
+  const stmtYear = Number.parseInt(match[6])
+  const stmtMonthNum = Number.parseInt(endMM || "1")
+  return {
+    statementMonth: `${stmtYear}-${endMM}-01`,
+    stmtYear,
+    stmtMonthNum,
+  }
+}
 
-  // Parse BALANCE B/F
+function extractOcbcBankMetadata(allText: string): OcbcBankMetadata {
+  const acctMatch = /Account No\.\s*(\d{10,})/.exec(allText)
+  const period = extractOcbcBankPeriod(allText)
+
   const bfMatch = /([\d,]+\.\d{2})BALANCE B\/F/.exec(allText)
-  if (bfMatch) openingBalance = parseAmount(bfMatch[1])
-
-  // Parse BALANCE C/F
   const cfMatch = /([\d,]+\.\d{2})BALANCE C\/F/.exec(allText)
-  if (cfMatch) closingBalance = parseAmount(cfMatch[1])
-
-  // Parse totals
+  // Text appears as deposits followed by withdrawals mashed together,
+  // e.g. "3,726.912,088.60" → deposits=3726.91, withdrawals=2088.60.
   const totalsMatch =
     /Total Withdrawals\/Deposits[\s\S]*?([\d,]+\.\d{2})([\d,]+\.\d{2})/.exec(
-      allText
+      allText,
     )
-  if (totalsMatch) {
-    // In the text: "3,726.912,088.60" — deposits then withdrawals mashed together
-    // Actually from the extracted text: "3,726.912,088.60" means deposits=3726.91, withdrawals=2088.60
-    // But we need to check the order. From the PDF visual: Withdrawal column then Deposit column
-    // In the text it appears as: deposits amount + withdrawals amount (reversed from visual)
-    totalDeposits = parseAmount(totalsMatch[1])
-    totalWithdrawals = parseAmount(totalsMatch[2])
+
+  return {
+    accountNumber: acctMatch ? acctMatch[1] : null,
+    statementMonth: period.statementMonth,
+    stmtYear: period.stmtYear,
+    stmtMonthNum: period.stmtMonthNum,
+    openingBalance: bfMatch ? parseAmount(bfMatch[1]) : null,
+    closingBalance: cfMatch ? parseAmount(cfMatch[1]) : null,
+    totalDeposits: totalsMatch ? parseAmount(totalsMatch[1]) : null,
+    totalWithdrawals: totalsMatch ? parseAmount(totalsMatch[2]) : null,
+  }
+}
+
+function isLegendPage(lines: string[]): boolean {
+  return lines.some(
+    (l) => l.includes("TRANSACTION CODE") && l.includes("DESCRIPTION"),
+  )
+}
+
+function isSectionStartLine(trimmed: string): boolean {
+  return PERIOD_HEADER_RE.test(trimmed)
+}
+
+function buildBankTxnWithBalance(
+  txnMatch: RegExpExecArray,
+  trimmed: string,
+  bvdMatch: RegExpExecArray,
+  stmtYear: number,
+  stmtMonthNum: number,
+): CurrentBankTxn {
+  const dayStr = txnMatch[1]
+  const monthStr = txnMatch[2]
+  const rest = trimmed.slice(txnMatch[0].length)
+  const beforeBalance = rest.slice(0, rest.indexOf(bvdMatch[0]))
+  const amounts = [...beforeBalance.matchAll(AMOUNT_RE)]
+  const txnAmount = amounts.length > 0 ? parseAmount(amounts[0][1]) : null
+  return {
+    txnDate: resolveDateDDMMM(dayStr, monthStr, stmtYear, stmtMonthNum),
+    valueDate: resolveDateDDMMM(
+      bvdMatch[2],
+      bvdMatch[3],
+      stmtYear,
+      stmtMonthNum,
+    ),
+    descLines: bvdMatch[4].trim() ? [bvdMatch[4].trim()] : [],
+    amount: txnAmount,
+    balance: parseAmount(bvdMatch[1]),
+    rawLines: [trimmed],
+  }
+}
+
+function buildBankTxnFallback(
+  txnMatch: RegExpExecArray,
+  trimmed: string,
+  stmtYear: number,
+  stmtMonthNum: number,
+): CurrentBankTxn {
+  const dayStr = txnMatch[1]
+  const monthStr = txnMatch[2]
+  const rest = trimmed.slice(txnMatch[0].length)
+  const amounts = [...rest.matchAll(AMOUNT_RE)]
+  const date = resolveDateDDMMM(dayStr, monthStr, stmtYear, stmtMonthNum)
+  return {
+    txnDate: date,
+    valueDate: date,
+    descLines: [],
+    amount: amounts.length > 0 ? parseAmount(amounts[0][1]) : null,
+    balance: amounts.length > 1 ? parseAmount(amounts[1][1]) : null,
+    rawLines: [trimmed],
+  }
+}
+
+function buildBankTxnFromLine(
+  txnMatch: RegExpExecArray,
+  trimmed: string,
+  stmtYear: number,
+  stmtMonthNum: number,
+): CurrentBankTxn {
+  const rest = trimmed.slice(txnMatch[0].length)
+  const bvdMatch = BALANCE_VALUEDATE_DESC.exec(rest)
+  return bvdMatch
+    ? buildBankTxnWithBalance(txnMatch, trimmed, bvdMatch, stmtYear, stmtMonthNum)
+    : buildBankTxnFallback(txnMatch, trimmed, stmtYear, stmtMonthNum)
+}
+
+function appendBankContinuation(
+  currentTxn: CurrentBankTxn,
+  trimmed: string,
+): void {
+  currentTxn.rawLines.push(trimmed)
+  const fcyMatch = FOREIGN_CCY_RE.exec(trimmed)
+  if (fcyMatch) {
+    currentTxn.foreignCurrency = `${fcyMatch[1]} ${fcyMatch[2]}`
+  } else {
+    currentTxn.descLines.push(trimmed)
+  }
+}
+
+type BankLineState = {
+  inSection: boolean
+  currentTxn: CurrentBankTxn | null
+  prevBalance: number | null
+}
+
+function flushCurrentTxn(
+  state: BankLineState,
+  out: ParsedTransaction[],
+  stmtYear: number,
+  stmtMonthNum: number,
+): void {
+  if (!state.currentTxn) return
+  out.push(finalizeBankTxn(state.currentTxn, stmtYear, stmtMonthNum, state.prevBalance))
+  state.prevBalance = state.currentTxn.balance ?? state.prevBalance
+  state.currentTxn = null
+}
+
+function handleOcbcBankLine(
+  trimmed: string,
+  state: BankLineState,
+  out: ParsedTransaction[],
+  stmtYear: number,
+  stmtMonthNum: number,
+): void {
+  if (isSectionStartLine(trimmed)) {
+    state.inSection = true
+    return
+  }
+  if (!state.inSection) return
+  if (trimmed.includes("BALANCE B/F")) return
+
+  const upper = trimmed.toUpperCase()
+  if (BANK_STOP_MARKERS.some((m) => upper.includes(m.toUpperCase()))) {
+    flushCurrentTxn(state, out, stmtYear, stmtMonthNum)
+    state.inSection = false
+    return
+  }
+  if (BANK_SKIP_MARKERS.some((m) => trimmed.includes(m))) return
+
+  const txnMatch = BANK_TXN_START.exec(trimmed)
+  if (txnMatch) {
+    flushCurrentTxn(state, out, stmtYear, stmtMonthNum)
+    state.currentTxn = buildBankTxnFromLine(
+      txnMatch,
+      trimmed,
+      stmtYear,
+      stmtMonthNum,
+    )
+    return
   }
 
-  // Process each page for transactions
-  let currentTxn: {
-    txnDate: string
-    valueDate: string
-    descLines: string[]
-    amount: number | null
-    balance: number | null
-    rawLines: string[]
-    foreignCurrency?: string
-  } | null = null
-  let prevBalance = openingBalance
+  if (state.currentTxn) appendBankContinuation(state.currentTxn, trimmed)
+}
+
+function parseOcbcBankTransactions(
+  pages: string[],
+  meta: OcbcBankMetadata,
+): ParsedTransaction[] {
+  const out: ParsedTransaction[] = []
+  const state: BankLineState = {
+    inSection: false,
+    currentTxn: null,
+    prevBalance: meta.openingBalance,
+  }
 
   for (const page of pages) {
     const lines = page.split("\n")
-
-    // Skip the transaction code legend page (page 2 of 4-page stmts)
-    const isLegendPage = lines.some(
-      (l) =>
-        l.includes("TRANSACTION CODE") && l.includes("DESCRIPTION")
-    )
-    if (isLegendPage) continue
-
-    let inTransactionSection = false
-
+    if (isLegendPage(lines)) continue
+    state.inSection = false
     for (const line of lines) {
       const trimmed = line.trim()
       if (!trimmed) continue
-
-      // Check for transaction section start (after header)
-      if (
-        trimmed.includes("JAN 2026 TO") ||
-        trimmed.includes("FEB 2026 TO") ||
-        trimmed.includes("MAR 2026 TO") ||
-        trimmed.includes("NOV 2025 TO") ||
-        trimmed.includes("DEC 2025 TO") ||
-        /\d{1,2}\s+[A-Z]{3}\s+\d{4}\s+TO\s+\d{1,2}\s+[A-Z]{3}\s+\d{4}/i.test(
-          trimmed
-        )
-      ) {
-        inTransactionSection = true
-        continue
-      }
-
-      // Skip non-transaction lines
-      if (!inTransactionSection) continue
-
-      // Check for BALANCE B/F line
-      if (trimmed.includes("BALANCE B/F")) continue
-
-      // Check for stop markers
-      if (
-        BANK_STOP_MARKERS.some((m) =>
-          trimmed.toUpperCase().includes(m.toUpperCase())
-        )
-      ) {
-        // Flush current transaction
-        if (currentTxn) {
-          transactions.push(finalizeBankTxn(currentTxn, stmtYear, stmtMonthNum, prevBalance))
-          prevBalance = currentTxn.balance ?? prevBalance
-          currentTxn = null
-        }
-        inTransactionSection = false
-        continue
-      }
-
-      // Skip page header/noise lines
-      if (
-        BANK_SKIP_MARKERS.some((m) =>
-          trimmed.includes(m)
-        )
-      ) {
-        continue
-      }
-
-      // Try to match a transaction start line
-      const txnMatch = BANK_TXN_START.exec(trimmed)
-      if (txnMatch) {
-        // Flush previous transaction
-        if (currentTxn) {
-          transactions.push(finalizeBankTxn(currentTxn, stmtYear, stmtMonthNum, prevBalance))
-          prevBalance = currentTxn.balance ?? prevBalance
-        }
-
-        // Parse the transaction start line
-        // Format: "DD MMM [amount?] balance[DD MMM] description"
-        const dayStr = txnMatch[1]
-        const monthStr = txnMatch[2]
-        const rest = trimmed.slice(txnMatch[0].length)
-
-        // Try to match: amount balance+valueDate description
-        const bvdMatch = BALANCE_VALUEDATE_DESC.exec(rest)
-        if (bvdMatch) {
-          // Has amount(s) before the balance+valueDate
-          const beforeBalance = rest.slice(0, rest.indexOf(bvdMatch[0]))
-          const amounts = [...beforeBalance.matchAll(AMOUNT_RE)]
-          const txnAmount =
-            amounts.length > 0
-              ? parseAmount(amounts[0][1])
-              : null
-          const balance = parseAmount(bvdMatch[1])
-          const vDay = bvdMatch[2]
-          const vMonth = bvdMatch[3]
-          const desc = bvdMatch[4].trim()
-
-          currentTxn = {
-            txnDate: resolveDateDDMMM(dayStr, monthStr, stmtYear, stmtMonthNum),
-            valueDate: resolveDateDDMMM(vDay, vMonth, stmtYear, stmtMonthNum),
-            descLines: desc ? [desc] : [],
-            amount: txnAmount,
-            balance,
-            rawLines: [trimmed],
-          }
-        } else {
-          // Fallback: just amounts on the line
-          const amounts = [...rest.matchAll(AMOUNT_RE)]
-          currentTxn = {
-            txnDate: resolveDateDDMMM(dayStr, monthStr, stmtYear, stmtMonthNum),
-            valueDate: resolveDateDDMMM(dayStr, monthStr, stmtYear, stmtMonthNum),
-            descLines: [],
-            amount:
-              amounts.length > 0 ? parseAmount(amounts[0][1]) : null,
-            balance:
-              amounts.length > 1 ? parseAmount(amounts[1][1]) : null,
-            rawLines: [trimmed],
-          }
-        }
-      } else if (currentTxn) {
-        // Continuation line — append to description
-        currentTxn.rawLines.push(trimmed)
-
-        // Check for foreign currency
-        const fcyMatch = /^(USD|EUR|GBP|JPY|AUD|CNY)\s+([\d,.]+)$/.exec(trimmed)
-        if (fcyMatch) {
-          currentTxn.foreignCurrency = `${fcyMatch[1]} ${fcyMatch[2]}`
-        } else {
-          currentTxn.descLines.push(trimmed)
-        }
-      }
+      handleOcbcBankLine(trimmed, state, out, meta.stmtYear, meta.stmtMonthNum)
     }
   }
 
-  // Flush final transaction
-  if (currentTxn) {
-    transactions.push(finalizeBankTxn(currentTxn, stmtYear, stmtMonthNum, prevBalance))
-  }
+  flushCurrentTxn(state, out, meta.stmtYear, meta.stmtMonthNum)
+  return out
+}
+
+export function parseOcbcBankStatement(pages: string[]): BankParseResult {
+  const allText = pages.join("\n")
+  const meta = extractOcbcBankMetadata(allText)
+  const transactions = parseOcbcBankTransactions(pages, meta)
 
   return {
     layout: "bank",
     transactions,
-    accountNumber,
-    statementMonth,
-    openingBalance,
-    closingBalance,
-    totalWithdrawals,
-    totalDeposits,
+    accountNumber: meta.accountNumber,
+    statementMonth: meta.statementMonth,
+    openingBalance: meta.openingBalance,
+    closingBalance: meta.closingBalance,
+    totalWithdrawals: meta.totalWithdrawals,
+    totalDeposits: meta.totalDeposits,
   }
 }
 
