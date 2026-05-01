@@ -239,361 +239,487 @@ async function generateMessage(
   }
 }
 
+type SupabaseAdmin = ReturnType<typeof createSupabaseAdmin>
+
+type DecodedProfile = {
+  id: string
+  name: string
+  telegram_chat_id: string | null
+}
+
+type Schedule = {
+  id: string
+  family_id: string
+  prompt_type: string
+  frequency: string
+  day_of_month: number
+  month_of_year: number | null
+  time: string
+  timezone: string
+}
+
+type NotificationPref = {
+  profile_id: string
+  enabled: boolean
+  day_of_month: number | null
+  month_of_year: number | null
+  time: string | null
+  timezone: string | null
+}
+
+type CustomPref = {
+  profile_id: string
+  notification_type: string
+  day_of_month: number | null
+  month_of_year: number | null
+  time: string | null
+  timezone: string | null
+}
+
+type Pass = { sent: number; errors: string[] }
+
+function decodeProfileRow(p: {
+  id: string
+  name: string | null
+  name_enc?: string | null
+  telegram_chat_id: string | null
+  telegram_chat_id_enc?: string | null
+}): DecodedProfile {
+  const decoded = decodeProfilePii(p)
+  return {
+    id: p.id,
+    name: decoded.name ?? p.name ?? "",
+    telegram_chat_id: decoded.telegram_chat_id ?? p.telegram_chat_id ?? null,
+  }
+}
+
+function effectivePromptType(schedule: Schedule): string {
+  if (schedule.prompt_type === "income") return `income_${schedule.frequency}`
+  if (schedule.prompt_type === "insurance") return `insurance_${schedule.frequency}`
+  if (schedule.prompt_type === "tax") return "tax_yearly"
+  return schedule.prompt_type
+}
+
+function customPrefMatchesNow(
+  pref: { day_of_month: number | null; month_of_year: number | null; time: string | null },
+  now: ReturnType<typeof nowInTimezone>,
+): boolean {
+  if (pref.day_of_month !== null && now.day !== pref.day_of_month) return false
+  if (pref.month_of_year !== null && now.month !== pref.month_of_year) return false
+  if (pref.time !== null) {
+    const prefHour = Number(pref.time.split(":")[0])
+    if (now.hour !== prefHour) return false
+  }
+  return true
+}
+
+function isProfileEnabledForSchedule(
+  pref: NotificationPref | undefined,
+  schedule: Schedule,
+): boolean {
+  if (!pref) return true
+  if (!pref.enabled) return false
+  const hasOverride =
+    pref.day_of_month !== null ||
+    pref.time !== null ||
+    pref.month_of_year !== null
+  if (!hasOverride) return true
+  const tz = pref.timezone ?? schedule.timezone
+  return customPrefMatchesNow(pref, nowInTimezone(tz))
+}
+
+async function loadHouseholdConfig(
+  supabase: SupabaseAdmin,
+  householdId: string,
+): Promise<{ chatId: string; botToken: string } | null> {
+  const { data: account } = await supabase
+    .from("households")
+    .select("telegram_chat_id, telegram_bot_token, telegram_bot_token_enc")
+    .eq("id", householdId)
+    .single()
+  const botToken = account ? decryptBotToken(account) : null
+  if (!account?.telegram_chat_id || !botToken) return null
+  return { chatId: account.telegram_chat_id, botToken }
+}
+
+async function loadFamilyProfiles(
+  supabase: SupabaseAdmin,
+  familyId: string,
+): Promise<DecodedProfile[]> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, name, name_enc, telegram_chat_id, telegram_chat_id_enc")
+    .eq("family_id", familyId)
+  return (data ?? []).map(decodeProfileRow)
+}
+
+async function loadProfilePrefs(
+  supabase: SupabaseAdmin,
+  profileIds: string[],
+  notificationType: string,
+): Promise<Map<string, NotificationPref>> {
+  if (profileIds.length === 0) return new Map()
+  const { data } = await supabase
+    .from("notification_preferences")
+    .select("profile_id, enabled, day_of_month, month_of_year, time, timezone")
+    .in("profile_id", profileIds)
+    .eq("notification_type", notificationType)
+  return new Map((data ?? []).map((p) => [p.profile_id, p as NotificationPref]))
+}
+
+function pickChatTargets(
+  enabledProfiles: DecodedProfile[],
+  fallbackChatId: string,
+): Array<{ id: string; chatId: string }> {
+  const profileChats = enabledProfiles
+    .filter((p) => p.telegram_chat_id)
+    .map((p) => ({ id: p.id, chatId: p.telegram_chat_id as string }))
+  const targets =
+    profileChats.length > 0
+      ? profileChats
+      : enabledProfiles.map((p) => ({ id: p.id, chatId: fallbackChatId }))
+  return [...new Map(targets.map((t) => [t.chatId, t])).values()]
+}
+
+async function processSchedule(
+  supabase: SupabaseAdmin,
+  schedule: Schedule,
+  dashboardUrl: string,
+  alreadySent: Set<string>,
+  pass: Pass,
+): Promise<void> {
+  const { fire, now } = shouldFire(schedule)
+  if (!fire) return
+
+  const { data: family } = await supabase
+    .from("families")
+    .select("household_id")
+    .eq("id", schedule.family_id)
+    .single()
+  if (!family) {
+    pass.errors.push(`${schedule.id}: family not found`)
+    return
+  }
+
+  const householdConfig = await loadHouseholdConfig(supabase, family.household_id)
+  if (!householdConfig) {
+    pass.errors.push(`${schedule.id}: account missing telegram config`)
+    return
+  }
+
+  const profiles = await loadFamilyProfiles(supabase, schedule.family_id)
+  const promptType = effectivePromptType(schedule)
+  const message = await generateMessage(
+    promptType,
+    family.household_id,
+    now,
+    { profiles, dashboardUrl },
+  )
+  if (!message) {
+    pass.errors.push(`${schedule.id}: unknown prompt_type '${schedule.prompt_type}'`)
+    return
+  }
+
+  const prefByProfile = await loadProfilePrefs(
+    supabase,
+    profiles.map((p) => p.id),
+    promptType,
+  )
+  const enabledProfiles = profiles.filter((p) =>
+    isProfileEnabledForSchedule(prefByProfile.get(p.id), schedule),
+  )
+  if (enabledProfiles.length === 0) return
+
+  const targets = pickChatTargets(enabledProfiles, householdConfig.chatId)
+  for (const target of targets) {
+    const result = await sendTelegramMessage(
+      householdConfig.botToken,
+      target.chatId,
+      message,
+    )
+    if (result.ok) {
+      pass.sent++
+      console.log("[reminders] sent", {
+        schedule_id: schedule.id,
+        profile_id: target.id,
+        prompt_type: promptType,
+      })
+    } else {
+      pass.errors.push(`${schedule.id}: ${result.error}`)
+    }
+  }
+
+  for (const p of enabledProfiles) {
+    alreadySent.add(`${p.id}:${promptType}`)
+  }
+}
+
+async function runScheduledRemindersPass(
+  supabase: SupabaseAdmin,
+  dashboardUrl: string,
+  alreadySent: Set<string>,
+): Promise<Pass | { error: string }> {
+  const { data: schedules, error } = await supabase
+    .from("prompt_schedule")
+    .select(
+      "id, family_id, prompt_type, frequency, day_of_month, month_of_year, time, timezone",
+    )
+  if (error || !schedules) return { error: "Failed to fetch schedules" }
+
+  const pass: Pass = { sent: 0, errors: [] }
+  for (const schedule of schedules) {
+    await processSchedule(
+      supabase,
+      schedule as Schedule,
+      dashboardUrl,
+      alreadySent,
+      pass,
+    )
+  }
+  return pass
+}
+
+async function processCustomPref(
+  supabase: SupabaseAdmin,
+  cp: CustomPref,
+  dashboardUrl: string,
+  alreadySent: Set<string>,
+  pass: Pass,
+): Promise<void> {
+  const key = `${cp.profile_id}:${cp.notification_type}`
+  if (alreadySent.has(key)) return
+
+  const tz = cp.timezone ?? "Asia/Singapore"
+  const now = nowInTimezone(tz)
+  if (!customPrefMatchesNow(cp, now)) return
+
+  const { data: profRow } = await supabase
+    .from("profiles")
+    .select(
+      "id, name, name_enc, telegram_chat_id, telegram_chat_id_enc, family_id",
+    )
+    .eq("id", cp.profile_id)
+    .single()
+  if (!profRow) return
+
+  const prof = { ...decodeProfileRow(profRow), family_id: profRow.family_id }
+
+  const { data: fam } = await supabase
+    .from("families")
+    .select("household_id")
+    .eq("id", prof.family_id)
+    .single()
+  if (!fam) return
+
+  const householdConfig = await loadHouseholdConfig(supabase, fam.household_id)
+  if (!householdConfig) return
+
+  const message = await generateMessage(
+    cp.notification_type,
+    fam.household_id,
+    now,
+    { profiles: [{ id: prof.id, name: prof.name }], dashboardUrl },
+  )
+  if (!message) return
+
+  const chatTarget = prof.telegram_chat_id ?? householdConfig.chatId
+  const result = await sendTelegramMessage(
+    householdConfig.botToken,
+    chatTarget,
+    message,
+  )
+  if (result.ok) {
+    pass.sent++
+    console.log("[reminders] sent", {
+      schedule_id: `custom:${cp.profile_id}`,
+      profile_id: cp.profile_id,
+      prompt_type: cp.notification_type,
+    })
+  } else {
+    pass.errors.push(
+      `custom:${cp.profile_id}:${cp.notification_type}: ${result.error}`,
+    )
+  }
+  alreadySent.add(key)
+}
+
+async function runCustomPrefRemindersPass(
+  supabase: SupabaseAdmin,
+  dashboardUrl: string,
+  alreadySent: Set<string>,
+): Promise<Pass> {
+  const { data: customPrefs } = await supabase
+    .from("notification_preferences")
+    .select(
+      "profile_id, notification_type, day_of_month, month_of_year, time, timezone",
+    )
+    .eq("enabled", true)
+    .not("day_of_month", "is", null)
+
+  const pass: Pass = { sent: 0, errors: [] }
+  for (const cp of customPrefs ?? []) {
+    await processCustomPref(
+      supabase,
+      cp as CustomPref,
+      dashboardUrl,
+      alreadySent,
+      pass,
+    )
+  }
+  return pass
+}
+
+async function loadHouseholdSeasonalityProfiles(
+  supabase: SupabaseAdmin,
+  householdId: string,
+): Promise<Array<{ id: string; telegram_chat_id: string | null }>> {
+  const { data: families } = await supabase
+    .from("families")
+    .select("id")
+    .eq("household_id", householdId)
+  const familyIds = (families ?? []).map((f) => f.id)
+  if (familyIds.length === 0) return []
+
+  const { data: rawProfiles } = await supabase
+    .from("profiles")
+    .select("id, telegram_chat_id, telegram_chat_id_enc")
+    .in("family_id", familyIds)
+  return (rawProfiles ?? []).map((p) => ({
+    id: p.id,
+    telegram_chat_id:
+      decodeProfilePii(p).telegram_chat_id ?? p.telegram_chat_id ?? null,
+  }))
+}
+
+async function loadSeasonalityDisabledIds(
+  supabase: SupabaseAdmin,
+  profileIds: string[],
+): Promise<Set<string>> {
+  if (profileIds.length === 0) return new Set()
+  const { data } = await supabase
+    .from("notification_preferences")
+    .select("profile_id")
+    .in("profile_id", profileIds)
+    .eq("notification_type", "seasonality_weekly")
+    .eq("enabled", false)
+  return new Set((data ?? []).map((p) => p.profile_id))
+}
+
+async function sendSeasonalityToHousehold(
+  supabase: SupabaseAdmin,
+  hh: {
+    id: string
+    telegram_chat_id: string | null
+    telegram_bot_token: string | null
+    telegram_bot_token_enc: string | null
+  },
+  seasonalityMsg: string,
+  pass: Pass,
+): Promise<void> {
+  const hhBotToken = decryptBotToken(hh)
+  if (!hhBotToken) return
+
+  const profiles = await loadHouseholdSeasonalityProfiles(supabase, hh.id)
+  const disabledIds = await loadSeasonalityDisabledIds(
+    supabase,
+    profiles.map((p) => p.id),
+  )
+  const enabled = profiles.filter((p) => !disabledIds.has(p.id))
+  if (enabled.length === 0) return
+
+  const profileChats = enabled
+    .filter((p) => p.telegram_chat_id)
+    .map((p) => p.telegram_chat_id as string)
+  const targets =
+    profileChats.length > 0
+      ? [...new Set(profileChats)]
+      : [hh.telegram_chat_id as string]
+
+  for (const chatTarget of targets) {
+    const result = await sendTelegramMessage(hhBotToken, chatTarget, seasonalityMsg)
+    if (result.ok) {
+      pass.sent++
+      console.log("[reminders] sent", {
+        schedule_id: `seasonality:${hh.id}`,
+        profile_id: null,
+        prompt_type: "seasonality_weekly",
+      })
+    } else {
+      pass.errors.push(`seasonality:${hh.id}: ${result.error}`)
+    }
+  }
+}
+
+async function runSeasonalityDigestPass(
+  supabase: SupabaseAdmin,
+  dashboardUrl: string,
+  today: Date,
+): Promise<Pass> {
+  const pass: Pass = { sent: 0, errors: [] }
+  if (today.getUTCDay() !== 1) return pass
+
+  const seasonalityMsg = seasonalityReminder(
+    getActiveEvents(today),
+    getUpcomingEvents(today, 7),
+    dashboardUrl,
+  )
+  if (!seasonalityMsg) return pass
+
+  // Read both plaintext and encrypted columns; decrypt at use site.
+  // Filter by either being non-null so newly-encrypted-only rows still match.
+  const { data: households } = await supabase
+    .from("households")
+    .select("id, telegram_chat_id, telegram_bot_token, telegram_bot_token_enc")
+    .not("telegram_chat_id", "is", null)
+    .or("telegram_bot_token.not.is.null,telegram_bot_token_enc.not.is.null")
+
+  for (const hh of households ?? []) {
+    await sendSeasonalityToHousehold(supabase, hh, seasonalityMsg, pass)
+  }
+  return pass
+}
+
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
     const cronSecret = process.env.CRON_SECRET
-
     if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const supabase = createSupabaseAdmin()
-    const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://dollar.ivanyeo.com"
-
-    const { data: schedules, error: schedError } = await supabase
-      .from("prompt_schedule")
-      .select("id, family_id, prompt_type, frequency, day_of_month, month_of_year, time, timezone")
-
-    if (schedError || !schedules) {
-      return NextResponse.json({ error: "Failed to fetch schedules" }, { status: 500 })
-    }
-
-    let sent = 0
-    const errors: string[] = []
-    // Track profiles already notified (profile_id:notification_type) to avoid duplicates
+    const dashboardUrl =
+      process.env.NEXT_PUBLIC_APP_URL ?? "https://dollar.ivanyeo.com"
     const alreadySent = new Set<string>()
 
-    for (const schedule of schedules) {
-      const { fire, now } = shouldFire(schedule)
-      if (!fire) continue
-
-      const { data: family } = await supabase
-        .from("families")
-        .select("household_id")
-        .eq("id", schedule.family_id)
-        .single()
-
-      if (!family) {
-        errors.push(`${schedule.id}: family not found`)
-        continue
-      }
-
-      const { data: account } = await supabase
-        .from("households")
-        .select("telegram_chat_id, telegram_bot_token, telegram_bot_token_enc")
-        .eq("id", family.household_id)
-        .single()
-
-      const accountBotToken = account ? decryptBotToken(account) : null
-      if (!account?.telegram_chat_id || !accountBotToken) {
-        errors.push(`${schedule.id}: account missing telegram config`)
-        continue
-      }
-
-      const { data: rawProfiles } = await supabase
-        .from("profiles")
-        .select(
-          "id, name, name_enc, telegram_chat_id, telegram_chat_id_enc",
-        )
-        .eq("family_id", schedule.family_id)
-
-      const profiles = (rawProfiles ?? []).map((p) => {
-        const decoded = decodeProfilePii(p)
-        return {
-          id: p.id,
-          name: decoded.name ?? p.name ?? "",
-          telegram_chat_id: decoded.telegram_chat_id ?? p.telegram_chat_id ?? null,
-        }
-      })
-
-      const ctx: ReminderContext = {
-        profiles,
-        dashboardUrl,
-      }
-
-      const effectivePromptType = (() => {
-        if (schedule.prompt_type === "income") return `income_${schedule.frequency}`
-        if (schedule.prompt_type === "insurance") return `insurance_${schedule.frequency}`
-        if (schedule.prompt_type === "tax") return "tax_yearly"
-        return schedule.prompt_type
-      })()
-
-      const message = await generateMessage(
-        effectivePromptType,
-        family.household_id,
-        now,
-        ctx,
-      )
-
-      if (!message) {
-        errors.push(`${schedule.id}: unknown prompt_type '${schedule.prompt_type}'`)
-        continue
-      }
-
-      // Check per-profile notification preferences (no row = enabled, no schedule = use family default)
-      const profileIds = (profiles ?? []).map((p) => p.id)
-      const { data: prefRows } =
-        profileIds.length > 0
-          ? await supabase
-              .from("notification_preferences")
-              .select("profile_id, enabled, day_of_month, month_of_year, time, timezone")
-              .in("profile_id", profileIds)
-              .eq("notification_type", effectivePromptType)
-          : { data: [] }
-
-      const prefByProfile = new Map(
-        (prefRows ?? []).map((p) => [p.profile_id, p]),
-      )
-
-      // Filter profiles: check enabled flag + per-profile schedule override
-      const enabledProfiles = (profiles ?? []).filter((p) => {
-        const pref = prefByProfile.get(p.id)
-        // No row = enabled, use family schedule (already passed shouldFire)
-        if (!pref) return true
-        // Explicitly disabled
-        if (!pref.enabled) return false
-        // Has custom schedule? Check if it fires now instead of family schedule
-        if (pref.day_of_month !== null || pref.time !== null || pref.month_of_year !== null) {
-          const tz = pref.timezone ?? schedule.timezone
-          const profileNow = nowInTimezone(tz)
-          if (pref.day_of_month !== null && profileNow.day !== pref.day_of_month) return false
-          if (pref.month_of_year !== null && profileNow.month !== pref.month_of_year) return false
-          // time check: only compare hour (cron runs once per hour window)
-          if (pref.time !== null) {
-            const prefHour = Number(pref.time.split(":")[0])
-            if (profileNow.hour !== prefHour) return false
-          }
-        }
-        return true
-      })
-
-      // If all profiles opted out or not scheduled now, skip entirely
-      if (enabledProfiles.length === 0) {
-        continue
-      }
-
-      const profileChats = enabledProfiles
-        .filter((p) => p.telegram_chat_id)
-        .map((p) => ({ id: p.id, chatId: p.telegram_chat_id as string }))
-
-      const chatTargets =
-        profileChats.length > 0
-          ? profileChats
-          : enabledProfiles.map((p) => ({ id: p.id, chatId: account.telegram_chat_id! }))
-
-      const uniqueChats = [...new Map(chatTargets.map((t) => [t.chatId, t])).values()]
-
-      for (const target of uniqueChats) {
-        const result = await sendTelegramMessage(
-          accountBotToken,
-          target.chatId,
-          message,
-        )
-
-        if (result.ok) {
-          sent++
-          console.log("[reminders] sent", {
-            schedule_id: schedule.id,
-            profile_id: target.id,
-            prompt_type: effectivePromptType,
-          })
-        } else {
-          errors.push(`${schedule.id}: ${result.error}`)
-        }
-      }
-
-      // Mark these profiles as sent for this notification type
-      for (const p of enabledProfiles) {
-        alreadySent.add(`${p.id}:${effectivePromptType}`)
-      }
+    const scheduledPass = await runScheduledRemindersPass(
+      supabase,
+      dashboardUrl,
+      alreadySent,
+    )
+    if ("error" in scheduledPass) {
+      return NextResponse.json({ error: scheduledPass.error }, { status: 500 })
     }
 
-    // --- Second pass: profiles with custom schedules that fire NOW ---
-    // These are profiles whose family schedule did NOT fire today, but their
-    // custom day/time/month matches today.
-    const { data: customPrefs } = await supabase
-      .from("notification_preferences")
-      .select("profile_id, notification_type, day_of_month, month_of_year, time, timezone")
-      .eq("enabled", true)
-      .not("day_of_month", "is", null)
+    const customPass = await runCustomPrefRemindersPass(
+      supabase,
+      dashboardUrl,
+      alreadySent,
+    )
+    const seasonalityPass = await runSeasonalityDigestPass(
+      supabase,
+      dashboardUrl,
+      new Date(),
+    )
 
-    for (const cp of customPrefs ?? []) {
-      const key = `${cp.profile_id}:${cp.notification_type}`
-      if (alreadySent.has(key)) continue
-
-      const tz = cp.timezone ?? "Asia/Singapore"
-      const now = nowInTimezone(tz)
-      if (cp.day_of_month !== null && now.day !== cp.day_of_month) continue
-      if (cp.month_of_year !== null && now.month !== cp.month_of_year) continue
-      if (cp.time !== null) {
-        const h = Number(cp.time.split(":")[0])
-        if (now.hour !== h) continue
-      }
-
-      // Fetch profile + household info
-      const { data: profRow } = await supabase
-        .from("profiles")
-        .select(
-          "id, name, name_enc, telegram_chat_id, telegram_chat_id_enc, family_id",
-        )
-        .eq("id", cp.profile_id)
-        .single()
-      if (!profRow) continue
-      const profDecoded = decodeProfilePii(profRow)
-      const prof = {
-        id: profRow.id,
-        name: profDecoded.name ?? profRow.name ?? "",
-        telegram_chat_id: profDecoded.telegram_chat_id ?? profRow.telegram_chat_id ?? null,
-        family_id: profRow.family_id,
-      }
-
-      const { data: fam } = await supabase
-        .from("families")
-        .select("household_id")
-        .eq("id", prof.family_id)
-        .single()
-      if (!fam) continue
-
-      const { data: hh } = await supabase
-        .from("households")
-        .select("telegram_chat_id, telegram_bot_token, telegram_bot_token_enc")
-        .eq("id", fam.household_id)
-        .single()
-      const hhBotToken = hh ? decryptBotToken(hh) : null
-      if (!hhBotToken || !hh?.telegram_chat_id) continue
-
-      const ctx: ReminderContext = {
-        profiles: [{ id: prof.id, name: prof.name }],
-        dashboardUrl,
-      }
-
-      const message = await generateMessage(
-        cp.notification_type,
-        fam.household_id,
-        now,
-        ctx,
-      )
-      if (!message) continue
-
-      const chatTarget = prof.telegram_chat_id ?? hh.telegram_chat_id
-      const result = await sendTelegramMessage(
-        hhBotToken,
-        chatTarget,
-        message,
-      )
-
-      if (result.ok) {
-        sent++
-        console.log("[reminders] sent", {
-          schedule_id: `custom:${cp.profile_id}`,
-          profile_id: cp.profile_id,
-          prompt_type: cp.notification_type,
-        })
-      } else {
-        errors.push(`custom:${cp.profile_id}:${cp.notification_type}: ${result.error}`)
-      }
-
-      alreadySent.add(key)
-    }
-
-    // --- Weekly Monday seasonality digest ---
-    const today = new Date()
-    if (today.getUTCDay() === 1) {
-      const active = getActiveEvents(today)
-      const upcoming = getUpcomingEvents(today, 7)
-      const seasonalityMsg = seasonalityReminder(
-        active,
-        upcoming,
-        dashboardUrl,
-      )
-
-      if (seasonalityMsg) {
-        // Read both plaintext and encrypted columns; decrypt at use site.
-        // Filter by either being non-null so newly-encrypted-only rows still match.
-        const { data: households } = await supabase
-          .from("households")
-          .select(
-            "id, telegram_chat_id, telegram_bot_token, telegram_bot_token_enc",
-          )
-          .not("telegram_chat_id", "is", null)
-          .or("telegram_bot_token.not.is.null,telegram_bot_token_enc.not.is.null")
-
-        for (const hh of households ?? []) {
-          const hhBotToken = decryptBotToken(hh)
-          if (!hhBotToken) continue
-          const { data: families } = await supabase
-            .from("families")
-            .select("id")
-            .eq("household_id", hh.id)
-
-          const familyIds = (families ?? []).map((f) => f.id)
-          const { data: rawHhProfiles } = familyIds.length > 0
-            ? await supabase
-                .from("profiles")
-                .select("id, telegram_chat_id, telegram_chat_id_enc")
-                .in("family_id", familyIds)
-            : { data: [] as { id: string; telegram_chat_id: string | null; telegram_chat_id_enc: string | null }[] }
-          const hhProfiles = (rawHhProfiles ?? []).map((p) => ({
-            id: p.id,
-            telegram_chat_id:
-              decodeProfilePii(p).telegram_chat_id ?? p.telegram_chat_id ?? null,
-          }))
-
-          // Check per-profile opt-outs for seasonality
-          const hhProfileIds = (hhProfiles ?? []).map((p) => p.id)
-          const { data: seasonDisabled } =
-            hhProfileIds.length > 0
-              ? await supabase
-                  .from("notification_preferences")
-                  .select("profile_id")
-                  .in("profile_id", hhProfileIds)
-                  .eq("notification_type", "seasonality_weekly")
-                  .eq("enabled", false)
-              : { data: [] }
-
-          const disabledSeasonIds = new Set(
-            (seasonDisabled ?? []).map((p) => p.profile_id),
-          )
-
-          const enabledHhProfiles = (hhProfiles ?? []).filter(
-            (p) => !disabledSeasonIds.has(p.id),
-          )
-
-          // If all profiles opted out, skip this household
-          if (enabledHhProfiles.length === 0) continue
-
-          const profileChats = enabledHhProfiles
-            .filter((p) => p.telegram_chat_id)
-            .map((p) => p.telegram_chat_id as string)
-
-          const targets =
-            profileChats.length > 0
-              ? [...new Set(profileChats)]
-              : [hh.telegram_chat_id as string]
-
-          for (const chatTarget of targets) {
-            const result = await sendTelegramMessage(
-              hhBotToken,
-              chatTarget,
-              seasonalityMsg,
-            )
-            if (result.ok) {
-              sent++
-              console.log("[reminders] sent", {
-                schedule_id: `seasonality:${hh.id}`,
-                profile_id: null,
-                prompt_type: "seasonality_weekly",
-              })
-            } else {
-              errors.push(`seasonality:${hh.id}: ${result.error}`)
-            }
-          }
-        }
-      }
-    }
-
-    return NextResponse.json({ sent, errors })
+    return NextResponse.json({
+      sent: scheduledPass.sent + customPass.sent + seasonalityPass.sent,
+      errors: [
+        ...scheduledPass.errors,
+        ...customPass.errors,
+        ...seasonalityPass.errors,
+      ],
+    })
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
