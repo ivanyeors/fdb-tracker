@@ -75,6 +75,272 @@ export async function GET(request: NextRequest) {
   }
 }
 
+type SupabaseAdmin = ReturnType<typeof createSupabaseAdmin>
+
+type AccountFilter = { family_id: string; profile_id: string | null }
+
+type TxnInput = z.infer<typeof createTransactionSchema>
+
+type Holding = {
+  id: string
+  units: number
+  cost_basis: number
+}
+
+type TxnContext = {
+  supabase: SupabaseAdmin
+  familyId: string
+  accountFilter: AccountFilter
+  input: TxnInput
+  amount: number
+  buyCashOutlay: number
+  sellCashProceeds: number
+}
+
+async function adjustCashBalance(
+  supabase: SupabaseAdmin,
+  accountFilter: AccountFilter,
+  delta: number,
+): Promise<boolean> {
+  const { data: accountRow } = await supabase
+    .from("investment_accounts")
+    .select("id, cash_balance")
+    .match(accountFilter)
+    .maybeSingle()
+
+  if (accountRow) {
+    const { error } = await supabase
+      .from("investment_accounts")
+      .update({
+        cash_balance: accountRow.cash_balance + delta,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", accountRow.id)
+    return !error
+  }
+
+  const { error } = await supabase
+    .from("investment_accounts")
+    .insert({
+      ...accountFilter,
+      cash_balance: delta,
+      updated_at: new Date().toISOString(),
+    })
+  return !error
+}
+
+async function restoreHoldingUnits(
+  supabase: SupabaseAdmin,
+  holding: Holding,
+  patch: { units: number; cost_basis?: number },
+): Promise<void> {
+  await supabase.from("investments").update(patch).eq("id", holding.id)
+}
+
+async function fetchExistingHolding(
+  supabase: SupabaseAdmin,
+  familyId: string,
+  symbol: string,
+  profileId: string | undefined,
+): Promise<Holding | null> {
+  let query = supabase
+    .from("investments")
+    .select("*")
+    .eq("family_id", familyId)
+    .eq("symbol", symbol)
+    .order("created_at", { ascending: true })
+    .limit(1)
+  if (profileId) {
+    query = query.or(`profile_id.eq.${profileId},profile_id.is.null`)
+  }
+  const { data } = await query
+  return (data?.[0] as Holding | undefined) ?? null
+}
+
+async function executeSellFlow(
+  ctx: TxnContext,
+  existingHolding: Holding | null,
+): Promise<NextResponse> {
+  const { supabase, accountFilter, familyId, input, sellCashProceeds } = ctx
+  if (!existingHolding || existingHolding.units < input.quantity) {
+    return NextResponse.json(
+      { error: "Insufficient units to sell" },
+      { status: 400 },
+    )
+  }
+
+  const { error: updateError } = await supabase
+    .from("investments")
+    .update({ units: existingHolding.units - input.quantity })
+    .eq("id", existingHolding.id)
+  if (updateError) {
+    return NextResponse.json({ error: "Failed to update holding" }, { status: 500 })
+  }
+
+  const cashOk = await adjustCashBalance(supabase, accountFilter, sellCashProceeds)
+  if (!cashOk) {
+    await restoreHoldingUnits(supabase, existingHolding, { units: existingHolding.units })
+    return NextResponse.json({ error: "Failed to update cash balance" }, { status: 500 })
+  }
+
+  const { data: transaction, error: txError } = await supabase
+    .from("investment_transactions")
+    .insert({
+      family_id: familyId,
+      investment_id: existingHolding.id,
+      symbol: input.symbol,
+      type: "sell",
+      quantity: input.quantity,
+      price: input.price,
+      commission: input.commission,
+      ...(input.journalText && { journal_text: input.journalText }),
+      ...(input.screenshotUrl && { screenshot_url: input.screenshotUrl }),
+      ...(input.profileId && { profile_id: input.profileId }),
+    })
+    .select()
+    .single()
+  if (txError) {
+    await restoreHoldingUnits(supabase, existingHolding, { units: existingHolding.units })
+    await adjustCashBalance(supabase, accountFilter, -sellCashProceeds)
+    return NextResponse.json({ error: "Failed to create transaction" }, { status: 500 })
+  }
+  return NextResponse.json(transaction, { status: 201 })
+}
+
+async function executeDividendFlow(
+  ctx: TxnContext,
+  existingHolding: Holding | null,
+): Promise<NextResponse> {
+  const { supabase, accountFilter, familyId, input, amount } = ctx
+  const cashOk = await adjustCashBalance(supabase, accountFilter, amount)
+  if (!cashOk) {
+    return NextResponse.json({ error: "Failed to update cash balance" }, { status: 500 })
+  }
+
+  const { data: transaction, error: txError } = await supabase
+    .from("investment_transactions")
+    .insert({
+      family_id: familyId,
+      investment_id: existingHolding?.id ?? null,
+      symbol: input.symbol,
+      type: "dividend",
+      quantity: input.quantity,
+      price: input.price,
+      ...(input.journalText && { journal_text: input.journalText }),
+      ...(input.profileId && { profile_id: input.profileId }),
+    })
+    .select()
+    .single()
+  if (txError) {
+    return NextResponse.json({ error: "Failed to create transaction" }, { status: 500 })
+  }
+  return NextResponse.json(transaction, { status: 201 })
+}
+
+async function upsertBuyHolding(
+  ctx: TxnContext,
+  existingHolding: Holding | null,
+): Promise<{ investmentId: string; wasNew: boolean } | null> {
+  const { supabase, familyId, input, amount } = ctx
+  if (existingHolding) {
+    const newCostBasis = calculateWeightedAverageCost(
+      existingHolding.units,
+      existingHolding.cost_basis,
+      input.quantity,
+      input.price,
+      input.commission,
+    )
+    const { error } = await supabase
+      .from("investments")
+      .update({
+        units: existingHolding.units + input.quantity,
+        cost_basis: newCostBasis,
+      })
+      .eq("id", existingHolding.id)
+    if (error) return null
+    return { investmentId: existingHolding.id, wasNew: false }
+  }
+
+  const effectiveCostBasis =
+    input.commission > 0 ? (amount + input.commission) / input.quantity : input.price
+  const { data: newHolding, error } = await supabase
+    .from("investments")
+    .insert({
+      family_id: familyId,
+      symbol: input.symbol,
+      type: "stock",
+      units: input.quantity,
+      cost_basis: effectiveCostBasis,
+      ...(input.profileId && { profile_id: input.profileId }),
+    })
+    .select()
+    .single()
+  if (error || !newHolding) return null
+  return { investmentId: newHolding.id, wasNew: true }
+}
+
+async function rollbackBuyHolding(
+  supabase: SupabaseAdmin,
+  investmentId: string,
+  wasNew: boolean,
+  existingHolding: Holding | null,
+): Promise<void> {
+  if (wasNew) {
+    await supabase.from("investments").delete().eq("id", investmentId)
+    return
+  }
+  if (existingHolding) {
+    await restoreHoldingUnits(supabase, existingHolding, {
+      units: existingHolding.units,
+      cost_basis: existingHolding.cost_basis,
+    })
+  }
+}
+
+async function executeBuyFlow(
+  ctx: TxnContext,
+  existingHolding: Holding | null,
+): Promise<NextResponse> {
+  const { supabase, accountFilter, buyCashOutlay } = ctx
+  const upsert = await upsertBuyHolding(ctx, existingHolding)
+  if (!upsert) {
+    return NextResponse.json(
+      { error: existingHolding ? "Failed to update holding" : "Failed to create holding" },
+      { status: 500 },
+    )
+  }
+
+  const cashOk = await adjustCashBalance(supabase, accountFilter, -buyCashOutlay)
+  if (!cashOk) {
+    await rollbackBuyHolding(supabase, upsert.investmentId, upsert.wasNew, existingHolding)
+    return NextResponse.json({ error: "Failed to update cash balance" }, { status: 500 })
+  }
+
+  const { input, familyId } = ctx
+  const { data: transaction, error: txError } = await supabase
+    .from("investment_transactions")
+    .insert({
+      family_id: familyId,
+      investment_id: upsert.investmentId,
+      symbol: input.symbol,
+      type: "buy",
+      quantity: input.quantity,
+      price: input.price,
+      commission: input.commission,
+      ...(input.journalText && { journal_text: input.journalText }),
+      ...(input.screenshotUrl && { screenshot_url: input.screenshotUrl }),
+      ...(input.profileId && { profile_id: input.profileId }),
+    })
+    .select()
+    .single()
+  if (txError) {
+    await rollbackBuyHolding(supabase, upsert.investmentId, upsert.wasNew, existingHolding)
+    await adjustCashBalance(supabase, accountFilter, buyCashOutlay)
+    return NextResponse.json({ error: "Failed to create transaction" }, { status: 500 })
+  }
+  return NextResponse.json(transaction, { status: 201 })
+}
+
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies()
@@ -86,365 +352,49 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const parsed = createTransactionSchema.safeParse(body)
-
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
+    const input = parsed.data
 
-    const { symbol, type, quantity, price, commission, journalText, screenshotUrl, profileId, familyId } =
-      parsed.data
     const supabase = createSupabaseAdmin()
     const resolved = await resolveFamilyAndProfiles(
       supabase,
       accountId,
-      profileId ?? null,
-      familyId ?? null
+      input.profileId ?? null,
+      input.familyId ?? null,
     )
     if (!resolved) {
       return NextResponse.json({ error: "Family or profile not found" }, { status: 404 })
     }
-    if (profileId && !resolved.profileIds.includes(profileId)) {
+    if (input.profileId && !resolved.profileIds.includes(input.profileId)) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 
-    let holdingQuery = supabase
-      .from("investments")
-      .select("*")
-      .eq("family_id", resolved.familyId)
-      .eq("symbol", symbol)
-      .order("created_at", { ascending: true })
-      .limit(1)
+    const existingHolding = await fetchExistingHolding(
+      supabase,
+      resolved.familyId,
+      input.symbol,
+      input.profileId,
+    )
 
-    if (profileId) {
-      holdingQuery = holdingQuery.or(
-        `profile_id.eq.${profileId},profile_id.is.null`,
-      )
-    }
-
-    const { data: holdingRows } = await holdingQuery
-    const existingHolding = holdingRows?.[0] ?? null
-
-    const amount = quantity * price
-    // Cash actually spent (buy) or received (sell) after commission
-    const buyCashOutlay = amount + commission
-    const sellCashProceeds = amount - commission
-    const accountFilter = {
-      family_id: resolved.familyId,
-      profile_id: profileId ?? null,
-    }
-
-    if (type === "sell") {
-      if (!existingHolding || existingHolding.units < quantity) {
-        return NextResponse.json(
-          { error: "Insufficient units to sell" },
-          { status: 400 },
-        )
-      }
-
-      const newUnits = existingHolding.units - quantity
-
-      // Step 1: Update holding units
-      const { error: updateError } = await supabase
-        .from("investments")
-        .update({ units: newUnits })
-        .eq("id", existingHolding.id)
-
-      if (updateError) {
-        return NextResponse.json({ error: "Failed to update holding" }, { status: 500 })
-      }
-
-      // Step 2: Update cash balance
-      const { data: accountRow } = await supabase
-        .from("investment_accounts")
-        .select("id, cash_balance")
-        .match(accountFilter)
-        .maybeSingle()
-
-      if (accountRow) {
-        const { error: cashError } = await supabase
-          .from("investment_accounts")
-          .update({
-            cash_balance: accountRow.cash_balance + sellCashProceeds,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", accountRow.id)
-
-        if (cashError) {
-          // Rollback: restore holding units
-          await supabase
-            .from("investments")
-            .update({ units: existingHolding.units })
-            .eq("id", existingHolding.id)
-          return NextResponse.json({ error: "Failed to update cash balance" }, { status: 500 })
-        }
-      } else {
-        const { error: cashError } = await supabase
-          .from("investment_accounts")
-          .insert({
-            family_id: resolved.familyId,
-            profile_id: profileId ?? null,
-            cash_balance: sellCashProceeds,
-            updated_at: new Date().toISOString(),
-          })
-
-        if (cashError) {
-          await supabase
-            .from("investments")
-            .update({ units: existingHolding.units })
-            .eq("id", existingHolding.id)
-          return NextResponse.json({ error: "Failed to create cash account" }, { status: 500 })
-        }
-      }
-
-      // Step 3: Insert transaction record
-      const { data: transaction, error: txError } = await supabase
-        .from("investment_transactions")
-        .insert({
-          family_id: resolved.familyId,
-          investment_id: existingHolding.id,
-          symbol,
-          type,
-          quantity,
-          price,
-          commission,
-          ...(journalText && { journal_text: journalText }),
-          ...(screenshotUrl && { screenshot_url: screenshotUrl }),
-          ...(profileId && { profile_id: profileId }),
-        })
-        .select()
-        .single()
-
-      if (txError) {
-        // Rollback: restore holding and cash
-        await supabase
-          .from("investments")
-          .update({ units: existingHolding.units })
-          .eq("id", existingHolding.id)
-        const { data: acctRollback } = await supabase
-          .from("investment_accounts")
-          .select("id, cash_balance")
-          .match(accountFilter)
-          .maybeSingle()
-        if (acctRollback) {
-          await supabase
-            .from("investment_accounts")
-            .update({
-              cash_balance: acctRollback.cash_balance - sellCashProceeds,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", acctRollback.id)
-        }
-        return NextResponse.json({ error: "Failed to create transaction" }, { status: 500 })
-      }
-
-      return NextResponse.json(transaction, { status: 201 })
-    }
-
-    // --- DIVIDEND flow ---
-    if (type === "dividend") {
-      // Credit cash balance with dividend amount (quantity × price = total dividend)
-      const { data: accountRow } = await supabase
-        .from("investment_accounts")
-        .select("id, cash_balance")
-        .match(accountFilter)
-        .maybeSingle()
-
-      if (accountRow) {
-        const { error: cashError } = await supabase
-          .from("investment_accounts")
-          .update({
-            cash_balance: accountRow.cash_balance + amount,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", accountRow.id)
-
-        if (cashError) {
-          return NextResponse.json({ error: "Failed to update cash balance" }, { status: 500 })
-        }
-      } else {
-        const { error: cashError } = await supabase
-          .from("investment_accounts")
-          .insert({
-            family_id: resolved.familyId,
-            profile_id: profileId ?? null,
-            cash_balance: amount,
-            updated_at: new Date().toISOString(),
-          })
-
-        if (cashError) {
-          return NextResponse.json({ error: "Failed to create cash account" }, { status: 500 })
-        }
-      }
-
-      // Insert transaction record
-      const { data: transaction, error: txError } = await supabase
-        .from("investment_transactions")
-        .insert({
-          family_id: resolved.familyId,
-          investment_id: existingHolding?.id ?? null,
-          symbol,
-          type: "dividend",
-          quantity,
-          price,
-          ...(journalText && { journal_text: journalText }),
-          ...(profileId && { profile_id: profileId }),
-        })
-        .select()
-        .single()
-
-      if (txError) {
-        return NextResponse.json({ error: "Failed to create transaction" }, { status: 500 })
-      }
-
-      return NextResponse.json(transaction, { status: 201 })
-    }
-
-    // --- BUY flow ---
-    let investmentId: string
-    let wasNewHolding = false
-
-    if (existingHolding) {
-      const newCostBasis = calculateWeightedAverageCost(
-        existingHolding.units,
-        existingHolding.cost_basis,
-        quantity,
-        price,
-        commission,
-      )
-      const newUnits = existingHolding.units + quantity
-
-      const { error: updateError } = await supabase
-        .from("investments")
-        .update({ units: newUnits, cost_basis: newCostBasis })
-        .eq("id", existingHolding.id)
-
-      if (updateError) {
-        return NextResponse.json({ error: "Failed to update holding" }, { status: 500 })
-      }
-
-      investmentId = existingHolding.id
-    } else {
-      // For new holdings, bake commission into cost basis
-      const effectiveCostBasis =
-        commission > 0 ? (amount + commission) / quantity : price
-      const { data: newHolding, error: insertError } = await supabase
-        .from("investments")
-        .insert({
-          family_id: resolved.familyId,
-          symbol,
-          type: "stock",
-          units: quantity,
-          cost_basis: effectiveCostBasis,
-          ...(profileId && { profile_id: profileId }),
-        })
-        .select()
-        .single()
-
-      if (insertError || !newHolding) {
-        return NextResponse.json({ error: "Failed to create holding" }, { status: 500 })
-      }
-
-      investmentId = newHolding.id
-      wasNewHolding = true
-    }
-
-    // Step 2: Update cash balance (includes commission)
-    const { data: accountRow } = await supabase
-      .from("investment_accounts")
-      .select("id, cash_balance")
-      .match(accountFilter)
-      .maybeSingle()
-
-    if (accountRow) {
-      const { error: cashError } = await supabase
-        .from("investment_accounts")
-        .update({
-          cash_balance: accountRow.cash_balance - buyCashOutlay,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", accountRow.id)
-
-      if (cashError) {
-        // Rollback holding
-        if (wasNewHolding) {
-          await supabase.from("investments").delete().eq("id", investmentId)
-        } else if (existingHolding) {
-          await supabase
-            .from("investments")
-            .update({ units: existingHolding.units, cost_basis: existingHolding.cost_basis })
-            .eq("id", existingHolding.id)
-        }
-        return NextResponse.json({ error: "Failed to update cash balance" }, { status: 500 })
-      }
-    } else {
-      const { error: cashError } = await supabase
-        .from("investment_accounts")
-        .insert({
-          family_id: resolved.familyId,
-          profile_id: profileId ?? null,
-          cash_balance: -buyCashOutlay,
-          updated_at: new Date().toISOString(),
-        })
-
-      if (cashError) {
-        if (wasNewHolding) {
-          await supabase.from("investments").delete().eq("id", investmentId)
-        } else if (existingHolding) {
-          await supabase
-            .from("investments")
-            .update({ units: existingHolding.units, cost_basis: existingHolding.cost_basis })
-            .eq("id", existingHolding.id)
-        }
-        return NextResponse.json({ error: "Failed to create cash account" }, { status: 500 })
-      }
-    }
-
-    // Step 3: Insert transaction record
-    const { data: transaction, error: txError } = await supabase
-      .from("investment_transactions")
-      .insert({
+    const amount = input.quantity * input.price
+    const ctx: TxnContext = {
+      supabase,
+      familyId: resolved.familyId,
+      accountFilter: {
         family_id: resolved.familyId,
-        investment_id: investmentId,
-        symbol,
-        type,
-        quantity,
-        price,
-        commission,
-        ...(journalText && { journal_text: journalText }),
-        ...(screenshotUrl && { screenshot_url: screenshotUrl }),
-        ...(profileId && { profile_id: profileId }),
-      })
-      .select()
-      .single()
-
-    if (txError) {
-      // Rollback holding and cash
-      if (wasNewHolding) {
-        await supabase.from("investments").delete().eq("id", investmentId)
-      } else if (existingHolding) {
-        await supabase
-          .from("investments")
-          .update({ units: existingHolding.units, cost_basis: existingHolding.cost_basis })
-          .eq("id", existingHolding.id)
-      }
-      const { data: acctRollback } = await supabase
-        .from("investment_accounts")
-        .select("id, cash_balance")
-        .match(accountFilter)
-        .maybeSingle()
-      if (acctRollback) {
-        await supabase
-          .from("investment_accounts")
-          .update({
-            cash_balance: acctRollback.cash_balance + buyCashOutlay,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", acctRollback.id)
-      }
-      return NextResponse.json({ error: "Failed to create transaction" }, { status: 500 })
+        profile_id: input.profileId ?? null,
+      },
+      input,
+      amount,
+      buyCashOutlay: amount + input.commission,
+      sellCashProceeds: amount - input.commission,
     }
 
-    return NextResponse.json(transaction, { status: 201 })
+    if (input.type === "sell") return executeSellFlow(ctx, existingHolding)
+    if (input.type === "dividend") return executeDividendFlow(ctx, existingHolding)
+    return executeBuyFlow(ctx, existingHolding)
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

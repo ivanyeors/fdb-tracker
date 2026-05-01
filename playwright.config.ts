@@ -3,8 +3,12 @@ import { config as loadEnv } from "dotenv"
 import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 
+import { mapTestPiiKeysToRuntime } from "./e2e/utils/pii-env"
+
 const envPath = resolve(process.cwd(), ".env.test.local")
 if (existsSync(envPath)) loadEnv({ path: envPath })
+
+const piiRuntime = mapTestPiiKeysToRuntime(process.env)
 
 const isCI = !!process.env.CI
 // Use a non-default port so a local `npm run dev` on 3000 doesn't get reused
@@ -66,8 +70,8 @@ export default defineConfig({
       SUPABASE_SERVICE_ROLE_KEY:
         process.env.TEST_SUPABASE_SERVICE_ROLE_KEY ?? "",
       JWT_SECRET: process.env.TEST_JWT_SECRET ?? "",
-      PII_ENCRYPTION_KEY_V1: process.env.TEST_PII_ENCRYPTION_KEY_V1 ?? "",
-      PII_HASH_SECRET_V1: process.env.TEST_PII_HASH_SECRET_V1 ?? "",
+      PII_ENCRYPTION_KEY_V1: piiRuntime.PII_ENCRYPTION_KEY_V1 ?? "",
+      PII_HASH_SECRET_V1: piiRuntime.PII_HASH_SECRET_V1 ?? "",
       TELEGRAM_BOT_TOKEN: process.env.TEST_TELEGRAM_BOT_TOKEN ?? "test-stub",
       NEXT_PUBLIC_APP_URL: BASE_URL,
       CRON_SECRET: process.env.TEST_CRON_SECRET ?? "test-cron-secret",
