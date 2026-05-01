@@ -7,6 +7,8 @@ import { cn, formatCurrency } from "@/lib/utils"
 import { useActiveProfile } from "@/hooks/use-active-profile"
 import { useApi } from "@/hooks/use-api"
 import { useDataRefresh } from "@/hooks/use-data-refresh"
+import { useToolbarAction } from "@/hooks/use-toolbar-action"
+import { useRegisterToolbarFilter } from "@/components/layout/toolbar-filter-context"
 import {
   Card,
   CardContent,
@@ -403,6 +405,42 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
     setMonthlyDialogOpen(true)
   }
 
+  const fallbackProfileId =
+    activeProfileId ?? data.profiles[0]?.id ?? null
+
+  useToolbarAction({
+    "add-actual-tax": () => {
+      if (fallbackProfileId) openActualDialog(fallbackProfileId, null)
+    },
+    "add-monthly-tax": () => {
+      if (fallbackProfileId) openMonthlyDialog(fallbackProfileId)
+    },
+  })
+
+  const yearPicker = useMemo(
+    () => (
+      <Select
+        value={String(selectedYear)}
+        onValueChange={(v) => setSelectedYear(Number(v))}
+      >
+        <SelectTrigger className="h-8 w-[110px]">
+          <SelectValue placeholder="Year" />
+        </SelectTrigger>
+        <SelectContent>
+          {YEAR_OPTIONS.map((y) => (
+            <SelectItem key={y} value={String(y)}>
+              YA {y}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    ),
+    [selectedYear]
+  )
+
+  // Mobile-only: register the year picker into the toolbar's filter slot.
+  useRegisterToolbarFilter(yearPicker)
+
   const hasData = data.entries.length > 0
 
   return (
@@ -411,21 +449,24 @@ export function TaxClient({ initialData }: { readonly initialData: TaxData }) {
         title="Tax Planner"
         description="Estimated resident tax from your income and reliefs, bracket view, and IRAS comparison."
       >
-        <Select
-          value={String(selectedYear)}
-          onValueChange={(v) => setSelectedYear(Number(v))}
-        >
-          <SelectTrigger className="w-[120px]">
-            <SelectValue placeholder="Year" />
-          </SelectTrigger>
-          <SelectContent>
-            {YEAR_OPTIONS.map((y) => (
-              <SelectItem key={y} value={String(y)}>
-                YA {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Hide on mobile — the picker is rendered in the global toolbar there. */}
+        <div className="hidden sm:flex">
+          <Select
+            value={String(selectedYear)}
+            onValueChange={(v) => setSelectedYear(Number(v))}
+          >
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Year" />
+            </SelectTrigger>
+            <SelectContent>
+              {YEAR_OPTIONS.map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  YA {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </SectionHeader>
 
       {(() => {

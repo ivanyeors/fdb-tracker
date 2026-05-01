@@ -15,6 +15,9 @@ import {
 import { SectionHeader } from "@/components/dashboard/section-header"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { useActiveProfile } from "@/hooks/use-active-profile"
+import { useDataRefresh } from "@/hooks/use-data-refresh"
+import { useToolbarAction } from "@/hooks/use-toolbar-action"
+import { PolicyFormSheet } from "@/components/dashboard/insurance/policy-form-sheet"
 import { getDpsAnnualPremium } from "@/lib/calculations/cpf-dps"
 import { getAge } from "@/lib/calculations/cpf"
 import { Badge } from "@/components/ui/badge"
@@ -179,10 +182,16 @@ export function InsuranceClient({
   const defaultTab = tabParam && TAB_SET.has(tabParam) ? tabParam : "overview"
 
   const { activeProfileId, activeFamilyId, profiles } = useActiveProfile()
+  const { triggerRefresh } = useDataRefresh()
   const [showDollars, setShowDollars] = useState(false)
   const [expandedPolicies, setExpandedPolicies] = useState<Set<string>>(
     new Set()
   )
+  const [policySheetOpen, setPolicySheetOpen] = useState(false)
+
+  useToolbarAction({
+    "add-policy": () => setPolicySheetOpen(true),
+  })
 
   function togglePolicyExpanded(policyId: string) {
     setExpandedPolicies((prev) => {
@@ -322,6 +331,14 @@ export function InsuranceClient({
       <SectionHeader
         title="Insurance"
         description="Coverage analysis, gap detection, and premium tracking."
+      />
+
+      <PolicyFormSheet
+        open={policySheetOpen}
+        onOpenChange={setPolicySheetOpen}
+        onSuccess={() => triggerRefresh("insurance")}
+        profiles={profiles}
+        defaultProfileId={activeProfileId}
       />
 
       {(() => {
