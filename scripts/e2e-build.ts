@@ -10,6 +10,8 @@ import { config as loadEnv } from "dotenv"
 import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 
+import { mapTestPiiKeysToRuntime } from "../e2e/utils/pii-env"
+
 // Locally we load TEST_* from .env.test.local; in CI those are already in process.env from secrets.
 const envPath = resolve(process.cwd(), ".env.test.local")
 if (existsSync(envPath)) {
@@ -23,14 +25,14 @@ if (existsSync(envPath)) {
 }
 
 // Map TEST_* values to the runtime env names Next.js expects.
+// PII keys are handled separately because they need a hex→base64 transcode for
+// secrets stored in the legacy hex format.
 const map: Record<string, string> = {
   TEST_SUPABASE_URL: "NEXT_PUBLIC_SUPABASE_URL",
   TEST_SUPABASE_PUBLISHABLE_DEFAULT_KEY:
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY",
   TEST_SUPABASE_SERVICE_ROLE_KEY: "SUPABASE_SERVICE_ROLE_KEY",
   TEST_JWT_SECRET: "JWT_SECRET",
-  TEST_PII_ENCRYPTION_KEY_V1: "PII_ENCRYPTION_KEY_V1",
-  TEST_PII_HASH_SECRET_V1: "PII_HASH_SECRET_V1",
   TEST_TELEGRAM_BOT_TOKEN: "TELEGRAM_BOT_TOKEN",
   TEST_CRON_SECRET: "CRON_SECRET",
 }
@@ -62,6 +64,9 @@ for (const k of passthroughKeys) {
 for (const [from, to] of Object.entries(map)) {
   const val = process.env[from]
   if (val) env[to] = val
+}
+for (const [k, v] of Object.entries(mapTestPiiKeysToRuntime(process.env))) {
+  env[k] = v
 }
 env.E2E_TEST_MODE = "1"
 env.E2E_TEST_SECRET = process.env.E2E_TEST_SECRET ?? ""

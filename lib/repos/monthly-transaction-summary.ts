@@ -11,7 +11,6 @@ export interface SummaryScope {
 }
 
 interface BankTxnAggRow {
-  amount: number | null
   amount_enc: string | null
   category_id: string | null
   txn_type: "debit" | "credit"
@@ -31,7 +30,7 @@ export async function refreshOneSummaryScope(
     // bank_transactions and monthly_transaction_summary aren't in
     // database.types.ts; cast keeps the call type-safe.
     .from("bank_transactions" as never)
-    .select("amount, amount_enc, category_id, txn_type")
+    .select("amount_enc, category_id, txn_type")
     .eq("profile_id", scope.profile_id)
     .eq("month", scope.month)
     .eq("statement_type", scope.statement_type)
@@ -43,7 +42,6 @@ export async function refreshOneSummaryScope(
   >()
   for (const r of (txns ?? []) as unknown as BankTxnAggRow[]) {
     const decoded = decodeBankTransactionPii({
-      amount: r.amount,
       amount_enc: r.amount_enc,
     })
     const amount = Math.abs(decoded.amount ?? 0)
