@@ -99,6 +99,11 @@ async function main() {
         SET name = excluded.name,
             birth_year = excluded.birth_year
     `
+    // Reset investment_accounts and investments for the H1 family between runs
+    // so holding-buy tests start from a clean slate. Cascades to investment_transactions.
+    await sql`DELETE FROM investments WHERE family_id = ${FIXTURES.H1.familyId}`
+    await sql`DELETE FROM investment_accounts WHERE family_id = ${FIXTURES.H1.familyId}`
+
     // H2 — onboarding NOT complete (for onboarding flow tests).
     await sql`
       INSERT INTO households (id, user_count, onboarding_completed_at)

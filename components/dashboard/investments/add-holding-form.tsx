@@ -106,7 +106,7 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4" data-testid="add-holding-form">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="holding-type">Type</Label>
@@ -190,6 +190,7 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
           <Label htmlFor="holding-units">Units</Label>
           <Input
             id="holding-units"
+            data-testid="holding-units"
             type="number"
             inputMode="decimal"
             step="any"
@@ -205,6 +206,7 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
           <Label htmlFor="holding-cost">Cost per unit ($)</Label>
           <CurrencyInput
             id="holding-cost"
+            data-testid="holding-cost"
             placeholder="0.00"
             value={costPerUnit}
             onChange={(v) => setCostPerUnit(v)}
@@ -237,7 +239,7 @@ export function AddHoldingForm({ onSuccess }: AddHoldingFormProps) {
         />
       </div>
 
-      <Button type="submit" disabled={isSubmitting}>
+      <Button type="submit" disabled={isSubmitting} data-testid="holding-submit">
         {isSubmitting ? (
           <>
             <Loader2 className="mr-2 size-4 animate-spin" />

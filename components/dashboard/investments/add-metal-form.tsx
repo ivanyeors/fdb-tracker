@@ -74,7 +74,7 @@ export function AddMetalForm({ onSuccess }: AddMetalFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4" data-testid="add-metal-form">
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-1.5">
           <Label htmlFor="metal-type">Type</Label>
@@ -91,6 +91,7 @@ export function AddMetalForm({ onSuccess }: AddMetalFormProps) {
           <Label htmlFor="metal-units">Units (oz)</Label>
           <Input
             id="metal-units"
+            data-testid="metal-units"
             type="number"
             inputMode="decimal"
             step="any"
@@ -105,6 +106,7 @@ export function AddMetalForm({ onSuccess }: AddMetalFormProps) {
           <Label htmlFor="metal-cost">Cost per oz ($)</Label>
           <CurrencyInput
             id="metal-cost"
+            data-testid="metal-cost"
             placeholder="0.00"
             value={costPerOz}
             onChange={(v) => setCostPerOz(v)}
@@ -112,7 +114,7 @@ export function AddMetalForm({ onSuccess }: AddMetalFormProps) {
           />
         </div>
       </div>
-      <Button type="submit" disabled={isSubmitting}>
+      <Button type="submit" disabled={isSubmitting} data-testid="metal-submit">
         {isSubmitting ? (
           <>
             <Loader2 className="mr-2 size-4 animate-spin" />
