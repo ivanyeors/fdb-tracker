@@ -159,6 +159,9 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TEST_TELEGRAM_BOT_TOKEN }}
       CRON_SECRET: ${{ secrets.TEST_CRON_SECRET }}
       NEXT_PUBLIC_APP_URL: "http://127.0.0.1:3100"
+      # Adds the firefox project to playwright.config.ts so the nightly run
+      # exercises both chromium + firefox.
+      E2E_INCLUDE_FIREFOX: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -16,6 +16,10 @@ const isCI = !!process.env.CI
 const PORT = Number(process.env.PORT ?? 3100)
 const BASE_URL = `http://127.0.0.1:${PORT}`
 
+// Firefox is opt-in via E2E_INCLUDE_FIREFOX=1. The standard CI matrix runs
+// chromium only; the nightly job sets the flag to add Firefox coverage.
+const INCLUDE_FIREFOX = process.env.E2E_INCLUDE_FIREFOX === "1"
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -32,6 +36,12 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
+    // Disable CSS animations + transitions everywhere. visx and Radix popovers
+    // both fade in over a few hundred ms; without this, fast assertions can
+    // race against the animation frame and intermittently miss elements.
+    contextOptions: {
+      reducedMotion: "reduce",
+    },
     extraHTTPHeaders: {
       "x-e2e-secret": process.env.E2E_TEST_SECRET ?? "",
     },
@@ -51,6 +61,19 @@ export default defineConfig({
       dependencies: ["setup"],
       testIgnore: /auth\.setup\.ts/,
     },
+    ...(INCLUDE_FIREFOX
+      ? [
+          {
+            name: "firefox",
+            use: {
+              ...devices["Desktop Firefox"],
+              storageState: "playwright/.auth/user.json",
+            },
+            dependencies: ["setup"],
+            testIgnore: /auth\.setup\.ts/,
+          },
+        ]
+      : []),
   ],
   webServer: {
     // Always use `next start` (not `dev`) — `next dev` can't share .next/ with
