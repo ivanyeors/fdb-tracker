@@ -19,8 +19,7 @@ import { applyTestPiiKeysToProcessEnv } from "@/e2e/utils/pii-env"
 const envPath = resolve(process.cwd(), ".env.test.local")
 if (existsSync(envPath)) loadEnv({ path: envPath })
 
-// Map TEST_PII_* → PII_* (with hex→base64 transcode) so the crypto module
-// can be imported below.
+// Rename TEST_PII_* → PII_* so the crypto module can be imported below.
 applyTestPiiKeysToProcessEnv()
 
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL
