@@ -81,9 +81,11 @@ test.describe("@critical ilp entry", () => {
       `expected ILP id ${created.id} in ${JSON.stringify(products).slice(0, 200)}`
     ).toBe(true)
 
-    // Cleanup so re-runs stay tidy.
-    await page.request
-      .delete(`/api/investments/ilp/${created.id}`)
-      .catch(() => {})
+    // Cleanup so re-runs stay tidy. Observability, not correctness — the next
+    // clean-migrate is the real reset.
+    const cleanupUrl = `/api/investments/ilp/${created.id}`
+    await page.request.delete(cleanupUrl).catch((err: unknown) => {
+      console.warn(`[cleanup] DELETE ${cleanupUrl} failed: ${String(err)}`)
+    })
   })
 })
