@@ -112,9 +112,8 @@ jobs:
         run: npm run e2e:build
 
       - name: Run Playwright (${{ matrix.tier }})
-        # Pass if zero tests match the grep — Phase 1 has only @smoke specs;
-        # @critical specs land in Phase 2. Drop --pass-with-no-tests once Phase 2 ships.
-        run: npx playwright test --project=chromium --grep "@${{ matrix.tier }}" --pass-with-no-tests
+        # Zero matches fails the job — surfaces typo'd tier tags loudly.
+        run: npx playwright test --project=chromium --grep "@${{ matrix.tier }}"
 
       - name: Upload Playwright report
         if: failure()
