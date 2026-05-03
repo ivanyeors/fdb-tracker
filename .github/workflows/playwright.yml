@@ -14,10 +14,14 @@ on:
         required: false
         default: "smoke"
 
-# Two PRs (or two pushes) hitting the same shared test Supabase project would race
-# on the schema reset + seed. Serialise by branch — only one workflow run at a time.
+# Global serialize across ALL branches + triggers (push, PR, schedule, dispatch).
+# The shared test Supabase project is reset (`--clean`) and seeded by db-setup;
+# two runs from different branches racing that step corrupt each other's seed.
+# Per-branch concurrency would not protect against cross-branch races. Trade-off:
+# a nightly run starting while a PR run is in-flight queues behind it (acceptable
+# at solo-project scale; revisit if the queue depth ever grows).
 concurrency:
-  group: playwright-${{ github.ref }}
+  group: playwright-test-db
   cancel-in-progress: false
 
 jobs:
