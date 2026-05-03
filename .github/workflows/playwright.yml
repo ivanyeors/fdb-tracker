@@ -30,8 +30,8 @@ jobs:
       TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
       TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
       # Seed encrypts bank_transactions amounts via @/lib/repos/bank-transactions
-      # which loads PII keys from PII_* env vars. e2e/utils/pii-env.ts maps
-      # TEST_PII_* → PII_* (with hex→base64 transcode) at seed start.
+      # which loads PII keys from PII_* env vars. e2e/utils/pii-env.ts renames
+      # TEST_PII_* → PII_* at seed start (both are 32-byte base64).
       TEST_PII_ENCRYPTION_KEY_V1: ${{ secrets.TEST_PII_ENCRYPTION_KEY_V1 }}
       TEST_PII_HASH_SECRET_V1: ${{ secrets.TEST_PII_HASH_SECRET_V1 }}
     steps:
