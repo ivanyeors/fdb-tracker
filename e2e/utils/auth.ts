@@ -1,4 +1,5 @@
-import type { APIRequestContext, Page } from "@playwright/test"
+import type { APIRequestContext } from "@playwright/test"
+import { resolve } from "node:path"
 
 export const FIXTURES = {
   H1: {
@@ -15,6 +16,14 @@ export const FIXTURES = {
   },
 } as const
 
+// Baked-once storage states produced by `e2e/auth.setup.ts`. Specs declare
+// identity by `test.use({ storageState: STORAGE_STATE_<NAME> })` — no inline
+// loginAs + page.evaluate boilerplate.
+export const STORAGE_STATE_H1 = resolve("playwright/.auth/user.json")
+export const STORAGE_STATE_H1_PROFILE_A = resolve(
+  "playwright/.auth/user-h1-profileA.json"
+)
+
 interface LoginParams {
   householdId: string
   familyId?: string
@@ -25,8 +34,10 @@ interface LoginParams {
 /**
  * Mint a session for a specific household via /api/test/login.
  *
- * Use within a test that needs a different identity than the default storageState.
- * After calling, navigate to a page so the cookies take effect.
+ * Use only for identities not covered by a baked storage state — onboarding
+ * specs (H2, H3) need to drive the wizard from a fresh-cookie state and so
+ * can't reuse a baked state. Specs that just need H1 / H1+profileA should
+ * declare `test.use({ storageState })` instead.
  */
 export async function loginAs(
   request: APIRequestContext,
@@ -43,24 +54,4 @@ export async function loginAs(
   if (!response.ok()) {
     throw new Error(`loginAs failed: ${response.status()} ${await response.text()}`)
   }
-}
-
-/**
- * Switch the active profile by setting the cookie + localStorage values that
- * `hooks/use-active-profile.tsx` reads. Call after `page.goto()` so window exists.
- */
-export async function setActiveProfile(
-  page: Page,
-  profileId: string | null
-): Promise<void> {
-  await page.evaluate((id) => {
-    if (id) {
-      localStorage.setItem("fdb-active-profile-id", id)
-      document.cookie = `fdb-active-profile-id=${id}; path=/; max-age=31536000; SameSite=Lax`
-    } else {
-      localStorage.removeItem("fdb-active-profile-id")
-      document.cookie =
-        "fdb-active-profile-id=; path=/; max-age=0; SameSite=Lax"
-    }
-  }, profileId)
 }
