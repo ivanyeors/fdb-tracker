@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test"
+import { test, expect } from "../utils/test"
 import { FIXTURES, STORAGE_STATE_H1_PROFILE_A } from "../utils/auth"
 
 test.use({ storageState: STORAGE_STATE_H1_PROFILE_A })

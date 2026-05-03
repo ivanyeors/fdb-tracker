@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test"
+import { test, expect } from "../utils/test"
 import { FIXTURES, loginAs } from "../utils/auth"
 
 test.describe("@critical onboarding", () => {

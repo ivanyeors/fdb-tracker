@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test"
+import type { Page } from "@playwright/test"
+import { test, expect } from "../utils/test"
 import { FIXTURES, loginAs } from "../utils/auth"
 
 // Walks every onboarding step. Welcome/users/profiles get full form fills;
