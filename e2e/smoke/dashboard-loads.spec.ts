@@ -1,29 +1,33 @@
 import { test, expect } from "@playwright/test"
 import { trackPageErrors } from "../utils/helpers"
 
-const TOP_LEVEL_PAGES = [
-  "/dashboard",
-  "/dashboard/banks",
-  "/dashboard/cashflow",
-  "/dashboard/cpf",
-  "/dashboard/investments",
-  "/dashboard/loans",
-  "/dashboard/insurance",
-  "/dashboard/tax",
-  "/settings",
-] as const
+// Sentinel = a heading text rendered after the page's primary client component
+// finishes mounting. Waiting on this is deterministic; networkidle is not under
+// Next.js App Router RSC streaming + ongoing background fetches.
+const TOP_LEVEL_PAGES: ReadonlyArray<{ path: string; sentinel: string }> = [
+  { path: "/dashboard", sentinel: "Overview" },
+  { path: "/dashboard/banks", sentinel: "Banks" },
+  { path: "/dashboard/cashflow", sentinel: "Cashflow" },
+  { path: "/dashboard/cpf", sentinel: "CPF" },
+  { path: "/dashboard/investments", sentinel: "Investments Detail" },
+  { path: "/dashboard/loans", sentinel: "Loans" },
+  { path: "/dashboard/insurance", sentinel: "Insurance" },
+  { path: "/dashboard/tax", sentinel: "Tax Planner" },
+  { path: "/settings", sentinel: "General Settings" },
+]
 
 test.describe("@smoke dashboard loads", () => {
-  for (const path of TOP_LEVEL_PAGES) {
+  for (const { path, sentinel } of TOP_LEVEL_PAGES) {
     test(`${path} renders without console errors or 5xx`, async ({ page }) => {
       const errors = trackPageErrors(page)
 
-      const response = await page.goto(path)
+      const response = await page.goto(path, { waitUntil: "domcontentloaded" })
       expect(response, `no response for ${path}`).not.toBeNull()
       expect(response!.status()).toBeLessThan(400)
 
-      // Wait for the network to be idle so async data fetches complete.
-      await page.waitForLoadState("networkidle")
+      await expect(
+        page.getByRole("heading", { name: sentinel }).first()
+      ).toBeVisible()
 
       expect(
         errors.all(),
