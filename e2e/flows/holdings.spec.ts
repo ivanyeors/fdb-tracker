@@ -77,6 +77,10 @@ test.describe("@critical holdings", () => {
     ).toBe(true)
 
     // Cleanup the holding (the per-profile investment_account is reused across runs).
-    await page.request.delete(`/api/investments/${created.id}`).catch(() => {})
+    // Cleanup is observability, not correctness — the next clean-migrate is the real reset.
+    const cleanupUrl = `/api/investments/${created.id}`
+    await page.request.delete(cleanupUrl).catch((err: unknown) => {
+      console.warn(`[cleanup] DELETE ${cleanupUrl} failed: ${String(err)}`)
+    })
   })
 })
