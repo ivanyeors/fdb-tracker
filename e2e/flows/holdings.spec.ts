@@ -1,29 +1,14 @@
 import { test, expect } from "@playwright/test"
-import { FIXTURES, loginAs } from "../utils/auth"
+import { FIXTURES, STORAGE_STATE_H1_PROFILE_A } from "../utils/auth"
+
+test.use({ storageState: STORAGE_STATE_H1_PROFILE_A })
 
 test.describe("@critical holdings", () => {
   test("buy gold via UI surfaces the holding via /api/investments", async ({
     page,
-    context,
   }) => {
-    // Login with profileId set so the investment_account is profile-scoped.
-    // Re-runs find the existing account via .eq('profile_id', X) and don't
-    // hit the (family_id, account_name) constraint that blocks family-level inserts.
-    await context.clearCookies()
-    await loginAs(page.request, {
-      householdId: FIXTURES.H1.householdId,
-      familyId: FIXTURES.H1.familyId,
-      profileId: FIXTURES.H1.profileAId,
-    })
-
-    await page.goto("/dashboard/investments")
-    await page.evaluate(
-      ({ profileId, familyId }) => {
-        localStorage.setItem("fdb-active-profile-id", profileId)
-        localStorage.setItem("fdb-active-family-id", familyId)
-      },
-      { profileId: FIXTURES.H1.profileAId, familyId: FIXTURES.H1.familyId }
-    )
+    // Identity (H1 + profile A JWT cookie + active-profile/family localStorage)
+    // is baked into the storageState above — see e2e/auth.setup.ts.
     await page.goto("/dashboard/investments")
     await page.waitForLoadState("networkidle")
 

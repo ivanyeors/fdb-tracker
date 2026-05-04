@@ -1,29 +1,13 @@
 import { test, expect } from "@playwright/test"
-import { FIXTURES, loginAs } from "../utils/auth"
+import { FIXTURES, STORAGE_STATE_H1_PROFILE_A } from "../utils/auth"
+
+test.use({ storageState: STORAGE_STATE_H1_PROFILE_A })
 
 test.describe("@critical ilp entry", () => {
   test("Add ILP Product form creates a product visible via GET /api/investments/ilp", async ({
     page,
-    context,
   }) => {
-    // Auth as H1 / Person A so the ILP product is profile-scoped (matches the
-    // holdings spec — the family-level path has a (family_id, account_name)
-    // unique-constraint quirk on second insert).
-    await context.clearCookies()
-    await loginAs(page.request, {
-      householdId: FIXTURES.H1.householdId,
-      familyId: FIXTURES.H1.familyId,
-      profileId: FIXTURES.H1.profileAId,
-    })
-
-    await page.goto("/dashboard/investments")
-    await page.evaluate(
-      ({ profileId, familyId }) => {
-        localStorage.setItem("fdb-active-profile-id", profileId)
-        localStorage.setItem("fdb-active-family-id", familyId)
-      },
-      { profileId: FIXTURES.H1.profileAId, familyId: FIXTURES.H1.familyId }
-    )
+    // Identity (H1 + profile A) baked into storageState — see e2e/auth.setup.ts.
     await page.goto("/dashboard/investments")
     await page.waitForLoadState("networkidle")
 

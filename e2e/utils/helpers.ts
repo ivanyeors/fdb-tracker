@@ -32,22 +32,3 @@ export function trackPageErrors(page: Page) {
   }
 }
 
-/**
- * Switch the active profile by setting the localStorage key + cookie that
- * `hooks/use-active-profile.tsx` reads. Reload after calling.
- */
-export async function setActiveProfile(
-  page: Page,
-  profileId: string | null
-): Promise<void> {
-  await page.evaluate((id) => {
-    if (id) {
-      localStorage.setItem("fdb-active-profile-id", id)
-      document.cookie = `fdb-active-profile-id=${id}; path=/; max-age=31536000; SameSite=Lax`
-    } else {
-      localStorage.removeItem("fdb-active-profile-id")
-      document.cookie =
-        "fdb-active-profile-id=; path=/; max-age=0; SameSite=Lax"
-    }
-  }, profileId)
-}

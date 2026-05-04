@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test"
-import { FIXTURES, loginAs } from "../utils/auth"
+import { FIXTURES, STORAGE_STATE_H1_PROFILE_A } from "../utils/auth"
+
+test.use({ storageState: STORAGE_STATE_H1_PROFILE_A })
 
 // Hard-coded to mirror seed.ts — the seed re-inserts these UUIDs on every run.
 const TXN_GRAB_RIDE = "66666666-6666-4666-8666-666666666603"
@@ -8,16 +10,8 @@ const TXN_GRAB_RIDE_DESC = "GRAB RIDE 0511"
 test.describe("@critical transaction category edit", () => {
   test("re-categorizing a transaction persists via PATCH /api/transactions", async ({
     page,
-    context,
   }) => {
-    // Auth as Person A specifically — the cashflow spending tab filters by
-    // activeProfileId, so we want a deterministic profile scope.
-    await context.clearCookies()
-    await loginAs(page.request, {
-      householdId: FIXTURES.H1.householdId,
-      familyId: FIXTURES.H1.familyId,
-      profileId: FIXTURES.H1.profileAId,
-    })
+    // Identity (H1 + profile A) baked into storageState — see e2e/auth.setup.ts.
 
     // Reset the GRAB RIDE row to uncategorized so the spec is idempotent —
     // a prior run would otherwise have left it categorized as Transport.
@@ -48,17 +42,6 @@ test.describe("@critical transaction category edit", () => {
     expect(seedRow!.category_id).toBeNull()
 
     // Navigate to the spending tab — that's where TransactionTable lives.
-    await page.goto("/dashboard/cashflow?tab=categories")
-    await page.evaluate(
-      ({ profileId, familyId }) => {
-        localStorage.setItem("fdb-active-profile-id", profileId)
-        localStorage.setItem("fdb-active-family-id", familyId)
-      },
-      {
-        profileId: FIXTURES.H1.profileAId,
-        familyId: FIXTURES.H1.familyId,
-      }
-    )
     await page.goto("/dashboard/cashflow?tab=categories")
     await page.waitForLoadState("networkidle")
 
