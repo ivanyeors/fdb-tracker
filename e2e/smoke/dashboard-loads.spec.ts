@@ -1,5 +1,4 @@
-import { test, expect } from "@playwright/test"
-import { trackPageErrors } from "../utils/helpers"
+import { test, expect } from "../utils/test"
 
 // Sentinel = a heading text rendered after the page's primary client component
 // finishes mounting. Waiting on this is deterministic; networkidle is not under
@@ -19,8 +18,6 @@ const TOP_LEVEL_PAGES: ReadonlyArray<{ path: string; sentinel: string }> = [
 test.describe("@smoke dashboard loads", () => {
   for (const { path, sentinel } of TOP_LEVEL_PAGES) {
     test(`${path} renders without console errors or 5xx`, async ({ page }) => {
-      const errors = trackPageErrors(page)
-
       const response = await page.goto(path, { waitUntil: "domcontentloaded" })
       expect(response, `no response for ${path}`).not.toBeNull()
       expect(response!.status()).toBeLessThan(400)
@@ -29,10 +26,8 @@ test.describe("@smoke dashboard loads", () => {
         page.getByRole("heading", { name: sentinel }).first()
       ).toBeVisible()
 
-      expect(
-        errors.all(),
-        `${path} produced errors: ${errors.all().join(" | ")}`
-      ).toEqual([])
+      // Console-error / 5xx invariant runs automatically via the pageErrors
+      // auto-fixture in e2e/utils/test.ts — no manual assertion needed.
     })
   }
 })

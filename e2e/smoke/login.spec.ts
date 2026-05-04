@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test"
+import { test, expect } from "../utils/test"
 
 test.describe("@smoke login", () => {
   test("test login endpoint mints a session and dashboard is reachable", async ({
